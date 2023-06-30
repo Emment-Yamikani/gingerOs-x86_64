@@ -1,0 +1,12 @@
+x86_64_objs+=\
+$(x86_64_dir)/cpu/cpu.o\
+$(x86_64_dir)/cpu/lapic.o\
+$(x86_64_dir)/cpu/regs.o\
+$(x86_64_dir)/cpu/trampoline.o\
+$(x86_64_dir)/cpu/swtch.o\
+$(x86_64_dir)/cpu/traps.o\
+$(x86_64_dir)/thread.o\
+$(x86_64_dir)/trap.o\
+$(x86_64_dir)/mmu/gdt.o\
+$(x86_64_dir)/mmu/init.o\
+$(x86_64_dir)/mmu/pml4.o

@@ -1,0 +1,90 @@
+#include <boot/boot.h>
+#include <bits/errno.h>
+#include <sys/system.h>
+#include <lib/printk.h>
+#include <lib/string.h>
+#include <arch/x86_64/mmu.h>
+#include <arch/x86_64/cpu.h>
+#include <mm/pmm.h>
+#include <arch/firmware/acpi.h>
+#include <mm/vmm.h>
+#include <arch/lapic.h>
+#include <arch/paging.h>
+#include <arch/chipset.h>
+#include <sys/sched.h>
+#include <sys/thread.h>
+
+bootinfo_t bootinfo = {0};
+
+int multiboot_info_process(multiboot_info_t *info) {
+
+    memset(&bootinfo, 0, sizeof bootinfo);
+
+    if (BTEST(info->flags, 0)) {
+        bootinfo.memlo = info->mem_lower;
+        bootinfo.memhigh = info->mem_upper;
+    }
+
+    if ((BTEST(info->flags, 6))) {
+        multiboot_memory_map_t *mmap = (multiboot_memory_map_t *)((uint64_t)info->mmap_addr);
+        
+        for (int i = 0; mmap < (multiboot_memory_map_t *)((uint64_t)(info->mmap_addr + info->mmap_length)); ++i) {
+            bootinfo.mmapcnt++;
+            bootinfo.memsize += mmap->len;
+            bootinfo.mmap[i].size = mmap->len;
+            bootinfo.mmap[i].type = mmap->type;
+            bootinfo.mmap[i].addr = mmap->addr;
+            // printk("MMAP(%d): addr: %p, size: %p, type: %d\n", i, mmap->addr, bootinfo.mmap[i].size, mmap->type);
+            mmap = (multiboot_memory_map_t *)((uintptr_t)mmap + mmap->size + sizeof(mmap->size));
+        }
+        bootinfo.memsize /= 1024;
+    } else return -ENOMEM;
+
+    if (BTEST(info->flags, 3)) {
+        multiboot_module_t *mod = (multiboot_module_t *)((uint64_t)info->mods_addr);
+        for (size_t i = 0; i < info->mods_count; ++i, bootinfo.modcnt++) {
+            bootinfo.mods[i].addr = VMA2HI(mod->mod_start);
+            bootinfo.mods[i].cmdline = (char *)VMA2HI(mod->cmdline);
+            bootinfo.mods[i].size = mod->mod_end - mod->mod_start;
+            // printk("MOD(%d): %p, size: %d\n", i, mod->mod_start, mod->mod_end - mod->mod_start);
+        }
+    }
+
+    return 0;
+}
+
+extern void *kmain(void *);
+
+int early_init(multiboot_info_t *info) {
+    int err = 0;
+    if ((err = multiboot_info_process(info)))
+        return err;
+    
+    if ((bsp_init()))
+        panic("BSP initialization failed, error: %d\n", err);
+    
+    if ((err = vmman.init()))
+        panic("Virtual memory initialization failed, error: %d\n", err);
+
+    if ((err = pmman.init()))
+        panic("Physical memory initialization failed, error: %d\n", err);
+
+    if ((err = acpi_init()))
+        return err;
+
+    if ((err = lapic_init()))
+        panic("Failed to init LAPIC\n");
+
+    init_sched_queues();
+    bootothers();
+
+    pic_init();
+    ioapic_init();
+    pit_init();
+
+    kthread_create(kmain, NULL, NULL, NULL);
+
+    schedule();
+    loop();
+    return 0;
+}

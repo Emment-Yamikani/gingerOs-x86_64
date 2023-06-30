@@ -1,0 +1,18 @@
+{
+    "files.associations": {
+        "*.h": "c",
+        "*.asm": "asm-intel-x86-generic",
+        "cstring": "c",
+        "mutex": "c",
+        "map": "c",
+        "format": "c",
+        "limits": "c",
+        "*.tcc": "c",
+        "fstream": "c",
+        "iomanip": "c",
+        "istream": "c",
+        "ostream": "c",
+        "cassert": "c",
+        "*.inc": "c"
+    }
+}
