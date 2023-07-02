@@ -80,6 +80,9 @@ void thread_free(thread_t *thread) {
     }
 
     assert(thread->t_arch.t_kstack, "No kernel stack ???");
+
+    if (thread->t_wait)
+        cond_free(thread->t_wait);
     mapped_free(thread->t_arch.t_kstack, KSTACKSZ);
 }
 
@@ -420,7 +423,7 @@ int thread_join(tid_t tid, void **retval)
         }
 
         thread_unlock(thread);
-        // cond_wait(thread->t_wait);
+        cond_wait(thread->t_wait);
         thread_lock(thread);
     }
 
@@ -448,11 +451,11 @@ int thread_wait(thread_t *thread, int reap, void **retval)
         }
 
         thread_unlock(thread);
-        // if ((err = cond_wait(thread->t_wait)))
-        // {
-            // thread_lock(thread);
-            // return err;
-        // }
+        if ((err = cond_wait(thread->t_wait)))
+        {
+            thread_lock(thread);
+            return err;
+        }
         thread_lock(thread);
     }
 

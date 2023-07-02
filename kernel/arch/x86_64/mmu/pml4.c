@@ -19,7 +19,7 @@ spinlock_t kmap_lk = SPINLOCK_INIT();
 pagemap_t kernel_map = (pagemap_t){
     .flags = 0,
     .lock = {0},
-    .pml4 = (pte_t *)VMA2HI((uintptr_t)__pml4 - 0xc0000000),
+    .pml4 = (pte_t *)__pml4,
 };
 
 pte_t *get_mapping(pagemap_t *map, uintptr_t v)

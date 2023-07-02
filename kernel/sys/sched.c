@@ -288,21 +288,20 @@ void sched_yield(void)
     sched();
 }
 
-__noreturn void schedule(void)
+void schedule(void)
 {
-    // uintptr_t oldpgdir = 0;
     thread_t *thread = NULL;
-
     sched_init();
+
     for (;;)
     {
         current = NULL;
 
-        // oldpgdir = 0;
         cpu->ncli = 0;
         cpu->intena = 0;
 
         sti();
+
         if (!(thread = sched_next()))
             continue;
 

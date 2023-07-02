@@ -5,10 +5,10 @@
 uintptr_t rdrflags(void);
 void wrrflags(uintptr_t);
 
-#define hlt() ({ asm __volatile__ ("hlt"); })
-#define cli() ({ asm __volatile__ ("cli"); })
-#define sti() ({ wrrflags(rdrflags() | 0x200);/*asm __volatile__ ("sti");*/ })
-#define pause() ({ asm __volatile__("pause"); })
+static inline void hlt() { asm __volatile__ ("hlt"); }
+static inline void cli() { asm __volatile__ ("cli"); }
+static inline void sti() { asm __volatile__ ("sti"); }
+static inline void pause() { asm __volatile__("pause"); }
 
 void disable_caching(void);
 

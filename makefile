@@ -57,14 +57,13 @@ lime.elf: $(iso_dir)/boot/lime.elf
 #$(iso_dir)/boot/lime.elf: $(kernel_dir)/linker.ld $(linked_objs)
 #	$(ld) $(ldflags) $^ -o $@ $(kernel_flags)
 
-$(iso_dir)/boot/lime.elf: $(kernel_dir)/linker.ld $(linked_objs)
+$(iso_dir)/boot/lime.elf: $(kernel_dir)/kernel.ld $(linked_objs)
 	$(ld) $(ldflags) $^ -o $@
 
 run:
 	qemu-system-x86_64	\
-	-cpu core2duo		\
 	-smp 4	 			\
-	-m size=1G 			\
+	-m size=1G			\
 	-cdrom	ginger.iso	\
 	-no-reboot			\
 	-no-shutdown		\

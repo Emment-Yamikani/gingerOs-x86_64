@@ -1,18 +1,19 @@
 [bits 64]
+section .text
+
+%macro ISR_ERR 1
+global isr%1
+isr%1:
+    push qword %1
+    jmp stub
+%endmacro
 
 %macro ISR_NOERR 1
 global isr%1
 isr%1:
     push qword 0
     push qword %1
-    jmp common_stub
-%endmacro
-
-%macro ISR_ERR 1
-global isr%1
-isr%1:
-    push qword %1
-    jmp common_stub
+    jmp stub
 %endmacro
 
 %macro IRQ 2
@@ -20,63 +21,7 @@ global irq%1
 irq%1:
     push qword 0
     push qword %2
-    jmp common_stub
-%endmacro
-
-%macro pushsegs 0
-    push fs
-    ; setup data segments
-    mov ax, (SEG_KDATA << 3)
-    mov fs, ax
-    swapgs
-%endmacro
-
-%macro popsegs 0
-    swapgs
-    pop fs
-%endmacro
-
-SEG_KDATA   equ 2
-SEG_KCPU    equ 5
-
-%macro pushcontext 0
-    pushsegs
-
-    push qword rbx
-    push qword rcx
-    push qword rdx
-    push qword rdi
-    push qword rsi
-    push qword rbp
-
-    push qword r8
-    push qword r9
-    push qword r10
-    push qword r11
-    push qword r12
-    push qword r13
-    push qword r14
-    push qword r15
-%endmacro
-
-%macro popcontext 0
-    pop qword r15
-    pop qword r14
-    pop qword r13
-    pop qword r12
-    pop qword r11
-    pop qword r10
-    pop qword r9
-    pop qword r8
-
-    pop qword rbp
-    pop qword rsi
-    pop qword rdi
-    pop qword rdx
-    pop qword rcx
-    pop qword rbx
-
-    popsegs
+    jmp stub
 %endmacro
 
 ISR_NOERR 0
@@ -111,82 +56,85 @@ ISR_NOERR 0
     ISR_NOERR 29
     ISR_NOERR 30
     ISR_NOERR 31
-    ISR_NOERR 128
+ISR_NOERR 128
 
-IRQ   0,    32
-    IRQ   1,    33
-    IRQ   2,    34
-    IRQ   3,    35
-    IRQ   4,    36
-    IRQ   5,    37
-    IRQ   6,    38
-    IRQ   7,    39
-    IRQ   8,    40
-    IRQ   9,    41
-    IRQ  10,    42
-    IRQ  11,    43
-    IRQ  12,    44
-    IRQ  13,    45
-    IRQ  14,    46
-    IRQ  15,    47
-    IRQ  16,    48
-    IRQ  17,    49
-    IRQ  18,    50
-    IRQ  19,    51
-    IRQ  20,    52
-    IRQ  21,    53
-    IRQ  22,    54
-    IRQ  23,    55
-    IRQ  24,    56
-    IRQ  25,    57
-    IRQ  26,    58
-    IRQ  27,    59
-    IRQ  28,    60
-    IRQ  29,    61
-    IRQ  30,    62
-    IRQ  31,    63
-    IRQ  32,    64
-    IRQ  33,    65
-    IRQ  34,    66
-    IRQ  35,    67
-    IRQ  36,    68
-    IRQ  37,    69
-    IRQ  38,    70
-    IRQ  39,    71
-    IRQ  40,    72
-    IRQ  41,    73
-    IRQ  42,    74
-    IRQ  43,    75
-    IRQ  44,    76
-    IRQ  45,    77
-    IRQ  46,    78
-    IRQ  47,    79
-    IRQ  48,    80
-    IRQ  49,    81
-    IRQ  50,    82
-    IRQ  51,    83
-    IRQ  52,    84
-    IRQ  53,    85
-    IRQ  54,    86
-    IRQ  55,    87
-    IRQ  56,    88
-    IRQ  57,    89
-    IRQ  58,    90
-    IRQ  59,    91
-    IRQ  60,    92
-    IRQ  61,    93
-    IRQ  62,    94
-    IRQ  63,    95
-IRQ  64,    96
+IRQ 0, 32
+    IRQ 1, 33
+    IRQ 2, 34
+    IRQ 3, 35
+    IRQ 4, 36
+    IRQ 5, 37
+    IRQ 6, 38
+    IRQ 7, 39
+    IRQ 8, 40
+    IRQ 9, 41
+    IRQ   10, 42
+    IRQ   11, 43
+    IRQ   12, 44
+    IRQ   13, 45
+    IRQ   14, 46
+    IRQ 15, 47
+    IRQ 16, 48
+    IRQ 17, 49
+    IRQ 18, 50
+    IRQ 19, 51
+    IRQ 20, 52
+    IRQ 21, 53
+    IRQ 22, 54
+    IRQ 23, 55
+    IRQ 24, 56
+    IRQ 25, 57
+    IRQ 26, 58
+    IRQ 27, 59
+    IRQ 28, 60
+    IRQ 29, 61
+    IRQ 30, 62
+IRQ 31, 63
 
-extern trap
 global trapret
+extern trap
 
-common_stub:
-    pushcontext
+stub:
+    swapgs
+    push fs
+
+    push rax
+    push rbx
+    push rcx
+    push rdx
+    push rdi
+    push rsi
+    push rbp
+    push r8
+    push r9
+    push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
+
     mov rdi, rsp
     call trap
+
 trapret:
-    popcontext
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
+    pop rsi
+    pop rdi
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+
+    pop fs
+    swapgs
     add rsp, 16
     iretq

@@ -23,9 +23,10 @@
 #define features0_SSE4_1      BS(19)  // SSE4.1
 #define features0_DCA         BS(18)  // Direct Cache Access
 #define features0_PCID        BS(17)  // Process-context Identifiers
+#define features0_SYSCALL     BS(16)  // SYSCALL
 #define features0_PDCM        BS(15)  // Perf/Debug Capability MSR
 #define features0_xTPR        BS(14)  // Update Control
-#define features0_CMPXCHG16B  BS(13)
+#define features0_CMPXCHG16B  BS(13)  // cmpxchg16B
 #define features0_FMA         BS(12)  // Fused Multiply Add
 #define features0_SDBG        BS(11)
 #define features0_CNXT        BS(10)  // ID — L1 Context ID
@@ -40,67 +41,66 @@
 #define features0_PCLMULQDQ   BS(1)   // Carryless Multiplication
 #define features0_SSE3        BS(0)   // SSE3 Extensions
 
-#define features1_PBE   BS(31)    // Pend. Brk. EN.
-#define features1_TM    BS(29)    // Therm. Monitor
-#define features1_HTT   BS(28)    // Multi-threading
-#define features1_SS    BS(27)    // Self Snoop
-#define features1_SSE2  BS(26)    // SSE2 Extensions
-#define features1_SSE   BS(25)    // SSE Extensions
-#define features1_FXSR  BS(24)    // FXSAVE/FXRSTOR
-#define features1_MMX   BS(23)    // MMX Technology
-#define features1_ACPI  BS(22)    // Thermal Monitor and Clock Ctrl
-#define features1_DS    BS(21)    // Debug Store
-#define features1_CLFSH BS(19)    // CLFLUSH instruction
-#define features1_PSN   BS(18)    // Processor Serial Number
-#define features1_PSE36 BS(17)    //  Page Size Extension
-#define features1_PAT   BS(16)    // Page Attribute Table
-#define features1_CMOV  BS(15)    // Conditional Move/Compare Instruction
-#define features1_MCA   BS(14)    // Machine Check Architecture
-#define features1_PGE   BS(13)    // PTE Global Bit
-#define features1_MTRR  BS(12)    // Memory Type Range Registers
-#define features1_SEP   BS(11)    // SYSENTER and SYSEXIT
-#define features1_APIC  BS(9)     // APIC on Chip
-#define features1_CX8   BS(8)     // CMPXCHG8B Inst.
-#define features1_MCE   BS(7)     // Machine Check Exception
-#define features1_PAE   BS(6)     // Physical Address Extensions
-#define features1_MSR   BS(5)     // RDMSR and WRMSR Support
-#define features1_TSC   BS(4)     // Time Stamp Counter
-#define features1_PSE   BS(3)     // Page Size Extensions
-#define features1_DE    BS(2)     // Debugging Extensions
-#define features1_VME   BS(1)     // Virtual-8086 Mode Enhancement
-#define features1_FPU   BS(0)     // x87 FPU on Chip
+#define features1_PBE   BS(63)    // Pend. Brk. EN.
+#define features1_TM    BS(61)    // Therm. Monitor
+#define features1_HTT   BS(62)    // Multi-threading
+#define features1_SS    BS(59)    // Self Snoop
+#define features1_SSE2  BS(58)    // SSE2 Extensions
+#define features1_SSE   BS(57)    // SSE Extensions
+#define features1_FXSR  BS(56)    // FXSAVE/FXRSTOR
+#define features1_MMX   BS(55)    // MMX Technology
+#define features1_ACPI  BS(54)    // Thermal Monitor and Clock Ctrl
+#define features1_DS    BS(53)    // Debug Store
+#define features1_XD    BS(52)    // Execute disabled
+#define features1_CLFSH BS(51)    // CLFLUSH instruction
+#define features1_PSN   BS(50)    // Processor Serial Number
+#define features1_PSE36 BS(49)    //  Page Size Extension
+#define features1_PAT   BS(48)    // Page Attribute Table
+#define features1_CMOV  BS(47)    // Conditional Move/Compare Instruction
+#define features1_MCA   BS(46)    // Machine Check Architecture
+#define features1_PGE   BS(45)    // PTE Global Bit
+#define features1_MTRR  BS(44)    // Memory Type Range Registers
+#define features1_SEP   BS(43)    // SYSENTER and SYSEXIT
+#define features1_LM    BS(42)      // Long mode.
+#define features1_APIC  BS(41)     // APIC on Chip
+#define features1_CX8   BS(40)     // CMPXCHG8B Inst.
+#define features1_MCE   BS(39)     // Machine Check Exception
+#define features1_PAE   BS(38)     // Physical Address Extensions
+#define features1_MSR   BS(37)     // RDMSR and WRMSR Support
+#define features1_TSC   BS(36)     // Time Stamp Counter
+#define features1_PSE   BS(35)     // Page Size Extensions
+#define features1_DE    BS(34)     // Debugging Extensions
+#define features1_VME   BS(33)     // Virtual-8086 Mode Enhancement
+#define features1_FPU   BS(32)     // x87 FPU on Chip
 
 typedef struct cpu {
-    int ncli;
-    int intena;
-    uint8_t apic_id;
-    char vendor[16];
-    char brand_string[64];
-    size_t freq;
-    atomic_t timer_ticks;
-    uint32_t syscall : 1;
-    uint32_t execute_disable : 1;
-    uint32_t long_mode : 1;
-    uint64_t flags;
-    uint32_t version;
-    union {
-        struct {
-            uint16_t pas: 8;
-            uint16_t las: 8;
-        };
-        uint32_t raw;
-    }addr_size;
+    uint64_t ncli;
+    uint64_t intena;
+    uint64_t version;
 
+    uint64_t apicID;
+    uint64_t freq;
+    uint64_t flags;
+    uint64_t features;
+    uint64_t timer_ticks;
     
-    uint32_t features0;
-    uint32_t features1;
-    gdt_t gdt;
     tss_t tss;
+    gdt_t gdt;
     
     context_t *ctx;
 
     thread_t *thread;
     sched_queue_t *queueq;
+
+    union {
+        struct {
+            uint16_t pas: 8;
+            uint16_t las: 8;
+        };
+        uint64_t raw;
+    }addr_size;
+    char vendor[16];
+    char brand_string[64];
 } cpu_t;
 
 #define MAXNCPU 64 // maximum supported cpus

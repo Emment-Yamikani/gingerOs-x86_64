@@ -29,3 +29,10 @@ void *kmain(void *arg __unused)
 
     return NULL;
 }
+
+void garbbage_collector(void) {
+    BUILTIN_THREAD_ANOUNCE(__func__);
+    loop();
+}
+
+BUILTIN_THREAD(garbbage_collector, garbbage_collector, NULL);

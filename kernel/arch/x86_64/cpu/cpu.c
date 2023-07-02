@@ -10,6 +10,7 @@
 #include <arch/paging.h>
 #include <arch/lapic.h>
 #include <mm/pmm.h>
+#include <sys/thread.h>
 
 
 cpu_t *cpus [MAXNCPU];
@@ -24,15 +25,16 @@ void cpu_get_features(void)
 
     cpuid(0, 0, &eax, (uint32_t *)&cpu->vendor[0], (uint32_t *)&cpu->vendor[8], (uint32_t *)&cpu->vendor[4]);
 
-    cpuid(0x80000008, 0, &cpu->addr_size.raw, &ebx, &ecx, &edx);
+    cpuid(0x80000008, 0, (uint32_t *)&cpu->addr_size.raw, &ebx, &ecx, &edx);
 
     cpuid(0x80000001, 0, &eax, &ebx, &ecx, &edx);
     
-    cpu->syscall = BTEST(edx, 11) ? 1 : 0;
-    cpu->execute_disable = BTEST(edx, 20) ? 1 : 0;
-    cpu->long_mode = BTEST(edx, 29) ? 1 : 0;
+    cpu->features |= BTEST(edx, 11) ? features0_SYSCALL : 0;
+    cpu->features |= BTEST(edx, 29) ? features1_LM : 0;
+    cpu->features |= BTEST(edx, 20) ? features1_XD : 0;
 
-    cpuid(0x1, 0, &cpu->version, &ebx, &cpu->features0, &cpu->features1);
+    cpuid(0x1, 0, (uint32_t *)&cpu->version, &ebx, &ecx, &edx);
+    cpu->features |= ((uint64_t)edx << 32) | ecx;
 
     cpuid(0x80000002, 0, (void *)&cpu->brand_string[0], (void *)&cpu->brand_string[4],
           (void *)&cpu->brand_string[8], (void *)&cpu->brand_string[12]);
@@ -76,7 +78,7 @@ void cpu_init(cpu_t *c)
     gdt_init(c);
     cpu_get_features();
     c->flags |= CPU_ENABLED | BTEST(rdmsr(IA32_APIC_BASE), 8) ? CPU_ISBSP : 0;
-    atomic_fetch_or(&cpu->flags, CPU_ONLINE);
+    atomic_fetch_or(&c->flags, CPU_ONLINE);
 }
 
 int bsp_init(void)
@@ -96,23 +98,17 @@ void set_cpu_locale(cpu_t *c) {
     wrmsr(IA32_KERNEL_GS_BASE, (uint64_t)c);
 }
 
-cpu_t *get_cpu_locale(void) {
-    return (cpu_t*)rdmsr(IA32_GS_BASE);
-}
+cpu_t *get_cpu_locale(void) { return (cpu_t*)rdmsr(IA32_GS_BASE); }
 
 int cpu_locale_id(void) {
-    uint32_t a, b, c, d;
+    uint32_t a = 0, b = 0, c = 0, d = 0;
     cpuid(0x1, 0, &a, &b, &c, &d);
     return ((b >> 24) & 0xFF);
 }
 
-uintptr_t readgs_base(void) {
-    return rdmsr(IA32_GS_BASE);
-}
+uintptr_t readgs_base(void) { return rdmsr(IA32_GS_BASE); }
 
-void loadgs_base(uintptr_t base) {
-    wrmsr(IA32_GS_BASE, base);
-}
+void loadgs_base(uintptr_t base) { wrmsr(IA32_GS_BASE, base); }
 
 int enumerate_cpus(void) {
     char *entry = NULL;
@@ -122,7 +118,7 @@ int enumerate_cpus(void) {
         uint8_t type;
         uint8_t len;
         uint8_t acpi_id;
-        uint8_t apic_id;
+        uint8_t apicID;
         uint32_t flags;
     } *apic = NULL;
 
@@ -138,13 +134,13 @@ int enumerate_cpus(void) {
     for (; entry && entry < (((char *)MADT) + MADT->madt.length); entry += entry[1]) {
         if (*entry == 0) {
             apic = (void *)entry;
-            if ((apic->apic_id == cpu_id) || !BTEST(apic->flags, 0))
+            if ((apic->apicID == cpu_id) || !BTEST(apic->flags, 0))
                 continue;
-            if (!(cpus[apic->apic_id] = (cpu_t *)kcalloc(1, sizeof (cpu_t))))
+            if (!(cpus[apic->apicID] = (cpu_t *)kcalloc(1, sizeof (cpu_t))))
                 panic("Not enough memory to complete operation.\n");
 
-            cpus[apic->apic_id]->flags |= CPU_ENABLED;
-            cpus[apic->apic_id]->apic_id = apic->apic_id;
+            cpus[apic->apicID]->flags |= CPU_ENABLED;
+            cpus[apic->apicID]->apicID = apic->apicID;
             atomic_inc(&ncpu);
         }
     }
@@ -155,7 +151,7 @@ int enumerate_cpus(void) {
 void ap_start(void) {
     cpu_init(cpus[lapic_id()]);
     lapic_init();
-    //sti();
+    schedule();
     loop();
 }
 
@@ -167,13 +163,13 @@ int bootothers(void) {
         if (!cpus[i] || !(cpus[i]->flags & CPU_ENABLED) || cpus[i] == cpu)
             continue;
 
-        if (!(stack = (void *)VMA2HI(pmman.get_pages(GFP_NORMAL, 7) + (BS(7) * PGSZ))))
+        if (!(stack = (void *)VMA2HI(pmman.get_pages(GFP_NORMAL, 7) + KSTACKSZ)))
             return -ENOMEM;
 
         *--stack = (uintptr_t)ap_start;
         *((uintptr_t *)VMA2HI(&ap_trampoline[4032])) = rdcr3();
         *((uintptr_t *)VMA2HI(&ap_trampoline[4040])) = (uintptr_t)stack;
-        lapic_startup(cpus[i]->apic_id, (uint16_t)((uintptr_t)ap_trampoline));
+        lapic_startup(cpus[i]->apicID, (uint16_t)((uintptr_t)ap_trampoline));
         while (!(atomic_read(&cpus[i]->flags) & CPU_ONLINE));
     }
 

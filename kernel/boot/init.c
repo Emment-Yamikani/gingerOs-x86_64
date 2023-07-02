@@ -30,11 +30,12 @@ int multiboot_info_process(multiboot_info_t *info) {
         
         for (int i = 0; mmap < (multiboot_memory_map_t *)((uint64_t)(info->mmap_addr + info->mmap_length)); ++i) {
             bootinfo.mmapcnt++;
-            bootinfo.memsize += mmap->len;
             bootinfo.mmap[i].size = mmap->len;
             bootinfo.mmap[i].type = mmap->type;
             bootinfo.mmap[i].addr = mmap->addr;
             // printk("MMAP(%d): addr: %p, size: %p, type: %d\n", i, mmap->addr, bootinfo.mmap[i].size, mmap->type);
+            if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE)
+                bootinfo.memsize += mmap->len;
             mmap = (multiboot_memory_map_t *)((uintptr_t)mmap + mmap->size + sizeof(mmap->size));
         }
         bootinfo.memsize /= 1024;

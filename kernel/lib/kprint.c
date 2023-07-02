@@ -371,21 +371,28 @@ static int cb_printf(void * user __unused, char c) {
 	return 0;
 }
 
-int printk(const char * fmt, ...) {
+#include <sync/spinlock.h>
+
+static spinlock_t *lock = &SPINLOCK_INIT();
+
+size_t printk(const char * fmt, ...) {
+	spin_lock(lock);
 	va_list args;
 	va_start(args, fmt);
 	int out = xvasprintf(cb_printf, NULL, fmt, args);
 	va_end(args);
+	spin_unlock(lock);
 	return out;
 }
 
 void panic(const char *restrict fmt, ...) {
+	spin_lock(lock);
 	va_list args;
 	va_start(args, fmt);
 	cli();
 	xvasprintf(cb_printf, NULL, fmt, args);
 	va_end(args);
-	
+	spin_unlock(lock);
 	loop() {
 		cli();
 		hlt();

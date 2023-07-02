@@ -38,34 +38,34 @@ typedef struct spinlock
 })
 
 // acquire spinlock
-#define spin_lock(lk) ({                                \
-    spin_assert(lk);                                    \
-    pushcli();                                          \
+#define spin_lock(lk) ({                                         \
+    spin_assert(lk);                                             \
+    pushcli();                                                   \
     assert_msg(!spin_locked(lk), "%s:%d: CPU%d thread: %p, \
-status: %d: spinlock held!",                            \
-               __FILE__, __LINE__, cpu_id,              \
-               (lk)->thread, atomic_read(&(lk)->lock)); \
-    barrier();                                          \
-    while (atomic_xchg(&(lk)->lock, 1))                 \
-    {                                                   \
-        popcli();                                       \
-        pause();                                        \
-        pushcli();                                      \
-    }                                                   \
-    (lk)->processor = cpu;                              \
-    (lk)->thread = current;                             \
+status: %d: current: %p: spinlock held!",                        \
+               __FILE__, __LINE__, cpu_id,                       \
+               (lk)->thread, atomic_read(&(lk)->lock), current); \
+    barrier();                                                   \
+    while (atomic_xchg(&(lk)->lock, 1))                          \
+    {                                                            \
+        popcli();                                                \
+        pause();                                                 \
+        pushcli();                                               \
+    }                                                            \
+    (lk)->processor = cpu;                                       \
+    (lk)->thread = current;                                      \
 })
 
 // release spinlock
-#define spin_unlock(lk) ({                                      \
-    spin_assert(lk);                                            \
-    assert_msg(spin_locked(lk), "%s:%d: cpu%d: spinlock held!", \
-               __FILE__, __LINE__, cpu_id);                     \
-    (lk)->thread = NULL;                                        \
-    (lk)->processor = NULL;                                     \
-    barrier();                                                  \
-    atomic_xchg(&(lk)->lock, 0);                                \
-    popcli();                                                   \
+#define spin_unlock(lk) ({                                                   \
+    spin_assert(lk);                                                         \
+    assert_msg(spin_locked(lk), "%s:%d: cpu%d: current: %p: spinlock held!", \
+               __FILE__, __LINE__, cpu_id, current);                         \
+    (lk)->thread = NULL;                                                     \
+    (lk)->processor = NULL;                                                  \
+    barrier();                                                               \
+    atomic_xchg(&(lk)->lock, 0);                                             \
+    popcli();                                                                \
 })
 
 /**
@@ -90,6 +90,6 @@ status: %d: spinlock held!",                            \
 })
 
 // assert_msg spinlock acquisition
-#define spin_assert_locked(lk) ({ assert_msg(spin_locked((lk)),                                        \
-    "%s:%d: CPU%d: spinlock not held!\n", __FILE__, __LINE__, \
-    cpu_id); })
+#define spin_assert_locked(lk) ({ assert_msg(spin_locked((lk)),            \
+    "%s:%d: CPU%d: current: %p: spinlock not held!\n", __FILE__, __LINE__, \
+    cpu_id, current); })

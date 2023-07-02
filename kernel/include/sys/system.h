@@ -21,7 +21,7 @@
 #define __retaddr(l) __builtin_return_address(l)
 
 #define NOT(a)      (~(a))
-#define BS(p)       (1 << (p))
+#define BS(p)       ((long)1 << (p))
 #define AND(a, b)   ((a) & (b))
 #define OR(a, b)    ((a) | (b))
 #define XOR(a, b)   ((a) ^ (b))

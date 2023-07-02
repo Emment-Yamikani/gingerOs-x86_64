@@ -69,9 +69,10 @@ static int enumerate_zones(void)
     start = 2 * GiB;
     size = ((bootinfo.memhigh * KiB) + MiB) - ((2 * GiB));
     size = MIN(memsize, size);
-    memsize -= size + (64 * KiB); // minus 64KiB, qemu seems to have an extra at the end of memory.
+    memsize -= size;
     zone_structs_size = NPAGE(size) * sizeof(page_t);
     pages += NPAGE(size) * sizeof(page_t);
+
 
     zones[MM_ZONE_HOLE] = (mm_zone_t){
         .pages = pages,
@@ -213,7 +214,7 @@ int physical_memory_init(void)
     size = PGROUNDUP((VMA2LO(_kernel_end) - VMA2LO(_kernel_start)));
 
     mm_zone_assert((zone = get_mmzone(addr, size)));
-    assert_msg(((addr + size) < ((zone->nrpages * PGSZ) - (addr + size))), "Kernel is too big");
+    assert_msg(((addr + size) < ((zone->size) - (addr + size))), "Kernel is too big");
 
     index = (addr - zone->start) / PAGESZ;
     for (size_t j = 0; j < (size_t)NPAGE(size); ++j, ++index)
@@ -243,17 +244,17 @@ int physical_memory_init(void)
         }
     }
 
-    size = (zones[MM_ZONE_NORM].nrpages * PGSZ) - (1 * GiB);
+    size = zones[MM_ZONE_NORM].size - ((1 * GiB) - (16 * MiB));
 
     pagemap_binary_lock(&kernel_map);
-
-    map_page_to_n(&kernel_map, VMA2HI((1 * GiB)), (1 * GiB), size, VM_K2MBRW);
+    if ((long)size > 0)
+        map_page_to_n(&kernel_map, VMA2HI((1 * GiB)), (1 * GiB), size, VM_K2MBRW);
 
     for (size_t i = 0; i < bootinfo.mmapcnt; ++i) {
         addr = PGROUND(map[i].addr);
         size = PGROUNDUP(map[i].size);
 
-        if (map[i].type != MULTIBOOT_MEMORY_AVAILABLE) {
+        if ((map[i].type != MULTIBOOT_MEMORY_AVAILABLE) && map[i].addr < 0x100000000) {
             uint32_t flags = VM_KRW | VM_PCDWT;
             map_page_to_n(&kernel_map, addr, addr, size, flags);
             map_page_to_n(&kernel_map, VMA2HI(addr), addr, size, flags);
