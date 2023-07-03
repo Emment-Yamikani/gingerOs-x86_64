@@ -36,7 +36,6 @@ void dump_tf(tf_t *tf, int halt) {
 void trap(tf_t *tf) {
 
     if (current) {
-        current_lock();
         if (__thread_killed(current))
             thread_exit(-EINTR);
     }
@@ -47,7 +46,7 @@ void trap(tf_t *tf) {
         lapic_eoi();
         break;
     case T_PGFAULT:
-        panic("[CPU%d] PF: err: %p, cr2: %p, rip: %p\n", cpu_id, tf->errno, rdcr2(), tf->rip);
+        panic("[CPU%d] PF: err_code: %p, cr2: %p, rip: %p\n", cpu_id, tf->errno, rdcr2(), tf->rip);
         break;
     case LAPIC_ERROR:
         lapic_eoi();
@@ -58,8 +57,12 @@ void trap(tf_t *tf) {
         lapic_timerintr();
         lapic_eoi();
         break;
+    case LAPIC_IPI:
+        printk("cpu%d: ipi test\n", cpu_id);
+        lapic_eoi();
+        break;
     default:
-        panic("[CPU%d] trap(%d): err: %p, cr2: %p, rip: %p\n", cpu_id, tf->trapno, tf->errno, rdcr2(), tf->rip);
+        panic("[CPU%d] trap(%d): err_code: %p, cr2: %p, rip: %p\n", cpu_id, tf->trapno, tf->errno, rdcr2(), tf->rip);
         break;
     }
 
@@ -70,10 +73,8 @@ void trap(tf_t *tf) {
         thread_exit(-EINTR);
 
     if (!atomic_read(&current->t_sched_attr.timeslice))
-        sched_yield();
+        thread_yield();
 
     if (__thread_killed(current))
         thread_exit(-EINTR);
-
-    current_unlock();
 }

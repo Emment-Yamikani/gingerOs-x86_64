@@ -4,6 +4,7 @@
 #include <lib/stddef.h>
 #include <lib/stdint.h>
 #include <boot/multiboot.h>
+#include <dev/fb.h>
 
 #define NMODS   32
 #define NMMAP   32
@@ -26,10 +27,20 @@ typedef struct {
     size_t      memlo;
     size_t      memhigh;
     size_t      mmapcnt;
-    int         fb_bpp;
-    uintptr_t   fb_addr;
-    int         fb_width;
-    int         fb_height;
+
+    struct {
+        uint8_t framebuffer_type;
+        uintptr_t framebuffer_addr;
+        uint32_t framebuffer_pitch;
+        uint32_t framebuffer_width;
+        uint32_t framebuffer_height;
+        uint32_t framebuffer_bpp;
+
+        struct fb_bitfield red;
+        struct fb_bitfield blue;
+        struct fb_bitfield green;
+        struct fb_bitfield resv;
+    } fb;
 
     uintptr_t   phyaddr_start;
 

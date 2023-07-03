@@ -98,41 +98,41 @@ stub:
     swapgs
     push fs
 
-    push rax
-    push rbx
-    push rcx
-    push rdx
-    push rdi
-    push rsi
-    push rbp
-    push r8
-    push r9
-    push r10
-    push r11
-    push r12
-    push r13
-    push r14
-    push r15
+    push qword rax
+    push qword rbx
+    push qword rcx
+    push qword rdx
+    push qword rdi
+    push qword rsi
+    push qword rbp
+    push qword r8
+    push qword r9
+    push qword r10
+    push qword r11
+    push qword r12
+    push qword r13
+    push qword r14
+    push qword r15
 
     mov rdi, rsp
     call trap
 
 trapret:
-    pop r15
-    pop r14
-    pop r13
-    pop r12
-    pop r11
-    pop r10
-    pop r9
-    pop r8
-    pop rbp
-    pop rsi
-    pop rdi
-    pop rdx
-    pop rcx
-    pop rbx
-    pop rax
+    pop qword r15
+    pop qword r14
+    pop qword r13
+    pop qword r12
+    pop qword r11
+    pop qword r10
+    pop qword r9
+    pop qword r8
+    pop qword rbp
+    pop qword rsi
+    pop qword rdi
+    pop qword rdx
+    pop qword rcx
+    pop qword rbx
+    pop qword rax
 
     pop fs
     swapgs

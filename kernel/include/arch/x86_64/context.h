@@ -19,8 +19,7 @@ typedef struct {
     uintptr_t rcx;
     uintptr_t rbx;
     uintptr_t rax;
-    
-    //uintptr_t gs;
+
     uintptr_t fs;
 
     uintptr_t trapno;

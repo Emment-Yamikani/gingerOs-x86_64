@@ -13,6 +13,7 @@
 #include <arch/chipset.h>
 #include <sys/sched.h>
 #include <sys/thread.h>
+#include <dev/dev.h>
 
 bootinfo_t bootinfo = {0};
 
@@ -43,11 +44,38 @@ int multiboot_info_process(multiboot_info_t *info) {
 
     if (BTEST(info->flags, 3)) {
         multiboot_module_t *mod = (multiboot_module_t *)((uint64_t)info->mods_addr);
-        for (size_t i = 0; i < info->mods_count; ++i, bootinfo.modcnt++) {
+        for (size_t i = 0; i < info->mods_count; ++i, bootinfo.modcnt++, ++mod) {
             bootinfo.mods[i].addr = VMA2HI(mod->mod_start);
             bootinfo.mods[i].cmdline = (char *)VMA2HI(mod->cmdline);
             bootinfo.mods[i].size = mod->mod_end - mod->mod_start;
             // printk("MOD(%d): %p, size: %d\n", i, mod->mod_start, mod->mod_end - mod->mod_start);
+        }
+    }
+
+    // framebuffer
+    if (BTEST(info->flags, 12)) {
+        bootinfo.fb.framebuffer_bpp = info->framebuffer_bpp;
+        bootinfo.fb.framebuffer_addr = info->framebuffer_addr;
+        bootinfo.fb.framebuffer_type = info->framebuffer_type;
+        bootinfo.fb.framebuffer_pitch = info->framebuffer_pitch;
+        bootinfo.fb.framebuffer_width = info->framebuffer_width;
+        bootinfo.fb.framebuffer_height = info->framebuffer_height;
+
+        if (info->framebuffer_type == 1) {
+            bootinfo.fb = (typeof (bootinfo.fb)) {
+                .red = {
+                    .length = info->framebuffer_red_mask_size,
+                    .offset = info->framebuffer_red_field_position,
+                },
+                .green = {
+                    .length = info->framebuffer_green_mask_size,
+                    .offset = info->framebuffer_green_field_position,
+                },
+                .blue = {
+                    .length = info->framebuffer_blue_mask_size,
+                    .offset = info->framebuffer_blue_field_position,
+                }
+            };
         }
     }
 
@@ -82,6 +110,12 @@ int early_init(multiboot_info_t *info) {
     pic_init();
     ioapic_init();
     pit_init();
+
+    if ((err = dev_init()))
+        panic("Failed to start devices\n");
+
+    if ((err = vfs_init()))
+        panic("Failed to initialize VFS!\n");
 
     kthread_create(kmain, NULL, NULL, NULL);
 

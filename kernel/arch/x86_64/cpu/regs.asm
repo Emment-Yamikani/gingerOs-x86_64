@@ -16,51 +16,51 @@ global wrcr4
 global disable_caching
 
 global rdrax
-rdrax:
-    ret
+;rdrax:
+    retq
 global rdrflags
 rdrflags:
     pushfq
     pop qword rax
-    ret
+    retq
 
 global wrrflags
 wrrflags:
     push qword rdi
     popfq
-    ret
+    retq
 
 rdcr0:
     mov rax, cr0
-    ret
+    retq
 
 wrcr0:
     mov cr0, rdi
-    ret
+    retq
 
 rdcr2:
     mov rax, cr2
-    ret
+    retq
 
 wrcr2:
     mov cr2, rdi
-    ret
+    retq
 
 rdcr3:
     mov rax, cr3
-    ret
+    retq
 
 wrcr3:
     mov cr3, rdi
-    ret
+    retq
 
 rdcr4:
     mov rax, cr4
-    ret
+    retq
 
 wrcr4:
     mov cr4, rdi
-    ret
+    retq
 
 global cpuid
 cpuid:
@@ -80,13 +80,13 @@ cpuid:
     pop rbx
     mov dword [r8], ecx
     mov dword [r9], edx
-ret
+retq
 
 disable_caching:
     mov rax, cr0
     and eax, 0x8000000f
     mov cr0, rax
-    ret
+    retq
 
 global wrmsr
 global rdmsr
@@ -97,7 +97,7 @@ wrmsr:
     mov rdx, rax
     shr rdx, 32
     wrmsr
-    ret
+    retq
 
 rdmsr:
     mov rcx, rdi
@@ -105,7 +105,7 @@ rdmsr:
     shl rdx, 32
     or rdx, rax
     xchg rdx, rax
-    ret
+    retq
 
 global loadgdt64 ; loadgdt64(gdtptr, cs, gs, ss)
 loadgdt64:
@@ -126,19 +126,19 @@ loadgdt64:
         mov rax, rdx
         mov gs, ax
         add rsp, 8
-    ret
+    retq
 
 global loadidt
 loadidt:
     lidt [rdi]
-    ret
+    retq
 
 global loadtr
 loadtr:
     ltr di
-    ret
+    retq
 
 global invlpg
 invlpg:
 invlpg [rdi]
-ret
+retq

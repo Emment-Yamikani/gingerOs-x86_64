@@ -84,6 +84,7 @@ void thread_free(thread_t *thread) {
     if (thread->t_wait)
         cond_free(thread->t_wait);
     mapped_free(thread->t_arch.t_kstack, KSTACKSZ);
+
 }
 
 void tgroup_free(tgroup_t *tgroup)
@@ -251,6 +252,11 @@ void thread_exit(uintptr_t exit_code)
 {
     current_assert();
     arch_thread_exit(exit_code);
+}
+
+void thread_yield(void)
+{
+    sched_yield();
 }
 
 int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode)
@@ -564,6 +570,8 @@ int kthread_create(void *(*entry)(void *), void *arg, tid_t *__tid, thread_t **r
         // assert(!(err = f_alloc_table(&file_table)), "couldn't allocate file table");
         assert(!(err = tgroup_new(thread->t_tid, &kthreads)), "failed to create tgroup");
     }
+
+    thread->t_group = kthreads;
 
     if ((err = thread_enqueue(kthreads->queue, thread, NULL)))
         goto error;

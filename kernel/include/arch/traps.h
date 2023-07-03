@@ -13,5 +13,6 @@
 #define LAPIC_ERROR     IRQ(18)
 #define LAPIC_SPURIOUS  IRQ(19)
 #define LAPIC_TIMER     IRQ(20)
+#define LAPIC_IPI       IRQ(31)
 
 #define T_LEG_SYSCALL   128

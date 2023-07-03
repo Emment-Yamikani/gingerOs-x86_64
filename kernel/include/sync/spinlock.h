@@ -9,9 +9,12 @@
 struct thread;
 typedef struct spinlock
 {
-    atomic_t lock; // is spinlock acquired?
+    int line;
+    char *file;
+    void *retaddr;
     cpu_t *processor;
     thread_t *thread;
+    atomic_t lock; // is spinlock acquired?
 } spinlock_t;
 
 #define SPINLOCK_INIT() ((spinlock_t){ \
@@ -38,31 +41,38 @@ typedef struct spinlock
 })
 
 // acquire spinlock
-#define spin_lock(lk) ({                                         \
-    spin_assert(lk);                                             \
-    pushcli();                                                   \
+#define spin_lock(lk) ({                                        \
+    spin_assert(lk);                                            \
+    pushcli();                                                  \
     assert_msg(!spin_locked(lk), "%s:%d: CPU%d thread: %p, \
-status: %d: current: %p: spinlock held!",                        \
-               __FILE__, __LINE__, cpu_id,                       \
-               (lk)->thread, atomic_read(&(lk)->lock), current); \
-    barrier();                                                   \
-    while (atomic_xchg(&(lk)->lock, 1))                          \
-    {                                                            \
-        popcli();                                                \
-        pause();                                                 \
-        pushcli();                                               \
-    }                                                            \
-    (lk)->processor = cpu;                                       \
-    (lk)->thread = current;                                      \
+status: %d: current: %p: spinlock held at %s:%d, retaddr: %p!", \
+               __FILE__, __LINE__, cpu_id,                      \
+               (lk)->thread, atomic_read(&(lk)->lock),          \
+               current, (lk)->file, (lk)->line, (lk)->retaddr); \
+    barrier();                                                  \
+    while (atomic_xchg(&(lk)->lock, 1))                         \
+    {                                                           \
+        popcli();                                               \
+        pause();                                                \
+        pushcli();                                              \
+    }                                                           \
+    (lk)->processor = cpu;                                      \
+    (lk)->thread = current;                                     \
+    (lk)->line = __LINE__;                                      \
+    (lk)->retaddr = __retaddr(0);                               \
+    (lk)->file = __FILE__;                                      \
 })
 
 // release spinlock
 #define spin_unlock(lk) ({                                                   \
     spin_assert(lk);                                                         \
-    assert_msg(spin_locked(lk), "%s:%d: cpu%d: current: %p: spinlock held!", \
+    assert_msg(spin_locked(lk), "%s:%d: cpu%d: current: %p: spinlock not held!", \
                __FILE__, __LINE__, cpu_id, current);                         \
     (lk)->thread = NULL;                                                     \
     (lk)->processor = NULL;                                                  \
+    (lk)->line = 0;                                                          \
+    (lk)->retaddr = 0;                                                       \
+    (lk)->file = NULL;                                                       \
     barrier();                                                               \
     atomic_xchg(&(lk)->lock, 0);                                             \
     popcli();                                                                \

@@ -6,6 +6,7 @@ TRAMPOLINE = 0x8000;
 KERNEL_LMA = 0x1000000;
 KERNEL_VMA = 0xFFFF800000000000;
 
+
 SECTIONS {
     . = TRAMPOLINE;
     .trampoline ALIGN (4K) : AT (ADDR (.trampoline)) {
@@ -20,15 +21,19 @@ SECTIONS {
         *(.rodata)
     }
 
-    .__builtin_thread_entry ALIGN (4K) : AT(ADDR(.__builtin_thread_entry) - 0xFFFF800000000000)
-    {
+    .__minit ALIGN (4K) : AT(ADDR(.__minit) - KERNEL_VMA) {
+        __minit = .;
+        *(.__minit*)
+        __mfini = .;
+    }
+
+    .__builtin_thread_entry ALIGN (4K) : AT(ADDR(.__builtin_thread_entry) - KERNEL_VMA) {
         __builtin_thread_entry = .;
         *(.__builtin_thread_entry*)
         __builtin_thread_entry_end = .;
     }
 
-    .__builtin_thread_arg ALIGN (4K) : AT(ADDR(.__builtin_thread_arg) - 0xFFFF800000000000)
-    {
+    .__builtin_thread_arg ALIGN (4K) : AT(ADDR(.__builtin_thread_arg) - KERNEL_VMA) {
         __builtin_thread_arg = .;
         *(.__builtin_thread_arg*)
         __builtin_thread_arg_end = .;

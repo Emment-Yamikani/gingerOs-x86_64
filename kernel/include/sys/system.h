@@ -18,6 +18,13 @@
 #define foreach(elem, list) \
     for (typeof(*list) *tmp = list, elem = *tmp; elem; elem = *++tmp)
 
+#ifndef container_of
+#define container_of(ptr, type, member) ({ \
+	const typeof( ((type *)0)->member ) *__mptr = (ptr); \
+	(type *)( (char *)__mptr - offsetof(type,member) ); })
+
+#endif
+
 #define __retaddr(l) __builtin_return_address(l)
 
 #define NOT(a)      (~(a))

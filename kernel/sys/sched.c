@@ -283,9 +283,10 @@ void sched_set_priority(thread_t *thread, int priority)
 
 void sched_yield(void)
 {
-    current_assert_locked();
+    current_lock();
     current->t_state = T_READY;
     sched();
+    current_unlock();
 }
 
 void schedule(void)

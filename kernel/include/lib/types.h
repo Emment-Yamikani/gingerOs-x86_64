@@ -9,7 +9,11 @@ typedef int gid_t;
 typedef int mode_t;
 
 typedef long ssize_t;
+typedef uint16_t devid_t;
+typedef unsigned long off_t;
 
+typedef struct inode *INODE;
+typedef struct inode inode_t;
 
 typedef struct cpu cpu_t;
 typedef struct thread thread_t;

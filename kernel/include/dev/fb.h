@@ -55,7 +55,7 @@ typedef struct framebuffer
     struct dev *  dev;
     fb_fixinfo_t *fixinfo;
     fb_varinfo_t *varinfo;
-    spinlock_t *  lock;
+    spinlock_t   lock;
     void *module;
 } framebuffer_t;
 

@@ -1,0 +1,9 @@
+fs_objs+=\
+$(fs_dir)/devfs/devfs.o\
+$(fs_dir)/tmpfs/generic_tmpfs.o\
+$(fs_dir)/tmpfs/tmpfs.o\
+$(fs_dir)/dentry.o\
+$(fs_dir)/inode.o\
+$(fs_dir)/path.o\
+$(fs_dir)/vfs.o
+#$(fs_dir)/ramfs/ramfs2.o\

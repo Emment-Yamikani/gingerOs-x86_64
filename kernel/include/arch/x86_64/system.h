@@ -10,6 +10,8 @@ static inline void cli() { asm __volatile__ ("cli"); }
 static inline void sti() { asm __volatile__ ("sti"); }
 static inline void pause() { asm __volatile__("pause"); }
 
+static inline uintptr_t rdrax(void) {uintptr_t ret; asm volatile("":"=a"(ret)); return ret;}
+
 void disable_caching(void);
 
 void wrcr0(uint64_t);
@@ -24,7 +26,7 @@ uintptr_t rdcr3(void);
 uint32_t rdcr4(void);
 void wrcr4(uint64_t);
 
-uintptr_t rdrax(void);
+//uintptr_t rdrax(void);
 
 void cpuid(uint64_t func, uint64_t subfunc, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx);
 

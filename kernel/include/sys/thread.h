@@ -73,7 +73,7 @@ typedef struct thread
 
     tstate_t        t_state;    // thread's execution state.
 
-    atomic_t        t_exit;     // thread exit code.
+    uintptr_t       t_exit;     // thread exit code.
     atomic_t        t_flags;    // threads flags.
     atomic_t        t_errno;    // thread's errno.
 
@@ -124,8 +124,25 @@ typedef struct thread
     err;                                          \
 })
 
-#define __thread_killed(t)              ({ thread_assert_locked(t); __thread_testflags((t), THREAD_KILLED); })
-#define __thread_ishandling_signal(t)   ({ thread_assert_locked(t); __thread_testflags((t), THREAD_HANDLING_SIG); })
+#define __thread_killed(t) ({                            \
+    int locked = thread_locked(t);                       \
+    if (!locked)                                         \
+        thread_lock(t);                                  \
+    int killed = __thread_testflags((t), THREAD_KILLED); \
+    if (!locked)                                         \
+        thread_unlock(t);                                \
+    killed;                                              \
+})
+
+#define __thread_ishandling_signal(t) ({                         \
+    int locked = thread_locked(t);                               \
+    if (!locked)                                                 \
+        thread_lock(t);                                          \
+    int handling = __thread_testflags((t), THREAD_HANDLING_SIG); \
+    if (!locked)                                                 \
+        thread_unlock(t);                                        \
+    handling;                                                    \
+})
 
 #define current_assert()                ({ assert(current, "No current thread running"); })
 #define current_lock()                  ({ thread_lock(current); })

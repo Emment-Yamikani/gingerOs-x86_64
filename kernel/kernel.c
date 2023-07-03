@@ -12,14 +12,22 @@
 #include <ds/queue.h>
 #include <sys/thread.h>
 #include <sync/cond.h>
+#include <arch/lapic.h>
+#include <arch/traps.h>
+#include <dev/dev.h>
 
 void *kmain(void *arg __unused)
 {
     int nthread = 0;
     thread_t **tv = NULL;
+    INODE file = NULL;
 
     printk("Welcome to 'Ginger OS'.\n");
     BUILTIN_THREAD_ANOUNCE(__func__);
+
+    vfs_lookup("/tmpfs/file", __UIO("/"), O_CREAT | O_RDONLY, 0, 0777, &file, NULL);
+
+    printk("file: %p\n", file);
 
     start_builtin_threads(&nthread, &tv);
 

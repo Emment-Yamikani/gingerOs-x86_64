@@ -147,3 +147,18 @@ void lapic_timerintr(void)
         atomic_dec(&current->t_sched_attr.timeslice);
     }
 }
+
+void lapic_ipi(int id, int ipi) {
+    if (!LAPIC_BASE)
+        return;
+    ICR1 = (id << 24);
+    if (id == -1) // send to self.
+        ICR0 = ASSERT | LEVEL | SELF | (ipi & 0xff);
+    else if (id == -2) // broadcast to all.
+        ICR0 = ASSERT | LEVEL | BCAST | (ipi & 0xff);
+    else if (id == -3) // broadcast to all except self.
+        ICR0 = ASSERT | LEVEL | BCAST_XSELF | (ipi & 0xff);
+    else // send to specific lapic.
+        ICR0 = ASSERT | LEVEL | (ipi & 0xff);
+    while (ICR0 & DELIVS);
+}

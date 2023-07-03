@@ -80,7 +80,8 @@ start32:
     or eax, 0x80000000  ; enable PML4 paging.
     mov cr0, eax
 
-    lgdt [gdt64.base - VMA]
+    mov eax, (gdtbase - VMA)
+    lgdt [eax]
     jmp 0x8:(start64 - VMA)
 
 .noext:
@@ -95,8 +96,8 @@ gdt64:
     .null dq 0
     .code dq 0xAF9A000000FFFF
     .data dq 0xCF92000000FFFF
-    .base:
-        dw (gdt64.base - gdt64) - 1
+gdtbase:
+        dw (gdtbase - gdt64) - 1
         dq gdt64
 
 [bits 64]
@@ -135,7 +136,7 @@ start64:
 align 16
 section .bss
 stack:
-    resb PGSZ * 4
+    resb 0x80000 ; 512 Kib kernel stack per-thread
 .top:
 
 align 0x1000
