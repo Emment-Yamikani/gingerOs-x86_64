@@ -143,7 +143,6 @@ void lapic_timerintr(void)
 {
     atomic_inc(&cpu->timer_ticks);
     if (current) {
-        atomic_inc(&current->t_sched_attr.age);
         atomic_dec(&current->t_sched_attr.timeslice);
     }
 }

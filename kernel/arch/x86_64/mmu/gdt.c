@@ -26,7 +26,7 @@ void gdt_init(cpu_t *c) {
     };
 
     loadgdt64(&ptr, (SEG_KCODE64 << 3), (SEG_KCPU64 << 3), (SEG_KDATA64 << 3));
-    set_cpu_locale(c);
+    set_cpu_local(c);
     loadtr(SEG_TSS64 << 3);
 }
 

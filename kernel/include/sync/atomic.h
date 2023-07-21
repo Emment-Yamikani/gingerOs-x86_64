@@ -9,10 +9,9 @@
 
 typedef volatile unsigned long atomic_t;
 
-
-/// clear, only used with 'char' or 'bool'
 #define atomic_read(ptr)               ({ __atomic_load_n((ptr), __ATOMIC_SEQ_CST); })
 #define atomic_write(ptr, val)         ({ __atomic_store_n((ptr), (val), __ATOMIC_SEQ_CST); })
+/// clear, only used with 'char' or 'bool'
 #define atomic_clear(ptr)              ({ atomic_write((ptr), 0); })
 
 /// test and set, only used with 'char' or 'bool'
@@ -44,7 +43,6 @@ typedef volatile unsigned long atomic_t;
 #define atomic_fetch_dec(ptr)          ({ atomic_fetch_sub((ptr), 1); })
 #define atomic_dec_fetch(ptr)          ({ atomic_sub_fetch((ptr), 1); })
 #define atomic_dec(ptr)                ({ atomic_fetch_dec(ptr); })
-
 
 
 /// exchange

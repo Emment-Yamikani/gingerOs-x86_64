@@ -6,6 +6,7 @@
 #include <mm/vmm.h>
 #include <sys/system.h>
 #include <lib/string.h>
+#include <ginger/jiffies.h>
 #include <arch/x86_64/thread.h>
 
 static atomic_t tids = {0};
@@ -24,7 +25,7 @@ int thread_new(thread_t **ref) {
     if (!(kstack = mapped_alloc(KSTACKSZ)))
         return -ENOMEM;
     
-    thread = (thread_t *)ALIGN16MB((kstack + KSTACKSZ) - (sizeof *thread));
+    thread = (thread_t *)ALIGN16((kstack + KSTACKSZ) - (sizeof *thread));
 
     if ((err = queue_new("thread", &queue)))
         goto error;
@@ -38,13 +39,17 @@ int thread_new(thread_t **ref) {
         .t_kstack = kstack,
     };
 
-    thread->t_wait = wait;
-    thread->t_queues = queue;
     thread->t_tid = tid_alloc();
     thread->t_lock = SPINLOCK_INIT();
-    thread->t_sched_attr.priority = SCHED_LOWEST_PRIORITY;
 
     thread_lock(thread);
+
+    thread->t_wait = wait;
+    thread->t_queues = queue;
+
+    thread->t_sched_attr.ctime = jiffies_get();
+    thread->t_sched_attr.priority = SCHED_LOWEST_PRIORITY;
+
     __thread_enter_state(thread, T_EMBRYO);
 
     *ref = thread;
@@ -119,8 +124,11 @@ int tgroup_new(tid_t tgid, tgroup_t **ref)
 
     memset(tgroup, 0, sizeof *tgroup);
 
-    tgroup->gid = tgid;
+    tgroup->tgid = tgid;
     tgroup->queue = queue;
+    tgroup->lock = SPINLOCK_INIT();
+
+    tgroup_lock(tgroup);
 
     *ref = tgroup;
     return 0;
@@ -142,6 +150,8 @@ void tgroup_wait_all(tgroup_t *tgroup)
     if (tgroup == NULL)
         return;
     
+    tgroup_assert_locked(tgroup);
+
     queue_lock(tgroup->queue);
 
     forlinked(node, tgroup->queue->head, next)
@@ -157,7 +167,7 @@ void tgroup_wait_all(tgroup_t *tgroup)
         
         if (thread->sleep_attr.queue) {
             queue_lock(thread->sleep_attr.queue);
-            thread_wake_n(thread);
+            thread_wake(thread);
             queue_unlock(thread->sleep_attr.queue);
         }     
        
@@ -181,14 +191,18 @@ int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid)
 
     if (tgroup == NULL)
         return -EINVAL;
-    
+
+    tgroup_assert_locked(tgroup);
+
     if (current && __thread_killed(current))
         return -EALREADY;
 
-    if (tid == -1)
+    if (tid == -1)  // -1 == kill all threads.
         goto all;
-    else if (tid == 0)
+    else if (tid == 0)  // 0 == kill self
         thread_exit(0);
+
+    // else kill other thread.
 
     if ((err = thread_get(tgroup, tid, &thread)))
         return err;
@@ -225,7 +239,7 @@ all:
 
         if (thread->sleep_attr.queue) {
             queue_lock(thread->sleep_attr.queue);
-            thread_wake_n(thread);
+            thread_wake(thread);
             queue_unlock(thread->sleep_attr.queue);
         }
 
@@ -240,6 +254,27 @@ all:
 
     queue_unlock(tgroup->queue);
     return err;
+}
+
+int tgroup_set(tgroup_t *tgroup, thread_t *thread, int flags) {
+    if (!tgroup || !thread)
+        return -EINVAL;
+
+    tgroup_assert_locked(tgroup);
+
+    if (BTEST(flags, __tgroup_main)) {
+        if (tgroup->main_thread)
+            return -EALREADY;
+        tgroup->main_thread = thread;
+    }
+
+    if (BTEST(flags, __tgroup_waiter))
+        tgroup->waiter_thread = thread;
+
+    if (BTEST(flags, __tgroup_last))
+        tgroup->last_thread = thread;
+
+    return 0;
 }
 
 tid_t thread_self(void)
@@ -332,31 +367,28 @@ int thread_remove_queue(thread_t *thread, queue_t *queue)
     return queue_remove(queue, (void *)thread);
 }
 
-int thread_wake(thread_t *thread)
-{
-    return thread_wake_n(thread);
-}
-
-int thread_get(tgroup_t *tgrp, tid_t tid, thread_t **tref)
+int thread_get(tgroup_t *tgroup, tid_t tid, thread_t **tref)
 {
     thread_t *thread = NULL;
-    assert(tgrp, "no tgrp");
+    assert(tgroup, "no tgroup");
     assert(tref, "no thread reference");
-    assert(tgrp->queue, "no tgrp->queue");
+    assert(tgroup->queue, "no tgroup->queue");
 
-    queue_lock(tgrp->queue);
-    forlinked(node, tgrp->queue->head, node->next)
+    tgroup_assert_locked(tgroup);
+
+    queue_lock(tgroup->queue);
+    forlinked(node, tgroup->queue->head, node->next)
     {
         thread = node->data;
         if (thread->t_tid == tid)
         {
             *tref = thread;
             thread_lock(thread);
-            queue_unlock(tgrp->queue);
+            queue_unlock(tgroup->queue);
             return 0;
         }
     }
-    queue_unlock(tgrp->queue);
+    queue_unlock(tgroup->queue);
 
     return -ENOENT;
 }
@@ -378,6 +410,7 @@ int thread_kill_n(thread_t *thread)
 
 int thread_kill(tid_t tid)
 {
+    int err = 0;
     tgroup_t *tgroup = NULL;
 
     if (tid < 0)
@@ -387,7 +420,11 @@ int thread_kill(tid_t tid)
     tgroup = current->t_group;
     current_unlock();
 
-    return tgroup_kill_thread(tgroup, tid);
+    tgroup_lock(tgroup);
+    err = tgroup_kill_thread(tgroup, tid);
+    tgroup_unlock(tgroup);
+
+    return err;
 }
 
 int thread_join(tid_t tid, void **retval)
@@ -405,8 +442,12 @@ int thread_join(tid_t tid, void **retval)
         return -EINTR;
 
     assert(current->t_group, "no t_group");
-    if ((err = thread_get(current->t_group, tid, &thread)))
+
+    tgroup_lock(current->t_group);
+    if ((err = thread_get(current->t_group, tid, &thread))) {
+        tgroup_unlock(current->t_group);
         return err;
+    }
 
     thread_assert_locked(thread);
     if (thread == current)
@@ -470,11 +511,18 @@ int thread_wait(thread_t *thread, int reap, void **retval)
 
 int thread_kill_all(void)
 {
+    int err = 0;
+
     current_assert();
-    return tgroup_kill_thread(current->t_group, -1);
+
+    tgroup_unlock(current->t_group);
+    err = tgroup_kill_thread(current->t_group, -1);
+    tgroup_unlock(current->t_group);
+
+    return err;
 }
 
-int thread_wake_n(thread_t *thread)
+int thread_wake(thread_t *thread)
 {
     int err = 0, held = 0;
     thread_assert_locked(thread);
@@ -520,7 +568,7 @@ int thread_wake_n(thread_t *thread)
     return sched_park(thread);
 }
 
-int queue_get_thread(queue_t *queue, tid_t tid, thread_t **pthread)
+int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread)
 {
     thread_t *thread = NULL;
     queue_node_t *next = NULL;
@@ -569,6 +617,11 @@ int kthread_create(void *(*entry)(void *), void *arg, tid_t *__tid, thread_t **r
     {
         // assert(!(err = f_alloc_table(&file_table)), "couldn't allocate file table");
         assert(!(err = tgroup_new(thread->t_tid, &kthreads)), "failed to create tgroup");
+        
+        if ((err = tgroup_set(kthreads, thread, __tgroup_all)))
+            goto error;
+        
+        tgroup_unlock(kthreads);
     }
 
     thread->t_group = kthreads;

@@ -1,21 +1,22 @@
 #ifndef _STAT_H
 #define _STAT_H
 #include <lib/stdint.h>
+#include <lib/types.h>
 
 
 struct  stat 
 {
-  uint16_t   st_dev;
-  uint16_t   st_ino;
-  uint32_t   st_mode;
-  uint16_t   st_nlink;
-  uint32_t   st_uid;
-  uint32_t   st_gid;
-  uint16_t   st_rdev;
-  uint32_t   st_size;
-  //time_t  st_atime;
-  //time_t  st_mtime;
-  //time_t  st_ctime;
+  devid_t         st_dev;
+  ino_t           st_ino;
+  mode_t          st_mode;
+  unsigned long   st_nlink;
+  uid_t           st_uid;
+  gid_t           st_gid;
+  devid_t         st_rdev;
+  size_t          st_size;
+  time_t          st_atime;
+  time_t          st_mtime;
+  time_t          st_ctime;
 };
 
 

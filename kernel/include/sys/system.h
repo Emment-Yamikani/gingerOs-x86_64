@@ -22,7 +22,6 @@
 #define container_of(ptr, type, member) ({ \
 	const typeof( ((type *)0)->member ) *__mptr = (ptr); \
 	(type *)( (char *)__mptr - offsetof(type,member) ); })
-
 #endif
 
 #define __retaddr(l) __builtin_return_address(l)
@@ -49,7 +48,7 @@
 #define GiB         ((size_t)(MiB * KiB))
 #define PGSZ2M      (0x200000)
 #define PGSZ2MASK   (PGSZ2M -1)
-#define ALIGN16MB(x)(AND((uintptr_t)(x), NOT(0xf)))
+#define ALIGN16(x)  (AND((uintptr_t)(x), NOT(0xf)))
 
 #define MEMMDEV     ((uintptr_t)0xFE000000)
 #define USTACK      ((uintptr_t)0x800000000000)
@@ -61,9 +60,9 @@
 #define PGOFF(p)    (AND((uintptr_t)p, PGMASK))
 #define PG2MOFF(p)  (AND((uintptr_t)p, PGSZ2MASK))
 #define PGROUND(p)  ((uintptr_t)AND(((uintptr_t)p), ~PGMASK))
-#define PG2MROUND(p)  ((uintptr_t)AND(((uintptr_t)p), ~PGSZ2MASK))
+#define PG2MROUND(p)((uintptr_t)AND(((uintptr_t)p), ~PGSZ2MASK))
 #define NPAGE(p)    (((size_t)(p) / PGSZ) + (PGOFF(p) ? 1 : 0))
-#define N2MPAGE(p)    (((size_t)(p) / PGSZ2M) + (PG2MOFF(p) ? 1 : 0))
+#define N2MPAGE(p)  (((size_t)(p) / PGSZ2M) + (PG2MOFF(p) ? 1 : 0))
 #define PGROUNDUP(p)(PGOFF(p) ? (PGROUND(((uintptr_t)p) + PAGESZ) ) : (uintptr_t)(p))
 #define PG2MROUNDUP(p) (PG2MOFF(p) ? (PGROUND(((uintptr_t)p) + PGSZ2M)) : (uintptr_t)(p))
 

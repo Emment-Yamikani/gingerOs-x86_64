@@ -187,6 +187,8 @@ static int ramdisk_init(void) {
     int err = 0;
     ramdisk_t *rd = NULL;
 
+    printk("initializing ramdisks...\n");
+
     memset(ramdisks, 0, sizeof ramdisks);
 
     for (size_t i = 0; i < bootinfo.modcnt; ++i) {

@@ -1,16 +1,16 @@
+#include <arch/x86_64/mmu.h>
+#include <arch/x86_64/system.h>
 #include <arch/x86_64/thread.h>
 #include <bits/errno.h>
 #include <lib/stddef.h>
 #include <lib/string.h>
-#include <sys/thread.h>
 #include <sys/system.h>
-#include <arch/x86_64/mmu.h>
-#include <arch/x86_64/system.h>
+#include <sys/thread.h>
 
 void arch_thread_exit(uintptr_t exit_code) {
     current_lock();
-    current->t_state = T_ZOMBIE;
     current->t_exit = exit_code;
+    current->t_state = T_ZOMBIE;
     sched();
     panic("thread: %d failed to zombie\n", current->t_tid);
     loop();
@@ -18,9 +18,7 @@ void arch_thread_exit(uintptr_t exit_code) {
 
 void arch_thread_start(void) { current_unlock(); }
 
-void arch_thread_stop(void) {
-    arch_thread_exit(rdrax());
-}
+void arch_thread_stop(void) { arch_thread_exit(rdrax()); }
 
 int arch_kthread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg) {
     tf_t *tf = NULL;
@@ -30,10 +28,9 @@ int arch_kthread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg
     if (!thread)
         return -EINVAL;
 
-    stack = (uintptr_t *)ALIGN16MB((thread->t_kstack + KSTACKSZ) - sizeof (thread_t));
-    *--stack = 0;
-    *--stack = (uintptr_t)arch_thread_stop;
+    stack = (uintptr_t *)ALIGN16((thread->t_kstack + KSTACKSZ) - sizeof (thread_t));
 
+    *--stack = (uintptr_t)arch_thread_stop;
     tf = (tf_t *)((uintptr_t)stack - sizeof *tf);
     
     tf->ss = SEG_KDATA64 << 3;

@@ -24,7 +24,7 @@ typedef struct queue
     .count = 0,                     \
     .name = nam,                    \
     .flags = 0,                     \
-    .lock = SPINLOCK_INIT(),        \
+    .lock = {0},                    \
     .head = 0,                      \
     .tail = 0,                      \
 })

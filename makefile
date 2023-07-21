@@ -6,16 +6,14 @@ as=x86_64-elf-as
 
 cflags +=\
 	-O2 -g -nostdinc -nostdlib \
- 	-lgcc -std=gnu17 -Wall -march=x86-64\
+ 	-lgcc -std=gnu2x -Wall -march=x86-64\
  	-Werror -Wextra -mcmodel=large \
- 	-mno-red-zone -mno-mmx -mno-sse -mno-sse2
+ 	-mno-red-zone -mno-mmx -msse
 
 cppflags +=
 
 ldflags +=\
-	-nostdlib \
-	-static \
-	-m elf_x86_64 \
+	-nostdlib -static -m elf_x86_64 \
 	-z max-page-size=0x1000 \
 	-T \
 
@@ -35,7 +33,8 @@ iso_dir=iso
 ramfs_dir=ramfs
 
 linked_objs:=\
-$(kernel_objs)
+$(kernel_objs)\
+font.o
 
 .PHONY: all clean
 
@@ -47,10 +46,16 @@ $(kernel_objs)
 .s.o:
 	$(cc) $(kernel_flags) -MD -c $< -o $@
 
+.tf.o:
+	$(ld) -r -b binary -o $@ $^
+
 .asm.o:
 	nasm $< -f elf64 -o $@
 
 all: lime.elf module _iso_ debug run
+
+font.o: font.tf
+	$(ld) -r -b binary -o $@ $^
 
 lime.elf: $(iso_dir)/boot/lime.elf
 

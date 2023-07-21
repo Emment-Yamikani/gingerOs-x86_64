@@ -39,6 +39,7 @@ typedef struct {
     uintptr_t r12;
     uintptr_t r11;
     uintptr_t r10;
+    uintptr_t r9;
     uintptr_t rbx;
     uintptr_t rbp;
     uintptr_t rip;

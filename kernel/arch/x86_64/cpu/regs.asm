@@ -142,3 +142,59 @@ global invlpg
 invlpg:
 invlpg [rdi]
 retq
+
+global xsave
+xsave:
+    mov edx, 0xffffffff
+    mov eax, edx
+    xsave64 [rdi]
+    retq
+
+global xrstor
+xrstor:
+    mov edx, 0xffffffff
+    mov eax, edx
+    xrstor64 [rdi]
+    retq
+
+global wrxcr
+wrxcr:
+    mov rcx, rdi
+    mov rax, rsi
+    mov rdx, rsi
+    shr rdx, 32
+    xsetbv
+    retq
+
+global rdxcr
+rdxcr:
+    mov rcx, rdi
+    xgetbv
+    or rdx, rax
+    xchg rax, rdx 
+    retq
+
+global fxsave
+fxsave:
+    fxsave64 [rdi]
+    retq
+
+global fxrstor
+fxrstor:
+    fxrstor64 [rdi]
+    retq
+
+global rdrsp
+rdrsp:
+    mov rax, rsp
+    retq
+
+global rdrbp
+rdrbp:
+    mov rax,rbp
+    retq
+
+global finit
+finit:
+    finit
+    retq

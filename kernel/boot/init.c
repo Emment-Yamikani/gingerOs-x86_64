@@ -82,12 +82,12 @@ int multiboot_info_process(multiboot_info_t *info) {
     return 0;
 }
 
-extern void *kmain(void *);
+extern __noreturn void kthread_main(void *);
 
 int early_init(multiboot_info_t *info) {
     int err = 0;
     if ((err = multiboot_info_process(info)))
-        return err;
+        panic("Failed to process multiboot info structures, error: %d\n", err);
     
     if ((bsp_init()))
         panic("BSP initialization failed, error: %d\n", err);
@@ -99,25 +99,24 @@ int early_init(multiboot_info_t *info) {
         panic("Physical memory initialization failed, error: %d\n", err);
 
     if ((err = acpi_init()))
-        return err;
+        panic("Failed to initialize ACPI, error: %d\n", err);
 
     if ((err = lapic_init()))
-        panic("Failed to init LAPIC\n");
+        panic("Failed to init LAPIC, error: %d\n", err);
 
-    init_sched_queues();
     bootothers();
 
     pic_init();
     ioapic_init();
-    pit_init();
+    // pit_init();
 
     if ((err = dev_init()))
-        panic("Failed to start devices\n");
+        panic("Failed to start devices, error: %d\n", err);
 
     if ((err = vfs_init()))
-        panic("Failed to initialize VFS!\n");
+        panic("Failed to initialize VFS!, error: %d\n", err);
 
-    kthread_create(kmain, NULL, NULL, NULL);
+    kthread_create((void *)kthread_main, NULL, NULL, NULL);
 
     schedule();
     loop();

@@ -26,5 +26,5 @@ void pit_init(void) {
     uint16_t counter = 1193182 / HZ;
     outb(COUNTER(0), (uint8_t)counter);
     outb(COUNTER(0), (uint8_t)(counter >> 8));
-    ioapic_enable(LEG_PIT, lapic_id());
+    //ioapic_enable(LEG_PIT, lapic_id());
 }

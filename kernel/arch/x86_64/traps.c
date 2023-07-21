@@ -33,6 +33,8 @@ void dump_tf(tf_t *tf, int halt) {
            tf->rflags, tf->rsp, tf->ss);
 }
 
+extern void hpet_intr(void);
+
 void trap(tf_t *tf) {
 
     if (current) {
@@ -42,11 +44,18 @@ void trap(tf_t *tf) {
 
     switch (tf->trapno)
     {
-    case IRQ(LEG_PIT):
+    case IRQ(HPET):
+        hpet_intr();
         lapic_eoi();
         break;
+    case T_FPU_NM:
+        coprocessor_except();
+        break;
+    case T_SIMD_XM:
+        simd_fp_except();
+        break;
     case T_PGFAULT:
-        panic("[CPU%d] PF: err_code: %p, cr2: %p, rip: %p\n", cpu_id, tf->errno, rdcr2(), tf->rip);
+        panic("[CPU%d] PF: errno: %x, cr2: %lX, rip: %p\n", cpu_id, tf->errno, rdcr2(), tf->rip);
         break;
     case LAPIC_ERROR:
         lapic_eoi();
@@ -62,7 +71,7 @@ void trap(tf_t *tf) {
         lapic_eoi();
         break;
     default:
-        panic("[CPU%d] trap(%d): err_code: %p, cr2: %p, rip: %p\n", cpu_id, tf->trapno, tf->errno, rdcr2(), tf->rip);
+        panic("[CPU%d] trap(%d): errno: %x, rbp: %p, cr2: %lX, rip: %p\n", cpu_id, tf->trapno, tf->errno, tf->rbp, rdcr2(), tf->rip);
         break;
     }
 

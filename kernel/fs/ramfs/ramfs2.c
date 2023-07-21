@@ -6,6 +6,8 @@
 #include <bits/errno.h>
 #include <lib/string.h>
 
+#if (0)
+
 static iops_t ramfs2_iops;
 static filesystem_t ramfs2;
 static inode_t *iroot = NULL;
@@ -13,6 +15,8 @@ static superblock_t ramfs2_sb;
 static inode_t *iramdisk = NULL;
 static ramfs2_super_t *ramfs2_super = NULL;
 // static vmr_ops_t ramfs2_vmr_ops __unused;
+
+
 
 int ramfs2_validate(ramfs2_super_t *super)
 {
@@ -238,7 +242,7 @@ int ramfs2_load()
     int err = 0;
     mode_t mode = 0;
     uio_t uio = {.u_cwd = "/", .u_gid = 0, .u_uid = 0};
-    if ((err = vfs_lookup("/dev/ramdisk", &uio, O_RDONLY | O_EXCL, 0, mode, &iramdisk, NULL)))
+    if ((err = vfs_lookup("/dev/ramdisk", &uio, O_RDONLY | O_EXCL, mode, 0, &iramdisk, NULL)))
         goto error;
     if ((err = ramfs2_read_super()))
         goto error;
@@ -297,3 +301,5 @@ static filesystem_t ramfs2 = {
     .fsmount = ramfs2_fsmount,
 };
 */
+
+#endif

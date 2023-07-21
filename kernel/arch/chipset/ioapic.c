@@ -7,14 +7,16 @@
 #include <arch/x86_64/system.h>
 #include <arch/firmware/acpi.h>
 #include <arch/traps.h>
+#include <sync/spinlock.h>
 
 typedef struct {
-    uint32_t flags;
-    uint8_t version;
-    uint8_t nentries;
-    uint8_t ioapic_id;
-    uint32_t int_base;
-    volatile uint32_t *base_addr;
+    uint32_t            flags;
+    uint8_t             version;
+    uint8_t             nentries;
+    uint8_t             ioapic_id;
+    uint32_t            int_base;
+    volatile uint32_t   *base_addr;
+    spinlock_t          lock; // spinlock to protect this IO-APIC from concurrent acces.
 }ioapic_t;
 
 #define IOAPIC_ENABLED BS(1)
@@ -44,15 +46,21 @@ static ioapic_t **ioapics = NULL;
 static uint32_t read_ioapic(ioapic_t *ioapic, uint32_t reg) {
     if (!ioapic)
         panic("ioapic!!\n");
+    uint32_t data = 0;
+    spin_lock(&ioapic->lock);
     ioapic->base_addr[REGSEL] = reg & 0Xff;
-    return ioapic->base_addr[IODATA];
+    data = ioapic->base_addr[IODATA];
+    spin_unlock(&ioapic->lock);
+    return data;
 }
 
 static void write_ioapic(ioapic_t *ioapic, uint32_t reg, uint32_t data) {
     if (!ioapic)
         panic("ioapic!!\n");
+    spin_lock(&ioapic->lock);
     ioapic->base_addr[REGSEL] = reg & 0Xff;
     ioapic->base_addr[IODATA] = data;
+    spin_unlock(&ioapic->lock);
 }
 
 void ioapic_enable(int irq, int cpunum) {
@@ -102,6 +110,7 @@ int ioapic_init(void) {
             return -ENOMEM;
 
         ioapics[i++] = ioapic;
+        ioapic->lock = SPINLOCK_INIT();
         ioapic->ioapic_id = entry[2];
         ioapic->flags = IOAPIC_ENABLED;
         ioapic->int_base = *((uint32_t *)(&entry[8]));

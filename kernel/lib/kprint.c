@@ -376,23 +376,23 @@ static int cb_printf(void * user __unused, char c) {
 static spinlock_t *lock = &SPINLOCK_INIT();
 
 size_t printk(const char * fmt, ...) {
-	spin_lock(lock);
 	va_list args;
+	spin_lock(lock);
 	va_start(args, fmt);
-	int out = xvasprintf(cb_printf, NULL, fmt, args);
-	va_end(args);
+	size_t out = xvasprintf(cb_printf, NULL, fmt, args);
 	spin_unlock(lock);
+	va_end(args);
 	return out;
 }
 
 void panic(const char *restrict fmt, ...) {
-	spin_lock(lock);
 	va_list args;
 	va_start(args, fmt);
+	spin_lock(lock);
 	cli();
 	xvasprintf(cb_printf, NULL, fmt, args);
-	va_end(args);
 	spin_unlock(lock);
+	va_end(args);
 	loop() {
 		cli();
 		hlt();

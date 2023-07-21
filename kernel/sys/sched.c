@@ -7,25 +7,16 @@
 #include <sys/sched.h>
 #include <sys/thread.h>
 #include <arch/cpu.h>
+#include <ginger/jiffies.h>
 
-static queue_t *embryo_queue = NULL;
-static queue_t *zombie_queue = NULL;
-
-int init_sched_queues(void) {
-    int err = 0;
-    if ((err = queue_new("embryo-threads", &embryo_queue)))
-        return err;
-
-    if ((err = queue_new("zombie-threads", &zombie_queue)))
-        return err;
-    return 0;
-}
+static queue_t *embryo_queue = QUEUE_NEW("embryo-threads-queue");
+static queue_t *zombie_queue = QUEUE_NEW("zombie-threads-queue");
 
 int sched_init(void)
 {
     int err = 0;
-    sched_queue_t *sq = NULL;
     queue_t *q = NULL;
+    sched_queue_t *sq = NULL;
 
     if (!(sq = kmalloc(sizeof *sq)))
         return -ENOMEM;
@@ -42,28 +33,28 @@ int sched_init(void)
         switch (i)
         {
         case 0:
-            sq->level[i].quatum = 50;
+            sq->level[i].quatum = 25;
             break;
         case 1:
-            sq->level[i].quatum = 75;
+            sq->level[i].quatum = 50;
             break;
         case 2:
-            sq->level[i].quatum = 100;
+            sq->level[i].quatum = 75;
             break;
         case 3:
-            sq->level[i].quatum = 125;
+            sq->level[i].quatum = 100;
             break;
         case 4:
-            sq->level[i].quatum = 150;
+            sq->level[i].quatum = 125;
             break;
         case 5:
-            sq->level[i].quatum = 175;
+            sq->level[i].quatum = 150;
             break;
         case 6:
-            sq->level[i].quatum = 200;
+            sq->level[i].quatum = 175;
             break;
         case 7:
-            sq->level[i].quatum = 250;
+            sq->level[i].quatum = 200;
             break;
         }
     }
@@ -88,12 +79,12 @@ int sched_park(thread_t *thread)
     if (thread->t_state == T_EMBRYO)
         return thread_enqueue(embryo_queue, thread, NULL);
 
-    core = thread->t_sched_attr.core;
+    core = thread->t_sched_attr.processor;
     affinity = atomic_read(&thread->t_sched_attr.affinity);
     priority = atomic_read(&thread->t_sched_attr.priority);
 
     if (core == NULL)
-        core = thread->t_sched_attr.core = cpu;
+        core = thread->t_sched_attr.processor = cpu;
 
     switch (affinity)
     {
@@ -162,7 +153,10 @@ int sched_zombie(thread_t *thread)
     if ((err = thread_enqueue(zombie_queue, thread, NULL)))
         return err;
 
+    tgroup_lock(thread->t_group);
     atomic_dec(&thread->t_group->nthreads);
+    tgroup_unlock(thread->t_group);
+    
     cond_broadcast(thread->t_wait);
     return 0;
 }
@@ -232,7 +226,7 @@ int sched_wakeall(queue_t *sleep_queue)
         next = node->next;
         thread = node->data;
         thread_lock(thread);
-        assert(!thread_wake_n(thread), "failed to park thread");
+        assert(!thread_wake(thread), "failed to park thread");
         thread_unlock(thread);
     }
 
@@ -249,7 +243,16 @@ void sched(void)
     //printk("%s:%d: %s() tid(%d), ncli: %d, intena: %d [%p]\n", __FILE__, __LINE__, __func__, current->t_tid, cpu->ncli, cpu->intena, return_address(0));
     
     current_assert_locked();
+    
+    if (current_testflags(THREAD_SETPARK) && current_isleep()) {
+        if (current_testflags(THREAD_SETWAKE)) {
+            current_maskflags(THREAD_SETPARK | THREAD_SETWAKE);
+            popcli();
+            return;
+        }
+    }
 
+    
     swtch(&current->t_arch.t_ctx, cpu->ctx);
     current_assert_locked();
     
@@ -266,10 +269,10 @@ int sched_setattr(thread_t *thread, int affinity, int core)
 
     if ((affinity < SCHED_SOFT_AFFINITY) || (affinity > SCHED_HARD_AFFINITY))
         return -EINVAL;
-    if ((core < 0) || (core > (get_cpu_count() - 1)))
+    if ((core < 0) || (core > (cpu_count() - 1)))
         return -EINVAL;
     atomic_write(&thread->t_sched_attr.affinity, affinity);
-    thread->t_sched_attr.core = cpus[core];
+    thread->t_sched_attr.processor = cpus[core];
     return 0;
 }
 
@@ -291,7 +294,9 @@ void sched_yield(void)
 
 void schedule(void)
 {
+    jiffies_t jiffies = 0;
     thread_t *thread = NULL;
+
     sched_init();
 
     for (;;)
@@ -320,7 +325,15 @@ void schedule(void)
         current = thread;
 
         current_assert_locked();
+        
+        jiffies = jiffies_get();
+        current->t_sched_attr.last_sched = jiffies_TO_s(jiffies);
+
         swtch(&cpu->ctx, current->t_arch.t_ctx);
+        
+        jiffies = jiffies_get() - jiffies;
+        current->t_sched_attr.cpu_time += (jiffies);
+
         current_assert_locked();
 
         // paging_switch(oldpgdir);

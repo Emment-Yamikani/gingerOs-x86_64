@@ -1,9 +1,9 @@
 #include <arch/cpu.h>
 #include <arch/x86_64/system.h>
+#include <arch/firmware/acpi.h>
 #include <lib/stddef.h>
 #include <mm/kalloc.h>
 #include <bits/errno.h>
-#include <arch/firmware/acpi.h>
 #include <lib/string.h>
 #include <sync/atomic.h>
 #include <lib/printk.h>
@@ -12,12 +12,46 @@
 #include <mm/pmm.h>
 #include <sys/thread.h>
 
-
 cpu_t *cpus [MAXNCPU];
-static atomic_t ncpu = 1; // '1' because we are starting with BSP
 
-// local cpu data struct for the bsp
-static cpu_t bsp;
+static cpu_t bsp; // local cpu data struct for the bsp
+static atomic_t ncpu = 1; // '1' because we are starting with BSP
+static atomic_t cpus_running = 0;
+
+
+void cr0mask(uint64_t bits) {
+    uint64_t cr0 = rdcr0();
+    cr0 &= (~bits) | 1 | (1 << 31); // never disable paging and protected mode
+    wrcr0(cr0);
+}
+
+void cr0set(uint64_t bits) {
+    uint64_t cr0 = rdcr0();
+    cr0 |= bits;
+    wrcr0(cr0);
+}
+
+uint64_t cr0test(uint64_t bits) {
+    uint64_t cr0 = rdcr0();
+    return cr0 & bits;
+}
+
+uint64_t cr4test(uint64_t bits) {
+    uint64_t cr4 = rdcr4();
+    return cr4 & bits;
+}
+
+void cr4mask(uint64_t bits) {
+    uint64_t cr4 = rdcr4();
+    cr4 &= (~bits) | CR4_PAE;
+    wrcr4(cr4);
+}
+
+void cr4set(uint64_t bits) {
+    uint64_t cr4 = rdcr4();
+    cr4 |= bits;
+    wrcr4(cr4);
+}
 
 void cpu_get_features(void)
 {
@@ -25,13 +59,16 @@ void cpu_get_features(void)
 
     cpuid(0, 0, &eax, (uint32_t *)&cpu->vendor[0], (uint32_t *)&cpu->vendor[8], (uint32_t *)&cpu->vendor[4]);
 
-    cpuid(0x80000008, 0, (uint32_t *)&cpu->addr_size.raw, &ebx, &ecx, &edx);
+    cpuid(0x80000008, 0, &eax, &ebx, &ecx, &edx);
+
+    cpu->phys_addrsz = eax & 0xFF;
+    cpu->virt_addrsz = (eax >> 8) & 0xFF;
 
     cpuid(0x80000001, 0, &eax, &ebx, &ecx, &edx);
     
-    cpu->features |= BTEST(edx, 11) ? features0_SYSCALL : 0;
-    cpu->features |= BTEST(edx, 29) ? features1_LM : 0;
-    cpu->features |= BTEST(edx, 20) ? features1_XD : 0;
+    cpu->features |= BTEST(edx, 11) ? CPU_SYSCALL : 0;
+    cpu->features |= BTEST(edx, 29) ? CPU_LM : 0;
+    cpu->features |= BTEST(edx, 20) ? CPU_XD : 0;
 
     cpuid(0x1, 0, (uint32_t *)&cpu->version, &ebx, &ecx, &edx);
     cpu->features |= ((uint64_t)edx << 32) | ecx;
@@ -57,26 +94,27 @@ void cpu_get_features(void)
         cpu->freq *= 1000;
 
     /*
-    printk("freq: %d\n", cpu->brand_string[40]);
-    printk("Frequency: %ld %s\n", cpu->freq, &cpu->brand_string[44]);
+    printk("CPU Brand: %s.\n", cpu->brand_string);
+    printk("Frequency: %ld Hz\n", cpu->freq);
     printk("Vendor: %s.\n", cpu->vendor);
     printk("Feature0: %X.\n", cpu->features0);
     printk("Feature1: %X.\n", cpu->features1);
-    printk("Linear Address Bits: %d-bits.\n", cpu->addr_size.las);
-    printk("Physical Address Bits: %d-bits.\n", cpu->addr_size.pas);
+    printk("Linear Address Bits: %d-bits.\n", cpu->virt_addrsz);
+    printk("Physical Address Bits: %d-bits.\n", cpu->phys_addrsz);
     printk("64-bit Support: %s.\n", cpu->long_mode ? "Yes" : "No");
     printk("XD-bit Support: %s.\n", cpu->execute_disable ? "Yes" : "No");
     printk("SYSCALL/SYSRET Support: %s.\n", cpu->syscall ? "Yes" : "No");
-    printk("CPU Brand: %s.\n", cpu->brand_string);
     */
 }
 
 void cpu_init(cpu_t *c)
 {
+    atomic_inc(&cpus_running);
     disable_caching();
     idt_init();
     gdt_init(c);
     cpu_get_features();
+    sse_init();
     c->flags |= CPU_ENABLED | BTEST(rdmsr(IA32_APIC_BASE), 8) ? CPU_ISBSP : 0;
     atomic_fetch_or(&c->flags, CPU_ONLINE);
 }
@@ -89,18 +127,18 @@ int bsp_init(void)
     return 0;
 }
 
-int get_cpu_count(void) {
+int cpu_count(void) {
     return (int)atomic_read(&ncpu);
 }
 
-void set_cpu_locale(cpu_t *c) {
+void set_cpu_local(cpu_t *c) {
     wrmsr(IA32_GS_BASE, (uint64_t)c);
     wrmsr(IA32_KERNEL_GS_BASE, (uint64_t)c);
 }
 
-cpu_t *get_cpu_locale(void) { return (cpu_t*)rdmsr(IA32_GS_BASE); }
+cpu_t *get_cpu_local(void) { return (cpu_t*)rdmsr(IA32_GS_BASE); }
 
-int cpu_locale_id(void) {
+int cpu_local_id(void) {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     cpuid(0x1, 0, &a, &b, &c, &d);
     return ((b >> 24) & 0xFF);
@@ -115,11 +153,11 @@ int enumerate_cpus(void) {
     acpiMADT_t *MADT = NULL;
     extern uint32_t * LAPIC_BASE;
     struct {
-        uint8_t type;
-        uint8_t len;
-        uint8_t acpi_id;
-        uint8_t apicID;
-        uint32_t flags;
+        uint8_t     type;
+        uint8_t     len;
+        uint8_t     acpi_id;
+        uint8_t     apicID;
+        uint32_t    flags;
     } *apic = NULL;
 
     memset(cpus, 0, sizeof cpus);

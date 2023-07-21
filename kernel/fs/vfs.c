@@ -35,15 +35,25 @@ error:
 
 static dentry_t *vfs_get_droot(void)
 {
+    dentry_t *dentry = NULL;
+
+    spin_lock(droot_lock);
+
     if (!droot)
-        return NULL;
+        goto done;
+
     dentry_lock(droot);
     if (dentry_dup(droot))
     {
         dentry_unlock(droot);
-        return NULL;
+        goto done;
     }
-    return droot;
+
+    dentry = droot;
+
+done:
+    spin_unlock(droot_lock);
+    return dentry;
 }
 
 int vfs_set_droot(dentry_t *dentry) {
@@ -106,10 +116,10 @@ int vfs_filesystem_alloc(const char *type, filesystem_t **pfs) {
     INIT_LIST_HEAD(&fs->fs_list);
     INIT_LIST_HEAD(&fs->fs_sblocks);
 
-
     fs->fs_count = 1;
     fs->fs_type = fstype;
     fs->fs_lock = SPINLOCK_INIT();
+    fs_lock(fs);
 
     *pfs = fs;
     return 0;
@@ -126,7 +136,7 @@ int vfs_filesystem_register(const char *type, uio_t uio __unused, int flags, iop
     int err = 0;
     filesystem_t *fs = NULL;
     
-    if (!(err = vfs_filesystem_alloc(type, &fs)))
+    if ((err = vfs_filesystem_alloc(type, &fs)))
         goto error;
 
     fs->fs_iops = iops;
@@ -134,10 +144,11 @@ int vfs_filesystem_register(const char *type, uio_t uio __unused, int flags, iop
     spin_lock(fs_IDlock);
     fs->fs_id = fs_ID++;
     spin_unlock(fs_IDlock);
-    
-    fs_lock(fs);
 
+    spin_lock(fs_listlock);
     list_add(&fs->fs_list, &fs_list);
+    spin_unlock(fs_listlock);
+
     *pfs = fs;
     
     return 0;
@@ -145,13 +156,11 @@ error:
     return err;
 }
 
-
-int vfs_lookup(const char *path, UIO uio, int oflags, int flags __unused, mode_t mode, INODE *pinode, dentry_t **pdentry)
+int vfs_lookup(const char *path, UIO uio, int oflags, mode_t mode, int flags __unused, INODE *pinode, dentry_t **pdentry)
 {
     int err = 0;
     size_t tok_i = 0;
-    char *cwd = NULL;
-    char *abspath = NULL;
+    char *cwd = NULL, *abspath = NULL;
     INODE i_dir = NULL, inode = NULL;
     dentry_t *dir = droot, *dentry = NULL;
     char **path_tokens = NULL, *last_tok = NULL;

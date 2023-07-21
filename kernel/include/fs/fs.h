@@ -60,6 +60,13 @@ typedef struct superblock
 #define sb_unlock(__sb)         ({sb_assert(__sb); spin_unlock(&__sb->sb_lock); })
 #define sb_assert_locked(__sb)  ({sb_assert(sb); spin_assert_locked(&__sb->sb_lock); })
 
+typedef struct {
+    int (*init)();
+    int (*load)();
+    int (*mount)();
+    int (*unmount)();
+} fsops_t;
+
 typedef struct filesystem
 {
     unsigned long   fs_id;      // per-fs Identity
@@ -71,6 +78,8 @@ typedef struct filesystem
     char            *fs_uuid;   // unique user ID
     void            *fs_priv;   // private data
     list_head_t     fs_sblocks; // list of all superblocks of this filesystem type
+    fsops_t         *fs_ops;      // filesystem specific operations.
+
 
     spinlock_t      fs_lock;
 } filesystem_t;
@@ -88,7 +97,7 @@ extern int vfs_filesystem_register(const char *type, uio_t uio, int flags, iops_
 
 extern int vfs_set_droot(dentry_t *dentry);
 extern int check_iperm(inode_t *ip, uio_t *uio, int oflags);
-extern int vfs_lookup(const char *path, UIO uio, int oflags, int flags, mode_t mode, INODE *pinode, dentry_t **pdentry);
+extern int vfs_lookup(const char *path, UIO uio, int oflags, mode_t mode, int flags, INODE *pinode, dentry_t **pdentry);
 
 extern ssize_t vfs_iread(INODE, void *, size_t);
 extern int vfs_open(const char *path, int oflags, int mode, INODE *ref);
