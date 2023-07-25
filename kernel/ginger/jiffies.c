@@ -30,6 +30,11 @@ jiffies_t jiffies_get(void) {
     return jiffy;
 }
 
+void jiffies_timed_wait(double s) {
+    jiffies_t jiffy = jiffies_get() + s_TO_jiffies(s);
+    while (time_before(jiffies_get(), jiffy));
+}
+
 jiffies_t jiffies_sleep(jiffies_t jiffy) {
     jiffies_t now = 0;
     jiffy += jiffies_get();
@@ -43,7 +48,6 @@ jiffies_t jiffies_sleep(jiffies_t jiffy) {
     }
     return jiffy - now;
 }
-
 
 int jiffies_getres(struct timespec *res) {
     if (!res)

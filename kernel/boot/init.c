@@ -104,8 +104,6 @@ int early_init(multiboot_info_t *info) {
     if ((err = lapic_init()))
         panic("Failed to init LAPIC, error: %d\n", err);
 
-    bootothers();
-
     pic_init();
     ioapic_init();
     // pit_init();
@@ -118,6 +116,7 @@ int early_init(multiboot_info_t *info) {
 
     kthread_create((void *)kthread_main, NULL, NULL, NULL);
 
+    bootothers();
     schedule();
     loop();
     return 0;

@@ -8,6 +8,7 @@
 #include <sys/thread.h>
 #include <arch/cpu.h>
 #include <ginger/jiffies.h>
+#include <arch/lapic.h>
 
 static queue_t *embryo_queue = QUEUE_NEW("embryo-threads-queue");
 static queue_t *zombie_queue = QUEUE_NEW("zombie-threads-queue");
@@ -33,28 +34,28 @@ int sched_init(void)
         switch (i)
         {
         case 0:
-            sq->level[i].quatum = 25;
+            sq->level[i].quatum = 10; // 100ms
             break;
         case 1:
-            sq->level[i].quatum = 50;
+            sq->level[i].quatum = 15; // 150ms
             break;
         case 2:
-            sq->level[i].quatum = 75;
+            sq->level[i].quatum = 20; // 200ms
             break;
         case 3:
-            sq->level[i].quatum = 100;
+            sq->level[i].quatum = 25; // 250ms
             break;
         case 4:
-            sq->level[i].quatum = 125;
+            sq->level[i].quatum = 30; // 300ms
             break;
         case 5:
-            sq->level[i].quatum = 150;
+            sq->level[i].quatum = 35; // 350ms
             break;
         case 6:
-            sq->level[i].quatum = 175;
+            sq->level[i].quatum = 40; // 400ms
             break;
         case 7:
-            sq->level[i].quatum = 200;
+            sq->level[i].quatum = 50; // 500ms
             break;
         }
     }
@@ -152,12 +153,7 @@ int sched_zombie(thread_t *thread)
 
     if ((err = thread_enqueue(zombie_queue, thread, NULL)))
         return err;
-
-    tgroup_lock(thread->t_group);
     atomic_dec(&thread->t_group->nthreads);
-    tgroup_unlock(thread->t_group);
-    printk("tid[%d] %s dying\n", thread->t_tid, t_states[thread->t_state]);
-    
     cond_broadcast(thread->t_wait);
     return 0;
 }
@@ -295,13 +291,14 @@ void sched_yield(void)
 
 void schedule(void)
 {
-    jiffies_t jiffies = 0;
+    jiffies_t before = 0, now = 0;
     thread_t *thread = NULL;
 
     sched_init();
 
-    for (;;)
-    {
+    lapic_recalibrate(100);
+
+    loop() {
         current = NULL;
 
         cpu->ncli = 0;
@@ -326,14 +323,13 @@ void schedule(void)
         current = thread;
 
         current_assert_locked();
-        
-        jiffies = jiffies_get();
-        current->t_sched_attr.last_sched = jiffies_TO_s(jiffies);
+
+        before = jiffies_get();
+        current->t_sched_attr.last_sched = jiffies_TO_s(before);
 
         swtch(&cpu->ctx, current->t_arch.t_ctx);
-        
-        jiffies = jiffies_get() - jiffies;
-        current->t_sched_attr.cpu_time += (jiffies);
+        now = jiffies_get();
+        current->t_sched_attr.cpu_time += (now - before);
 
         current_assert_locked();
 

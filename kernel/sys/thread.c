@@ -142,8 +142,7 @@ error:
     return err;
 }
 
-void tgroup_wait_all(tgroup_t *tgroup)
-{
+void tgroup_wait_all(tgroup_t *tgroup) {
     thread_t *thread = NULL;
     queue_node_t *next = NULL;
 
@@ -183,8 +182,7 @@ void tgroup_wait_all(tgroup_t *tgroup)
     return;
 }
 
-int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid)
-{
+int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid) {
     int err = 0;
     thread_t *thread = NULL;
     queue_node_t *next = NULL;
@@ -277,21 +275,27 @@ int tgroup_set(tgroup_t *tgroup, thread_t *thread, int flags) {
     return 0;
 }
 
-tid_t thread_self(void)
-{
+tid_t thread_self(void) {
     current_assert();
     return current->t_tid;
 }
 
-void thread_exit(uintptr_t exit_code)
-{
+void thread_exit(uintptr_t exit_code) {
     current_assert();
     arch_thread_exit(exit_code);
 }
 
-void thread_yield(void)
-{
-    sched_yield();
+void thread_yield(void) { sched_yield(); }
+
+void thread_yield_r(void) {
+    if ((!current_locked())) {
+        current_lock();
+        current->t_state = T_READY;
+        sched();
+    } else {
+        current->t_state = T_READY;
+        sched();
+    }
 }
 
 int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode)
@@ -370,16 +374,20 @@ int thread_remove_queue(thread_t *thread, queue_t *queue)
 int thread_get(tgroup_t *tgroup, tid_t tid, thread_t **tref)
 {
     thread_t *thread = NULL;
-    
+    queue_node_t *next = NULL;
+
     if (!tref || !tgroup)
         return -EINVAL;
 
     tgroup_assert_locked(tgroup);
 
     queue_lock(tgroup->queue);
-    forlinked(node, tgroup->queue->head, node->next)
+    forlinked(node, tgroup->queue->head, next)
     {
         thread = node->data;
+        next = node->next;
+        if (current == thread)
+            continue;
         thread_lock(thread);
         if (thread->t_tid == tid)
         {
@@ -396,6 +404,7 @@ int thread_get(tgroup_t *tgroup, tid_t tid, thread_t **tref)
 
 int thread_state_get(tgroup_t *tgroup, tstate_t state, thread_t **tref) {
     thread_t *thread = NULL;
+    queue_node_t *next = NULL;
 
     if (!tref || !tgroup)
         return -EINVAL;
@@ -403,9 +412,12 @@ int thread_state_get(tgroup_t *tgroup, tstate_t state, thread_t **tref) {
     tgroup_assert_locked(tgroup);
 
     queue_lock(tgroup->queue);
-    forlinked(node, tgroup->queue->head, node->next)
+    forlinked(node, tgroup->queue->head, next)
     {
         thread = node->data;
+        next = node->next;
+        if (current == thread)
+            continue;
         thread_lock(thread);
         if (thread_isstate(thread, state))
         {
@@ -436,8 +448,7 @@ int thread_get_r(tgroup_t *tgroup, tid_t tid, tstate_t state, int flags, thread_
     return err;
 }
 
-int thread_kill_n(thread_t *thread)
-{
+int thread_kill_n(thread_t *thread) {
     thread_assert(thread);
     if (thread == current)
         return 0;
@@ -451,8 +462,7 @@ int thread_kill_n(thread_t *thread)
     return 0;
 }
 
-int thread_kill(tid_t tid)
-{
+int thread_kill(tid_t tid) {
     int err = 0;
     tgroup_t *tgroup = NULL;
 
@@ -492,12 +502,7 @@ int thread_join(tid_t tid, thread_info_t *info, void **retval) {
 
     thread_assert_locked(thread);
 
-    err = thread_join_r(thread, info, retval);
-    
-    if (err == -EDEADLOCK)
-        thread_unlock(thread);
-    
-    return err;
+    return thread_join_r(thread, info, retval);
 }
 
 int thread_join_r(thread_t *thread, thread_info_t *info, void **retval) {

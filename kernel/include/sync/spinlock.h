@@ -59,11 +59,11 @@ status: %d: current: %p: spinlock held at %s:%d, retaddr: %p!", \
         cpu_pause();                                            \
         pushcli();                                              \
     }                                                           \
+    (lk)->line = __LINE__;                                      \
+    (lk)->file = __FILE__;                                      \
     (lk)->processor = cpu;                                      \
     (lk)->thread = current;                                     \
-    (lk)->line = __LINE__;                                      \
     (lk)->retaddr = __retaddr(0);                               \
-    (lk)->file = __FILE__;                                      \
 })
 
 // release spinlock

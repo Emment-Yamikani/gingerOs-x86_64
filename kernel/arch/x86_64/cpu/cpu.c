@@ -131,12 +131,19 @@ int cpu_count(void) {
     return (int)atomic_read(&ncpu);
 }
 
+int cpu_rsel(void) {
+    static atomic_t i = 0;
+    return (atomic_inc(&i) % ncpu);
+}
+
 void set_cpu_local(cpu_t *c) {
     wrmsr(IA32_GS_BASE, (uint64_t)c);
     wrmsr(IA32_KERNEL_GS_BASE, (uint64_t)c);
 }
 
-cpu_t *get_cpu_local(void) { return (cpu_t*)rdmsr(IA32_GS_BASE); }
+cpu_t *get_cpu_local(void) { 
+    return (cpu_t*)rdmsr(IA32_GS_BASE);
+}
 
 int cpu_local_id(void) {
     uint32_t a = 0, b = 0, c = 0, d = 0;
@@ -151,7 +158,6 @@ void loadgs_base(uintptr_t base) { wrmsr(IA32_GS_BASE, base); }
 int enumerate_cpus(void) {
     char *entry = NULL;
     acpiMADT_t *MADT = NULL;
-    extern uint32_t * LAPIC_BASE;
     struct {
         uint8_t     type;
         uint8_t     len;
@@ -167,7 +173,7 @@ int enumerate_cpus(void) {
         return -ENOENT;
 
     entry = (void *)MADT->apics;
-    LAPIC_BASE = (void *)VMA2HI(MADT->lapic_addr);
+    lapic_setaddr(VMA2HI(MADT->lapic_addr));
 
     for (; entry && entry < (((char *)MADT) + MADT->madt.length); entry += entry[1]) {
         if (*entry == 0) {
@@ -204,6 +210,7 @@ int bootothers(void) {
         if (!(stack = (void *)VMA2HI(pmman.get_pages(GFP_NORMAL, 7) + KSTACKSZ)))
             return -ENOMEM;
 
+        *--stack = 0;
         *--stack = (uintptr_t)ap_start;
         *((uintptr_t *)VMA2HI(&ap_trampoline[4032])) = rdcr3();
         *((uintptr_t *)VMA2HI(&ap_trampoline[4040])) = (uintptr_t)stack;

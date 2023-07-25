@@ -6,6 +6,8 @@
 #include <bits/errno.h>
 #include <arch/traps.h>
 #include <sys/thread.h>
+#include <ginger/jiffies.h>
+#include <dev/hpet.h>
 
 volatile uint32_t *LAPIC_BASE = 0;
 
@@ -72,7 +74,9 @@ volatile uint32_t *LAPIC_BASE = 0;
 #define X64     0b1001
 #define X128    0b1010
 
-void lapic_eoi(void) { EOI = 0; }
+void lapic_eoi(void) {
+    EOI = 0;
+}
 
 void lapic_disable(void) { SIVR = 0xFF; }
 
@@ -80,13 +84,16 @@ int lapic_id(void) { return (ID >> 24) & 0xFF; }
 
 void lapic_enable(void) { SIVR = ENABLED | LAPIC_SPURIOUS; }
 
-int lapic_init(void)
-{
+void lapic_setaddr(uintptr_t addr) {
+    LAPIC_BASE = (void *)addr;
+}
+
+int lapic_init(void) {
     SIVR = ENABLED | LAPIC_SPURIOUS;
 
     LVT_TIMER = MASKED;
     DCR = X1;
-    ICR = 24000;
+    ICR = 1000000;
     LVT_TIMER = PERIODIC | LAPIC_TIMER;
 
     LVT_LINT0 = MASKED;
@@ -99,24 +106,34 @@ int lapic_init(void)
 
     ICR1 = 0;
     ICR0 = INIT | LEVEL | BCAST;
-    while (ICR0 & DELIVS);
+    while (ICR0 & DELIVS)
+        ;
 
     TPR = 0;
     return 0;
 }
 
-static void microdelay(int us)
-{
+static void microdelay(int us) {
     while (us--)
-        for (int i = 0; i < 1000; i++);
+        for (int i = 0; i < 1000; i++)
+            ;
 }
 
-void lapic_recalibrate(int hz) {
-    (void)hz;
+void lapic_recalibrate(long hz) {
+    uint32_t ticks = 0;
+    uint32_t timer = LVT_TIMER;
+    double s = HZ_TO_s(hz);
+
+    ICR = -1;
+    hpet_wait(s);
+    LVT_TIMER = MASKED;
+    ticks = ((uint32_t)-1) - CCR;
+
+    ICR = ticks;
+    LVT_TIMER = timer;
 }
 
-void lapic_startup(int id, uint16_t addr)
-{
+void lapic_startup(int id, uint16_t addr) {
     ICR1 = (id << 24);
     ICR0 = INIT | ASSERT;
     while (ICR0 & DELIVS)
@@ -139,12 +156,10 @@ void lapic_startup(int id, uint16_t addr)
     }
 }
 
-void lapic_timerintr(void)
-{
+void lapic_timerintr(void) {
     atomic_inc(&cpu->timer_ticks);
-    if (current) {
+    if (current)
         atomic_dec(&current->t_sched_attr.timeslice);
-    }
 }
 
 void lapic_ipi(int id, int ipi) {
@@ -159,5 +174,6 @@ void lapic_ipi(int id, int ipi) {
         ICR0 = ASSERT | LEVEL | BCAST_XSELF | (ipi & 0xff);
     else // send to specific lapic.
         ICR0 = ASSERT | LEVEL | (ipi & 0xff);
-    while (ICR0 & DELIVS);
+    while (ICR0 & DELIVS)
+        ;
 }

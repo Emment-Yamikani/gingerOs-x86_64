@@ -143,6 +143,7 @@ extern cpu_t *cpus[MAXNCPU];
 
 #define cpu                 (get_cpu_local())          // get CPU local structure.
 #define cpu_id              (cpu_local_id())           // local apic
+#define cpuID               (cpu_id)   
 #define current             (cpu->thread)              // currently running thread.
 #define simd_thread         (cpu->simd_thread)         // current FPU thread.
 #define simdctx             (cpu->simd_ctx)            // current FPU context.
@@ -157,6 +158,7 @@ extern int                  sse_init(void);
 extern void                 simd_fp_except(void);
 extern void                 coprocessor_except(void);
 
+extern int                  cpu_rsel(void);
 extern int                  cpu_count(void);
 extern int                  bootothers(void);
 extern void                 cpu_init(cpu_t *);

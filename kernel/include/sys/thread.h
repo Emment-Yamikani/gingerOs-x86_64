@@ -109,6 +109,7 @@ typedef struct thread
 
     uintptr_t       t_exit;     // thread exit code.
     atomic_t        t_flags;    // threads flags.
+    atomic_t        t_spinlocks;
     uintptr_t       t_errno;    // thread's errno.
 
     void            *t_simd_ctx;
@@ -175,24 +176,57 @@ typedef struct {
 #define thread_set_simd_dirty(t)      ({ thread_setflags(t, THREAD_SIMD_DIRTY); })
 #define thread_mask_simd_dirty(t)     ({ thread_maskflags(t, THREAD_SIMD_DIRTY); })
 
+#define thread_inc_spinlocks(t) ({                              \
+    size_t locks;                                               \
+    int locked = thread_locked(t);                              \
+    if (!locked)                                                \
+        thread_lock(t);                                         \
+    locks = (size_t)atomic_add_fetch(&current->t_spinlocks, 1); \
+    if (!locked)                                                \
+        thread_unlock(t);                                       \
+    locks;                                                      \
+})
+
+#define thread_dec_spinlocks(t) ({                              \
+    size_t locks;                                               \
+    int locked = thread_locked(t);                              \
+    if (!locked)                                                \
+        thread_lock(t);                                         \
+    locks = (size_t)atomic_sub_fetch(&current->t_spinlocks, 1); \
+    if (!locked)                                                \
+        thread_unlock(t);                                       \
+    locks;                                                      \
+})
+
+#define thread_spinlocks(t) ({                          \
+    size_t locks;                                       \
+    int locked = thread_locked(t);                      \
+    if (!locked)                                        \
+        thread_lock(t);                                 \
+    locks = (size_t)atomic_read(&current->t_spinlocks); \
+    if (!locked)                                        \
+        thread_unlock(t);                               \
+    locks;                                              \
+})
+
 #define thread_killed(t) ({                            \
-    int locked = thread_locked(t);                       \
-    if (!locked)                                         \
-        thread_lock(t);                                  \
+    int locked = thread_locked(t);                     \
+    if (!locked)                                       \
+        thread_lock(t);                                \
     int killed = thread_testflags((t), THREAD_KILLED); \
-    if (!locked)                                         \
-        thread_unlock(t);                                \
-    killed;                                              \
+    if (!locked)                                       \
+        thread_unlock(t);                              \
+    killed;                                            \
 })
 
 #define thread_ishandling_signal(t) ({                         \
-    int locked = thread_locked(t);                               \
-    if (!locked)                                                 \
-        thread_lock(t);                                          \
+    int locked = thread_locked(t);                             \
+    if (!locked)                                               \
+        thread_lock(t);                                        \
     int handling = thread_testflags((t), THREAD_HANDLING_SIG); \
-    if (!locked)                                                 \
-        thread_unlock(t);                                        \
-    handling;                                                    \
+    if (!locked)                                               \
+        thread_unlock(t);                                      \
+    handling;                                                  \
 })
 
 #define current_assert()                ({ assert(current, "No current thread running"); })
@@ -200,6 +234,8 @@ typedef struct {
 #define current_unlock()                ({ thread_unlock(current); })
 #define current_locked()                ({ thread_locked(current); })
 #define current_assert_locked()         ({ thread_assert_locked(current); })
+
+#define current_inc_spinlocks()         ({ })
 
 #define current_isstate(state)          ({ thread_isstate(current, state); })
 #define current_embryo()                ({ thread_embryo(current); })

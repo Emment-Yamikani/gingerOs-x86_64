@@ -76,7 +76,7 @@ long_mode:
     mov rsp, qword [stack]
     mov rbp, rsp
 
-    ret
+    retq
 
 times 4032 - ($ - $$) db 0
 pdbr:  dq 0 ; pdbr
