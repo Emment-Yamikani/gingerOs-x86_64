@@ -5,7 +5,7 @@
 static inline void hlt() { asm __volatile__ ("hlt"); }
 static inline void cli() { asm __volatile__ ("cli"); }
 static inline void sti() { asm __volatile__ ("sti"); }
-static inline void pause() { asm __volatile__("pause"); }
+static inline void cpu_pause() { asm __volatile__("pause"); }
 
 extern void disable_caching(void);
 static inline uintptr_t rdrax(void) {uintptr_t ret; asm volatile("":"=a"(ret)); return ret;}
@@ -39,7 +39,7 @@ extern void xrstor(void *region);
 extern void fxsave(void *region);
 extern void fxrstor(void *region);
 
-extern void finit(void);
+extern void fninit(void);
 extern void invlpg(uintptr_t);
 
 #define is_intena() ({ (rdrflags() & 0x200); })

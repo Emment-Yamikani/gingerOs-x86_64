@@ -24,7 +24,7 @@ start32:
 
     ; Just make sure paging structures are zero'ed,
     ; Even though the bootloader does that for us,
-    ; You can never be too sure (I have servere trust issues ;) ).
+    ; You can never be too sure (I have severe trust issues ;) ).
     xor eax, eax
     mov edi, (__pml4 - VMA)
     mov cr3, edi
@@ -57,7 +57,6 @@ start32:
 
     mov eax, 0x80000000
     cpuid
-
     test eax, 0x80000001 ; Test for extended cpu features.
     jb .noext
 
@@ -130,7 +129,6 @@ start64:
     pop rdi
     
     call early_init
-
     jmp $
 
 align 16

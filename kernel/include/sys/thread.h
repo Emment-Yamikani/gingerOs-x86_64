@@ -24,7 +24,7 @@ typedef enum {
     T_ZOMBIE,
 } tstate_t;
 
-__unused static const char *states[] = {
+__unused static const char *t_states[] = {
     [T_EMBRYO] = "EMBRYO",
     [T_READY] = "READY",
     [T_RUNNING] = "RUNNING",
@@ -111,7 +111,7 @@ typedef struct thread
     atomic_t        t_flags;    // threads flags.
     uintptr_t       t_errno;    // thread's errno.
 
-    void            *t_fpu_ctx;    
+    void            *t_simd_ctx;
     pagemap_t       *t_map;     // thread's process virtual address space.
 
     sleep_attr_t    sleep_attr;  // struct describing sleep attributes for this thread.
@@ -127,29 +127,41 @@ typedef struct thread
     spinlock_t      t_lock;      // lock to synchronize access to this struct.
 } __aligned(16) thread_t;
 
+typedef struct {
+    tid_t           ti_tid;
+    tid_t           ti_killer;
+    tstate_t        ti_state;
+    sched_attr_t    ti_sched;
+    uintptr_t       ti_errno;
+    uintptr_t       ti_exit;
+    atomic_t        ti_flags;
+} thread_info_t;
+
 #define THREAD_USER                     BS(0)
 #define THREAD_KILLED                   BS(1)
 #define THREAD_SETPARK                  BS(2)
 #define THREAD_SETWAKE                  BS(3)  
 #define THREAD_HANDLING_SIG             BS(4)
+#define THREAD_SIMD_DIRTY               BS(7)
 
-#define thread_assert(t)                ({ assert_msg(t, "No thread pointer\n");})
+#define thread_assert(t)                ({ assert(t, "No thread pointer\n");})
 #define thread_lock(t)                  ({ thread_assert(t); spin_lock(&((t)->t_lock)); })
 #define thread_unlock(t)                ({ thread_assert(t); spin_unlock(&((t)->t_lock)); })
 #define thread_locked(t)                ({ thread_assert(t); spin_locked(&((t)->t_lock)); })
 #define thread_assert_locked(t)         ({ thread_assert(t); spin_assert_locked(&((t)->t_lock)); })
 
-#define __thread_embryo(t)              ({ thread_assert_locked(t); ((t)->t_state == T_EMBRYO); })
-#define __thread_ready(t)               ({ thread_assert_locked(t); ((t)->t_state == T_READY); })
-#define __thread_isleep(t)              ({ thread_assert_locked(t); ((t)->t_state == T_ISLEEP); })
-#define __thread_running(t)             ({ thread_assert_locked(t); ((t)->t_state == T_RUNNING); })
-#define __thread_stopped(t)             ({ thread_assert_locked(t); ((t)->t_state == T_STOPPED); })
-#define __thread_zombie(t)              ({ thread_assert_locked(t); ((t)->t_state == T_ZOMBIE); })
-#define __thread_terminated(t)          ({ thread_assert_locked(t); ((t)->t_state == T_TERMINATED); })
-#define __thread_testflags(t, flags)    ({ thread_assert_locked(t); atomic_read(&((t)->t_flags)) & (flags); })
-#define __thread_setflags(t, flags)     ({ thread_assert_locked(t); atomic_fetch_or(&((t)->t_flags), (flags)); })
-#define __thread_maskflags(t, flags)    ({ thread_assert_locked(t); atomic_fetch_and(&((t)->t_flags), ~(flags)); })
-#define __thread_enter_state(t, state)  ({        \
+#define thread_isstate(t, state)      ({ thread_assert_locked(t); ((t)->t_state == (state)); })
+#define thread_embryo(t)              ({ thread_isstate(t, T_EMBRYO); })
+#define thread_ready(t)               ({ thread_isstate(t, T_READY); })
+#define thread_isleep(t)              ({ thread_isstate(t, T_ISLEEP); })
+#define thread_running(t)             ({ thread_isstate(t, T_RUNNING); })
+#define thread_stopped(t)             ({ thread_isstate(t, T_STOPPED); })
+#define thread_zombie(t)              ({ thread_isstate(t, T_ZOMBIE); })
+#define thread_terminated(t)          ({ thread_isstate(t, T_TERMINATED); })
+#define thread_testflags(t, flags)    ({ thread_assert_locked(t); atomic_read(&((t)->t_flags)) & (flags); })
+#define thread_setflags(t, flags)     ({ thread_assert_locked(t); atomic_fetch_or(&((t)->t_flags), (flags)); })
+#define thread_maskflags(t, flags)    ({ thread_assert_locked(t); atomic_fetch_and(&((t)->t_flags), ~(flags)); })
+#define thread_enter_state(t, state)  ({        \
     thread_assert_locked(t);                      \
     int err = 0;                                  \
     if ((state) < T_EMBRYO || (state) > T_ZOMBIE) \
@@ -159,21 +171,25 @@ typedef struct thread
     err;                                          \
 })
 
-#define __thread_killed(t) ({                            \
+#define thread_issimd_dirty(t)        ({ thread_testflags(t, THREAD_SIMD_DIRTY); })
+#define thread_set_simd_dirty(t)      ({ thread_setflags(t, THREAD_SIMD_DIRTY); })
+#define thread_mask_simd_dirty(t)     ({ thread_maskflags(t, THREAD_SIMD_DIRTY); })
+
+#define thread_killed(t) ({                            \
     int locked = thread_locked(t);                       \
     if (!locked)                                         \
         thread_lock(t);                                  \
-    int killed = __thread_testflags((t), THREAD_KILLED); \
+    int killed = thread_testflags((t), THREAD_KILLED); \
     if (!locked)                                         \
         thread_unlock(t);                                \
     killed;                                              \
 })
 
-#define __thread_ishandling_signal(t) ({                         \
+#define thread_ishandling_signal(t) ({                         \
     int locked = thread_locked(t);                               \
     if (!locked)                                                 \
         thread_lock(t);                                          \
-    int handling = __thread_testflags((t), THREAD_HANDLING_SIG); \
+    int handling = thread_testflags((t), THREAD_HANDLING_SIG); \
     if (!locked)                                                 \
         thread_unlock(t);                                        \
     handling;                                                    \
@@ -185,17 +201,22 @@ typedef struct thread
 #define current_locked()                ({ thread_locked(current); })
 #define current_assert_locked()         ({ thread_assert_locked(current); })
 
-#define current_embryo()                ({ __thread_embryo(current); })
-#define current_ready ()                ({ __thread_ready(current); })
-#define current_isleep()                ({ __thread_isleep(current); })
-#define current_running()               ({ __thread_running(current); })
-#define current_stopped()               ({ __thread_stopped(current); })
-#define current_zombie()                ({ __thread_zombie(current); })
-#define current_terminated()            ({ __thread_terminated(current); })
-#define current_setflags(flags)         ({ __thread_setflags(current, (flags)); })
-#define current_testflags(flags)        ({ __thread_testflags(current, (flags)); })
-#define current_maskflags(flags)        ({ __thread_maskflags(current, (flags)); })
-#define current_enter_state(state)      ({ __thread_enter_state(current, (state)); })
+#define current_isstate(state)          ({ thread_isstate(current, state); })
+#define current_embryo()                ({ thread_embryo(current); })
+#define current_ready ()                ({ thread_ready(current); })
+#define current_isleep()                ({ thread_isleep(current); })
+#define current_running()               ({ thread_running(current); })
+#define current_stopped()               ({ thread_stopped(current); })
+#define current_zombie()                ({ thread_zombie(current); })
+#define current_terminated()            ({ thread_terminated(current); })
+#define current_setflags(flags)         ({ thread_setflags(current, (flags)); })
+#define current_testflags(flags)        ({ thread_testflags(current, (flags)); })
+#define current_maskflags(flags)        ({ thread_maskflags(current, (flags)); })
+#define current_enter_state(state)      ({ thread_enter_state(current, (state)); })
+
+#define current_issimd_dirty()          ({ thread_issimd_dirty(current); })
+#define current_set_simd_dirty()        ({ thread_set_simd_dirty(current); })
+#define current_mask_simd_dirty()       ({ thread_mask_simd_dirty(current); })
 
 #define BUILTIN_THREAD(name, entry, arg)                                                        \
     __section(".__builtin_thread_entry")    void *__CAT(__builtin_thread_entry_, name) = entry; \
@@ -219,13 +240,21 @@ int kthread_create(void *(*entry)(void *), void *arg, tid_t *__tid, thread_t **r
 
 tid_t thread_self(void);
 void thread_yield(void);
+
+int thread_wake(thread_t *thread);
+
 int thread_kill_all(void);
 int thread_kill(tid_t tid);
-int thread_cancel(tid_t tid);
-int thread_wake(thread_t *thread);
 int thread_kill_n(thread_t *thread);
+
+int thread_cancel(tid_t tid);
 void thread_exit(uintptr_t exit_code);
-int thread_join(tid_t tid, void **retval);
-int thread_get(tgroup_t *tgrp, tid_t tid, thread_t **tref);
+
+int thread_join_r(thread_t *thread, thread_info_t *info, void **retval);
+int thread_join(tid_t tid, thread_info_t *info, void **retval);
+
 int thread_wait(thread_t *thread, int reap, void **retval);
+
+int thread_get(tgroup_t *tgrp, tid_t tid, thread_t **tref);
 int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread);
+int thread_state_get(tgroup_t *tgroup, tstate_t state, thread_t **tref);

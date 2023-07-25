@@ -156,6 +156,7 @@ int sched_zombie(thread_t *thread)
     tgroup_lock(thread->t_group);
     atomic_dec(&thread->t_group->nthreads);
     tgroup_unlock(thread->t_group);
+    printk("tid[%d] %s dying\n", thread->t_tid, t_states[thread->t_state]);
     
     cond_broadcast(thread->t_wait);
     return 0;
@@ -171,7 +172,7 @@ int sched_sleep(queue_t *sleep_queue, spinlock_t *lock)
         return err;
 
     current->sleep_attr.guard = lock;
-    __thread_enter_state(current, T_ISLEEP);
+    thread_enter_state(current, T_ISLEEP);
     current->sleep_attr.queue = sleep_queue;
 
     // printk("sleep_node: %p, sleep_node->next: %p\n", current->t_sleep_node, current->t_sleep_node->next);
@@ -186,7 +187,7 @@ int sched_sleep(queue_t *sleep_queue, spinlock_t *lock)
     current->sleep_attr.node = NULL;
     current->sleep_attr.queue = NULL;
 
-    if (__thread_killed(current))
+    if (thread_killed(current))
         return -EINTR;
 
     return 0;
@@ -205,7 +206,7 @@ int sched_wake1(queue_t *sleep_queue)
         return 0;
 
     thread_assert_locked(thread);
-    __thread_enter_state(thread, T_READY);
+    thread_enter_state(thread, T_READY);
 
     sched_park(thread);
     thread_unlock(thread);
@@ -243,6 +244,7 @@ void sched(void)
     //printk("%s:%d: %s() tid(%d), ncli: %d, intena: %d [%p]\n", __FILE__, __LINE__, __func__, current->t_tid, cpu->ncli, cpu->intena, return_address(0));
     
     current_assert_locked();
+
     
     if (current_testflags(THREAD_SETPARK) && current_isleep()) {
         if (current_testflags(THREAD_SETWAKE)) {
@@ -251,7 +253,6 @@ void sched(void)
             return;
         }
     }
-
     
     swtch(&current->t_arch.t_ctx, cpu->ctx);
     current_assert_locked();
@@ -313,7 +314,7 @@ void schedule(void)
 
         cli();
 
-        if (__thread_killed(thread))
+        if (thread_killed(thread))
         {
             thread->t_state = T_ZOMBIE;
             thread->t_exit = -EINTR;

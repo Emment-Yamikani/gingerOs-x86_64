@@ -194,7 +194,7 @@ rdrbp:
     mov rax,rbp
     retq
 
-global finit
-finit:
-    finit
+global fninit
+fninit:
+    fninit
     retq

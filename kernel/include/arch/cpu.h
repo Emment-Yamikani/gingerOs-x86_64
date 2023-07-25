@@ -120,8 +120,8 @@ typedef struct cpu {
     context_t       *ctx;
     void            *fpu_ctx;
 
-
     thread_t        *thread;
+    thread_t        *simd_thread;
     sched_queue_t   *queueq;
 
     uint8_t         phys_addrsz;
@@ -144,13 +144,14 @@ extern cpu_t *cpus[MAXNCPU];
 #define cpu                 (get_cpu_local())          // get CPU local structure.
 #define cpu_id              (cpu_local_id())           // local apic
 #define current             (cpu->thread)              // currently running thread.
-#define fpuctx              (cpu->fpu_ctx)             // current FPU context.
+#define simd_thread         (cpu->simd_thread)         // current FPU thread.
+#define simdctx             (cpu->simd_ctx)            // current FPU context.
 #define ready_queue         (cpu->queueq)              // per-CPU ready queue.
 #define cpu_setflags(f)     (cpu->flags | (f))         // set CPU flag(s).
 #define cpu_testflags(f)    (cpu->flags & (f))         // test CPU flag(s).
 #define cpu_features        (cpu->features)
 #define cpu_has(f)          (cpu_features & (f))       // Check for CPU features (read-only).
-#define isbsp()             (cpu_testflags(CPU_ISBSP))  // is this CPU a bootstrap processor?
+#define isbsp()             (cpu_testflags(CPU_ISBSP)) // is this CPU a bootstrap processor?
 
 extern int                  sse_init(void);
 extern void                 simd_fp_except(void);

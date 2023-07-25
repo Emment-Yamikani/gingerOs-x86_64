@@ -38,7 +38,7 @@ extern void hpet_intr(void);
 void trap(tf_t *tf) {
 
     if (current) {
-        if (__thread_killed(current))
+        if (thread_killed(current))
             thread_exit(-EINTR);
     }
 
@@ -78,12 +78,12 @@ void trap(tf_t *tf) {
     if (!current)
         return;
 
-    if (__thread_killed(current))
+    if (thread_killed(current))
         thread_exit(-EINTR);
 
     if (!atomic_read(&current->t_sched_attr.timeslice))
         thread_yield();
 
-    if (__thread_killed(current))
+    if (thread_killed(current))
         thread_exit(-EINTR);
 }

@@ -3,6 +3,7 @@
 #include <sync/spinlock.h>
 #include <sys/thread.h>
 #include <arch/cpu.h>
+#include <mm/kalloc.h>
 #include <arch/x86_64/system.h>
 
 #define AVX512_BIT BS(16)
@@ -53,11 +54,53 @@ int sse_init(void) {
         cpu_restore_simd = fxrstor;
     }
 
+    fninit();
     return 0;
 }
 
 void coprocessor_except(void) {
-    panic("CPU%d executed %s()\n", cpu_id, __func__);
+    thread_t *thread = simd_thread;
+
+    if (!current)
+        panic("No current thread\n");
+
+    current_lock();
+
+    if (simd_thread == NULL) {
+        fninit();
+        current_set_simd_dirty();
+    } else if (current != simd_thread) {
+        thread_lock(thread);
+
+        while ((thread->t_simd_ctx == NULL && thread_issimd_dirty(thread))) {
+            if ((thread->t_simd_ctx = kmalloc(cpu_simd_region_size)) == NULL) {
+                thread_unlock(thread);
+                current_unlock();
+
+                thread_yield();
+
+                current_lock();
+                thread_lock(thread);
+            }
+        }
+
+        if (thread_issimd_dirty(thread)) {
+            cpu_save_simd(thread->t_simd_ctx);
+            thread_mask_simd_dirty(thread);
+        }
+
+        thread_unlock(thread);
+
+        if (current->t_simd_ctx)
+            cpu_restore_simd(current->t_simd_ctx);
+        else {
+            fninit();
+            current_set_simd_dirty();
+        }
+    }
+
+    simd_thread = current;
+    current_unlock();
 }
 
 void simd_fp_except(void) {

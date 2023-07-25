@@ -17,10 +17,13 @@ typedef struct spinlock
     atomic_t lock; // is spinlock acquired?
 } spinlock_t;
 
-#define SPINLOCK_INIT() ((spinlock_t){ \
-    .lock = 0,                         \
-    .thread = NULL,                    \
-    .processor = NULL,                 \
+#define SPINLOCK_INIT() ((spinlock_t) { \
+    .line = 0,                          \
+    .lock = 0,                          \
+    .file = NULL,                       \
+    .thread = NULL,                     \
+    .retaddr = NULL,                    \
+    .processor = NULL,                  \
 })
 
 // assert_msg lock pointer
@@ -53,7 +56,7 @@ status: %d: current: %p: spinlock held at %s:%d, retaddr: %p!", \
     while (atomic_xchg(&(lk)->lock, 1))                         \
     {                                                           \
         popcli();                                               \
-        pause();                                                \
+        cpu_pause();                                            \
         pushcli();                                              \
     }                                                           \
     (lk)->processor = cpu;                                      \
@@ -64,18 +67,18 @@ status: %d: current: %p: spinlock held at %s:%d, retaddr: %p!", \
 })
 
 // release spinlock
-#define spin_unlock(lk) ({                                                   \
-    spin_assert(lk);                                                         \
+#define spin_unlock(lk) ({                                                       \
+    spin_assert(lk);                                                             \
     assert_msg(spin_locked(lk), "%s:%d: cpu%d: current: %p: spinlock not held!", \
-               __FILE__, __LINE__, cpu_id, current);                         \
-    (lk)->thread = NULL;                                                     \
-    (lk)->processor = NULL;                                                  \
-    (lk)->line = 0;                                                          \
-    (lk)->retaddr = 0;                                                       \
-    (lk)->file = NULL;                                                       \
-    barrier();                                                               \
-    atomic_xchg(&(lk)->lock, 0);                                             \
-    popcli();                                                                \
+               __FILE__, __LINE__, cpu_id, current);                             \
+    (lk)->thread = NULL;                                                         \
+    (lk)->processor = NULL;                                                      \
+    (lk)->line = 0;                                                              \
+    (lk)->retaddr = 0;                                                           \
+    (lk)->file = NULL;                                                           \
+    barrier();                                                                   \
+    atomic_xchg(&(lk)->lock, 0);                                                 \
+    popcli();                                                                    \
 })
 
 /**
@@ -100,6 +103,6 @@ status: %d: current: %p: spinlock held at %s:%d, retaddr: %p!", \
 })
 
 // assert_msg spinlock acquisition
-#define spin_assert_locked(lk) ({ assert_msg(spin_locked((lk)),            \
-    "%s:%d: CPU%d: current: %p: spinlock not held!\n", __FILE__, __LINE__, \
-    cpu_id, current); })
+#define spin_assert_locked(lk) ({ assert_msg(spin_locked((lk)),                                                     \
+                                             "%s:%d: CPU%d: current: %p: spinlock not held!\n", __FILE__, __LINE__, \
+                                             cpu_id, current); })

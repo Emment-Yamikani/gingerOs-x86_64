@@ -1,0 +1,38 @@
+#include <sys/_signal.h>
+#include <lib/stddef.h>
+
+
+const char *signal_str[] = {
+    [SIGABRT - 1] = "SIGABRT",
+    [SIGALRM - 1] = "SIGALRM",
+    [SIGBUS - 1] = "SIGBUS",
+    [SIGCANCEL - 1] = "SIGCANCEL",
+    [SIGCHLD - 1] = "SIGCHLD",
+    [SIGCONT - 1] = "SIGCONT",
+    [SIGEMT - 1] = "SIGEMT",
+    [SIGFPE - 1] = "SIGFPE",
+    [SIGHUP - 1] = "SIGHUP",
+    [SIGILL - 1] = "SIGILL",
+    [SIGINT - 1] = "SIGINT",
+    [SIGIO - 1] = "SIGIO",
+    [SIGIOT - 1] = "SIGIOT",
+    [SIGKILL - 1] = "SIGKILL",
+    [SIGPIPE - 1] = "SIGPIPE",
+    [SIGPROF - 1] = "SIGPROF",
+    [SIGQUIT - 1] = "SIGQUIT",
+    [SIGSEGV - 1] = "SIGSEGV",
+    [SIGSTOP - 1] = "SIGSTOP",
+    [SIGSYS - 1] = "SIGSYS",
+    [SIGTERM - 1] = "SIGTERM",
+    [SIGTRAP - 1] = "SIGTRAP",
+    [SIGTSTP - 1] = "SIGTSTP",
+    [SIGTTIN - 1] = "SIGTTIN",
+    [SIGTTOU - 1] = "SIGTTOU",
+    [SIGURG - 1] = "SIGURG",
+    [SIGUSR1 - 1] = "SIGUSR1",
+    [SIGUSR2 - 1] = "SIGUSR2",
+    [SIGVTALRM - 1] = "SIGVTALRM",
+    [SIGWINCH - 1] = "SIGWINCH",
+    [SIGXCPU - 1] = "SIGXCPU",
+    [SIGXFSZ - 1] = "SIGXFSZ",
+};
