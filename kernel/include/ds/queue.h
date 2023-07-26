@@ -13,7 +13,7 @@ typedef struct queue_node
 
 typedef struct queue
 {
-    int count;
+    size_t count;
     int flags;
     char *name;
     spinlock_t lock;
@@ -43,7 +43,9 @@ typedef struct queue
     spin_unlock(&(q)->lock); \
 })
 
-#define queue_assert_locked(q) spin_assert_locked(&(q)->lock)
+#define queue_locked(q)         ({ queue_assert(q); spin_locked(&(q)->lock); })
+
+#define queue_assert_locked(q)  ({ queue_assert(q); spin_assert_locked(&(q)->lock); })
 
 void *dequeue(queue_t *);
 
@@ -53,7 +55,7 @@ void queue_free(queue_t *);
 
 void queue_flush(queue_t *);
 
-int queue_count(queue_t *);
+size_t queue_count(queue_t *);
 
 int queue_new(const char *, queue_t **);
 

@@ -18,7 +18,11 @@ void arch_thread_exit(uintptr_t exit_code) {
 
 void arch_thread_start(void) { current_unlock(); }
 
-void arch_thread_stop(void) { arch_thread_exit(rdrax()); }
+void arch_thread_stop(void) {
+    uintptr_t rax = rdrax();
+    tgroup_lock(current->t_group);
+    arch_thread_exit(rax);
+}
 
 int arch_kthread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg) {
     tf_t *tf = NULL;

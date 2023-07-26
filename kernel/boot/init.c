@@ -118,6 +118,7 @@ int early_init(multiboot_info_t *info) {
 
     bootothers();
     schedule();
+    assert(0, "Okay");
     loop();
     return 0;
 }

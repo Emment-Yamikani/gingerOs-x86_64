@@ -13,7 +13,22 @@ static atomic_t tids = {0};
 static atomic_t pids = {0};
 static tgroup_t *kthreads = NULL;
 
-static tid_t tid_alloc(void) { return atomic_inc_fetch(&tids); }
+extern char __builtin_thread_arg, __builtin_thread_arg_end;
+extern char __builtin_thread_entry, __builtin_thread_entry_end;
+
+const char *t_states[] = {
+    [T_EMBRYO]      = "EMBRYO",
+    [T_READY]       = "READY",
+    [T_RUNNING]     = "RUNNING",
+    [T_ISLEEP]      = "ISLEEP",
+    [T_STOPPED]     = "STOPPED",
+    [T_TERMINATED]  = "TERMINATED",
+    [T_ZOMBIE]      = "ZOMBIE",
+};
+
+static tid_t tid_alloc(void) {
+    return atomic_inc_fetch(&tids);
+}
 
 int thread_new(thread_t **ref) {
     int err = 0;
@@ -72,15 +87,14 @@ void thread_free(thread_t *thread) {
                    thread_zombie(thread),
                "freeing a non zombie thread");
 
-    if (thread->t_queues)
-    {
+    if (thread->t_queues) {
         queue_lock(thread->t_queues);
-        while ((q = dequeue(thread->t_queues)))
-        {
+        while ((q = dequeue(thread->t_queues))) {
             queue_lock(q);
             queue_remove(q, thread);
             queue_unlock(q);
         }
+        queue_unlock(thread->t_queues);
         queue_free(thread->t_queues);
     }
 
@@ -88,223 +102,34 @@ void thread_free(thread_t *thread) {
 
     if (thread->t_wait)
         cond_free(thread->t_wait);
+    if (thread_locked(thread))
+        thread_unlock(thread);
     mapped_free(thread->t_arch.t_kstack, KSTACKSZ);
-
-}
-
-void tgroup_free(tgroup_t *tgroup)
-{
-    thread_t *thread = NULL;
-    assert(tgroup, "no tgroup pointer");
-    if (tgroup->queue)
-    {
-        queue_lock(tgroup->queue);
-        while ((thread = thread_dequeue(tgroup->queue)))
-        {
-            printk("\e[07;04mtrashing thread(%d)\e[0m\n", thread->t_tid);
-            thread_free(thread);
-        }
-        queue_free(tgroup->queue);
-    }
-    kfree(tgroup);
-}
-
-int tgroup_new(tid_t tgid, tgroup_t **ref)
-{
-    int err =0;
-    queue_t *queue = NULL;
-    tgroup_t *tgroup = NULL;
-
-    assert(ref, "no tgroup poiter reference");
-    if (!(tgroup = kmalloc(sizeof *tgroup)))
-        return -ENOMEM;
-
-    if ((err = queue_new("tgroup", &queue)))
-        goto error;
-
-    memset(tgroup, 0, sizeof *tgroup);
-
-    tgroup->tgid = tgid;
-    tgroup->queue = queue;
-    tgroup->lock = SPINLOCK_INIT();
-
-    tgroup_lock(tgroup);
-
-    *ref = tgroup;
-    return 0;
-
-error:
-    if (tgroup)
-        kfree(tgroup);
-    if (queue)
-        queue_free(queue);
-    printk("failed to create task group, error: %d\n", err);
-    return err;
-}
-
-void tgroup_wait_all(tgroup_t *tgroup) {
-    thread_t *thread = NULL;
-    queue_node_t *next = NULL;
-
-    if (tgroup == NULL)
-        return;
-    
-    tgroup_assert_locked(tgroup);
-
-    queue_lock(tgroup->queue);
-
-    forlinked(node, tgroup->queue->head, next)
-    {
-        next = node->next;
-        thread = node->data;
-
-        if (thread == current)
-            continue;
-
-        thread_lock(thread);
-        thread_kill_n(thread);
-        
-        if (thread->sleep_attr.queue) {
-            queue_lock(thread->sleep_attr.queue);
-            thread_wake(thread);
-            queue_unlock(thread->sleep_attr.queue);
-        }     
-       
-        queue_unlock(tgroup->queue);
-        thread_wait(thread, 0, NULL);
-        queue_lock(tgroup->queue);
-
-        thread_unlock(thread);
-    }
-
-    queue_unlock(tgroup->queue);
-
-    return;
-}
-
-int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid) {
-    int err = 0;
-    thread_t *thread = NULL;
-    queue_node_t *next = NULL;
-
-    if (tgroup == NULL)
-        return -EINVAL;
-
-    tgroup_assert_locked(tgroup);
-
-    if (current && thread_killed(current))
-        return -EALREADY;
-
-    if (tid == -1)  // -1 == kill all threads.
-        goto all;
-    else if (tid == 0)  // 0 == kill self
-        thread_exit(0);
-
-    // else kill other thread.
-
-    if ((err = thread_get(tgroup, tid, &thread)))
-        return err;
-
-    thread_assert_locked(thread);
-    if (thread == current)
-    {
-        current_unlock();
-        thread_exit(0);
-    }
-
-    if ((err = thread_kill_n(thread)))
-    {
-        thread_unlock(thread);
-        return err;
-    }
-    thread_unlock(thread);
-
-    return 0;
-all:
-    queue_lock(tgroup->queue);
-
-    forlinked(node, tgroup->queue->head, next)
-    {
-        err = 0;
-        next = node->next;
-        thread = node->data;
-
-        if (thread == current)
-            continue;
-
-        thread_lock(thread);
-        thread_kill_n(thread);
-
-        if (thread->sleep_attr.queue) {
-            queue_lock(thread->sleep_attr.queue);
-            thread_wake(thread);
-            queue_unlock(thread->sleep_attr.queue);
-        }
-
-        queue_unlock(tgroup->queue);
-        err = thread_wait(thread, 1, NULL);
-        queue_lock(tgroup->queue);
-        if (err) {
-            thread_unlock(thread);
-            break;
-        }
-    }
-
-    queue_unlock(tgroup->queue);
-    return err;
-}
-
-int tgroup_set(tgroup_t *tgroup, thread_t *thread, int flags) {
-    if (!tgroup || !thread)
-        return -EINVAL;
-
-    tgroup_assert_locked(tgroup);
-
-    if (BTEST(flags, __tgroup_main)) {
-        if (tgroup->main_thread)
-            return -EALREADY;
-        tgroup->main_thread = thread;
-    }
-
-    if (BTEST(flags, __tgroup_waiter))
-        tgroup->waiter_thread = thread;
-
-    if (BTEST(flags, __tgroup_last))
-        tgroup->last_thread = thread;
-
-    return 0;
 }
 
 tid_t thread_self(void) {
-    current_assert();
+    if (!current)
+        return 0;
     return current->t_tid;
 }
 
 void thread_exit(uintptr_t exit_code) {
     current_assert();
+    if (!tgroup_locked(current->t_group))
+        tgroup_lock(current->t_group);
     arch_thread_exit(exit_code);
 }
 
-void thread_yield(void) { sched_yield(); }
-
-void thread_yield_r(void) {
-    if ((!current_locked())) {
-        current_lock();
-        current->t_state = T_READY;
-        sched();
-    } else {
-        current->t_state = T_READY;
-        sched();
-    }
+void thread_yield(void) {
+    sched_yield();
 }
 
-int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode)
-{
+int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode) {
     int err = 0;
     queue_node_t *node = NULL;
-
-    assert(queue, "no queue");
-    assert(thread, "no thread");
+    
+    if (!thread)
+        return -EINVAL;
 
     queue_lock(queue);
     queue_lock(thread->t_queues);
@@ -339,8 +164,7 @@ error:
     return err;
 }
 
-thread_t *thread_dequeue(queue_t *queue)
-{
+thread_t *thread_dequeue(queue_t *queue) {
     thread_t *thread = NULL;
     assert(queue, "no queue");
     queue_assert_locked(queue);
@@ -355,8 +179,7 @@ thread_t *thread_dequeue(queue_t *queue)
     return thread;
 }
 
-int thread_remove_queue(thread_t *thread, queue_t *queue)
-{
+int thread_remove_queue(thread_t *thread, queue_t *queue) {
     int err = 0;
     queue_assert_locked(queue);
     thread_assert_locked(thread);
@@ -371,98 +194,32 @@ int thread_remove_queue(thread_t *thread, queue_t *queue)
     return queue_remove(queue, (void *)thread);
 }
 
-int thread_get(tgroup_t *tgroup, tid_t tid, thread_t **tref)
-{
-    thread_t *thread = NULL;
-    queue_node_t *next = NULL;
-
-    if (!tref || !tgroup)
-        return -EINVAL;
-
-    tgroup_assert_locked(tgroup);
-
-    queue_lock(tgroup->queue);
-    forlinked(node, tgroup->queue->head, next)
-    {
-        thread = node->data;
-        next = node->next;
-        if (current == thread)
-            continue;
-        thread_lock(thread);
-        if (thread->t_tid == tid)
-        {
-            *tref = thread;
-            queue_unlock(tgroup->queue);
-            return 0;
-        }
-        thread_unlock(thread);
-    }
-    queue_unlock(tgroup->queue);
-
-    return -ENOENT;
-}
-
-int thread_state_get(tgroup_t *tgroup, tstate_t state, thread_t **tref) {
-    thread_t *thread = NULL;
-    queue_node_t *next = NULL;
-
-    if (!tref || !tgroup)
-        return -EINVAL;
-    
-    tgroup_assert_locked(tgroup);
-
-    queue_lock(tgroup->queue);
-    forlinked(node, tgroup->queue->head, next)
-    {
-        thread = node->data;
-        next = node->next;
-        if (current == thread)
-            continue;
-        thread_lock(thread);
-        if (thread_isstate(thread, state))
-        {
-            *tref = thread;
-            queue_unlock(tgroup->queue);
-            return 0;
-        }
-        thread_unlock(thread);
-    }
-    queue_unlock(tgroup->queue);
-
-    return -ENOENT;
-}
-
-int thread_get_r(tgroup_t *tgroup, tid_t tid, tstate_t state, int flags, thread_t **tref) {
+int thread_kill_n(thread_t *thread, int wait) {
     int err = 0;
 
-    if (BTEST(flags, 0)) {// by tid
-        if ((err = thread_get(tgroup, tid, tref)) == 0)
-            return 0;
-    }
-    
-    if (BTEST(flags, 1)) {// by state
-        if ((err = thread_state_get(tgroup, state, tref)))
-            return 0;
+    thread_assert_locked(thread);
+    if (thread == current) {
+        current_unlock();
+        thread_exit(0);
     }
 
+    if ((thread_terminated(thread)) ||
+        (thread_zombie(thread)) ||
+        thread_killed(thread))
+        return 0;
+
+    thread->t_killer = thread_self();
+    thread_setflags(thread, THREAD_KILLED);
+
+    if ((err = thread_wake(thread)))
+        return err;
+
+    if (wait)
+        err = thread_wait(thread, 0, NULL);
     return err;
 }
 
-int thread_kill_n(thread_t *thread) {
-    thread_assert(thread);
-    if (thread == current)
-        return 0;
-    thread_assert_locked(thread);
-    if ((thread_zombie(thread)) ||
-        (thread_terminated(thread)) ||
-        thread_killed(thread))
-        return 0;
-    thread_setflags(thread, THREAD_KILLED);
-    atomic_write(&thread->t_killer, thread_self());
-    return 0;
-}
-
-int thread_kill(tid_t tid) {
+int thread_kill(tid_t tid, int wait) {
     int err = 0;
     tgroup_t *tgroup = NULL;
 
@@ -474,7 +231,7 @@ int thread_kill(tid_t tid) {
     current_unlock();
 
     tgroup_lock(tgroup);
-    err = tgroup_kill_thread(tgroup, tid);
+    err = tgroup_kill_thread(tgroup, tid, wait);
     tgroup_unlock(tgroup);
 
     return err;
@@ -488,31 +245,33 @@ int thread_join(tid_t tid, thread_info_t *info, void **retval) {
 
     if (thread_killed(current))
         return -EINTR;
-    
+
     tgroup_lock(current->t_group);
 
-    if (tid == 0)
-        err = thread_state_get(current->t_group, T_ZOMBIE, &thread);
-    else
-        err = thread_get(current->t_group, ABS(tid), &thread);
+    if ((err = tgroup_get_thread(current->t_group, tid, T_ZOMBIE, &thread))) {
+        tgroup_unlock(current->t_group);
+        return err;
+    }
 
     tgroup_unlock(current->t_group);
 
-    if (err) return err;
-
     thread_assert_locked(thread);
 
-    return thread_join_r(thread, info, retval);
+    if ((err = thread_join_r(thread, info, retval))) {
+        thread_unlock(thread);
+        return err;
+    }
+
+    return 0;
 }
 
 int thread_join_r(thread_t *thread, thread_info_t *info, void **retval) {
+    thread_assert_locked(thread);
+
     if (thread == NULL)
         return -EINVAL;
 
-    thread_assert_locked(thread);
-
-    if (info)
-    {
+    if (info) {
         info->ti_errno = thread->t_errno;
         info->ti_exit = thread->t_exit;
         info->ti_flags = thread->t_flags;
@@ -525,15 +284,15 @@ int thread_join_r(thread_t *thread, thread_info_t *info, void **retval) {
     if (thread == current)
         return -EDEADLOCK;
 
-    loop()
-    {
+        
+
+    loop() {
         if (thread_killed(current))
             return -EINTR;
 
         if (thread->t_state == T_ZOMBIE)
         {
-            if (retval)
-                *retval = (void *)thread->t_exit;
+            if (retval) *retval = (void *)thread->t_exit;
             thread_free(thread);
             break;
         }
@@ -579,51 +338,43 @@ int thread_wait(thread_t *thread, int reap, void **retval) {
 
 int thread_kill_all(void) {
     int err = 0;
-
     current_assert();
-
+    tgroup_lock(current->t_group);
+    err = tgroup_kill_thread(current->t_group, 0, 1);
     tgroup_unlock(current->t_group);
-    err = tgroup_kill_thread(current->t_group, -1);
-    tgroup_unlock(current->t_group);
-
     return err;
 }
 
 int thread_wake(thread_t *thread) {
-    int err = 0, held = 0;
+    int err = 0, guard_locked = 0, q_locked = 0;
     thread_assert_locked(thread);
 
     if (thread_testflags(thread, THREAD_SETPARK))
         thread_setflags(thread, THREAD_SETWAKE);
 
-    if (!thread_isleep(thread) || thread_zombie(thread) || thread_terminated(thread))
+    if (thread_zombie(thread) ||
+        !thread_isleep(thread) ||
+        thread_terminated(thread))
+        return 0;
+    
+    if (thread->sleep_attr.queue == NULL)
         return 0;
 
-    if (thread->sleep_attr.queue == NULL)
-        panic("%s:%d: No wait queue\n", __FILE__, __LINE__, thread->t_tid);
+    if (thread->sleep_attr.guard && (guard_locked = !spin_locked(thread->sleep_attr.guard)))
+        spin_lock(thread->sleep_attr.guard);
 
-    if (thread->sleep_attr.guard)
-    {
-        if (!spin_locked(thread->sleep_attr.guard))
-        {
-            spin_lock(thread->sleep_attr.guard);
-            held = 1;
-        }
-    }
+    if ((q_locked = !queue_locked(thread->sleep_attr.queue)))
+        queue_lock(thread->sleep_attr.queue);
 
     err = thread_remove_queue(thread, thread->sleep_attr.queue);
 
-    if (thread->sleep_attr.guard)
-    {
-        if (spin_locked(thread->sleep_attr.guard) && held)
-        {
-            spin_unlock(thread->sleep_attr.guard);
-            held = 0;
-        }
-    }
+    if (q_locked)
+        queue_unlock(thread->sleep_attr.queue);
 
-    if (err)
-        return err;
+    if (thread->sleep_attr.guard && guard_locked)
+        spin_unlock(thread->sleep_attr.guard);
+
+    if (err) return err;
 
     if (thread_zombie(thread) || thread_terminated(thread))
         return 0;
@@ -681,18 +432,16 @@ int kthread_create(void *(*entry)(void *), void *arg, tid_t *__tid, thread_t **r
     if (kthreads == NULL)
     {
         // assert(!(err = f_alloc_table(&file_table)), "couldn't allocate file table");
-        assert(!(err = tgroup_new(thread->t_tid, &kthreads)), "failed to create tgroup");
-        
-        if ((err = tgroup_set(kthreads, thread, __tgroup_all)))
+        assert(!(err = tgroup_create(thread, &kthreads)), "failed to create tgroup");
+        tgroup_unlock(kthreads);
+    } else {
+        tgroup_lock(kthreads);
+        if ((err = tgroup_add_thread(kthreads, thread))) {
+            tgroup_unlock(kthreads);
             goto error;
-        
+        }
         tgroup_unlock(kthreads);
     }
-
-    thread->t_group = kthreads;
-
-    if ((err = thread_enqueue(kthreads->queue, thread, NULL)))
-        goto error;
 
     if (__tid)
         *__tid = thread->t_tid;
@@ -716,9 +465,6 @@ int kthread_create_join(void *(*entry)(void *), void *arg, void **ret) {
         return err;
     return thread_join(tid, NULL, ret);
 }
-
-extern char __builtin_thread_entry, __builtin_thread_entry_end;
-extern char __builtin_thread_arg, __builtin_thread_arg_end;
 
 int start_builtin_threads(int *nthreads, thread_t ***threads) {
     int nt = 0;

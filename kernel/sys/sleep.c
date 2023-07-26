@@ -35,7 +35,7 @@ int park(void) {
 
 int unpark(tid_t tid) {
     int err = 0;
-    tgroup_t *tgrp = NULL;
+    tgroup_t *tgroup = NULL;
     thread_t *thread = NULL;
 
     queue_lock(global_sleep_queue);
@@ -45,15 +45,15 @@ int unpark(tid_t tid) {
             goto error;
 
         current_lock();
-        tgrp = current->t_group;
+        tgroup = current->t_group;
         current_unlock();
 
-        tgroup_lock(tgrp);
-        if ((err = thread_get(tgrp, tid, &thread))) {
-            tgroup_unlock(tgrp);
+        tgroup_lock(tgroup);
+        if ((err = tgroup_get_thread(tgroup, tid, 0, &thread))) {
+            tgroup_unlock(tgroup);
             goto error;
         }
-        tgroup_unlock(tgrp);
+        tgroup_unlock(tgroup);
     }
 
     if (thread == current) {

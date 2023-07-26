@@ -71,7 +71,8 @@ void trap(tf_t *tf) {
         lapic_eoi();
         break;
     default:
-        panic("[CPU%d] trap(%d): errno: %x, rbp: %p, cr2: %lX, rip: %p\n", cpu_id, tf->trapno, tf->errno, tf->rbp, rdcr2(), tf->rip);
+        panic("[CPU%d] thread[%d]: trap(%d): errno: %x, rbp: %p, cr2: %lX, rip: %p\n",
+            cpu_id, current ? thread_self() : 0, tf->trapno, tf->errno, tf->rbp, rdcr2(), tf->rip);
         break;
     }
 

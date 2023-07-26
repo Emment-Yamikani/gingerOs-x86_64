@@ -13,10 +13,7 @@ int cond_new(const char *name, cond_t **ref) {
 void cond_free(cond_t *c)
 {
     if (c->waiters)
-    {
-        queue_lock(c->waiters);
         queue_free(c->waiters);
-    }
     if (c->name)
         kfree(c->name);
     kfree(c);

@@ -24,16 +24,7 @@ typedef enum {
     T_ZOMBIE,
 } tstate_t;
 
-__unused static const char *t_states[] = {
-    [T_EMBRYO] = "EMBRYO",
-    [T_READY] = "READY",
-    [T_RUNNING] = "RUNNING",
-    [T_ISLEEP] = "ISLEEP",
-    [T_STOPPED] = "STOPPED",
-    [T_TERMINATED] = "TERMINATED",
-    [T_ZOMBIE] = "ZOMBIE",
-    NULL,
-};
+extern const char *t_states[];
 
 typedef struct {
     time_t      ctime;      // Thread ceation time.
@@ -59,7 +50,7 @@ typedef struct {
 typedef struct {
     queue_t *queue;     // thread's sleep queue.
     queue_node_t *node; // thread's sleep node.
-    spinlock_t *guard;  // non-null if sleep queue is associated with a quard lock.
+    spinlock_t *guard;  // non-null if sleep queue is associated with a guard lock.
 } sleep_attr_t;
 
 typedef struct {
@@ -67,46 +58,131 @@ typedef struct {
     spinlock_t lock;
 } file_table_t;
 
-typedef struct
-{
-    tid_t           tgid;
-    queue_t         *queue;
-    atomic_t        nthreads;       // number of active thread(both running and sleeping)
-    atomic_t        nrunning;       // No. of threads running.
-    thread_t        *main_thread;   // the main thred of this group, i.e the very 1'st thread to run.
-    thread_t        *last_thread;   // thread that is last to run in this thread group.
-    thread_t        *waiter_thread; // thread that remains behind to clean up after other threads terminate.
-    file_table_t    file;
-    spinlock_t      lock;
+typedef struct {
+    tid_t           tg_tgid;
+    file_table_t    tg_file;
+    uint64_t        tg_flags;
+    thread_t        *tg_tmain;
+    thread_t        *tg_tlast;
+    thread_t        *tg_twait;
+    queue_t         *tg_queue;
+    queue_t         *tg_stopq;
+    long            tg_running;
+    spinlock_t      tg_lock;
 } tgroup_t;
 
 #define tgroup_assert(tg)           ({ assert(tg, "No thread group"); })
-#define tgroup_lock(tg)             ({ tgroup_assert(tg); spin_lock(&(tg)->lock); })
-#define tgroup_unlock(tg)           ({ tgroup_assert(tg); spin_unlock(&(tg)->lock); })
-#define tgroup_locked(tg)           ({ tgroup_assert(tg); spin_locked(&(tg)->lock); })
-#define tgroup_assert_locked(tg)    ({ tgroup_assert(tg); spin_assert_locked(&(tg)->lock); })
+#define tgroup_lock(tg)             ({ tgroup_assert(tg); spin_lock(&(tg)->tg_lock); })
+#define tgroup_unlock(tg)           ({ tgroup_assert(tg); spin_unlock(&(tg)->tg_lock); })
+#define tgroup_locked(tg)           ({ tgroup_assert(tg); spin_locked(&(tg)->tg_lock); })
+#define tgroup_assert_locked(tg)    ({ tgroup_assert(tg); spin_assert_locked(&(tg)->tg_lock); })
 
+#define tgroup_queue_assert(tg)         ({ tgroup_assert_locked(tg); queue_assert((tg)->tg_queue); })
+#define tgroup_queue_lock(tg)           ({ tgroup_queue_assert(tg); queue_lock((tg)->tg_queue); })
+#define tgroup_queue_unlock(tg)         ({ tgroup_queue_assert(tg); queue_unlock((tg)->tg_queue); })
+#define tgroup_queue_locked(tg)         ({ tgroup_queue_assert(tg); queue_locked((tg)->tg_queue); })
+#define tgroup_queue_assert_locked(tg)  ({ tgroup_queue_assert(tg); queue_assert_locked((tg)->tg_queue); })
 
 #define __tgroup_main     BS(0)   // set tgroup main thread.
 #define __tgroup_waiter   BS(1)   // set tgroup waiter thread.
 #define __tgroup_last     BS(2)   // set tgroup last thread.
 #define __tgroup_all      (__tgroup_main | __tgroup_last | __tgroup_waiter)
 
-int tgroup_set(tgroup_t *, thread_t *, int);
-void tgroup_free(tgroup_t *);
-int tgroup_new(tid_t, tgroup_t **);
-void tgroup_wait_all(tgroup_t *tgrp);
-int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid);
+void    tgroup_free(tgroup_t *);
+int     tgroup_new(tid_t, tgroup_t **);
+int     tgroup_set(tgroup_t *, thread_t *, int);
+
+/**
+ * \brief Destroy this tgroup. But only after all threads are killed.
+ * \param tgroup thread group.
+ * \returns (int)0, on success and err on failure.
+ **/
+int tgroup_destroy(tgroup_t *tgroup);
+
+/**
+ * \brief No. of threads in this tgroup.
+ * \brief Callers must hold tgroup->lock before calling into this function.
+ * \param tgroup thread group.
+ * \returns (int)0, on success and err on failure.
+ **/
+size_t tgroup_thread_count(tgroup_t *tgroup);
+
+/**
+ * \brief No. of threads running in this tgroup.
+ * \brief Callers must hold tgroup->lock before calling into this function.
+ * \param tgroup thread group.
+ * \returns (int)0, on success and err on failure.
+ **/
+size_t tgroup_running_threads(tgroup_t *tgroup);
+
+/**
+ * \brief Increase running thread count in this tgroup.
+ * \brief Callers must hold tgroup->lock before calling into this function.
+ **/
+size_t tgroup_inc_running(tgroup_t *tgroup);
+
+/**
+ * \brief Decrease running thread count in this tgroup.
+ * \brief Callers must hold tgroup->lock before calling into this function.
+ **/
+size_t tgroup_dec_running(tgroup_t *tgroup);
+
+/**
+ * \brief Kill a thread in this tgroup.
+ * \brief Callers must hold tgroup->lock before calling into this function.
+ * \param tgroup thread group.
+ * \param tid
+ *  Is the absolute threadID of thread to kill, if tid == 0, then kills all threads.
+ * However, if 'current' is in this group and tid == 0, then all thread except 'current' will be killed.
+ * \param wait wait for thread to die?
+ * \returns (int)0, on success and err on failure.
+ **/
+int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait);
+
+/**
+ * \brief Create a new thread tgroup.
+ * \brief Callers must hold tmain->t_lock before calling into this function.
+ * \param tmain main thread of this thread group.
+ * \param ptgroup thread group reference pointer.
+ * \returns (int)0, on success and err on failure.
+ **/
+int tgroup_create(thread_t *tmain, tgroup_t **ptgroup);
+
+/**
+ * \brief Add a thread to this tgroup.
+ * \brief Callers must hold tgroup->lock and thread->t_lock before calling into this function.
+ * \param tgroup thread group.
+ * \param thread thread to be added thread group.
+ * \returns (int)0, on success and err on failure.
+ **/
+int tgroup_add_thread(tgroup_t *tgroup, thread_t *thread);
+
+/**
+ * \brief Remove a thread to this tgroup.
+ * \brief Callers must hold tgroup->lock and thread->t_lock before calling into this function.
+ * \param tgroup thread group.
+ * \param thread thread to be removed thread group.
+ * \returns (int)0, on success and err on failure.
+ **/
+int tgroup_remove_thread(tgroup_t *tgroup, thread_t *thread);
+
+/**
+ * \brief Get a thread belonging to this tgroup.
+ * \brief Callers must hold tgroup->lock before calling into this function.
+ * \param tgroup thread group.
+ * \param tid absolute threadID of thread to return.
+ * \param state if tid == 0, return any thread matching 'state'.
+ * \param pthread reference pointer to returned thread.
+ * \returns (int)0, on success and err on failure.
+ **/
+int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pthread);
 
 typedef struct thread
 {
     tid_t           t_tid;      // thread ID.
     tid_t           t_killer;   // thread that killed this thread.
-
     uintptr_t       t_entry;    // thread entry point.
-
     tstate_t        t_state;    // thread's execution state.
-
     uintptr_t       t_exit;     // thread exit code.
     atomic_t        t_flags;    // threads flags.
     atomic_t        t_spinlocks;
@@ -122,7 +198,6 @@ typedef struct thread
     queue_t         *t_queues;   // queues on which this thread resides.
 
     cond_t          *t_wait;     // thread conditional wait variable.
-
     x86_64_thread_t t_arch;      // architecture thread struct.
 
     spinlock_t      t_lock;      // lock to synchronize access to this struct.
@@ -151,18 +226,18 @@ typedef struct {
 #define thread_locked(t)                ({ thread_assert(t); spin_locked(&((t)->t_lock)); })
 #define thread_assert_locked(t)         ({ thread_assert(t); spin_assert_locked(&((t)->t_lock)); })
 
-#define thread_isstate(t, state)      ({ thread_assert_locked(t); ((t)->t_state == (state)); })
-#define thread_embryo(t)              ({ thread_isstate(t, T_EMBRYO); })
-#define thread_ready(t)               ({ thread_isstate(t, T_READY); })
-#define thread_isleep(t)              ({ thread_isstate(t, T_ISLEEP); })
-#define thread_running(t)             ({ thread_isstate(t, T_RUNNING); })
-#define thread_stopped(t)             ({ thread_isstate(t, T_STOPPED); })
-#define thread_zombie(t)              ({ thread_isstate(t, T_ZOMBIE); })
-#define thread_terminated(t)          ({ thread_isstate(t, T_TERMINATED); })
-#define thread_testflags(t, flags)    ({ thread_assert_locked(t); atomic_read(&((t)->t_flags)) & (flags); })
-#define thread_setflags(t, flags)     ({ thread_assert_locked(t); atomic_fetch_or(&((t)->t_flags), (flags)); })
-#define thread_maskflags(t, flags)    ({ thread_assert_locked(t); atomic_fetch_and(&((t)->t_flags), ~(flags)); })
-#define thread_enter_state(t, state)  ({        \
+#define thread_isstate(t, state)        ({ thread_assert_locked(t); ((t)->t_state == (state)); })
+#define thread_embryo(t)                ({ thread_isstate(t, T_EMBRYO); })
+#define thread_ready(t)                 ({ thread_isstate(t, T_READY); })
+#define thread_isleep(t)                ({ thread_isstate(t, T_ISLEEP); })
+#define thread_running(t)               ({ thread_isstate(t, T_RUNNING); })
+#define thread_stopped(t)               ({ thread_isstate(t, T_STOPPED); })
+#define thread_zombie(t)                ({ thread_isstate(t, T_ZOMBIE); })
+#define thread_terminated(t)            ({ thread_isstate(t, T_TERMINATED); })
+#define thread_testflags(t, flags)      ({ thread_assert_locked(t); atomic_read(&((t)->t_flags)) & (flags); })
+#define thread_setflags(t, flags)       ({ thread_assert_locked(t); atomic_fetch_or(&((t)->t_flags), (flags)); })
+#define thread_maskflags(t, flags)      ({ thread_assert_locked(t); atomic_fetch_and(&((t)->t_flags), ~(flags)); })
+#define thread_enter_state(t, state)    ({        \
     thread_assert_locked(t);                      \
     int err = 0;                                  \
     if ((state) < T_EMBRYO || (state) > T_ZOMBIE) \
@@ -172,9 +247,14 @@ typedef struct {
     err;                                          \
 })
 
-#define thread_issimd_dirty(t)        ({ thread_testflags(t, THREAD_SIMD_DIRTY); })
-#define thread_set_simd_dirty(t)      ({ thread_setflags(t, THREAD_SIMD_DIRTY); })
-#define thread_mask_simd_dirty(t)     ({ thread_maskflags(t, THREAD_SIMD_DIRTY); })
+#define thread_tgroup(t)                ({ thread_assert(t); (t)->t_group; })
+#define thread_tgroup_lock(t)           ({ tgroup_lock(thread_tgroup(t)); })
+#define thread_tgroup_unlock(t)         ({ tgroup_unlock(thread_tgroup(t)); })
+#define thread_tgroup_locked(t)         ({ tgroup_locked(thread_tgroup(t)); })
+
+#define thread_issimd_dirty(t)          ({ thread_testflags((t), THREAD_SIMD_DIRTY); })
+#define thread_set_simd_dirty(t)        ({ thread_setflags((t), THREAD_SIMD_DIRTY); })
+#define thread_mask_simd_dirty(t)       ({ thread_maskflags((t), THREAD_SIMD_DIRTY); })
 
 #define thread_inc_spinlocks(t) ({                              \
     size_t locks;                                               \
@@ -237,6 +317,13 @@ typedef struct {
 
 #define current_inc_spinlocks()         ({ })
 
+#define current_tgroup()                ({ thread_tgroup(current); })
+#define current_tgroup_lock()           ({ thread_tgroup_lock(current); })
+#define current_tgroup_unlock()         ({ thread_tgroup_unlock(current); })
+#define current_tgroup_locked()         ({ thread_tgroup_locked(current); })
+
+#define current_killed()                ({ thread_killed(current); })
+#define current_handling()              ({ thread_ishandling_signal(current); })
 #define current_isstate(state)          ({ thread_isstate(current, state); })
 #define current_embryo()                ({ thread_embryo(current); })
 #define current_ready ()                ({ thread_ready(current); })
@@ -280,8 +367,8 @@ void thread_yield(void);
 int thread_wake(thread_t *thread);
 
 int thread_kill_all(void);
-int thread_kill(tid_t tid);
-int thread_kill_n(thread_t *thread);
+int thread_kill(tid_t tid, int wait);
+int thread_kill_n(thread_t *thread, int wait);
 
 int thread_cancel(tid_t tid);
 void thread_exit(uintptr_t exit_code);
@@ -290,7 +377,4 @@ int thread_join_r(thread_t *thread, thread_info_t *info, void **retval);
 int thread_join(tid_t tid, thread_info_t *info, void **retval);
 
 int thread_wait(thread_t *thread, int reap, void **retval);
-
-int thread_get(tgroup_t *tgrp, tid_t tid, thread_t **tref);
 int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread);
-int thread_state_get(tgroup_t *tgroup, tstate_t state, thread_t **tref);

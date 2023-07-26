@@ -1,9 +1,10 @@
+#include <arch/x86_64/system.h>
 #include <lib/stddef.h>
 #include <lib/stdint.h>
 #include <sys/system.h>
 #include <boot/boot.h>
+#include <ginger/jiffies.h>
 #include <lib/printk.h>
-#include <arch/x86_64/system.h>
 #include <mm/pmm.h>
 #include <mm/mm_zone.h>
 #include <mm/vmm.h>
@@ -15,7 +16,6 @@
 #include <arch/lapic.h>
 #include <arch/traps.h>
 #include <dev/dev.h>
-#include <ginger/jiffies.h>
 #include <sys/sleep.h>
 #include <sys/_signal.h>
 #include <dev/hpet.h>
@@ -29,21 +29,18 @@ __noreturn void kthread_main(void *arg __unused) {
 
     start_builtin_threads(&nthread, NULL);
 
-    // don't allow main thread to exit.
+    // Don't allow main thread to exit.
     loop() {
         if (!thread_join(0, &info, NULL)) {
-            printk("thread[%d] exited, status: %s, cputime: %.1fms.\n", info.ti_tid,
-                t_states[info.ti_state], jiffies_TO_ms(info.ti_sched.cpu_time));
+            --nthread;
+            printk("thread[%d] exited, status: %s, cputime: %.3fs.\n", info.ti_tid,
+                t_states[info.ti_state], jiffies_TO_s(info.ti_sched.cpu_time));
         }
-
-        thread_yield();
     }
 }
 
 void *garbbage_collector(void) {
     BUILTIN_THREAD_ANOUNCE(__func__);
-    jiffies_timed_wait(.1);
-    printk("thread[%d] done\n", thread_self());
     return 0;
 }
 

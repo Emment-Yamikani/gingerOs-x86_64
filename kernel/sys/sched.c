@@ -150,16 +150,18 @@ int sched_zombie(thread_t *thread)
 {
     int err = 0;
     thread_assert_locked(thread);
+    tgroup_assert_locked(thread->t_group);
 
     if ((err = thread_enqueue(zombie_queue, thread, NULL)))
         return err;
-    atomic_dec(&thread->t_group->nthreads);
+
+    tgroup_inc_running(thread->t_group);
+    tgroup_unlock(thread->t_group);
     cond_broadcast(thread->t_wait);
     return 0;
 }
 
-int sched_sleep(queue_t *sleep_queue, spinlock_t *lock)
-{
+int sched_sleep(queue_t *sleep_queue, spinlock_t *lock) {
     int err = 0;
     queue_assert(sleep_queue);
     current_assert_locked();
@@ -171,14 +173,11 @@ int sched_sleep(queue_t *sleep_queue, spinlock_t *lock)
     thread_enter_state(current, T_ISLEEP);
     current->sleep_attr.queue = sleep_queue;
 
-    // printk("sleep_node: %p, sleep_node->next: %p\n", current->t_sleep_node, current->t_sleep_node->next);
-    if (lock)
-        spin_unlock(lock);
+    if (lock) spin_unlock(lock);
 
     sched();
 
-    if (lock)
-        spin_lock(lock);
+    if (lock) spin_lock(lock);
 
     current->sleep_attr.node = NULL;
     current->sleep_attr.queue = NULL;
@@ -289,6 +288,16 @@ void sched_yield(void)
     current_unlock();
 }
 
+void sched_self_destruct(thread_t *thread) {
+    thread_unlock(thread);
+    tgroup_lock(thread->t_group);
+    thread_lock(thread);
+    thread->t_state = T_ZOMBIE;
+    thread->t_exit = -EINTR;
+    sched_zombie(thread);
+    thread_unlock(thread);
+}
+
 void schedule(void)
 {
     jiffies_t before = 0, now = 0;
@@ -300,7 +309,6 @@ void schedule(void)
 
     loop() {
         current = NULL;
-
         cpu->ncli = 0;
         cpu->intena = 0;
 
@@ -311,32 +319,31 @@ void schedule(void)
 
         cli();
 
-        if (thread_killed(thread))
-        {
-            thread->t_state = T_ZOMBIE;
-            thread->t_exit = -EINTR;
-            sched_zombie(thread);
-            thread_unlock(thread);
+        if (thread_killed(thread)) {
+            sched_self_destruct(thread);
             continue;
         }
 
         current = thread;
-
         current_assert_locked();
 
         before = jiffies_get();
         current->t_sched_attr.last_sched = jiffies_TO_s(before);
 
         swtch(&cpu->ctx, current->t_arch.t_ctx);
+
         now = jiffies_get();
         current->t_sched_attr.cpu_time += (now - before);
 
         current_assert_locked();
 
         // paging_switch(oldpgdir);
+        if (thread_killed(thread)) {
+            sched_self_destruct(thread);
+            continue;
+        }
 
-        switch (current->t_state)
-        {
+        switch (current->t_state) {
         case T_EMBRYO:
             panic("embryo was allowed to run\n");
             break;
@@ -361,8 +368,6 @@ void schedule(void)
         }
     }
 }
-
-#include <boot/boot.h>
 
 void sched_balancer(void) {
     BUILTIN_THREAD_ANOUNCE(__func__);

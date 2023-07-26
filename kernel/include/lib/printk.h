@@ -111,9 +111,7 @@ size_t klog(int type, const char *restrict __fmt__, ...);
 #define assert_msg(condition, ...) \
 {                                  \
     if ((condition) == 0)          \
-    {                              \
         panic(__VA_ARGS__);        \
-    }                              \
 }
 
 #define assert(condition, msg) ({ assert_msg(condition, "%s:%d: retaddr: %p: %s\n", \
@@ -123,5 +121,6 @@ size_t klog(int type, const char *restrict __fmt__, ...);
 }
 #endif
 
+#define debugloc() ({ printk("%s:%d in %s()\n", __FILE__, __LINE__, __func__); })
 
 #endif  // _PRINTF_H_

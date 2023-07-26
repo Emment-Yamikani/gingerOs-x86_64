@@ -7,8 +7,9 @@
 
 void queue_free(queue_t *q)
 {
-    queue_assert_locked(q);
+    queue_lock(q);
     queue_flush(q);
+    queue_unlock(q);
     if (q->name && (q->flags & 1))
         kfree(q->name);
     if (q->flags & 1) kfree(q);
@@ -81,7 +82,7 @@ queue_node_t *enqueue(queue_t *q, void *data)
     return node;
 }
 
-int queue_count(queue_t *q)
+size_t queue_count(queue_t *q)
 {
     queue_assert_locked(q);
     if (spin_trylock(&q->lock))
