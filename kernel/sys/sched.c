@@ -15,24 +15,22 @@ static queue_t *zombie_queue = QUEUE_NEW("zombie-threads-queue");
 
 int sched_init(void)
 {
-    int err = 0;
-    queue_t *q = NULL;
-    sched_queue_t *sq = NULL;
+    int             err = 0;
+    queue_t         *q = NULL;
+    sched_queue_t   *sq = NULL;
 
     if (!(sq = kmalloc(sizeof *sq)))
         return -ENOMEM;
 
     memset(sq, 0, sizeof *sq);
 
-    for (int i = 0; i < NLEVELS; ++i)
-    {
+    for (int i = 0; i < NLEVELS; ++i) {
         if ((err = queue_new("sched_queue", &q)))
             panic("error initailizing scheduler queues, error=%d\n", err);
 
         sq->level[i].queue = q;
 
-        switch (i)
-        {
+        switch (i) {
         case 0:
             sq->level[i].quatum = 10; // 100ms
             break;
@@ -301,8 +299,7 @@ void sched_self_destruct(thread_t *thread) {
         thread_unlock(thread);
 }
 
-void schedule(void)
-{
+void schedule(void) {
     jiffies_t before = 0, now = 0;
     thread_t *thread = NULL;
 

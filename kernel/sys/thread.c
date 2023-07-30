@@ -502,7 +502,7 @@ int kthread_create_join(void *(*entry)(void *), void *arg, void **ret) {
     return thread_join(tid, NULL, ret);
 }
 
-int start_builtin_threads(int *nthreads, thread_t ***threads) {
+int builtin_threads_begin(int *nthreads, thread_t ***threads) {
     int nt = 0;
     int err = 0;
     size_t nr = 0;
@@ -557,7 +557,6 @@ int start_builtin_threads(int *nthreads, thread_t ***threads) {
         kfree(builtin_threads);
     return err;
 }
-
 
 int thread_create(tid_t *ptid, thread_t **pthread, thread_attr_t *attr, thread_entry_t entry, void *arg) {
     int err = 0;

@@ -22,24 +22,13 @@
 
 __noreturn void kthread_main(void) {
     int nthread = 0;
-    thread_info_t info = {0};
-
-    printk("Welcome to 'Ginger OS'.\n");
     BUILTIN_THREAD_ANOUNCE(__func__);
+    printk("Welcome to 'Ginger OS'.\n");
 
-    start_builtin_threads(&nthread, NULL);
+    builtin_threads_begin(&nthread, NULL);
 
-    // Don't allow main thread to exit.
     loop() {
-        int err = 0;
-        sleep(1);
-        if (!(err = thread_join(0, &info, NULL))) {
-            printk("thread[%d] exited, status: %s, cputime: %1.1fs, status: %d\n", info.ti_tid,
-                t_states[info.ti_state], jiffies_TO_s(info.ti_sched.cpu_time), info.ti_exit);
-        } else {
-
-            printk("failure: %d\n", err);
-        }
+        thread_join(0, NULL, NULL);
     }
 }
 

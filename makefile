@@ -3,19 +3,15 @@ ld=x86_64-elf-ld
 ar=x86_64-elf-ar
 as=x86_64-elf-as
 
-
-cflags +=\
-	-O2 -g -nostdinc -nostdlib \
+cflags += -O2 -g -nostdinc -nostdlib \
  	-lgcc -std=gnu2x -Wall -march=x86-64\
  	-Werror -Wextra -mcmodel=large \
  	-mno-red-zone -mno-mmx -msse
 
 cppflags +=
 
-ldflags +=\
-	-nostdlib -static -m elf_x86_64 \
-	-z max-page-size=0x1000 \
-	-T \
+ldflags += -nostdlib -static -m elf_x86_64 \
+	-z max-page-size=0x1000 -T
 
 kernel_flags:=$(cflags) $(cppflags) -ffreestanding -D__is_kernel -Ikernel/include
 
@@ -67,7 +63,7 @@ $(iso_dir)/boot/lime.elf: $(kernel_dir)/kernel.ld $(linked_objs)
 
 run:
 	qemu-system-x86_64	\
-	-smp 1	 			\
+	-smp 8	 			\
 	-m size=1G			\
 	-cdrom	ginger.iso	\
 	-no-reboot			\
