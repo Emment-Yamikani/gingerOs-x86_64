@@ -13,6 +13,7 @@
 #include <sync/cond.h>
 #include <sys/_time.h>
 #include <ginger/jiffies.h>
+#include <sys/_signal.h>
 
 typedef enum {
     T_EMBRYO,
@@ -71,26 +72,17 @@ typedef struct {
     spinlock_t      tg_lock;
 } tgroup_t;
 
-#define tgroup_assert(tg)           ({ assert(tg, "No thread group"); })
-#define tgroup_lock(tg)             ({ tgroup_assert(tg); spin_lock(&(tg)->tg_lock); })
-#define tgroup_unlock(tg)           ({ tgroup_assert(tg); spin_unlock(&(tg)->tg_lock); })
-#define tgroup_locked(tg)           ({ tgroup_assert(tg); spin_locked(&(tg)->tg_lock); })
-#define tgroup_assert_locked(tg)    ({ tgroup_assert(tg); spin_assert_locked(&(tg)->tg_lock); })
+#define tgroup_assert(tg)               ({ assert(tg, "No thread group"); })
+#define tgroup_lock(tg)                 ({ tgroup_assert(tg); spin_lock(&(tg)->tg_lock); })
+#define tgroup_unlock(tg)               ({ tgroup_assert(tg); spin_unlock(&(tg)->tg_lock); })
+#define tgroup_locked(tg)               ({ tgroup_assert(tg); spin_locked(&(tg)->tg_lock); })
+#define tgroup_assert_locked(tg)        ({ tgroup_assert(tg); spin_assert_locked(&(tg)->tg_lock); })
 
 #define tgroup_queue_assert(tg)         ({ tgroup_assert_locked(tg); queue_assert((tg)->tg_queue); })
 #define tgroup_queue_lock(tg)           ({ tgroup_queue_assert(tg); queue_lock((tg)->tg_queue); })
 #define tgroup_queue_unlock(tg)         ({ tgroup_queue_assert(tg); queue_unlock((tg)->tg_queue); })
 #define tgroup_queue_locked(tg)         ({ tgroup_queue_assert(tg); queue_locked((tg)->tg_queue); })
 #define tgroup_queue_assert_locked(tg)  ({ tgroup_queue_assert(tg); queue_assert_locked((tg)->tg_queue); })
-
-#define __tgroup_main     BS(0)   // set tgroup main thread.
-#define __tgroup_waiter   BS(1)   // set tgroup waiter thread.
-#define __tgroup_last     BS(2)   // set tgroup last thread.
-#define __tgroup_all      (__tgroup_main | __tgroup_last | __tgroup_waiter)
-
-void    tgroup_free(tgroup_t *);
-int     tgroup_new(tid_t, tgroup_t **);
-int     tgroup_set(tgroup_t *, thread_t *, int);
 
 /**
  * \brief Destroy this tgroup. But only after all threads are killed.
@@ -184,9 +176,12 @@ typedef struct thread
     uintptr_t       t_entry;    // thread entry point.
     tstate_t        t_state;    // thread's execution state.
     uintptr_t       t_exit;     // thread exit code.
-    atomic_t        t_flags;    // threads flags.
+    atomic_t        t_flags;    // thread's flags.
     atomic_t        t_spinlocks;
     uintptr_t       t_errno;    // thread's errno.
+
+    sigset_t        t_sigmasked;// thread's masked signal set.
+    sigset_t        t_sigignore;// thread's ignore signal set.
 
     void            *t_simd_ctx;
     pagemap_t       *t_map;     // thread's process virtual address space.
@@ -213,12 +208,22 @@ typedef struct {
     atomic_t        ti_flags;
 } thread_info_t;
 
-#define THREAD_USER                     BS(0)
-#define THREAD_KILLED                   BS(1)
-#define THREAD_SETPARK                  BS(2)
-#define THREAD_SETWAKE                  BS(3)  
-#define THREAD_HANDLING_SIG             BS(4)
-#define THREAD_SIMD_DIRTY               BS(7)
+typedef struct {
+    int         detatchstate;
+    size_t      guardsz;
+    uintptr_t   stackaddr;
+    size_t      stacksz;
+} thread_attr_t;
+
+typedef void *(*thread_entry_t)(void *);
+
+#define THREAD_USER                     BS(0)   // thread is a user thread.
+#define THREAD_KILLED                   BS(1)   // thread was killed by another thread.
+#define THREAD_SETPARK                  BS(2)   // thread has the park flag set.
+#define THREAD_SETWAKE                  BS(3)   // thread has the wakeup flag set.
+#define THREAD_HANDLING_SIG             BS(4)   // thread is currently handling a signal.
+#define THREAD_DETACHED                 BS(5)   // free resources allocated to this thread imediately to terminates.
+#define THREAD_SIMD_DIRTY               BS(7)   // thread's SIMD context is dirty and must be save on context swtich.
 
 #define thread_assert(t)                ({ assert(t, "No thread pointer\n");})
 #define thread_lock(t)                  ({ thread_assert(t); spin_lock(&((t)->t_lock)); })
@@ -252,6 +257,23 @@ typedef struct {
 #define thread_tgroup_unlock(t)         ({ tgroup_unlock(thread_tgroup(t)); })
 #define thread_tgroup_locked(t)         ({ tgroup_locked(thread_tgroup(t)); })
 
+#define thread_isuser(t)                ({ thread_testflags((t), THREAD_USER); })
+#define thread_isdetached(t)            ({ thread_testflags((t), THREAD_DETACHED); })
+#define thread_issetwake(t)             ({ thread_testflags((t), THREAD_SETWAKE); })
+#define thread_issetpark(t)             ({ thread_testflags((t), THREAD_SETPARK); })
+
+#define thread_setuser(t)               ({ thread_setflags((t), THREAD_USER); })
+#define thread_setdetached(t)           ({ thread_setflags((t), THREAD_DETACHED); })
+#define thread_setwake(t)               ({ thread_setflags((t), THREAD_SETWAKE); })
+#define thread_setpark(t)               ({ thread_setflags((t), THREAD_SETPARK); })
+#define thread_set_park_wake(t)         ({ thread_setflags((t), THREAD_SETWAKE | THREAD_SETPARK); })
+
+#define thread_maskdetached(t)          ({ thread_maskflags((t), THREAD_DETACHED); })
+#define thread_maskwake(t)              ({ thread_maskflags((t), THREAD_SETWAKE); })
+#define thread_maskpark(t)              ({ thread_maskflags((t), THREAD_SETPARK); })
+#define thread_mask_park_wake(t)        ({ thread_maskflags((t), THREAD_SETWAKE | THREAD_SETPARK); })
+
+#define thread_issetpark_wake(t)        ({ thread_testflags((t), THREAD_SETWAKE | THREAD_SETPARK); })
 #define thread_issimd_dirty(t)          ({ thread_testflags((t), THREAD_SIMD_DIRTY); })
 #define thread_set_simd_dirty(t)        ({ thread_setflags((t), THREAD_SIMD_DIRTY); })
 #define thread_mask_simd_dirty(t)       ({ thread_maskflags((t), THREAD_SIMD_DIRTY); })
@@ -322,7 +344,23 @@ typedef struct {
 #define current_tgroup_unlock()         ({ thread_tgroup_unlock(current); })
 #define current_tgroup_locked()         ({ thread_tgroup_locked(current); })
 
+#define current_setuser()               ({ thread_setuser(current); })
+#define current_setdetached()           ({ thread_setdetached(current); })
+#define current_setwake()               ({ thread_setwake(current); })
+#define current_setpark()               ({ thread_setpark(current); })
+#define current_set_park_wake()         ({ thread_set_park_wake(current); })
+
+#define current_maskdetached()          ({ thread_maskdetached(current); })
+#define current_maskwake()              ({ thread_maskwake(current); })
+#define current_maskpark()              ({ thread_maskpark(current); })
+#define current_mask_park_wake()        ({ thread_mask_park_wake(current); })
+
+#define current_isuser()                ({ thread_isuser(current); })
 #define current_killed()                ({ thread_killed(current); })
+#define current_issetwake()             ({ thread_issetwake(current); })
+#define current_issetpark()             ({ thread_issetpark(current); })
+#define current_issetpark_wake()        ({ thread_issetpark_wake(current); })
+#define current_isdetached()            ({ thread_isdetached(current); })
 #define current_handling()              ({ thread_ishandling_signal(current); })
 #define current_isstate(state)          ({ thread_isstate(current, state); })
 #define current_embryo()                ({ thread_embryo(current); })
@@ -348,6 +386,9 @@ typedef struct {
 #define BUILTIN_THREAD_ANOUNCE(name)    ({ printk("\"%s\" thread [tid: %d] running...\n", name, thread_self()); })
 
 #define KSTACKSZ    (512 * KiB)
+#define STACKSZMIN  (16 * KiB)
+#define STACKSZMAX  (512 * KiB)
+#define STACKSZ_BAD(sz) ((sz) < STACKSZMIN || (sz) >= STACKSZMAX)
 
 int thread_new(thread_t **);
 void thread_free(thread_t *);
@@ -357,6 +398,8 @@ int thread_remove_queue(thread_t *thread, queue_t *queue);
 int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode);
 
 int start_builtin_threads(int *nthreads, thread_t ***threads);
+
+int thread_create(tid_t *ptid, thread_attr_t *attr, thread_entry_t entry, void *arg);
 
 int kthread_create_join(void *(*entry)(void *), void *arg, void **ret);
 int kthread_create(void *(*entry)(void *), void *arg, tid_t *__tid, thread_t **ref);

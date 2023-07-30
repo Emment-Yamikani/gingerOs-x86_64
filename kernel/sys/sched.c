@@ -242,8 +242,8 @@ void sched(void)
 
     
     if (current_testflags(THREAD_SETPARK) && current_isleep()) {
-        if (current_testflags(THREAD_SETWAKE)) {
-            current_maskflags(THREAD_SETPARK | THREAD_SETWAKE);
+        if (current_issetwake()) {
+            current_mask_park_wake();
             popcli();
             return;
         }
@@ -304,7 +304,6 @@ void schedule(void)
     thread_t *thread = NULL;
 
     sched_init();
-
     lapic_recalibrate(100);
 
     loop() {
@@ -337,7 +336,6 @@ void schedule(void)
 
         current_assert_locked();
 
-        // paging_switch(oldpgdir);
         if (thread_killed(thread)) {
             sched_self_destruct(thread);
             continue;
@@ -345,9 +343,10 @@ void schedule(void)
 
         switch (current->t_state) {
         case T_EMBRYO:
-            panic("embryo was allowed to run\n");
+            panic("??embryo was allowed to run\n");
             break;
         case T_TERMINATED:
+            current_enter_state(T_ZOMBIE);
             __fallthrough;
         case T_ZOMBIE:
             assert(!sched_zombie(current), "couldn't zombie");

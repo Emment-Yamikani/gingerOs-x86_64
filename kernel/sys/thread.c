@@ -272,26 +272,23 @@ int thread_join_r(thread_t *thread, thread_info_t *info, void **retval) {
         return -EINVAL;
 
     if (info) {
-        info->ti_errno = thread->t_errno;
-        info->ti_exit = thread->t_exit;
-        info->ti_flags = thread->t_flags;
+        info->ti_tid    = thread->t_tid;
+        info->ti_exit   = thread->t_exit;
+        info->ti_flags  = thread->t_flags;
+        info->ti_errno  = thread->t_errno;
+        info->ti_state  = thread->t_state;
         info->ti_killer = thread->t_killer;
-        info->ti_sched = thread->t_sched_attr;
-        info->ti_state = thread->t_state;
-        info->ti_tid = thread->t_tid;
+        info->ti_sched  = thread->t_sched_attr;
     }
 
     if (thread == current)
         return -EDEADLOCK;
 
-        
-
     loop() {
         if (thread_killed(current))
             return -EINTR;
 
-        if (thread->t_state == T_ZOMBIE)
-        {
+        if (thread->t_state == T_ZOMBIE) {
             if (retval) *retval = (void *)thread->t_exit;
             thread_free(thread);
             break;
@@ -310,13 +307,11 @@ int thread_wait(thread_t *thread, int reap, void **retval) {
     (void)err;
     thread_assert_locked(thread);
 
-    loop()
-    {
+    loop() {
         if (thread_killed(current))
             return -EINTR;
 
-        if ((thread->t_state == T_ZOMBIE) || (thread->t_state == T_TERMINATED))
-        {
+        if ((thread->t_state == T_ZOMBIE) || (thread->t_state == T_TERMINATED)) {
             if (retval)
                 *retval = (void *)thread->t_exit;
             if (reap)
@@ -325,8 +320,7 @@ int thread_wait(thread_t *thread, int reap, void **retval) {
         }
 
         thread_unlock(thread);
-        if ((err = cond_wait(thread->t_wait)))
-        {
+        if ((err = cond_wait(thread->t_wait))) {
             thread_lock(thread);
             return err;
         }
@@ -513,4 +507,15 @@ int start_builtin_threads(int *nthreads, thread_t ***threads) {
     else
         kfree(builtin_threads);
     return err;
+}
+
+
+int thread_create(tid_t *ptid, thread_attr_t *attr, thread_entry_t entry, void *arg) {
+    if (!ptid || !entry)
+        return -EINVAL;
+    
+    if (attr) {
+        if (STACKSZ_BAD(attr->stacksz))
+            return -EAGAIN;
+    }
 }

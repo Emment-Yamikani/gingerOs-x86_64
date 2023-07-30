@@ -42,7 +42,7 @@ jiffies_t jiffies_sleep(jiffies_t jiffy) {
         current_lock();
         if ((sched_sleep(jiffies_sleep_queue, NULL))) {
             current_unlock();
-            return jiffy - now;
+            break;
         }
         current_unlock();
     }
@@ -54,9 +54,7 @@ int jiffies_getres(struct timespec *res) {
         return -EINVAL;
 
     spin_lock(jiffies_res_lock);
-
     *res = jiffies_res;
-
     spin_unlock(jiffies_res_lock);
 
     return 0;

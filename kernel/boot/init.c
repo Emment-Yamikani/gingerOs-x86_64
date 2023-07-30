@@ -82,7 +82,7 @@ int multiboot_info_process(multiboot_info_t *info) {
     return 0;
 }
 
-extern __noreturn void kthread_main(void *);
+extern __noreturn void kthread_main(void);
 
 int early_init(multiboot_info_t *info) {
     int err = 0;

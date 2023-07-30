@@ -53,19 +53,17 @@ void cr4set(uint64_t bits) {
     wrcr4(cr4);
 }
 
-void cpu_get_features(void)
-{
+void cpu_get_features(void) {
     uint32_t eax, ebx, ecx, edx;
 
-    cpuid(0, 0, &eax, (uint32_t *)&cpu->vendor[0], (uint32_t *)&cpu->vendor[8], (uint32_t *)&cpu->vendor[4]);
+    cpuid(0, 0, &eax, (uint32_t *)&cpu->vendor[0],
+        (uint32_t *)&cpu->vendor[8], (uint32_t *)&cpu->vendor[4]);
 
     cpuid(0x80000008, 0, &eax, &ebx, &ecx, &edx);
-
     cpu->phys_addrsz = eax & 0xFF;
     cpu->virt_addrsz = (eax >> 8) & 0xFF;
 
     cpuid(0x80000001, 0, &eax, &ebx, &ecx, &edx);
-    
     cpu->features |= BTEST(edx, 11) ? CPU_SYSCALL : 0;
     cpu->features |= BTEST(edx, 29) ? CPU_LM : 0;
     cpu->features |= BTEST(edx, 20) ? CPU_XD : 0;
@@ -107,20 +105,24 @@ void cpu_get_features(void)
     */
 }
 
-void cpu_init(cpu_t *c)
-{
+void cpu_init(cpu_t *c) {
     atomic_inc(&cpus_running);
     disable_caching();
     idt_init();
     gdt_init(c);
     cpu_get_features();
     sse_init();
-    c->flags |= CPU_ENABLED | BTEST(rdmsr(IA32_APIC_BASE), 8) ? CPU_ISBSP : 0;
-    atomic_fetch_or(&c->flags, CPU_ONLINE);
+
+    c->flags |= CPU_ONLINE | CPU_64BIT | CPU_ENABLED;
+    c->flags |= rdmsr(IA32_EFER) & BS(8) ? CPU_64BIT : 0;
+    c->flags |= BTEST(rdmsr(IA32_APIC_BASE), 8) ? CPU_ISBSP : 0;
 }
 
-int bsp_init(void)
-{
+int is64bit(void) {
+    return rdmsr(IA32_EFER) & BS(8) ? 1 : 0;
+}
+
+int bsp_init(void) {
     tvinit();
     memset(&bsp, 0, sizeof bsp);
     cpu_init(&bsp);
@@ -137,8 +139,8 @@ int cpu_rsel(void) {
 }
 
 void set_cpu_local(cpu_t *c) {
-    wrmsr(IA32_GS_BASE, (uint64_t)c);
-    wrmsr(IA32_KERNEL_GS_BASE, (uint64_t)c);
+    wrmsr(IA32_GS_BASE, (uintptr_t)c);
+    wrmsr(IA32_KERNEL_GS_BASE, (uintptr_t)c);
 }
 
 cpu_t *get_cpu_local(void) { 
@@ -151,13 +153,18 @@ int cpu_local_id(void) {
     return ((b >> 24) & 0xFF);
 }
 
-uintptr_t readgs_base(void) { return rdmsr(IA32_GS_BASE); }
+uintptr_t readgs_base(void) {
+    return rdmsr(IA32_GS_BASE);
+}
 
-void loadgs_base(uintptr_t base) { wrmsr(IA32_GS_BASE, base); }
+void loadgs_base(uintptr_t base) {
+    wrmsr(IA32_GS_BASE, base);
+}
 
 int enumerate_cpus(void) {
     char *entry = NULL;
     acpiMADT_t *MADT = NULL;
+
     struct {
         uint8_t     type;
         uint8_t     len;

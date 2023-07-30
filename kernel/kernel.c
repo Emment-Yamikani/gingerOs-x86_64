@@ -20,7 +20,7 @@
 #include <sys/_signal.h>
 #include <dev/hpet.h>
 
-__noreturn void kthread_main(void *arg __unused) {
+__noreturn void kthread_main(void) {
     int nthread = 0;
     thread_info_t info = {0};
 
@@ -32,15 +32,15 @@ __noreturn void kthread_main(void *arg __unused) {
     // Don't allow main thread to exit.
     loop() {
         if (!thread_join(0, &info, NULL)) {
-            --nthread;
-            printk("thread[%d] exited, status: %s, cputime: %.3fs.\n", info.ti_tid,
-                t_states[info.ti_state], jiffies_TO_s(info.ti_sched.cpu_time));
+            printk("thread[%d] exited, status: %s, cputime: %1.1fs, status: %d\n", info.ti_tid,
+                t_states[info.ti_state], jiffies_TO_s(info.ti_sched.cpu_time), info.ti_exit);
         }
     }
 }
 
 void *garbbage_collector(void) {
     BUILTIN_THREAD_ANOUNCE(__func__);
+    jiffies_timed_wait(1);
     return 0;
 }
 
