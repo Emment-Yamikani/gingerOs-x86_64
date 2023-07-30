@@ -114,7 +114,7 @@ int early_init(multiboot_info_t *info) {
     if ((err = vfs_init()))
         panic("Failed to initialize VFS!, error: %d\n", err);
 
-    kthread_create((void *)kthread_main, NULL, NULL, NULL);
+    thread_create(NULL, NULL, NULL, (thread_entry_t)kthread_main, NULL);
 
     bootothers();
     schedule();

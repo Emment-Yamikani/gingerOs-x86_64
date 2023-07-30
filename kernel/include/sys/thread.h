@@ -169,6 +169,12 @@ int tgroup_remove_thread(tgroup_t *tgroup, thread_t *thread);
  **/
 int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pthread);
 
+typedef struct {
+    int         detatchstate;
+    size_t      guardsz;
+    uintptr_t   stackaddr;
+    size_t      stacksz;
+} thread_attr_t;
 typedef struct thread
 {
     tid_t           t_tid;      // thread ID.
@@ -179,13 +185,14 @@ typedef struct thread
     atomic_t        t_flags;    // thread's flags.
     atomic_t        t_spinlocks;
     uintptr_t       t_errno;    // thread's errno.
+    
+    thread_attr_t   t_attr;     // thread' attributes.
 
     sigset_t        t_sigmasked;// thread's masked signal set.
     sigset_t        t_sigignore;// thread's ignore signal set.
 
     void            *t_simd_ctx;
     pagemap_t       *t_map;     // thread's process virtual address space.
-
     sleep_attr_t    sleep_attr;  // struct describing sleep attributes for this thread.
     sched_attr_t    t_sched_attr;// struct describing scheduler attributes for this thread.
 
@@ -208,12 +215,6 @@ typedef struct {
     atomic_t        ti_flags;
 } thread_info_t;
 
-typedef struct {
-    int         detatchstate;
-    size_t      guardsz;
-    uintptr_t   stackaddr;
-    size_t      stacksz;
-} thread_attr_t;
 
 typedef void *(*thread_entry_t)(void *);
 
@@ -385,12 +386,15 @@ typedef void *(*thread_entry_t)(void *);
 
 #define BUILTIN_THREAD_ANOUNCE(name)    ({ printk("\"%s\" thread [tid: %d] running...\n", name, thread_self()); })
 
-#define KSTACKSZ    (512 * KiB)
-#define STACKSZMIN  (16 * KiB)
-#define STACKSZMAX  (512 * KiB)
-#define STACKSZ_BAD(sz) ((sz) < STACKSZMIN || (sz) >= STACKSZMAX)
+#define KSTACKSZ        (512 * KiB)
+#define STACKSZMIN      (16 * KiB)
+#define STACKSZMAX      (512 * KiB)
+#define BADSTACKSZ(sz)  ((sz) < STACKSZMIN || (sz) >= STACKSZMAX)
 
-int thread_new(thread_t **);
+uintptr_t thread_alloc_kstack(size_t size);
+void thread_free_kstack(uintptr_t addr, size_t size);
+
+int thread_new(thread_attr_t *, int flags,  thread_t **);
 void thread_free(thread_t *);
 
 thread_t *thread_dequeue(queue_t *queue);
@@ -399,7 +403,7 @@ int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode);
 
 int start_builtin_threads(int *nthreads, thread_t ***threads);
 
-int thread_create(tid_t *ptid, thread_attr_t *attr, thread_entry_t entry, void *arg);
+int thread_create(tid_t *ptid, thread_t **pthread, thread_attr_t *attr, thread_entry_t entry, void *arg);
 
 int kthread_create_join(void *(*entry)(void *), void *arg, void **ret);
 int kthread_create(void *(*entry)(void *), void *arg, tid_t *__tid, thread_t **ref);

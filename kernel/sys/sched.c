@@ -241,7 +241,7 @@ void sched(void)
     current_assert_locked();
 
     
-    if (current_testflags(THREAD_SETPARK) && current_isleep()) {
+    if (current_issetpark() && current_isleep()) {
         if (current_issetwake()) {
             current_mask_park_wake();
             popcli();
@@ -295,7 +295,10 @@ void sched_self_destruct(thread_t *thread) {
     thread->t_state = T_ZOMBIE;
     thread->t_exit = -EINTR;
     sched_zombie(thread);
-    thread_unlock(thread);
+    if (thread_setdetached(thread))
+        thread_free(thread);
+    else
+        thread_unlock(thread);
 }
 
 void schedule(void)
@@ -350,7 +353,10 @@ void schedule(void)
             __fallthrough;
         case T_ZOMBIE:
             assert(!sched_zombie(current), "couldn't zombie");
-            current_unlock();
+            if (thread_setdetached(current))
+                thread_free(current);
+            else
+                current_unlock();
             break;
         case T_READY:
             sched_park(current);

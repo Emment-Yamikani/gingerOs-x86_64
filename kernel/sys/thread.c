@@ -30,17 +30,54 @@ static tid_t tid_alloc(void) {
     return atomic_inc_fetch(&tids);
 }
 
-int thread_new(thread_t **ref) {
-    int err = 0;
-    cond_t *wait = NULL;
-    uintptr_t kstack = 0;
-    queue_t *queue = NULL;
-    thread_t *thread = NULL;
+uintptr_t thread_alloc_kstack(size_t size) {
+    return mapped_alloc(size);
+}
 
-    if (!(kstack = mapped_alloc(KSTACKSZ)))
-        return -ENOMEM;
-    
-    thread = (thread_t *)ALIGN16((kstack + KSTACKSZ) - (sizeof *thread));
+void thread_free_kstack(uintptr_t addr, size_t size) {
+    mapped_free(addr, size);
+}
+
+int thread_new(thread_attr_t *attr, int flags, thread_t **ref) {
+    int         err         = 0;
+    uintptr_t   kstack      = 0;
+    thread_attr_t t_attr    = {0};
+    cond_t      *wait       = NULL;
+    queue_t     *queue      = NULL;
+    thread_t    *thread     = NULL;
+    size_t      kstacksz    = KSTACKSZ;
+
+    if (attr == NULL) {
+        if (!(kstack = thread_alloc_kstack(kstacksz)))
+            return -ENOMEM;
+        
+        t_attr = (thread_attr_t) {
+            .detatchstate   = 0,
+            .guardsz        = 0,
+            .stackaddr      = kstack,
+            .stacksz        = kstacksz,
+        };
+    } else {
+        if (BADSTACKSZ(attr->stacksz))
+            return -EINVAL;
+
+        if (!BTEST(flags, 0)) {
+            if (attr->stackaddr == 0)
+                if (!(attr->stackaddr = thread_alloc_kstack(attr->stacksz)))
+                    return -ENOMEM;
+            kstack = attr->stackaddr;
+            kstacksz = attr->stacksz;
+        } else {
+            if (attr->stackaddr == 0)
+                return -EINVAL;
+            if (!(kstack = thread_alloc_kstack(kstacksz)))
+                return -ENOMEM;
+        }
+
+        t_attr = *attr;
+    }
+
+    thread = (thread_t *)ALIGN16((kstack + kstacksz) - (sizeof *thread));
 
     if ((err = queue_new("thread", &queue)))
         goto error;
@@ -50,14 +87,19 @@ int thread_new(thread_t **ref) {
 
     memset(thread, 0, sizeof *thread);
 
-    thread->t_arch = (x86_64_thread_t){
+    thread->t_arch = (x86_64_thread_t) {
         .t_kstack = kstack,
+        .t_kstacksz = kstacksz,
     };
 
+    thread->t_attr = t_attr;
     thread->t_tid = tid_alloc();
     thread->t_lock = SPINLOCK_INIT();
 
     thread_lock(thread);
+
+    if (attr->detatchstate)
+        thread_setdetached(thread);
 
     thread->t_wait = wait;
     thread->t_queues = queue;
@@ -74,7 +116,7 @@ error:
         cond_free(wait);
     if (queue)
         queue_free(queue);
-    mapped_free(kstack, KSTACKSZ);
+    thread_free_kstack(kstack, kstacksz);
     return err;
 }
 
@@ -98,13 +140,13 @@ void thread_free(thread_t *thread) {
         queue_free(thread->t_queues);
     }
 
-    assert(thread->t_arch.t_kstack, "No kernel stack ???");
+    assert(thread->t_arch.t_kstack, "??? No kernel stack ???");
 
     if (thread->t_wait)
         cond_free(thread->t_wait);
     if (thread_locked(thread))
         thread_unlock(thread);
-    mapped_free(thread->t_arch.t_kstack, KSTACKSZ);
+    thread_free_kstack(thread->t_arch.t_kstack, thread->t_arch.t_kstacksz);
 }
 
 tid_t thread_self(void) {
@@ -417,7 +459,7 @@ int kthread_create(void *(*entry)(void *), void *arg, tid_t *__tid, thread_t **r
     int err = 0;
     thread_t *thread = NULL;
 
-    if ((err = thread_new(&thread)))
+    if ((err = thread_new(NULL, 0, &thread)))
         return err;
 
     if ((err = arch_kthread_init(&thread->t_arch, entry, arg)))
@@ -478,6 +520,13 @@ int start_builtin_threads(int *nthreads, thread_t ***threads) {
         void *arg = argv[i];
         void *(*entry)(void *) = entryv[i];
 
+        thread_attr_t t_attr = {
+            .detatchstate = 0,
+            .guardsz = 0,
+            .stackaddr = 0,
+            .stacksz = STACKSZMIN,
+        };
+
         if (entry)
         {
             if (builtin_threads == NULL)
@@ -494,7 +543,7 @@ int start_builtin_threads(int *nthreads, thread_t ***threads) {
                 break;
             }
 
-            if ((err = kthread_create(entry, arg, NULL, &thread)))
+            if ((err = thread_create(NULL, &thread, &t_attr, entry, arg)))
                 break;
 
             builtin_threads[nt++] = thread;
@@ -510,12 +559,53 @@ int start_builtin_threads(int *nthreads, thread_t ***threads) {
 }
 
 
-int thread_create(tid_t *ptid, thread_attr_t *attr, thread_entry_t entry, void *arg) {
-    if (!ptid || !entry)
+int thread_create(tid_t *ptid, thread_t **pthread, thread_attr_t *attr, thread_entry_t entry, void *arg) {
+    int err = 0;
+    int user = 0;
+    thread_t *thread = NULL;
+    tgroup_t *tgroup = NULL;
+
+    if (!entry)
         return -EINVAL;
-    
-    if (attr) {
-        if (STACKSZ_BAD(attr->stacksz))
-            return -EAGAIN;
+
+    if (current) {
+        current_lock();
+        user = current_isuser();
+        current_unlock();
     }
+
+    if ((err = thread_new(attr, user, &thread)))
+        goto error;
+
+    if (!user) {
+        if ((err = arch_kthread_init(&thread->t_arch, entry, arg)))
+            goto error;
+    }
+
+    tgroup  = current ?  current_tgroup() : kthreads;
+
+    if (tgroup == NULL) {
+        assert(!(err = tgroup_create(thread, &kthreads)), "failed to create tgroup");
+        tgroup = kthreads;
+    } else
+        tgroup_lock(tgroup);
+    
+    if ((err = tgroup_add_thread(tgroup, thread))) {
+        tgroup_unlock(tgroup);
+        goto error;
+    }
+    tgroup_unlock(tgroup);
+
+    if (ptid)
+        *ptid = thread->t_tid;
+    if (pthread)
+        *pthread = thread;
+
+    err = sched_park(thread);
+    thread_unlock(thread);
+    return err;
+error:
+    if (thread)
+        thread_free(thread);
+    return err;
 }

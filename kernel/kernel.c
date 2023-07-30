@@ -31,9 +31,14 @@ __noreturn void kthread_main(void) {
 
     // Don't allow main thread to exit.
     loop() {
-        if (!thread_join(0, &info, NULL)) {
+        int err = 0;
+        sleep(1);
+        if (!(err = thread_join(0, &info, NULL))) {
             printk("thread[%d] exited, status: %s, cputime: %1.1fs, status: %d\n", info.ti_tid,
                 t_states[info.ti_state], jiffies_TO_s(info.ti_sched.cpu_time), info.ti_exit);
+        } else {
+
+            printk("failure: %d\n", err);
         }
     }
 }

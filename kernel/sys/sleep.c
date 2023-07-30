@@ -22,8 +22,8 @@ int park(void) {
     int err = 0;
     current_lock();
 
-    if (current_testflags(THREAD_SETWAKE)) {
-        current_maskflags(THREAD_SETPARK | THREAD_SETWAKE);
+    if (current_issetwake()) {
+        current_mask_park_wake();
         return 0;
     }
 

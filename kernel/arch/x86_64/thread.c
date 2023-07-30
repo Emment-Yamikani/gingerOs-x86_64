@@ -32,7 +32,7 @@ int arch_kthread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg
     if (!thread)
         return -EINVAL;
 
-    stack = (uintptr_t *)ALIGN16((thread->t_kstack + KSTACKSZ) - sizeof (thread_t));
+    stack = (uintptr_t *)ALIGN16((thread->t_kstack + thread->t_kstacksz) - sizeof (thread_t));
 
     *--stack = (uintptr_t)arch_thread_stop;
     tf = (tf_t *)((uintptr_t)stack - sizeof *tf);
