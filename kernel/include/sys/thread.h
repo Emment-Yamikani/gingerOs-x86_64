@@ -68,6 +68,8 @@ typedef struct {
     queue_t         *tg_queue;
     queue_t         *tg_stopq;
     size_t          tg_running;
+
+    signals_t       tg_signals;
     spinlock_t      tg_lock;
 } tgroup_t;
 
@@ -163,6 +165,7 @@ int tgroup_remove_thread(tgroup_t *tgroup, thread_t *thread);
  * \param tgroup thread group.
  * \param tid absolute threadID of thread to return.
  * \param state if tid == 0, return any thread matching 'state'.
+ * if tid == -1 then return any thread.
  * \param pthread reference pointer to returned thread.
  * \returns (int)0, on success and err on failure.
  **/

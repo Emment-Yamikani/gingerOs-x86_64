@@ -139,7 +139,10 @@ typedef struct {
 int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact);
 
 typedef struct {
-    sigaction_t sig_action[NSIG];
+    sigset_t    sig_mask;
+    sigset_t    sig_ignore;
+    uint8_t     sig_queues[NSIG];
+    sigfunc_t   sig_handler[NSIG];
     spinlock_t  sig_lock;
 } signals_t;
 

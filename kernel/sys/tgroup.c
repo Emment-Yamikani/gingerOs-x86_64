@@ -5,7 +5,25 @@
 #include <mm/kalloc.h>
 #include <sys/thread.h>
 
-int tgroup_destroy(tgroup_t *tgroup);
+int tgroup_destroy(tgroup_t *tgroup) {
+    int err = 0;
+    thread_t *thread = NULL;
+
+    if (tgroup)
+        return -EINVAL;
+
+    tgroup->tg_signals = SIGNAL_INIT();
+    
+    tgroup_lock(tgroup);
+
+    while (!tgroup_get_thread(tgroup, 0, 0, &thread)) {
+        
+    }
+
+    tgroup_unlock(tgroup);
+
+    return 0;
+}
 
 size_t tgroup_inc_running(tgroup_t *tgroup) {
     tgroup_assert_locked(tgroup);
@@ -113,13 +131,13 @@ int tgroup_create(thread_t *tmain, tgroup_t **ptgroup) {
 
     memset(tgroup, 0, sizeof *tgroup);
 
-    tgroup->tg_lock = SPINLOCK_INIT();
     tgroup->tg_queue = queue;
     tgroup->tg_stopq = stopq;
     tgroup->tg_tmain = tmain;
     tgroup->tg_tlast = tmain;
     tgroup->tg_twait = tmain;
     tgroup->tg_tgid = tmain->t_tid;
+    tgroup->tg_lock = SPINLOCK_INIT();
 
     tgroup_lock(tgroup);
     *ptgroup = tgroup;
@@ -178,7 +196,7 @@ int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pt
     thread_t *thread = NULL;
     queue_node_t *next = NULL;
 
-    if (tid < 0 || !pthread)
+    if (!pthread)
         return -EINVAL;
 
     tgroup_queue_lock(tgroup);
@@ -195,7 +213,7 @@ int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pt
             return 0;
         }
 
-        if (thread->t_tid == tid) {
+        if (thread->t_tid == tid || tid == -1) {
             tgroup_queue_unlock(tgroup);
             *pthread = thread;
             return 0;

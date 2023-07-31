@@ -421,21 +421,12 @@ int thread_wake(thread_t *thread) {
     return sched_park(thread);
 }
 
-int thread_queue_get(queue_t *queue, tid_t tid, thread_t **tref) {
+int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread) {
     thread_t *thread = NULL;
     queue_node_t *next = NULL;
 
-    if (!queue || !tref)
+    if (!queue || !pthread)
         return -EINVAL;
-
-    if (tid < 0)
-        return -EINVAL;
-
-    if (tid == thread_self())
-    {
-        *tref = current;
-        return 0;
-    }
 
     queue_assert_locked(queue);
     forlinked(node, queue->head, next)
@@ -444,9 +435,12 @@ int thread_queue_get(queue_t *queue, tid_t tid, thread_t **tref) {
         thread = node->data;
 
         thread_lock(thread);
-        if (thread->t_tid == tid)
+        if (tid == 0) {
+            *pthread = thread;
+            return 0;
+        } else if (thread->t_tid == tid)
         {
-            *tref = thread;
+            *pthread = thread;
             return 0;
         }
         thread_unlock(thread);
