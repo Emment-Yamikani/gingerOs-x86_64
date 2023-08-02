@@ -125,8 +125,8 @@ size_t tgroup_dec_running(tgroup_t *tgroup);
  * \brief Callers must hold tgroup->lock before calling into this function.
  * \param tgroup thread group.
  * \param tid
- *  Is the absolute threadID of thread to kill, if tid == 0, then kills all threads.
- * However, if 'current' is in this group and tid == 0, then all thread except 'current' will be killed.
+ *  Is the absolute threadID of thread to kill, if tid == -1, then kills all threads.
+ * However, if 'current' is in this group and tid == -1, then all thread except 'current' will be killed.
  * \param wait wait for thread to die?
  * \returns (int)0, on success and err on failure.
  **/
@@ -394,37 +394,174 @@ typedef void *(*thread_entry_t)(void *);
 #define STACKSZMAX      (512 * KiB)
 #define BADSTACKSZ(sz)  ((sz) < STACKSZMIN || (sz) >= STACKSZMAX)
 
-uintptr_t thread_alloc_kstack(size_t size);
-void thread_free_kstack(uintptr_t addr, size_t size);
-
-void thread_free(thread_t *);
-int thread_new(thread_attr_t *, int flags,  thread_t **);
-
-thread_t *thread_dequeue(queue_t *queue);
-int thread_remove_queue(thread_t *thread, queue_t *queue);
-int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode);
-
 int builtin_threads_begin(int *nthreads, thread_t ***threads);
 
-int thread_create(tid_t *ptid, thread_t **pthread, thread_attr_t *attr, thread_entry_t entry, void *arg);
-
-int kthread_create_join(void *(*entry)(void *), void *arg, void **ret);
-int kthread_create(void *(*entry)(void *), void *arg, tid_t *__tid, thread_t **ref);
-
+/**
+ * \brief Return the threadID of the current thread.
+ * \return tid thread ID.
+*/
 tid_t thread_self(void);
+
+/**
+ * Yield current thread execution.
+*/
 void thread_yield(void);
 
+/**
+ * Kill all threads.
+*/
+int thread_kill_all(void);
+
+/**
+ * \brief Cancel the thread 'tid'.
+ * \param thread thread to be cancelled.
+ * \return (int)0 on success of error on failure.
+*/
+int thread_cancel(tid_t tid);
+
+/**
+ * Destroy 'thread'.
+ * \param thread thread to be destroyed.
+ *
+*/
+void thread_free(thread_t *thread);
+
+/**
+ * \brief Wake up a thread.
+ * \param thread thread to be wake up.
+ * \return (int)0 if successful or error on failure. 
+ * \return (int)0 on success of error on failure.
+*/
 int thread_wake(thread_t *thread);
 
-int thread_kill_all(void);
+/**
+ * \brief Kill thread 'tid'.
+ * \param tid is id of the thread to be killed.
+ * \param wait if '0' the function doen't wait for thread to die else it will wait.
+ * \return (int)0 if successful or error on failure.
+ */
 int thread_kill(tid_t tid, int wait);
-int thread_kill_n(thread_t *thread, int wait);
 
-int thread_cancel(tid_t tid);
+/**
+ * \brief Exit current thread.
+ * \param exit_code exit status of the current thread.
+ */
 void thread_exit(uintptr_t exit_code);
 
-int thread_join_r(thread_t *thread, thread_info_t *info, void **retval);
+/**
+ * \brief A thread from a thread queue.
+ * \param queue thread queue.
+*/
+thread_t *thread_dequeue(queue_t *queue);
+
+/**
+ * \brief Allocate a kernel stack
+ * \param size size of the kernel stack to allocate.
+*/
+uintptr_t thread_alloc_kstack(size_t size);
+
+/** \brief Kill thread.
+ * \param thread is id of the thread to be killed.
+ * \param wait if '0' the function doen't wait for thread to die else it will wait.
+ * \return (int)0 if successful or error on failure. 
+*/
+int thread_kill_n(thread_t *thread, int wait);
+
+/**
+ * \brief Deallocate the kernel thread stack.
+ * \param addr base address of the kernel stack.
+ * \param size size of the kernel stack.
+*/
+void thread_free_kstack(uintptr_t addr, size_t size);
+
+/**
+ * \brief Remove a thread from a thread queue.
+ * \param thread thread to be removed.
+ * \param queue thread queue.
+ * \return (int)0 on success or error on faliure.
+*/
+int thread_remove_queue(thread_t *thread, queue_t *queue);
+
+/**
+ * \brief Wait for thread to terminate.
+ * \param thread thread to be waited upon.
+ * \param reap if '1' then the resources allocated to the thread and the structure are freed.
+ * \param retval return value of the thread that is being waited upon.
+ * \return (int)0 on success or error on faliure.
+*/
+int thread_wait(thread_t *thread, int reap, void **retval);
+
+/**
+ * \brief Wait for thread to terminate.
+ * \param tid thread to be waited upon.
+ * * if tid == 0, then any thread is joined provided it has terminated otherwise the function returns immediately.
+ * \param info if non-null brief info about the state of the thread at termination is passed.
+ * \param retval return value of the thread that is being joined.
+ * \return (int)0 on success or error on faliure.
+ */
 int thread_join(tid_t tid, thread_info_t *info, void **retval);
 
-int thread_wait(thread_t *thread, int reap, void **retval);
+/**
+ * \brief Allocate a new thread structure.
+ * \param attr attributes used to specify how to create the new thread.
+ * \param flags additional specs for thread creation.
+ * \param pthread return the newly allocated thread through a pointer to the thread.
+ * \return (int)0 on success or error on faliure.
+ */
+int thread_new(thread_attr_t *attr, int flags,  thread_t **pthread);
+
+/**
+ * \brief Get a thread from a thread queue.
+ * \param tid thread to be retrieved from queue.
+ * if tid == 0, then any thread is returned.
+ * \param pthread return the retrived thread through a pointer to the thread.
+ * \return (int)0 on success or error on faliure.
+ */
 int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread);
+
+/**
+ * \brief Create and join(wait for termination) a new kernel thread.
+ * \param entry entry point of kernel thread.
+ * \param arg argument to be passed to the new kernel thread
+ * \param ret return value from the kernel thread after termination.
+ * \return (int)0 on success or error on faliure.
+ */
+int kthread_create_join(void *(*entry)(void *), void *arg, void **ret);
+
+/**
+ * \brief Join and wait for thread to terminate.
+ * \param thread thread to be joined.
+ * \param info if non-null brief info about the state of the thread at termination is passed.
+ * \param retval return value of the thread that is being joined.
+ * \return (int)0 on success or error on faliure.
+ */
+int thread_join_r(thread_t *thread, thread_info_t *info, void **retval);
+
+/**
+ * \brief Put a thread onto a thread queue.
+ * \param thread thread to be placed on the thread queue.
+ * \param rnode pointer to pointer to queue node.
+ * \return (int)0 on success or error on faliure.
+ */
+int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode);
+
+/**
+ * \brief Create a new kernel thread.
+ * \param entry entry point of kernel thread.
+ * \param arg argument to be passed to the new kernel thread.
+ * \param __tid tid of the created kernel thread is passed(returned) via this pointer.
+ * \param pthread pointer to a pointer to the newly created kernel thread is passed through pthread.
+ * \return (int)0 on success or error on faliure.
+ */
+int kthread_create(thread_entry_t entry, void *arg, tid_t *__tid, thread_t **pthread);
+
+/**
+ * \brief Create a thread.
+ * \param ptid thread ID of created thread is passed through ptid.
+ * \param pthread pointer to the thread struct is passed by reference through pthread.
+ * \param attr attributes used to specify how to create the new thread.
+ * \param entry entry point of kernel thread.
+ * \param arg argument to be passed to the new kernel thread.
+ * \return (int)0 on success or error on faliure.
+ */
+int thread_create(tid_t *ptid, thread_t **pthread, thread_attr_t *attr, thread_entry_t entry, void *arg);

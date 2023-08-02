@@ -16,6 +16,8 @@ int tgroup_destroy(tgroup_t *tgroup) {
     
     tgroup_lock(tgroup);
 
+    tgroup_kill_thread(tgroup, 0, 1);
+
     while (!tgroup_get_thread(tgroup, 0, 0, &thread)) {
         
     }
@@ -54,13 +56,10 @@ int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait) {
     queue_node_t *next = NULL;
     tgroup_assert_locked(tgroup);
 
-    if (tid < 0)
-        return -EINVAL;
-
     if (current_killed())
         return -EINTR;
 
-    if (tid == 0) {
+    if (tid == -1) {
         tgroup_queue_lock(tgroup);
         forlinked(node, tgroup->tg_queue->head, next) {
             next = node->next;
