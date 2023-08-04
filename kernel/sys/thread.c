@@ -11,7 +11,6 @@
 
 static atomic_t tids = {0};
 static atomic_t pids = {0};
-static tgroup_t *kthreads = NULL;
 
 extern char __builtin_thread_arg, __builtin_thread_arg_end;
 extern char __builtin_thread_entry, __builtin_thread_entry_end;
@@ -31,14 +30,14 @@ static tid_t tid_alloc(void) {
 }
 
 uintptr_t thread_alloc_kstack(size_t size) {
-    return mapped_alloc(size);
+    return (uintptr_t)kmalloc(size);
 }
 
-void thread_free_kstack(uintptr_t addr, size_t size) {
-    mapped_free(addr, size);
+void thread_free_kstack(uintptr_t addr, size_t size __unused) {
+    kfree((void *)addr);
 }
 
-int thread_new(thread_attr_t *attr, int flags, thread_t **ref) {
+int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, thread_t **ref) {
     int         err         = 0;
     uintptr_t   kstack      = 0;
     thread_attr_t t_attr    = {0};
@@ -109,6 +108,9 @@ int thread_new(thread_attr_t *attr, int flags, thread_t **ref) {
 
     thread_enter_state(thread, T_EMBRYO);
 
+    if ((err = arch_thread_init(&thread->t_arch, entry, arg)))
+        goto error;
+
     *ref = thread;
     return 0;
 error:
@@ -123,11 +125,9 @@ error:
 void thread_free(thread_t *thread) {
     queue_t *q = NULL;
 
-    thread_assert(thread);
-    assert(thread_embryo(thread) ||
-                   thread_terminated(thread) ||
-                   thread_zombie(thread),
-               "freeing a non zombie thread");
+    thread_assert_locked(thread);
+
+    assert(thread_zombie(thread), "freeing a non zombie thread");
 
     if (thread->t_queues) {
         queue_lock(thread->t_queues);
@@ -149,10 +149,12 @@ void thread_free(thread_t *thread) {
     thread_free_kstack(thread->t_arch.t_kstack, thread->t_arch.t_kstacksz);
 }
 
+tid_t thread_gettid(thread_t *thread) {
+    return thread ? thread->t_tid : 0;
+}
+
 tid_t thread_self(void) {
-    if (!current)
-        return 0;
-    return current->t_tid;
+    return thread_gettid(current);
 }
 
 void thread_exit(uintptr_t exit_code) {
@@ -207,6 +209,7 @@ error:
 }
 
 thread_t *thread_dequeue(queue_t *queue) {
+    int err = 0;
     thread_t *thread = NULL;
     assert(queue, "no queue");
     queue_assert_locked(queue);
@@ -215,8 +218,8 @@ thread_t *thread_dequeue(queue_t *queue) {
         return NULL;
     thread_lock(thread);
     queue_lock(thread->t_queues);
-    if (queue_remove(thread->t_queues, (void *)queue))
-        panic("queue: \'%s\' not on \'%s\'\n", queue->name, thread->t_queues->name);
+    if ((err = queue_remove(thread->t_queues, (void *)queue)))
+        panic("queue: \'%s\' not on \'%s\', error: %d\n", queue->name, thread->t_queues->name, err);
     queue_unlock(thread->t_queues);
     return thread;
 }
@@ -257,7 +260,7 @@ int thread_kill_n(thread_t *thread, int wait) {
         return err;
 
     if (wait)
-        err = thread_wait(thread, 0, NULL);
+        err = thread_wait(thread, wait, NULL);
     return err;
 }
 
@@ -449,53 +452,6 @@ int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread) {
     return -ESRCH;
 }
 
-int kthread_create(void *(*entry)(void *), void *arg, tid_t *__tid, thread_t **ref) {
-    int err = 0;
-    thread_t *thread = NULL;
-
-    if ((err = thread_new(NULL, 0, &thread)))
-        return err;
-
-    if ((err = arch_kthread_init(&thread->t_arch, entry, arg)))
-        goto error;
-
-    if (kthreads == NULL)
-    {
-        // assert(!(err = f_alloc_table(&file_table)), "couldn't allocate file table");
-        assert(!(err = tgroup_create(thread, &kthreads)), "failed to create tgroup");
-        tgroup_unlock(kthreads);
-    } else {
-        tgroup_lock(kthreads);
-        if ((err = tgroup_add_thread(kthreads, thread))) {
-            tgroup_unlock(kthreads);
-            goto error;
-        }
-        tgroup_unlock(kthreads);
-    }
-
-    if (__tid)
-        *__tid = thread->t_tid;
-    if (ref)
-        *ref = thread;
-
-    err = sched_park(thread);
-    thread_unlock(thread);
-    return err;
-error:
-    if (thread)
-        thread_free(thread);
-    return err;
-}
-
-int kthread_create_join(void *(*entry)(void *), void *arg, void **ret) {
-    int err = 0;
-    assert(entry, "no entry point");
-    tid_t tid = 0;
-    if ((err = kthread_create(entry, arg, &tid, NULL)))
-        return err;
-    return thread_join(tid, NULL, ret);
-}
-
 int builtin_threads_begin(int *nthreads, thread_t ***threads) {
     int nt = 0;
     int err = 0;
@@ -509,8 +465,7 @@ int builtin_threads_begin(int *nthreads, thread_t ***threads) {
 
     nr = (end - entryv);
 
-    for (size_t i = 0; i < nr; ++i)
-    {
+    for (size_t i = 0; i < nr; ++i) {
         void *arg = argv[i];
         void *(*entry)(void *) = entryv[i];
 
@@ -521,25 +476,22 @@ int builtin_threads_begin(int *nthreads, thread_t ***threads) {
             .stacksz = STACKSZMIN,
         };
 
-        if (entry)
-        {
-            if (builtin_threads == NULL)
-            {
-                if ((builtin_threads = kmalloc(sizeof(thread_t *))) == NULL)
-                {
+        if (entry) {
+            if (builtin_threads == NULL) {
+                if ((builtin_threads = kmalloc(sizeof(thread_t *))) == NULL) {
                     err = -ENOMEM;
                     break;
                 }
             }
-            else if ((builtin_threads = krealloc(builtin_threads, (sizeof(thread_t *) * (nt + 1)))) == NULL)
-            {
+            else if ((builtin_threads = krealloc(builtin_threads, (sizeof(thread_t *) * (nt + 1)))) == NULL) {
                 err = -ENOMEM;
                 break;
             }
 
-            if ((err = thread_create(NULL, &thread, &t_attr, entry, arg)))
+            if ((err = thread_create(&thread, &t_attr, entry, arg)))
                 break;
 
+            thread_unlock(thread);
             builtin_threads[nt++] = thread;
         }
     }
@@ -552,11 +504,14 @@ int builtin_threads_begin(int *nthreads, thread_t ***threads) {
     return err;
 }
 
-int thread_create(tid_t *ptid, thread_t **pthread, thread_attr_t *attr, thread_entry_t entry, void *arg) {
+int thread_create(thread_t **pthread, thread_attr_t *attr, thread_entry_t entry, void *arg) {
     int err = 0;
     int user = 0;
+    int newgroup = 0;
     thread_t *thread = NULL;
-    tgroup_t *tgroup = NULL;
+    tgroup_t *tgroup = current ? current_tgroup() : NULL;
+
+    newgroup = !tgroup;
 
     if (!entry)
         return -EINVAL;
@@ -567,38 +522,47 @@ int thread_create(tid_t *ptid, thread_t **pthread, thread_attr_t *attr, thread_e
         current_unlock();
     }
 
-    if ((err = thread_new(attr, user, &thread)))
+    if (tgroup)
+        tgroup_lock(tgroup);
+    else if ((err = tgroup_create(&tgroup)))
         goto error;
 
-    if (!user) {
-        if ((err = arch_kthread_init(&thread->t_arch, entry, arg)))
-            goto error;
-    }
-
-    tgroup  = current ?  current_tgroup() : kthreads;
-
-    if (tgroup == NULL) {
-        assert(!(err = tgroup_create(thread, &kthreads)), "failed to create tgroup");
-        tgroup = kthreads;
-    } else
-        tgroup_lock(tgroup);
-    
-    if ((err = tgroup_add_thread(tgroup, thread))) {
+    if ((err = thread_new(attr, entry, arg, user, &thread))) {
         tgroup_unlock(tgroup);
         goto error;
     }
-    tgroup_unlock(tgroup);
 
-    if (ptid)
-        *ptid = thread->t_tid;
+    if ((err = tgroup_add_thread(tgroup, thread))) {
+        thread_unlock(thread);
+        tgroup_unlock(tgroup);
+        goto error;
+    }
+
+    if ((err = thread_schedule(thread))) {
+        thread_unlock(thread);
+        tgroup_unlock(tgroup);
+        goto error;
+    }
+    
     if (pthread)
         *pthread = thread;
+    else
+        thread_unlock(thread);
 
-    err = sched_park(thread);
-    thread_unlock(thread);
-    return err;
+    tgroup_unlock(tgroup);
+
+    return 0;
 error:
+    if (newgroup && tgroup)
+        tgroup_destroy(tgroup);
+    
     if (thread)
         thread_free(thread);
+    
     return err;
+}
+
+int thread_schedule(thread_t *thread) {
+    thread_assert_locked(thread);
+    return sched_park(thread);
 }

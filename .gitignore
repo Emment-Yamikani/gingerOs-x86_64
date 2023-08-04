@@ -1,0 +1,7 @@
+/iso
+.vscode
+*.d
+*.o
+*.a
+*.iso
+*.gitignore

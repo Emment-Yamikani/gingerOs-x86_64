@@ -287,9 +287,18 @@ void sched_yield(void)
 }
 
 void sched_self_destruct(thread_t *thread) {
-    thread_unlock(thread);
-    tgroup_lock(thread->t_group);
-    thread_lock(thread);
+    /**
+     * thread ordering for tgroup->lock and thread->t_lock
+     * requires that tgroup->lock be held first.
+     * so in case tgroup->tg_lock is not held, begin by unlocking thread->t_lock.
+     * then hold tgroup->tg_lock, then finally hold thread->t_lock.
+    */
+    if (!tgroup_locked(thread->t_group)) {
+        thread_unlock(thread);
+        tgroup_lock(thread->t_group);
+        thread_lock(thread);
+    }
+
     thread->t_state = T_ZOMBIE;
     thread->t_exit = -EINTR;
     sched_zombie(thread);

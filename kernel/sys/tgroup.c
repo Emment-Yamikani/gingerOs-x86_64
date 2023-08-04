@@ -7,24 +7,32 @@
 
 int tgroup_destroy(tgroup_t *tgroup) {
     int err = 0;
-    thread_t *thread = NULL;
+    __unused thread_t *thread = NULL;
 
-    if (tgroup)
+    if ((tgroup == NULL) || (current_tgroup() == tgroup))
         return -EINVAL;
 
-    tgroup->tg_signals = SIGNAL_INIT();
-    
-    tgroup_lock(tgroup);
+    if (!tgroup_locked(tgroup))
+        tgroup_lock(tgroup);
 
-    tgroup_kill_thread(tgroup, 0, 1);
-
-    while (!tgroup_get_thread(tgroup, 0, 0, &thread)) {
-        
+    if ((err = tgroup_kill_thread(tgroup, -1, 1))) {
+        tgroup_unlock(tgroup);
+        goto error;
     }
+
+    assert(!tgroup_thread_count(tgroup), "there is still some thread(s).");
+
+    queue_free(tgroup->tg_queue);
+    queue_free(tgroup->tg_stopq);
+    tgroup->tg_signals = SIGNAL_INIT();
 
     tgroup_unlock(tgroup);
 
+    kfree(tgroup);
+
     return 0;
+error:
+    return err;
 }
 
 size_t tgroup_inc_running(tgroup_t *tgroup) {
@@ -78,7 +86,8 @@ int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait) {
 
             tgroup_lock(tgroup);
             tgroup_queue_lock(tgroup);
-            thread_unlock(thread);
+            if (wait == 0)
+                thread_unlock(thread);
         }
         tgroup_queue_unlock(tgroup);
     } else {
@@ -105,15 +114,10 @@ error:
     return err;
 }
 
-int tgroup_create(thread_t *tmain, tgroup_t **ptgroup) {
+int tgroup_create(tgroup_t **ptgroup) {
     int err = 0;
     tgroup_t *tgroup = NULL;
     queue_t *stopq = NULL, *queue = NULL;
-
-    thread_assert_locked(tmain);
-
-    if (tmain->t_group)
-        return -EINVAL;
 
     if (!ptgroup)
         return -EINVAL;
@@ -132,17 +136,11 @@ int tgroup_create(thread_t *tmain, tgroup_t **ptgroup) {
 
     tgroup->tg_queue = queue;
     tgroup->tg_stopq = stopq;
-    tgroup->tg_tmain = tmain;
-    tgroup->tg_tlast = tmain;
-    tgroup->tg_twait = tmain;
-    tgroup->tg_tgid = tmain->t_tid;
     tgroup->tg_lock = SPINLOCK_INIT();
+    tgroup->tg_signals = SIGNAL_INIT();
 
     tgroup_lock(tgroup);
     *ptgroup = tgroup;
-
-    if ((err = tgroup_add_thread(tgroup, tmain)))
-        goto error;
 
     return 0;
 error:
@@ -167,6 +165,12 @@ int tgroup_add_thread(tgroup_t *tgroup, thread_t *thread) {
         return err;
     
     thread->t_group = tgroup;
+    if (tgroup->tg_tmain == NULL) {
+        tgroup->tg_tmain = thread;
+        tgroup->tg_tlast = thread;
+        tgroup->tg_tgid = thread->t_tid;
+    }
+    
     return 0;
 }
 

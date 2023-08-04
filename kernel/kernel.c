@@ -20,12 +20,16 @@
 #include <sys/_signal.h>
 #include <dev/hpet.h>
 
+void core_start(void);
+
 __noreturn void kthread_main(void) {
     int nthread = 0;
     BUILTIN_THREAD_ANOUNCE(__func__);
     printk("Welcome to 'Ginger OS'.\n");
 
     builtin_threads_begin(&nthread, NULL);
+    
+    core_start();
 
     loop() {
         thread_join(0, NULL, NULL);

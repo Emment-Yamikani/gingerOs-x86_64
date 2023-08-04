@@ -24,7 +24,7 @@ void arch_thread_stop(void) {
     arch_thread_exit(rax);
 }
 
-int arch_kthread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg) {
+int arch_thread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg) {
     tf_t *tf = NULL;
     context_t *ctx = NULL;
     uintptr_t *stack = NULL;

@@ -27,6 +27,16 @@ typedef enum {
 
 extern const char *t_states[];
 
+typedef void *(*thread_entry_t)(void *);
+
+typedef struct
+{
+    int detatchstate;
+    size_t guardsz;
+    uintptr_t stackaddr;
+    size_t stacksz;
+} thread_attr_t;
+
 typedef struct {
     time_t      ctime;      // Thread ceation time.
     time_t      cpu_time;   // CPU time in jiffies(n seconds = (jiffy * (HZ_TO_ns(SYS_HZ) / seconds_TO_ns(1))) ).
@@ -64,7 +74,6 @@ typedef struct {
     uint64_t        tg_flags;
     thread_t        *tg_tmain;
     thread_t        *tg_tlast;
-    thread_t        *tg_twait;
     queue_t         *tg_queue;
     queue_t         *tg_stopq;
     size_t          tg_running;
@@ -134,12 +143,10 @@ int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait);
 
 /**
  * \brief Create a new thread tgroup.
- * \brief Callers must hold tmain->t_lock before calling into this function.
- * \param tmain main thread of this thread group.
  * \param ptgroup thread group reference pointer.
  * \returns (int)0, on success and err on failure.
  **/
-int tgroup_create(thread_t *tmain, tgroup_t **ptgroup);
+int tgroup_create(tgroup_t **ptgroup);
 
 /**
  * \brief Add a thread to this tgroup.
@@ -170,13 +177,6 @@ int tgroup_remove_thread(tgroup_t *tgroup, thread_t *thread);
  * \returns (int)0, on success and err on failure.
  **/
 int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pthread);
-
-typedef struct {
-    int             detatchstate;
-    size_t          guardsz;
-    uintptr_t       stackaddr;
-    size_t          stacksz;
-} thread_attr_t;
 
 typedef struct thread {
     tid_t           t_tid;              // thread ID.
@@ -219,7 +219,6 @@ typedef struct {
 } thread_info_t;
 
 
-typedef void *(*thread_entry_t)(void *);
 
 #define THREAD_USER                     BS(0)   // thread is a user thread.
 #define THREAD_KILLED                   BS(1)   // thread was killed by another thread.
@@ -256,6 +255,26 @@ typedef void *(*thread_entry_t)(void *);
     err;                                          \
 })
 
+#define thread_killed(t) ({                            \
+    int locked = thread_locked(t);                     \
+    if (!locked)                                       \
+        thread_lock(t);                                \
+    int killed = thread_testflags((t), THREAD_KILLED); \
+    if (!locked)                                       \
+        thread_unlock(t);                              \
+    killed;                                            \
+})
+
+#define thread_ishandling_signal(t) ({                         \
+    int locked = thread_locked(t);                             \
+    if (!locked)                                               \
+        thread_lock(t);                                        \
+    int handling = thread_testflags((t), THREAD_HANDLING_SIG); \
+    if (!locked)                                               \
+        thread_unlock(t);                                      \
+    handling;                                                  \
+})
+
 #define thread_tgroup(t)                ({ thread_assert(t); (t)->t_group; })
 #define thread_tgroup_lock(t)           ({ tgroup_lock(thread_tgroup(t)); })
 #define thread_tgroup_unlock(t)         ({ tgroup_unlock(thread_tgroup(t)); })
@@ -281,59 +300,6 @@ typedef void *(*thread_entry_t)(void *);
 #define thread_issimd_dirty(t)          ({ thread_testflags((t), THREAD_SIMD_DIRTY); })
 #define thread_set_simd_dirty(t)        ({ thread_setflags((t), THREAD_SIMD_DIRTY); })
 #define thread_mask_simd_dirty(t)       ({ thread_maskflags((t), THREAD_SIMD_DIRTY); })
-
-#define thread_inc_spinlocks(t) ({                              \
-    size_t locks;                                               \
-    int locked = thread_locked(t);                              \
-    if (!locked)                                                \
-        thread_lock(t);                                         \
-    locks = (size_t)atomic_add_fetch(&current->t_spinlocks, 1); \
-    if (!locked)                                                \
-        thread_unlock(t);                                       \
-    locks;                                                      \
-})
-
-#define thread_dec_spinlocks(t) ({                              \
-    size_t locks;                                               \
-    int locked = thread_locked(t);                              \
-    if (!locked)                                                \
-        thread_lock(t);                                         \
-    locks = (size_t)atomic_sub_fetch(&current->t_spinlocks, 1); \
-    if (!locked)                                                \
-        thread_unlock(t);                                       \
-    locks;                                                      \
-})
-
-#define thread_spinlocks(t) ({                          \
-    size_t locks;                                       \
-    int locked = thread_locked(t);                      \
-    if (!locked)                                        \
-        thread_lock(t);                                 \
-    locks = (size_t)atomic_read(&current->t_spinlocks); \
-    if (!locked)                                        \
-        thread_unlock(t);                               \
-    locks;                                              \
-})
-
-#define thread_killed(t) ({                            \
-    int locked = thread_locked(t);                     \
-    if (!locked)                                       \
-        thread_lock(t);                                \
-    int killed = thread_testflags((t), THREAD_KILLED); \
-    if (!locked)                                       \
-        thread_unlock(t);                              \
-    killed;                                            \
-})
-
-#define thread_ishandling_signal(t) ({                         \
-    int locked = thread_locked(t);                             \
-    if (!locked)                                               \
-        thread_lock(t);                                        \
-    int handling = thread_testflags((t), THREAD_HANDLING_SIG); \
-    if (!locked)                                               \
-        thread_unlock(t);                                      \
-    handling;                                                  \
-})
 
 #define current_assert()                ({ assert(current, "No current thread running"); })
 #define current_lock()                  ({ thread_lock(current); })
@@ -392,9 +358,24 @@ typedef void *(*thread_entry_t)(void *);
 #define STACKSZMIN      (16 * KiB)
 #define KSTACKSZ        (STACKSZMIN)
 #define STACKSZMAX      (512 * KiB)
-#define BADSTACKSZ(sz)  ((sz) < STACKSZMIN || (sz) >= STACKSZMAX)
+#define BADSTACKSZ(sz)  ((sz) < STACKSZMIN || (sz) > STACKSZMAX)
 
 int builtin_threads_begin(int *nthreads, thread_t ***threads);
+
+/**
+ * \brief schedule a thread.
+ * \brief thread must be locked by caller.
+ * \param thread to be scheduled.
+ \return (int)0 on success of error on failure.
+*/
+int thread_schedule(thread_t *thread);
+
+/**
+ * \brief get the thread ID of thread.
+ * \param thread whose ID we want.
+ * \return tid of thread.
+*/
+tid_t thread_gettid(thread_t *thread);
 
 /**
  * \brief Return the threadID of the current thread.
@@ -504,11 +485,13 @@ int thread_join(tid_t tid, thread_info_t *info, void **retval);
 /**
  * \brief Allocate a new thread structure.
  * \param attr attributes used to specify how to create the new thread.
+ * \param entry entry point of kernel thread.
+ * \param arg argument to be passed to the new kernel thread
  * \param flags additional specs for thread creation.
  * \param pthread return the newly allocated thread through a pointer to the thread.
  * \return (int)0 on success or error on faliure.
  */
-int thread_new(thread_attr_t *attr, int flags,  thread_t **pthread);
+int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags,  thread_t **pthread);
 
 /**
  * \brief Get a thread from a thread queue.
@@ -559,9 +542,10 @@ int kthread_create(thread_entry_t entry, void *arg, tid_t *__tid, thread_t **pth
  * \brief Create a thread.
  * \param ptid thread ID of created thread is passed through ptid.
  * \param pthread pointer to the thread struct is passed by reference through pthread.
+ * 
  * \param attr attributes used to specify how to create the new thread.
  * \param entry entry point of kernel thread.
  * \param arg argument to be passed to the new kernel thread.
  * \return (int)0 on success or error on faliure.
  */
-int thread_create(tid_t *ptid, thread_t **pthread, thread_attr_t *attr, thread_entry_t entry, void *arg);
+int thread_create(thread_t **pthread, thread_attr_t *attr, thread_entry_t entry, void *arg);

@@ -15,4 +15,4 @@ typedef struct {
 
 void arch_thread_stop(void);
 void arch_thread_exit(uintptr_t status);
-int arch_kthread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg);
+int arch_thread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg);
