@@ -83,6 +83,8 @@ void sched_set_priority(thread_t *thread, int priority);
 int sched_init(void);
 int init_sched_queues(void);
 
+void sched_remove_zombies(void);
+
 /*context switch back to the scheduler*/
 extern void sched(void);
 

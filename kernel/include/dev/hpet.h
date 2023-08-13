@@ -20,6 +20,8 @@ typedef struct
 #define HPET_TMR_ISPER(flags)   BTEST(flags, 1)
 #define HPET_TMR_ISLVL(flags)   BTEST(flags, 2)
 
+int hpet_init(void);
+void hpet_intr(void);
 long hpet_freq(void);
 void hpet_wait(double s);
 size_t hpet_rdmcnt(void);

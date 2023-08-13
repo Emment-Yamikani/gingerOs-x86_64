@@ -31,8 +31,10 @@ __noreturn void kthread_main(void) {
     
     core_start();
 
+    extern jiffies_t nexttimer();
     loop() {
         thread_join(0, NULL, NULL);
+        printk("nexttime: %d\n", nexttimer());
     }
 }
 

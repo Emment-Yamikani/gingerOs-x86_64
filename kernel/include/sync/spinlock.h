@@ -52,6 +52,17 @@ typedef struct spinlock
     held;                                             \
 })
 
+#define spin_debug(lk) ({                                         \
+    spin_assert(lk);                                              \
+    pushcli();                                                    \
+    printk("%s:%d: in %s, CPU[%d] state: %s,"                     \
+           " cpu: %d, thread: %d",                                \
+           __FILE__, __LINE__, __func__, cpu_id,                  \
+           atomic_read(&(lk)->lock) ? "locked" : "unlocked",      \
+           (lk)->processor->apicID, thread_gettid((lk)->thread)); \
+    popcli();                                                     \
+})
+
 // acquire spinlock
 #define spin_lock(lk) ({                                \
     spin_assert(lk);                                    \

@@ -148,13 +148,16 @@ int sched_zombie(thread_t *thread)
 {
     int err = 0;
     thread_assert_locked(thread);
-    tgroup_assert_locked(thread->t_group);
+    thread_enter_state(thread, T_ZOMBIE);
 
+    /**
+     * any zombie reaper must ensure thread
+     * is in T_ZOMBIE state before freeing resources.
+     * else thread must be placed back on the zombie queue.
+    */
     if ((err = thread_enqueue(zombie_queue, thread, NULL)))
         return err;
 
-    tgroup_inc_running(thread->t_group);
-    tgroup_unlock(thread->t_group);
     cond_broadcast(thread->t_wait);
     return 0;
 }
@@ -239,7 +242,7 @@ void sched(void)
     current_assert_locked();
 
     
-    if (current_issetpark() && current_isleep()) {
+    if (current_issetpark() && current_isisleep()) {
         if (current_issetwake()) {
             current_mask_park_wake();
             popcli();
@@ -286,30 +289,56 @@ void sched_yield(void)
     current_unlock();
 }
 
-void sched_self_destruct(thread_t *thread) {
-    /**
-     * thread ordering for tgroup->lock and thread->t_lock
-     * requires that tgroup->lock be held first.
-     * so in case tgroup->tg_lock is not held, begin by unlocking thread->t_lock.
-     * then hold tgroup->tg_lock, then finally hold thread->t_lock.
-    */
-    if (!tgroup_locked(thread->t_group)) {
-        thread_unlock(thread);
-        tgroup_lock(thread->t_group);
-        thread_lock(thread);
+void sched_self_destruct(void) {
+    current_unlock();
+    current_tgroup_lock();
+    tgroup_dec_running(current_tgroup());
+    current_tgroup_unlock();
+    current_lock();
+
+    if (current_isdetached()) {
+        current_unlock();
+        thread_detach(current);
+        current_lock();
     }
 
-    thread->t_state = T_ZOMBIE;
-    thread->t_exit = -EINTR;
-    sched_zombie(thread);
-    if (thread_setdetached(thread))
-        thread_free(thread);
-    else
-        thread_unlock(thread);
+    sched_zombie(current);
+    current_unlock();
+}
+
+static jiffies_t next_time = 0;
+static spinlock_t *next_timelk = &SPINLOCK_INIT();
+
+jiffies_t nexttimer(void) {
+    return next_time;
+}
+
+void sched_remove_zombies(void) {
+    thread_t *thread = NULL;
+    spin_lock(next_timelk);
+
+    if (time_after(jiffies_get(), next_time)) {
+        
+        queue_lock(zombie_queue);
+        
+        if ((thread = thread_dequeue(zombie_queue))) {
+            if (thread_isdetached(thread) && thread_iszombie(thread))
+                thread_free(thread);
+            else {
+                thread_enqueue(zombie_queue, thread, NULL);
+                thread_unlock(thread);
+            }
+        }
+        
+        queue_unlock(zombie_queue);
+
+        next_time = s_TO_jiffies(600) + jiffies_get();
+    }
+    spin_unlock(next_timelk);
 }
 
 void schedule(void) {
-    jiffies_t before = 0, now = 0;
+    jiffies_t before = 0;
     thread_t *thread = NULL;
 
     sched_init();
@@ -328,7 +357,9 @@ void schedule(void) {
         cli();
 
         if (thread_killed(thread)) {
-            sched_self_destruct(thread);
+            thread_enter_state(thread, T_TERMINATED);
+            thread->t_exit = -EINTR;
+            sched_self_destruct();
             continue;
         }
 
@@ -339,14 +370,14 @@ void schedule(void) {
         current->t_sched_attr.last_sched = jiffies_TO_s(before);
 
         swtch(&cpu->ctx, current->t_arch.t_ctx);
-
-        now = jiffies_get();
-        current->t_sched_attr.cpu_time += (now - before);
-
         current_assert_locked();
 
+        current->t_sched_attr.cpu_time += (jiffies_get() - before);
+
         if (thread_killed(thread)) {
-            sched_self_destruct(thread);
+            thread_enter_state(thread, T_TERMINATED);
+            thread->t_exit = -EINTR;
+            sched_self_destruct();
             continue;
         }
 
@@ -355,14 +386,7 @@ void schedule(void) {
             panic("??embryo was allowed to run\n");
             break;
         case T_TERMINATED:
-            current_enter_state(T_ZOMBIE);
-            __fallthrough;
-        case T_ZOMBIE:
-            assert(!sched_zombie(current), "couldn't zombie");
-            if (thread_setdetached(current))
-                thread_free(current);
-            else
-                current_unlock();
+            sched_self_destruct();
             break;
         case T_READY:
             sched_park(current);

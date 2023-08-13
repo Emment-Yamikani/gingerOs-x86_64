@@ -233,5 +233,3 @@ void hpet_intr(void) {
             jiffies_update();
     }
 }
-
-MODULE_INIT(HPET, hpet_init, NULL);

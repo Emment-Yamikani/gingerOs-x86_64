@@ -31,7 +31,7 @@ typedef void *(*thread_entry_t)(void *);
 
 typedef struct
 {
-    int detatchstate;
+    int detachstate;
     size_t guardsz;
     uintptr_t stackaddr;
     size_t stacksz;
@@ -218,8 +218,6 @@ typedef struct {
     atomic_t        ti_flags;
 } thread_info_t;
 
-
-
 #define THREAD_USER                     BS(0)   // thread is a user thread.
 #define THREAD_KILLED                   BS(1)   // thread was killed by another thread.
 #define THREAD_SETPARK                  BS(2)   // thread has the park flag set.
@@ -235,13 +233,13 @@ typedef struct {
 #define thread_assert_locked(t)         ({ thread_assert(t); spin_assert_locked(&((t)->t_lock)); })
 
 #define thread_isstate(t, state)        ({ thread_assert_locked(t); ((t)->t_state == (state)); })
-#define thread_embryo(t)                ({ thread_isstate(t, T_EMBRYO); })
-#define thread_ready(t)                 ({ thread_isstate(t, T_READY); })
-#define thread_isleep(t)                ({ thread_isstate(t, T_ISLEEP); })
-#define thread_running(t)               ({ thread_isstate(t, T_RUNNING); })
-#define thread_stopped(t)               ({ thread_isstate(t, T_STOPPED); })
-#define thread_zombie(t)                ({ thread_isstate(t, T_ZOMBIE); })
-#define thread_terminated(t)            ({ thread_isstate(t, T_TERMINATED); })
+#define thread_isembryo(t)              ({ thread_isstate(t, T_EMBRYO); })
+#define thread_isready(t)               ({ thread_isstate(t, T_READY); })
+#define thread_isisleep(t)              ({ thread_isstate(t, T_ISLEEP); })
+#define thread_isrunning(t)             ({ thread_isstate(t, T_RUNNING); })
+#define thread_isstopped(t)             ({ thread_isstate(t, T_STOPPED); })
+#define thread_iszombie(t)              ({ thread_isstate(t, T_ZOMBIE); })
+#define thread_isterminated(t)          ({ thread_isstate(t, T_TERMINATED); })
 #define thread_testflags(t, flags)      ({ thread_assert_locked(t); atomic_read(&((t)->t_flags)) & (flags); })
 #define thread_setflags(t, flags)       ({ thread_assert_locked(t); atomic_fetch_or(&((t)->t_flags), (flags)); })
 #define thread_maskflags(t, flags)      ({ thread_assert_locked(t); atomic_fetch_and(&((t)->t_flags), ~(flags)); })
@@ -333,13 +331,13 @@ typedef struct {
 #define current_isdetached()            ({ thread_isdetached(current); })
 #define current_handling()              ({ thread_ishandling_signal(current); })
 #define current_isstate(state)          ({ thread_isstate(current, state); })
-#define current_embryo()                ({ thread_embryo(current); })
-#define current_ready ()                ({ thread_ready(current); })
-#define current_isleep()                ({ thread_isleep(current); })
-#define current_running()               ({ thread_running(current); })
-#define current_stopped()               ({ thread_stopped(current); })
-#define current_zombie()                ({ thread_zombie(current); })
-#define current_terminated()            ({ thread_terminated(current); })
+#define current_embryo()                ({ thread_isembryo(current); })
+#define current_ready ()                ({ thread_isready(current); })
+#define current_isisleep()              ({ thread_isisleep(current); })
+#define current_isrunning()             ({ thread_isrunning(current); })
+#define current_isstopped()             ({ thread_isstopped(current); })
+#define current_iszombie()              ({ thread_iszombie(current); })
+#define current_isterminated()          ({ thread_isterminated(current); })
 #define current_setflags(flags)         ({ thread_setflags(current, (flags)); })
 #define current_testflags(flags)        ({ thread_testflags(current, (flags)); })
 #define current_maskflags(flags)        ({ thread_maskflags(current, (flags)); })
@@ -361,6 +359,13 @@ typedef struct {
 #define BADSTACKSZ(sz)  ((sz) < STACKSZMIN || (sz) > STACKSZMAX)
 
 int builtin_threads_begin(int *nthreads, thread_t ***threads);
+
+#define thread_debugloc() ({                                  \
+    printk("%s:%d in %s(), current[%d], return[%p]\n", \
+           __FILE__, __LINE__, __func__, current ? current->t_tid : 0, __retaddr(0));              \
+})
+
+int thread_detach(thread_t *thread);
 
 /**
  * \brief schedule a thread.

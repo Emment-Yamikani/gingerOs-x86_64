@@ -51,11 +51,12 @@ int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, 
             return -ENOMEM;
         
         t_attr = (thread_attr_t) {
-            .detatchstate   = 0,
+            .detachstate   = 0,
             .guardsz        = 0,
             .stackaddr      = kstack,
             .stacksz        = kstacksz,
         };
+        attr = &t_attr;
     } else {
         if (BADSTACKSZ(attr->stacksz))
             return -EINVAL;
@@ -97,7 +98,7 @@ int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, 
 
     thread_lock(thread);
 
-    if (attr->detatchstate)
+    if (attr->detachstate)
         thread_setdetached(thread);
 
     thread->t_wait = wait;
@@ -123,18 +124,32 @@ error:
 }
 
 void thread_free(thread_t *thread) {
-    queue_t *q = NULL;
+    queue_t *queue = NULL;
+    queue_node_t *next = NULL;
+
+    assert (current != thread, "current called freeing it's own kstack???");
 
     thread_assert_locked(thread);
+    assert(thread_iszombie(thread), "freeing a non zombie thread");
 
-    assert(thread_zombie(thread), "freeing a non zombie thread");
-
+    /**
+     * Get rid of all the queue with qhich this thread is associated.
+    */
     if (thread->t_queues) {
         queue_lock(thread->t_queues);
-        while ((q = dequeue(thread->t_queues))) {
-            queue_lock(q);
-            queue_remove(q, thread);
-            queue_unlock(q);
+        forlinked(node, thread->t_queues->head, next) {
+            next = node->next;
+            queue = (queue_t *)node->data;
+            // queue_unlock(thread->t_queues);
+            queue_lock(queue);
+            // queue_lock(thread->t_queues);
+            if (queue_remove(queue, thread))
+                panic("failed to remove thread from queue\n");
+
+            if (queue_remove(thread->t_queues, queue))
+                panic("failed to remove queue from thread-queue\n");
+
+            queue_unlock(queue);
         }
         queue_unlock(thread->t_queues);
         queue_free(thread->t_queues);
@@ -144,9 +159,18 @@ void thread_free(thread_t *thread) {
 
     if (thread->t_wait)
         cond_free(thread->t_wait);
-    if (thread_locked(thread))
-        thread_unlock(thread);
+    thread_unlock(thread);
     thread_free_kstack(thread->t_arch.t_kstack, thread->t_arch.t_kstacksz);
+}
+
+int thread_detach(thread_t *thread) {
+    int err = 0;
+    tgroup_t *tgroup = NULL;
+
+    thread_tgroup_lock(thread);
+    err = tgroup_remove_thread((tgroup = thread_tgroup(thread)), thread);
+    tgroup_unlock(tgroup);
+    return err;
 }
 
 tid_t thread_gettid(thread_t *thread) {
@@ -159,8 +183,6 @@ tid_t thread_self(void) {
 
 void thread_exit(uintptr_t exit_code) {
     current_assert();
-    if (!tgroup_locked(current->t_group))
-        tgroup_lock(current->t_group);
     arch_thread_exit(exit_code);
 }
 
@@ -230,8 +252,7 @@ int thread_remove_queue(thread_t *thread, queue_t *queue) {
     thread_assert_locked(thread);
 
     queue_lock(thread->t_queues);
-    if ((err = queue_remove(thread->t_queues, (void *)queue)))
-    {
+    if ((err = queue_remove(thread->t_queues, (void *)queue))) {
         queue_unlock(thread->t_queues);
         return err;
     }
@@ -248,8 +269,8 @@ int thread_kill_n(thread_t *thread, int wait) {
         thread_exit(0);
     }
 
-    if ((thread_terminated(thread)) ||
-        (thread_zombie(thread)) ||
+    if ((thread_isterminated(thread)) ||
+        (thread_iszombie(thread)) ||
         thread_killed(thread))
         return 0;
 
@@ -272,7 +293,7 @@ int thread_kill(tid_t tid, int wait) {
         return -EINVAL;
 
     current_lock();
-    tgroup = current->t_group;
+    tgroup = current_tgroup();
     current_unlock();
 
     tgroup_lock(tgroup);
@@ -288,17 +309,17 @@ int thread_join(tid_t tid, thread_info_t *info, void **retval) {
 
     current_assert();
 
-    if (thread_killed(current))
+    if (current_killed())
         return -EINTR;
 
-    tgroup_lock(current->t_group);
+    current_tgroup_lock();
 
-    if ((err = tgroup_get_thread(current->t_group, tid, T_ZOMBIE, &thread))) {
-        tgroup_unlock(current->t_group);
+    if ((err = tgroup_get_thread(current_tgroup(), tid, T_ZOMBIE, &thread))) {
+        current_tgroup_unlock();
         return err;
     }
 
-    tgroup_unlock(current->t_group);
+    current_tgroup_unlock();
 
     thread_assert_locked(thread);
 
@@ -330,7 +351,7 @@ int thread_join_r(thread_t *thread, thread_info_t *info, void **retval) {
         return -EDEADLOCK;
 
     loop() {
-        if (thread_killed(current))
+        if (current_killed())
             return -EINTR;
 
         if (thread->t_state == T_ZOMBIE) {
@@ -356,7 +377,7 @@ int thread_wait(thread_t *thread, int reap, void **retval) {
         if (thread_killed(current))
             return -EINTR;
 
-        if ((thread->t_state == T_ZOMBIE) || (thread->t_state == T_TERMINATED)) {
+        if ((thread->t_state == T_ZOMBIE)) {
             if (retval)
                 *retval = (void *)thread->t_exit;
             if (reap)
@@ -378,9 +399,9 @@ int thread_wait(thread_t *thread, int reap, void **retval) {
 int thread_kill_all(void) {
     int err = 0;
     current_assert();
-    tgroup_lock(current->t_group);
-    err = tgroup_kill_thread(current->t_group, 0, 1);
-    tgroup_unlock(current->t_group);
+    tgroup_lock(current_tgroup());
+    err = tgroup_kill_thread(current_tgroup(), 0, 1);
+    tgroup_unlock(current_tgroup());
     return err;
 }
 
@@ -391,9 +412,9 @@ int thread_wake(thread_t *thread) {
     if (thread_testflags(thread, THREAD_SETPARK))
         thread_setflags(thread, THREAD_SETWAKE);
 
-    if (thread_zombie(thread) ||
-        !thread_isleep(thread) ||
-        thread_terminated(thread))
+    if (thread_iszombie(thread) ||
+        !thread_isisleep(thread) ||
+        thread_isterminated(thread))
         return 0;
     
     if (thread->sleep_attr.queue == NULL)
@@ -415,7 +436,7 @@ int thread_wake(thread_t *thread) {
 
     if (err) return err;
 
-    if (thread_zombie(thread) || thread_terminated(thread))
+    if (thread_iszombie(thread) || thread_isterminated(thread))
         return 0;
 
     if ((err = thread_enter_state(thread, T_READY)))
@@ -432,8 +453,7 @@ int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread) {
         return -EINVAL;
 
     queue_assert_locked(queue);
-    forlinked(node, queue->head, next)
-    {
+    forlinked(node, queue->head, next) {
         next = node->next;
         thread = node->data;
 
@@ -470,7 +490,7 @@ int builtin_threads_begin(int *nthreads, thread_t ***threads) {
         void *(*entry)(void *) = entryv[i];
 
         thread_attr_t t_attr = {
-            .detatchstate = 0,
+            .detachstate = 0,
             .guardsz = 0,
             .stackaddr = 0,
             .stacksz = STACKSZMIN,

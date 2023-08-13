@@ -10,17 +10,20 @@
 void arch_thread_exit(uintptr_t exit_code) {
     current_lock();
     current->t_exit = exit_code;
-    current->t_state = T_ZOMBIE;
+    current->t_state = T_TERMINATED;
     sched();
     panic("thread: %d failed to zombie\n", current->t_tid);
     loop();
 }
 
-void arch_thread_start(void) { current_unlock(); }
+/// @brief all threads start here
+static void arch_thread_start(void) {
+    current_unlock();
+}
 
-void arch_thread_stop(void) {
+/// @brief all threads end executution here.
+static void arch_thread_stop(void) {
     uintptr_t rax = rdrax();
-    tgroup_lock(current->t_group);
     arch_thread_exit(rax);
 }
 

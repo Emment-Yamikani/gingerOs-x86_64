@@ -4,4 +4,5 @@
 *.o
 *.a
 *.iso
+lime.asm
 *.gitignore

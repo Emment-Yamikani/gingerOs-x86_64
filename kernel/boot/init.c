@@ -89,7 +89,7 @@ int early_init(multiboot_info_t *info) {
     if ((err = multiboot_info_process(info)))
         panic("Failed to process multiboot info structures, error: %d\n", err);
     
-    if ((bsp_init()))
+    if ((err = bsp_init()))
         panic("BSP initialization failed, error: %d\n", err);
     
     if ((err = vmman.init()))
@@ -106,7 +106,6 @@ int early_init(multiboot_info_t *info) {
 
     pic_init();
     ioapic_init();
-    // pit_init();
 
     if ((err = dev_init()))
         panic("Failed to start devices, error: %d\n", err);

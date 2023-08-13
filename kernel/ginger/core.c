@@ -24,8 +24,13 @@ void v(void) {
 }
 
 void start_others(void) {
-    thread_create(NULL, NULL, (thread_entry_t)v, NULL);
-    thread_create(NULL, NULL, (thread_entry_t)v, NULL);
-    thread_create(NULL, NULL, (thread_entry_t)v, NULL);
-    thread_create(NULL, NULL, (thread_entry_t)v, NULL);
+    thread_attr_t at = (thread_attr_t){
+        .guardsz = 0,
+        .stackaddr = 0,
+        .detachstate = 1,
+        .stacksz = STACKSZMIN,
+    };
+    thread_create(NULL, &at, (thread_entry_t)v, NULL);
+    at.stackaddr = 0;
+    thread_create(NULL, &at, (thread_entry_t)v, NULL);
 }

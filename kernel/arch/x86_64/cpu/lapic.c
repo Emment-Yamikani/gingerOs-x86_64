@@ -8,6 +8,7 @@
 #include <sys/thread.h>
 #include <ginger/jiffies.h>
 #include <dev/hpet.h>
+#include <dev/clocks.h>
 
 static volatile uint32_t *LAPIC_BASE = 0;
 
@@ -117,9 +118,7 @@ int lapic_init(void) {
 }
 
 static void microdelay(int us) {
-    while (us--)
-        for (int i = 0; i < 1000; i++)
-            ;
+    timer_wait(CLK_ANY, ((double)us) / 1000000);
 }
 
 void lapic_recalibrate(long hz) {
@@ -128,7 +127,7 @@ void lapic_recalibrate(long hz) {
     double s = HZ_TO_s(hz);
 
     ICR = -1;
-    hpet_wait(s);
+    timer_wait(CLK_ANY, s);
     LVT_TMR = MASKED;
     ticks = ((uint32_t)-1) - CCR;
 

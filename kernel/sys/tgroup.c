@@ -7,20 +7,19 @@
 
 int tgroup_destroy(tgroup_t *tgroup) {
     int err = 0;
-    __unused thread_t *thread = NULL;
+    // __unused thread_t *thread = NULL;
 
     if ((tgroup == NULL) || (current_tgroup() == tgroup))
         return -EINVAL;
 
-    if (!tgroup_locked(tgroup))
-        tgroup_lock(tgroup);
+    tgroup_assert_locked(tgroup);
 
     if ((err = tgroup_kill_thread(tgroup, -1, 1))) {
         tgroup_unlock(tgroup);
         goto error;
     }
 
-    assert(!tgroup_thread_count(tgroup), "there is still some thread(s).");
+    assert(!tgroup_thread_count(tgroup), "There is still some thread(s).");
 
     queue_free(tgroup->tg_queue);
     queue_free(tgroup->tg_stopq);
@@ -177,21 +176,23 @@ int tgroup_add_thread(tgroup_t *tgroup, thread_t *thread) {
 int tgroup_remove_thread(tgroup_t *tgroup, thread_t *thread) {
     int err = 0;
     tgroup_assert_locked(tgroup);
-    thread_assert_locked(thread);
 
     if (!thread)
         return -EINVAL;
 
-    queue_lock(tgroup->tg_queue);
+    tgroup_queue_lock(tgroup);
+    thread_lock(thread);
 
     if ((err = thread_remove_queue(thread, tgroup->tg_queue))) {
-        queue_unlock(tgroup->tg_queue);
+        thread_unlock(thread);
+        tgroup_queue_unlock(tgroup);
         return err;
     }
 
-    queue_unlock(tgroup->tg_queue);
-
     thread->t_group = NULL;
+    thread_unlock(thread);
+    tgroup_queue_unlock(tgroup);
+
     return 0;
 }
 

@@ -13,6 +13,17 @@ typedef struct {
     void        *t_priv;    // thread private data.
 } x86_64_thread_t;
 
-void arch_thread_stop(void);
-void arch_thread_exit(uintptr_t status);
+/**
+ * \brief exit execution of thread.
+ * \param exit_code exit code from thread.
+*/
+void arch_thread_exit(uintptr_t exit_code);
+
+/** 
+ * \brief Initialize architecture-specific thread data.
+ * \param thread arch-specific thread struct. \todo change to (void *)
+ * \param entry thread entry point.
+ * \param arg argument to be passed to the thread.
+ * \return 0 if successful and errno on failure.
+*/
 int arch_thread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg);

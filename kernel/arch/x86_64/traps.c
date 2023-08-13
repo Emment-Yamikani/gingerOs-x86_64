@@ -7,6 +7,8 @@
 #include <arch/lapic.h>
 #include <arch/cpu.h>
 #include <sys/thread.h>
+#include <dev/clocks.h>
+#include <arch/chipset.h>
 
 void dump_tf(tf_t *tf, int halt) {
     if (!halt)
@@ -33,8 +35,6 @@ void dump_tf(tf_t *tf, int halt) {
            tf->rflags, tf->rsp, tf->ss);
 }
 
-extern void hpet_intr(void);
-
 void trap(tf_t *tf) {
 
     if (current) {
@@ -42,10 +42,13 @@ void trap(tf_t *tf) {
             thread_exit(-EINTR);
     }
 
-    switch (tf->trapno)
-    {
+    switch (tf->trapno) {
+    case IRQ(0):
+        pit_intr();
+        lapic_eoi();
+        break;
     case IRQ(HPET):
-        hpet_intr();
+        timer_intr();
         lapic_eoi();
         break;
     case T_FPU_NM:
@@ -60,7 +63,10 @@ void trap(tf_t *tf) {
     case LAPIC_ERROR:
         lapic_eoi();
         break;
+    case IRQ(7):
+        __fallthrough;
     case LAPIC_SPURIOUS:
+        lapic_eoi();
         break;
     case LAPIC_TIMER:
         lapic_timerintr();
@@ -75,6 +81,8 @@ void trap(tf_t *tf) {
             cpu_id, current ? thread_self() : 0, tf->trapno, tf->errno, tf->rbp, rdcr2(), tf->rip);
         break;
     }
+
+    sched_remove_zombies();
 
     if (!current)
         return;

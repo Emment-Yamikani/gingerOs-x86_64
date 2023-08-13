@@ -102,6 +102,5 @@ int acpi_init(void) {
 
     if ((err = enumerate_cpus()))
         return err;
-
     return 0;
 }
