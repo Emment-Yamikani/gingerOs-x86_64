@@ -22,11 +22,29 @@
 
 void core_start(void);
 
+void signal_handler(int signo) {
+    printk("%s delivered\n", signal_str[signo - 1]);
+}
+
 __noreturn void kthread_main(void) {
+    sigset_t set;
     int nthread = 0;
+    sigaction_t act = {0};
+
     BUILTIN_THREAD_ANOUNCE(__func__);
     printk("Welcome to 'Ginger OS'.\n");
 
+    sigemptyset(&set);
+    sigfillset(&set);
+
+    sigprocmask(SIG_SETMASK, &set, NULL);
+
+    act.sa_sigaction = NULL;
+    sigfillset(&act.sa_mask);
+    act.sa_handler = signal_handler;
+
+    sigaction(SIGQUIT, &act, NULL);
+    
     builtin_threads_begin(&nthread, NULL);
     
     core_start();

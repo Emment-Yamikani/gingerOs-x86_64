@@ -77,7 +77,6 @@ _iso_:
 
 module:
 	./mkdisk -o $(iso_dir)/modules/ramfs -d $(ramfs_dir)
-	cp font.tf $(iso_dir)/modules/
 
 debug:
 	objdump -d iso/boot/lime.elf -M intel > lime.asm

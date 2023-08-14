@@ -5,6 +5,10 @@
 void start_others(void);
 
 void secondary_thread(void) {
+    sigset_t set;
+    sigfillset(&set);
+    sigdelset(&set, SIGKILL);
+    pthread_sigmask(SIG_BLOCK, &set, NULL);
     BUILTIN_THREAD_ANOUNCE(__func__);
     
     printk("tid: %d, tgroup: %d\n", thread_self(), current_tgroup()->tg_tgid);
@@ -12,7 +16,6 @@ void secondary_thread(void) {
     start_others();
     loop() {
         int signo = 0;
-        park();
         current_lock();
         if ((signo = thread_sigdequeue(current)) > 0)
         {
@@ -28,16 +31,17 @@ void core_start(void) {
     thread_create(&t, NULL, (thread_entry_t)secondary_thread, NULL);
 
     thread_unlock(t);
+    sleep(1);
+    thread_debugloc();
+    pthread_kill(thread_gettid(t), SIGBUS);
     pthread_kill(thread_gettid(t), SIGKILL);
     pthread_kill(thread_gettid(t), SIGSTOP);
     pthread_kill(thread_gettid(t), SIGXCPU);
     pthread_kill(thread_gettid(t), SIGXFSZ);
     pthread_kill(thread_gettid(t), SIGQUIT);
-    pthread_kill(thread_gettid(t), SIGBUS);
     pthread_kill(thread_gettid(t), SIGKILL);
+    pthread_kill(thread_gettid(t), SIGSEGV);
     pthread_kill(thread_gettid(t), SIGKILL);
-    pthread_kill(thread_gettid(t), SIGKILL);
-    unpark(thread_gettid(t));
 }
 
 void v(void) {

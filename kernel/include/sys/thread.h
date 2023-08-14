@@ -190,7 +190,7 @@ typedef struct thread {
     
     thread_attr_t   t_attr;             // thread' attributes.
 
-    sigset_t        t_sigmasked;        // thread's masked signal set.
+    sigset_t        t_sigmask;        // thread's masked signal set.
     uint8_t         t_sigqueue[NSIG];   // thread's queue of pending signals.
 
     void            *t_simd_ctx;        // thread's Single Instruction Multiple Data (SIMD) context.

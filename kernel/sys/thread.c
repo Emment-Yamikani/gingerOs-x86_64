@@ -479,13 +479,14 @@ int thread_sigqueue(thread_t *thread, int signo) {
         return -EINVAL;
 
     thread_assert_locked(thread);
-    switch ((err = sigismemeber(&thread->t_sigmasked, signo)))
+    switch ((err = sigismemeber(&thread->t_sigmask, signo)))
     {
     case -EINVAL:        
         break;
     case 0:
         thread->t_sigqueue[signo - 1]++;
-        err = thread_wake(thread);
+        if (current != thread)
+            err = thread_wake(thread);
         break;
     default:
         return 0;

@@ -28,4 +28,8 @@ void font_free(struct font *font);
 int font_rows(struct font *font);
 int font_cols(struct font *font);
 
+extern char _binary_font_tf_start[];
+extern char _binary_font_tf_size[];
+extern char _binary_font_tf_end[];
+
 #endif

@@ -9,7 +9,7 @@
 static queue_t *global_sleep_queue = QUEUE_NEW("Global sleep queue");
 
 long sleep(long s) {
-    jiffies_t jiffies = s_TO_ns(s) / HZ_TO_ns(SYS_HZ);
+    jiffies_t jiffies = s_TO_jiffies(s);
 
     jiffies = jiffies_sleep(jiffies);
     if (jiffies <= 0)
