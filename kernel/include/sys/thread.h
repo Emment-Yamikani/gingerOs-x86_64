@@ -191,7 +191,6 @@ typedef struct thread {
     thread_attr_t   t_attr;             // thread' attributes.
 
     sigset_t        t_sigmasked;        // thread's masked signal set.
-    sigset_t        t_sigignore;        // thread's ignore signal set.
     uint8_t         t_sigqueue[NSIG];   // thread's queue of pending signals.
 
     void            *t_simd_ctx;        // thread's Single Instruction Multiple Data (SIMD) context.
@@ -364,6 +363,9 @@ int builtin_threads_begin(int *nthreads, thread_t ***threads);
     printk("%s:%d in %s(), current[%d], return[%p]\n", \
            __FILE__, __LINE__, __func__, current ? current->t_tid : 0, __retaddr(0));              \
 })
+
+int thread_sigdequeue(thread_t *thread);
+int thread_sigqueue(thread_t *thread, int signo);
 
 int thread_detach(thread_t *thread);
 

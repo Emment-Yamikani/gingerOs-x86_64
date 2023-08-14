@@ -1,5 +1,6 @@
 #include <sys/_signal.h>
 #include <lib/stddef.h>
+#include <sys/thread.h>
 
 
 const char *signal_str[] = {
@@ -36,3 +37,41 @@ const char *signal_str[] = {
     [SIGXCPU - 1] = "SIGXCPU",
     [SIGXFSZ - 1] = "SIGXFSZ",
 };
+
+int pause(void);
+int sigpending(sigset_t *set);
+int kill(pid_t pid, int signo);
+unsigned long alarm(unsigned long sec);
+sigfunc_t signal(int signo, sigfunc_t func);
+int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
+int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact);
+
+int pthread_kill(tid_t tid, int signo) {
+    int err = 0;
+    thread_t *thread = NULL;
+
+    current_tgroup_lock();
+    if ((err = tgroup_get_thread(current_tgroup(), tid, 0, &thread))) {
+        current_tgroup_unlock();
+        return err;
+    }
+    current_tgroup_unlock();
+
+    if (signo == 0) {
+        thread_unlock(thread);
+        return 0;
+    }
+
+    if ((err = thread_sigqueue(thread, signo))) {
+        thread_unlock(thread);
+        goto error;
+    }
+
+    thread_unlock(thread);
+    return 0;
+error:
+    return err;
+}
+
+int sigwait(const sigset_t *restrict set, int *restrict signop);
+int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);

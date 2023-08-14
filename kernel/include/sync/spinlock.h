@@ -56,7 +56,7 @@ typedef struct spinlock
     spin_assert(lk);                                              \
     pushcli();                                                    \
     printk("%s:%d: in %s, CPU[%d] state: %s,"                     \
-           " cpu: %d, thread: %d",                                \
+           " cpu: %d, thread: %d\n",                                \
            __FILE__, __LINE__, __func__, cpu_id,                  \
            atomic_read(&(lk)->lock) ? "locked" : "unlocked",      \
            (lk)->processor->apicID, thread_gettid((lk)->thread)); \
@@ -69,7 +69,7 @@ typedef struct spinlock
     pushcli();                                          \
     assert_msg(!spin_locked(lk), "%s:%d: \
 CPU%d thread[%d], status: %d: current[%d]: \
-spinlock held at %s:%d, retaddr: %p!",                  \
+spinlock held at %s:%d, retaddr: %p!\n",                  \
                __FILE__, __LINE__,                      \
                cpu_id, thread_gettid((lk)->thread),     \
                atomic_read(&(lk)->lock), thread_self(), \

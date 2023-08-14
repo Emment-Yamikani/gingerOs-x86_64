@@ -1,4 +1,5 @@
-/iso
+/iso/boot/*.elf
+/iso/modules/*
 /.vscode
 *.d
 *.o

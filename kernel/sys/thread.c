@@ -472,6 +472,46 @@ int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread) {
     return -ESRCH;
 }
 
+int thread_sigqueue(thread_t *thread, int signo) {
+    int err = 0;
+
+    if (!thread)
+        return -EINVAL;
+
+    thread_assert_locked(thread);
+    switch ((err = sigismemeber(&thread->t_sigmasked, signo)))
+    {
+    case -EINVAL:        
+        break;
+    case 0:
+        thread->t_sigqueue[signo - 1]++;
+        err = thread_wake(thread);
+        break;
+    default:
+        return 0;
+    }
+
+    return err;
+}
+
+int thread_sigdequeue(thread_t *thread) {
+    int signo = 0;
+    if (!thread)
+        return -EINVAL;
+
+    thread_assert_locked(thread);
+
+    for ( ; signo < NSIG; ++signo) {
+        if (thread->t_sigqueue[signo] >= 1) {
+            thread->t_sigqueue[signo]--;
+            signo += 1;
+            return signo;
+        }
+    }
+
+    return 0;
+}
+
 int builtin_threads_begin(int *nthreads, thread_t ***threads) {
     int nt = 0;
     int err = 0;

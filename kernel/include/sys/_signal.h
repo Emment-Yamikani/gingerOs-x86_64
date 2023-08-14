@@ -140,11 +140,14 @@ int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict 
 
 typedef struct {
     sigset_t    sig_mask;
-    sigset_t    sig_ignore;
     uint8_t     sig_queues[NSIG];
     sigfunc_t   sig_handler[NSIG];
     spinlock_t  sig_lock;
 } signals_t;
+
+int pthread_kill(tid_t thread, int signo);
+int sigwait(const sigset_t *restrict set, int *restrict signop);
+int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 
 #define SIGNAL_INIT()   ((signals_t){0})
 
