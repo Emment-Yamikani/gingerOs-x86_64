@@ -231,16 +231,14 @@ int sched_wakeall(queue_t *sleep_queue)
     return count;
 }
 
-void sched(void)
-{
+void sched(void) {
     pushcli();
-    int ncli = cpu->ncli;
-    int intena = cpu->intena;
+    uint64_t ncli = cpu->ncli;
+    uint64_t intena = cpu->intena;
     
     //printk("%s:%d: %s() tid(%d), ncli: %d, intena: %d [%p]\n", __FILE__, __LINE__, __func__, current->t_tid, cpu->ncli, cpu->intena, return_address(0));
     
     current_assert_locked();
-
     
     if (current_issetpark() && current_isisleep()) {
         if (current_issetwake()) {
@@ -250,7 +248,7 @@ void sched(void)
         }
     }
     
-    swtch(&current->t_arch.t_ctx, cpu->ctx);
+    swtch(&current->t_arch.t_ctx0, cpu->ctx);
     current_assert_locked();
     
     //printk("%s:%d: %s() tid(%d), ncli: %d, intena: %d [%p]\n", __FILE__, __LINE__, __func__, current->t_tid, cpu->ncli, cpu->intena, return_address(0));
@@ -369,9 +367,9 @@ void schedule(void) {
         before = jiffies_get();
         current->t_sched_attr.last_sched = jiffies_TO_s(before);
 
-        swtch(&cpu->ctx, current->t_arch.t_ctx);
+        swtch(&cpu->ctx, current->t_arch.t_ctx0);
+        
         current_assert_locked();
-
         current->t_sched_attr.cpu_time += (jiffies_get() - before);
 
         if (thread_killed(thread)) {

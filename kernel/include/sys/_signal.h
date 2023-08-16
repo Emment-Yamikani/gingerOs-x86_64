@@ -42,9 +42,17 @@
 
 typedef void        (*sigfunc_t)();
 
+
 #define SIG_ERR     ((sigfunc_t)-1)  // error setting signal disposition.
 #define SIG_DFL     ((sigfunc_t)0)   // default action taken.
-#define SIF_IGN     ((sigfunc_t)1)   // ignore this signal.
+#define SIG_IGN     ((sigfunc_t)1)   // ignore this signal.
+
+#define SIG_IGNORE      (1)
+#define SIG_ABRT        (2)
+#define SIG_TERM        (3)
+#define SIG_TERM_CORE   (4)
+#define SIG_STOP        (5)
+#define SIG_CONT        (6)
 
 extern const char *signal_str[];
 
@@ -212,6 +220,8 @@ typedef struct {
 int pthread_kill(tid_t thread, int signo);
 int sigwait(const sigset_t *restrict set, int *restrict signop);
 int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
+
+int signal_handle(tf_t *tf __unused);
 
 #define SIGNAL_INIT()   ((signals_t){0})
 

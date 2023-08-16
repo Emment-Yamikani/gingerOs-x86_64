@@ -9,6 +9,7 @@
 #include <sys/thread.h>
 #include <dev/clocks.h>
 #include <arch/chipset.h>
+#include <sys/_signal.h>
 
 void dump_tf(tf_t *tf, int halt) {
     if (!halt)
@@ -58,7 +59,8 @@ void trap(tf_t *tf) {
         simd_fp_except();
         break;
     case T_PGFAULT:
-        panic("[CPU%d] PF: errno: %x, cr2: %lX, rip: %p\n", cpu_id, tf->errno, rdcr2(), tf->rip);
+        panic("[CPU%d] PF: thread[%d]: errno: %x, cr2: %lX, rip: %p\n",
+            cpu_id, thread_self(), tf->errno, rdcr2(), tf->rip);
         break;
     case LAPIC_ERROR:
         lapic_eoi();
@@ -78,7 +80,7 @@ void trap(tf_t *tf) {
         break;
     default:
         panic("[CPU%d] thread[%d]: trap(%d): errno: %x, rbp: %p, cr2: %lX, rip: %p\n",
-            cpu_id, current ? thread_self() : 0, tf->trapno, tf->errno, tf->rbp, rdcr2(), tf->rip);
+            cpu_id, thread_self(), tf->trapno, tf->errno, tf->rbp, rdcr2(), tf->rip);
         break;
     }
 
@@ -86,6 +88,8 @@ void trap(tf_t *tf) {
 
     if (!current)
         return;
+
+    signal_handle(tf);
 
     if (thread_killed(current))
         thread_exit(-EINTR);

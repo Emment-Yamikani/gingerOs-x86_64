@@ -6,7 +6,8 @@
 
 typedef struct {
     tf_t        *t_tf;      // thread's arch specific trapframe.
-    context_t   *t_ctx;     // thread's context.
+    context_t   *t_ctx0;     // thread's context.
+    context_t   *t_ctx1;    // thread's saved context
     tf_t        t_savedtf;  // saved trapframe.
     uintptr_t   t_kstack;   // kernel stack for this thread.
     size_t      t_kstacksz; // size of kernel stack.

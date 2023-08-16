@@ -57,7 +57,7 @@ int arch_thread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg)
     ctx->rbp = tf->rsp;
 
     thread->t_tf = tf;
-    thread->t_ctx = ctx;
+    thread->t_ctx0 = ctx;
 
     return 0;
 }

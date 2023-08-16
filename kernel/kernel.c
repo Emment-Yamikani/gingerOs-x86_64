@@ -23,7 +23,7 @@
 void core_start(void);
 
 void signal_handler(int signo) {
-    printk("%s delivered\n", signal_str[signo - 1]);
+    printk("%s delivered: thread[%d]\n", signal_str[signo - 1], thread_self());
 }
 
 __noreturn void kthread_main(void) {
@@ -48,6 +48,11 @@ __noreturn void kthread_main(void) {
     builtin_threads_begin(&nthread, NULL);
     
     core_start();
+
+    pthread_kill(6, SIGQUIT);
+    pthread_kill(6, SIGQUIT);
+    pthread_kill(6, SIGQUIT);
+    pthread_kill(6, SIGQUIT);
 
     loop() {
         thread_join(0, NULL, NULL);
