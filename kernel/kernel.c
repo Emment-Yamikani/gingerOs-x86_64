@@ -37,13 +37,14 @@ __noreturn void kthread_main(void) {
     sigemptyset(&set);
     sigfillset(&set);
 
+    pthread_sigmask(SIG_SETMASK, &set, NULL);
     sigprocmask(SIG_SETMASK, &set, NULL);
-
     act.sa_sigaction = NULL;
     sigfillset(&act.sa_mask);
     act.sa_handler = signal_handler;
 
     sigaction(SIGQUIT, &act, NULL);
+
 
     builtin_threads_begin(&nthread, NULL);
     

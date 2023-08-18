@@ -475,7 +475,7 @@ block_signal:
     current_unlock();
 
     /**
-     * unblock signo and other signals specified in sigaction->sigmask
+     * restore signo and other signals we blocked earlier.
      */
     sigprocmask(SIG_SETMASK, &oset, NULL);
 
