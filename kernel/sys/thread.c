@@ -22,6 +22,7 @@ const char *t_states[] = {
     [T_ISLEEP]      = "ISLEEP",
     [T_STOPPED]     = "STOPPED",
     [T_TERMINATED]  = "TERMINATED",
+    [T_USLEEP]      = "USLEEP",
     [T_ZOMBIE]      = "ZOMBIE",
 };
 
@@ -409,14 +410,13 @@ int thread_wake(thread_t *thread) {
     int err = 0, guard_locked = 0, q_locked = 0;
     thread_assert_locked(thread);
 
+    if (thread_iszombie(thread) ||
+        thread_isterminated(thread))
+        return -EINVAL;
+
     if (thread_testflags(thread, THREAD_SETPARK))
         thread_setflags(thread, THREAD_SETWAKE);
 
-    if (thread_iszombie(thread) ||
-        !thread_isisleep(thread) ||
-        thread_isterminated(thread))
-        return 0;
-    
     if (thread->sleep_attr.queue == NULL)
         return 0;
 
@@ -436,13 +436,10 @@ int thread_wake(thread_t *thread) {
 
     if (err) return err;
 
-    if (thread_iszombie(thread) || thread_isterminated(thread))
-        return 0;
-
     if ((err = thread_enter_state(thread, T_READY)))
         return err;
 
-    return sched_park(thread);
+    return thread_schedule(thread);
 }
 
 int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread) {
@@ -479,7 +476,7 @@ int thread_sigqueue(thread_t *thread, int signo) {
         return -EINVAL;
 
     thread_assert_locked(thread);
-    switch ((err = sigismemeber(&thread->t_sigmask, signo)))
+    switch ((err = sigismember(&thread->t_sigmask, signo)))
     {
     case -EINVAL:
         break;
@@ -504,7 +501,7 @@ int thread_sigdequeue(thread_t *thread) {
 
     for ( ; signo < NSIG; ++signo) {
         if (thread->t_sigqueue[signo] >= 1) {
-            if ((sigismemeber(&thread->t_sigmask, signo + 1)) == 1)
+            if ((sigismember(&thread->t_sigmask, signo + 1)) == 1)
                 return -EINVAL;
             thread->t_sigqueue[signo]--;
             signo += 1;

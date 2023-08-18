@@ -162,7 +162,7 @@ int sched_zombie(thread_t *thread)
     return 0;
 }
 
-int sched_sleep(queue_t *sleep_queue, spinlock_t *lock) {
+int sched_sleep(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
     int err = 0;
     queue_assert(sleep_queue);
     current_assert_locked();
@@ -171,7 +171,7 @@ int sched_sleep(queue_t *sleep_queue, spinlock_t *lock) {
         return err;
 
     current->sleep_attr.guard = lock;
-    thread_enter_state(current, T_ISLEEP);
+    thread_enter_state(current, state);
     current->sleep_attr.queue = sleep_queue;
 
     if (lock) spin_unlock(lock);
@@ -301,6 +301,9 @@ void sched_self_destruct(void) {
     }
 
     sched_zombie(current);
+
+    if (current->t_arch.t_sig_kstack)
+        thread_free_kstack(current->t_arch.t_sig_kstack, current->t_arch.t_sig_kstacksz);
     current_unlock();
 }
 

@@ -72,7 +72,7 @@ int cond_wait(cond_t *cond)
     if ((int)atomic_inc(&cond->count) >= 0)
     {
         current_lock();
-        retval = sched_sleep(cond->waiters, &cond->guard);
+        retval = sched_sleep(cond->waiters, T_ISLEEP, &cond->guard);
         current_unlock();
     }
     spin_unlock(&cond->guard);

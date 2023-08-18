@@ -30,7 +30,7 @@ int park(void) {
         return 0;
     }
 
-    err = sched_sleep(global_sleep_queue, NULL);
+    err = sched_sleep(global_sleep_queue, T_ISLEEP, NULL);
 
     current_mask_park_wake();
     current_unlock();

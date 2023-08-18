@@ -102,18 +102,14 @@ int sigpending(sigset_t *set) {
         return -EINVAL;
 
     sigemptyset(set);
-
     current_tgroup_lock();
-    sig_lock(&current_tgroup()->tg_signals);
 
     for (int signo = 0; signo < NSIG; ++signo) {
-        if (current_tgroup()->tg_signals.sig_queues[signo])
+        if (current_tgroup()->sig_queues[signo])
             sigaddset(set, (signo + 1));
     }
 
-    sig_unlock(&current_tgroup()->tg_signals);
     current_tgroup_unlock();
-
     return 0;
 }
 
@@ -161,7 +157,7 @@ int sigwait(const sigset_t *restrict set, int *restrict signop) {
 
     loop() {
         current_lock();
-        if (sigismemeber(&sset, signo) == 1)
+        if (sigismember(&sset, signo) == 1)
         {
             if (current->t_sigqueue[signo - 1])
             {
@@ -186,10 +182,16 @@ int sigwait(const sigset_t *restrict set, int *restrict signop) {
 static int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset) {
     int err = 0;
     thread_assert_locked(thread);
+    
     if (oset)
         *oset = thread->t_sigmask;
+    
     if (set == NULL)
         return 0;
+    
+    if (sigismember(set, SIGKILL) || sigismember(set, SIGSTOP))
+        return -EINVAL;
+
     switch (how) {
     case SIG_BLOCK:
         thread->t_sigmask |= *set;
@@ -215,36 +217,41 @@ int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict os
     return err;
 }
 
-int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset) {
+static int tgroup_sigprocmask(tgroup_t *tgroup, int how, const sigset_t *restrict set, sigset_t *restrict oset) {
     int err = 0;
-    current_tgroup_lock();
-    sig_lock(&current_tgroup()->tg_signals);
+    tgroup_assert_locked(tgroup);
 
     if (oset)
-        *oset = current_tgroup()->tg_signals.sig_mask;
+        *oset = tgroup->sig_mask;
 
-    if (set == NULL) {
-        sig_unlock(&current_tgroup()->tg_signals);
-        current_tgroup_unlock();
+    if (set == NULL)
         return 0;
-    }
+
+    if (sigismember(set, SIGKILL) || sigismember(set, SIGSTOP))
+        return -EINVAL;
 
     switch (how) {
     case SIG_BLOCK:
-        current_tgroup()->tg_signals.sig_mask |= *set;
+        tgroup->sig_mask |= *set;
         break;
     case SIG_UNBLOCK:
-        current_tgroup()->tg_signals.sig_mask &= ~*set;
+        tgroup->sig_mask &= ~*set;
         break;
     case SIG_SETMASK:
-        current_tgroup()->tg_signals.sig_mask = *set;
+        tgroup->sig_mask = *set;
         break;
     default:
         err = -EINVAL;
         break;
     }
 
-    sig_unlock(&current_tgroup()->tg_signals);
+    return err;
+}
+
+int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset) {
+    int err = 0;
+    current_tgroup_lock();
+    err = tgroup_sigprocmask(current_tgroup(), how, set, oset);
     current_tgroup_unlock();
     return err;
 }
@@ -256,13 +263,11 @@ int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict 
         return -EINVAL;
 
     current_tgroup_lock();
-    sig_lock(&current_tgroup()->tg_signals);
 
     if (oact)
-        *oact = current_tgroup()->tg_signals.sig_action[signo - 1];
+        *oact = current_tgroup()->sig_action[signo - 1];
 
     if (act == NULL) {
-        sig_unlock(&current_tgroup()->tg_signals);
         current_tgroup_unlock();
         return 0;
     }
@@ -279,16 +284,45 @@ int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict 
     if (!act->sa_handler && !act->sa_handler)
         goto error;
 
+    switch ((uintptr_t)act->sa_handler) {
+    case SIG_IGNORE:
+        __fallthrough;
+    case SIG_ABRT:
+        __fallthrough;
+    case SIG_TERM:
+        __fallthrough;
+    case SIG_TERM_CORE:
+        __fallthrough;
+    case SIG_STOP:
+        __fallthrough;
+    case SIG_CONT:
+        err = -EINVAL;
+        goto error;
+    }
+
+    switch ((uintptr_t)act->sa_sigaction) {
+    case SIG_IGNORE:
+        __fallthrough;
+    case SIG_ABRT:
+        __fallthrough;
+    case SIG_TERM:
+        __fallthrough;
+    case SIG_TERM_CORE:
+        __fallthrough;
+    case SIG_STOP:
+        __fallthrough;
+    case SIG_CONT:
+        err = -EINVAL;
+        goto error;
+    }
+
     if ((act->sa_flags & SA_SIGINFO) && (act->sa_sigaction == NULL))
         goto error;
 
-    current_tgroup()->tg_signals.sig_action[signo - 1] = *act;
-
-    sig_unlock(&current_tgroup()->tg_signals);
+    current_tgroup()->sig_action[signo - 1] = *act;
     current_tgroup_unlock();
     return 0;
 error:
-    sig_unlock(&current_tgroup()->tg_signals);
     current_tgroup_unlock();
     return err;
 }
@@ -314,58 +348,53 @@ int signal_handle(tf_t *tf __unused) {
     sigset_t set = {0}, oset = {0}, tset = {0};
     uintptr_t *sig_stack = NULL, *stack = NULL;
 
+    current_tgroup_lock();
     current_lock();
 
     if ((err = signo = thread_sigdequeue(current)) < 0) {
         current_unlock();
+        current_tgroup_unlock();
         return err;
     }
 
     if (signo > 0)
         goto block_signal;
 
-    current_unlock();
-    current_tgroup_lock();
-    current_lock();
-    sig_lock(&current_tgroup()->tg_signals);
-
     for (signo = 1; signo <= NSIG; ++signo) {
-        if (current_tgroup()->tg_signals.sig_queues[signo - 1]) {
-            if ((err = sigismemeber(&current->t_sigmask, signo)) == 1) {
-                sig_unlock(&current_tgroup()->tg_signals);
+        if (current_tgroup()->sig_queues[signo - 1]) {
+            if ((err = sigismember(&current->t_sigmask, signo)) == 1) {
                 current_unlock();
                 current_tgroup_unlock();
                 return err;
             }
-            current_tgroup()->tg_signals.sig_queues[signo - 1]--;
+            current_tgroup()->sig_queues[signo - 1]--;
             break;
         }
     }
 
-    sig_unlock(&current_tgroup()->tg_signals);
-    current_tgroup_unlock();
-
     if (signo > NSIG) {
         current_unlock();
+        current_tgroup_unlock();
         return 0;
     }
 
+    
+block_signal:
+    tgroup_sigprocmask(current_tgroup(), SIG_BLOCK, &set, &oset);
+    current_tgroup_unlock();
+    
     /**
-     * block signo and other signals specified in sigaction->sigmask
-     * NOTE: this blocks the signal set globally i.e in the tgroup.
+     * Block signo and other signals specified in sigaction->sigmask.
+     * NOTE: This blocks the signal set globally i.e in the tgroup.
      * but not in the current thread.
      */
-block_signal:
     sigemptyset(&set);
     sigaddset(&set, signo);
-    set |= current_tgroup()->tg_signals.sig_mask;
+    set |= current_tgroup()->sig_mask;
     thread_sigmask(current, SIG_BLOCK, &set, &tset);
-    current_unlock();
-    sigprocmask(SIG_BLOCK, &set, &oset);
-    current_lock();
 
     arg = (void *)(uintptr_t)signo--;
-    act = current_tgroup()->tg_signals.sig_action[signo];
+    act = current_tgroup()->sig_action[signo];
     handler = (act.sa_flags & SA_SIGINFO ? (sigfunc_t)act.sa_sigaction : (sigfunc_t)act.sa_handler);
 
     if (handler == SIG_DFL)
@@ -373,22 +402,25 @@ block_signal:
 
     switch (default_act) {
     case SIG_IGNORE:
-        assert_msg(0, "%s default action: IGNORE", signal_str[signo]);
-        break;
+        printk("%s default action: IGNORE\n", signal_str[signo]);
+        thread_sigmask(current, SIG_SETMASK, &tset, NULL);
+        current_unlock();
+        sigprocmask(SIG_SETMASK, &oset, NULL);
+        return 0;
     case SIG_ABRT:
-        assert_msg(0, "%s default action: ABORT", signal_str[signo]);
+        assert_msg(0, "%s default action: ABORT\n", signal_str[signo]);
         break;
     case SIG_TERM:
-        assert_msg(0, "%s default action: TERMINATE", signal_str[signo]);
+        assert_msg(0, "%s default action: TERMINATE\n", signal_str[signo]);
         break;
     case SIG_TERM_CORE:
-        assert_msg(0, "%s default action: TERMINATE+CORE", signal_str[signo]);
+        assert_msg(0, "%s default action: TERMINATE+CORE\n", signal_str[signo]);
         break;
     case SIG_STOP:
-        assert_msg(0, "%s default action: STOP", signal_str[signo]);
+        assert_msg(0, "%s default action: STOP\n", signal_str[signo]);
         break;
     case SIG_CONT:
-        assert_msg(0, "%s default action: CONTINUE", signal_str[signo]);
+        assert_msg(0, "%s default action: CONTINUE\n", signal_str[signo]);
         break;
     }
 
@@ -400,10 +432,11 @@ block_signal:
             return -ENOMEM;
         }
 
+        current->t_arch.t_sig_kstacksz = STACKSZMIN;
+        current->t_arch.t_sig_kstack = (uintptr_t)stack;
         sig_stack = (uintptr_t *)ALIGN16(((uintptr_t)sig_stack + STACKSZMIN));
 
-        if (act.sa_flags & SA_SIGINFO)
-        {
+        if (act.sa_flags & SA_SIGINFO) {
             sig_info = (siginfo_t *)((uintptr_t)sig_stack - sizeof *sig_info);
             arg = sig_info;
             sig_stack = (uintptr_t *)sig_info;
@@ -432,7 +465,6 @@ block_signal:
     }
 
     current_setflags(THREAD_HANDLING_SIG);
-
     swtch(&current->t_arch.t_ctx1, current->t_arch.t_ctx0);
 
     if (!current_isuser())
@@ -443,7 +475,7 @@ block_signal:
     current_unlock();
 
     /**
-     * block signo and other signals specified in sigaction->sigmask
+     * unblock signo and other signals specified in sigaction->sigmask
      */
     sigprocmask(SIG_SETMASK, &oset, NULL);
 

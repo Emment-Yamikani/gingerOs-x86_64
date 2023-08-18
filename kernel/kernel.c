@@ -44,15 +44,30 @@ __noreturn void kthread_main(void) {
     act.sa_handler = signal_handler;
 
     sigaction(SIGQUIT, &act, NULL);
-    
+
     builtin_threads_begin(&nthread, NULL);
     
     core_start();
 
     pthread_kill(6, SIGQUIT);
+    pthread_kill(6, SIGCANCEL);
     pthread_kill(6, SIGQUIT);
     pthread_kill(6, SIGQUIT);
-    pthread_kill(6, SIGQUIT);
+
+    current_tgroup_lock();
+    tgroup_sigqueue(current_tgroup(), SIGQUIT);
+    tgroup_sigqueue(current_tgroup(), SIGQUIT);
+    tgroup_sigqueue(current_tgroup(), SIGQUIT);
+    tgroup_sigqueue(current_tgroup(), SIGQUIT);
+    tgroup_sigqueue(current_tgroup(), SIGQUIT);
+    tgroup_sigqueue(current_tgroup(), SIGQUIT);
+    tgroup_sigqueue(current_tgroup(), SIGQUIT);
+    tgroup_sigqueue(current_tgroup(), SIGQUIT);
+    tgroup_sigqueue(current_tgroup(), SIGQUIT);
+    tgroup_sigqueue(current_tgroup(), SIGQUIT);
+    tgroup_sigqueue(current_tgroup(), SIGQUIT);
+    tgroup_sigqueue(current_tgroup(), SIGQUIT);
+    current_tgroup_unlock();
 
     loop() {
         thread_join(0, NULL, NULL);

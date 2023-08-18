@@ -10,6 +10,7 @@ void secondary_thread(void) {
     printk("tid: %d, tgroup: %d\n", thread_self(), current_tgroup()->tg_tgid);
 
     start_others();
+    pthread_kill(1, SIGCANCEL);
     loop() {
     };
 }

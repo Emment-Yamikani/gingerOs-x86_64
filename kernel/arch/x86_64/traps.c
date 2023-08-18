@@ -41,6 +41,8 @@ void trap(tf_t *tf) {
     if (current) {
         if (thread_killed(current))
             thread_exit(-EINTR);
+
+        signal_handle(tf);
     }
 
     switch (tf->trapno) {

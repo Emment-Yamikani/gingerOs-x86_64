@@ -23,7 +23,6 @@ int tgroup_destroy(tgroup_t *tgroup) {
 
     queue_free(tgroup->tg_queue);
     queue_free(tgroup->tg_stopq);
-    tgroup->tg_signals = SIGNAL_INIT();
 
     tgroup_unlock(tgroup);
 
@@ -136,7 +135,6 @@ int tgroup_create(tgroup_t **ptgroup) {
     tgroup->tg_queue = queue;
     tgroup->tg_stopq = stopq;
     tgroup->tg_lock = SPINLOCK_INIT();
-    tgroup->tg_signals = SIGNAL_INIT();
 
     tgroup_lock(tgroup);
     *ptgroup = tgroup;
@@ -229,4 +227,34 @@ int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pt
     tgroup_queue_unlock(tgroup);
 
     return -ESRCH;
+}
+
+int tgroup_sigqueue(tgroup_t *tgroup, int signo) {
+    int err = 0;
+    queue_node_t *next = NULL;
+    thread_t *thread = NULL;
+    tgroup_assert_locked(tgroup);
+
+    switch (sigismember(&tgroup->sig_mask, signo)) {
+    case 0:
+        tgroup->sig_queues[signo - 1]++;
+        forlinked (node, tgroup->tg_queue->head, next) {
+            next = node->next;
+            thread = node->data;
+            thread_lock(thread);
+            err = thread_wake(thread);
+            thread_unlock(thread);
+            if (err == 0)
+                break;
+        }
+        err = 0;
+        break;
+    case -EINVAL:
+        __fallthrough;
+    case 1:
+        err = -EINVAL;
+        break;
+    }
+
+    return err;
 }

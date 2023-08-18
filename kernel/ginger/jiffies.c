@@ -40,7 +40,7 @@ jiffies_t jiffies_sleep(jiffies_t jiffy) {
     jiffy += jiffies_get();
     while (time_before((now = jiffies_get()), jiffy)) {
         current_lock();
-        if ((sched_sleep(jiffies_sleep_queue, NULL))) {
+        if ((sched_sleep(jiffies_sleep_queue, T_ISLEEP, NULL))) {
             current_unlock();
             break;
         }

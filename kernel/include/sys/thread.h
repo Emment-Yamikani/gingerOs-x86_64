@@ -15,11 +15,12 @@
 #include <ginger/jiffies.h>
 #include <sys/_signal.h>
 
-typedef enum {
+typedef enum tstate_t {
     T_EMBRYO,
     T_READY,
     T_RUNNING,
     T_ISLEEP,
+    T_USLEEP,
     T_STOPPED,
     T_TERMINATED,
     T_ZOMBIE,
@@ -78,7 +79,9 @@ typedef struct {
     queue_t         *tg_stopq;
     size_t          tg_running;
 
-    signals_t       tg_signals;
+    sigset_t        sig_mask;
+    sigaction_t     sig_action[NSIG];
+    uint8_t         sig_queues[NSIG];
     spinlock_t      tg_lock;
 } tgroup_t;
 
@@ -178,6 +181,8 @@ int tgroup_remove_thread(tgroup_t *tgroup, thread_t *thread);
  **/
 int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pthread);
 
+int tgroup_sigqueue(tgroup_t *tgroup, int signo);
+
 typedef struct thread {
     tid_t           t_tid;              // thread ID.
     tid_t           t_killer;           // thread that killed this thread.
@@ -235,6 +240,7 @@ typedef struct {
 #define thread_isembryo(t)              ({ thread_isstate(t, T_EMBRYO); })
 #define thread_isready(t)               ({ thread_isstate(t, T_READY); })
 #define thread_isisleep(t)              ({ thread_isstate(t, T_ISLEEP); })
+#define thread_isusleep(t)              ({ thread_isstate(t, T_USLEEP); })
 #define thread_isrunning(t)             ({ thread_isstate(t, T_RUNNING); })
 #define thread_isstopped(t)             ({ thread_isstate(t, T_STOPPED); })
 #define thread_iszombie(t)              ({ thread_isstate(t, T_ZOMBIE); })
@@ -333,6 +339,7 @@ typedef struct {
 #define current_embryo()                ({ thread_isembryo(current); })
 #define current_ready ()                ({ thread_isready(current); })
 #define current_isisleep()              ({ thread_isisleep(current); })
+#define current_isusleep()              ({ thread_isusleep(current); })
 #define current_isrunning()             ({ thread_isrunning(current); })
 #define current_isstopped()             ({ thread_isstopped(current); })
 #define current_iszombie()              ({ thread_iszombie(current); })

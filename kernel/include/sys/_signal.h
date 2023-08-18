@@ -96,7 +96,7 @@ typedef unsigned long sigset_t;
     err;                                         \
 })
 
-#define sigismemeber(set, signo) ({                           \
+#define sigismember(set, signo) ({                            \
     int err = 0;                                              \
     if ((set) == NULL || SIGBAD(signo))                       \
         err = -EINVAL;                                        \
@@ -210,23 +210,8 @@ typedef struct {
 
 int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact);
 
-typedef struct {
-    sigset_t    sig_mask;
-    sigaction_t sig_action[NSIG];
-    uint8_t     sig_queues[NSIG];
-    spinlock_t  sig_lock;
-} signals_t;
-
 int pthread_kill(tid_t thread, int signo);
 int sigwait(const sigset_t *restrict set, int *restrict signop);
 int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 
 int signal_handle(tf_t *tf __unused);
-
-#define SIGNAL_INIT()   ((signals_t){0})
-
-#define sig_assert(sig)         ({ assert(sig, "No signal struct pointer\n"); })
-#define sig_lock(sig)           ({ sig_assert(sig); spin_lock(&(sig)->sig_lock); })
-#define sig_unlock(sig)         ({ sig_assert(sig); spin_unlock(&(sig)->sig_lock); })
-#define sig_locked(sig)         ({ sig_assert(sig); spin_locked(&(sig)->sig_lock); })
-#define sig_assert_locked(sig)  ({ sig_assert(sig); spin_assert_locked(&(sig)->sig_lock); }) 

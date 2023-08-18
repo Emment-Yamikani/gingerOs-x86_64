@@ -26,3 +26,4 @@ typedef struct thread thread_t;
 typedef struct page page_t;
 typedef struct queue queue_t;
 typedef struct spinlock spinlock_t;
+typedef enum tstate_t tstate_t;

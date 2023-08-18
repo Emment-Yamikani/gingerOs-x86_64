@@ -11,6 +11,8 @@ typedef struct {
     tf_t        t_savedtf;  // saved trapframe.
     uintptr_t   t_kstack;   // kernel stack for this thread.
     size_t      t_kstacksz; // size of kernel stack.
+    uintptr_t   t_sig_kstack;   // kernel stack for this thread.
+    size_t      t_sig_kstacksz; // size of kernel stack.
     void        *t_priv;    // thread private data.
 } x86_64_thread_t;
 
