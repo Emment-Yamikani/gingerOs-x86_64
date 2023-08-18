@@ -59,7 +59,7 @@ void trap(tf_t *tf) {
         simd_fp_except();
         break;
     case T_PGFAULT:
-        panic("[CPU%d] PF: thread[%d]: errno: %x, cr2: %lX, rip: %p\n",
+        panic("[CPU%d] PF: thread[%d]: errno: %x, cr2: %p, rip: %p\n",
             cpu_id, thread_self(), tf->errno, rdcr2(), tf->rip);
         break;
     case LAPIC_ERROR:
@@ -79,7 +79,7 @@ void trap(tf_t *tf) {
         lapic_eoi();
         break;
     default:
-        panic("[CPU%d] thread[%d]: trap(%d): errno: %x, rbp: %p, cr2: %lX, rip: %p\n",
+        panic("[CPU%d] thread[%d]: trap(%d): errno: %x, rbp: %p, cr2: %p, rip: %p\n",
             cpu_id, thread_self(), tf->trapno, tf->errno, tf->rbp, rdcr2(), tf->rip);
         break;
     }

@@ -481,7 +481,7 @@ int thread_sigqueue(thread_t *thread, int signo) {
     thread_assert_locked(thread);
     switch ((err = sigismemeber(&thread->t_sigmask, signo)))
     {
-    case -EINVAL:        
+    case -EINVAL:
         break;
     case 0:
         thread->t_sigqueue[signo - 1]++;
@@ -504,6 +504,8 @@ int thread_sigdequeue(thread_t *thread) {
 
     for ( ; signo < NSIG; ++signo) {
         if (thread->t_sigqueue[signo] >= 1) {
+            if ((sigismemeber(&thread->t_sigmask, signo + 1)) == 1)
+                return -EINVAL;
             thread->t_sigqueue[signo]--;
             signo += 1;
             return signo;
