@@ -28,9 +28,9 @@
 ###
 
 <div align="center">
-  <img width=390 src="https://streak-stats.demolab.com/?user=salesp07&count_private=true&theme=transparent&border_radius=10" alt="streak stats"/>
+  <img width=390 src="https://streak-stats.demolab.com/?user=emment-yamikani&count_private=true&theme=transparent&border_radius=10" alt="streak stats"/>
   <img src="https://github-readme-stats.vercel.app/api/top-langs?username=emment-yamikani&locale=en&hide_title=false&layout=compact&card_width=320&langs_count=5&theme=transparent&hide_border=false&order=2&custom_title=Languages" height="150" alt="languages graph"/>
-      <img src="https://github-readme-stats.vercel.app/api?username=emment-yamikani&hide_title=false&hide=contribs,issues&hide_rank=false&show_icons=true&include_all_commits=true&count_private=true&disable_animations=false&theme=transparent&locale=en&hide_border=false&order=1&custom_title=Stats" height="150" alt="stats graph"/>
+  <img src="https://github-readme-stats.vercel.app/api?username=emment-yamikani&hide_title=false&hide=contribs,issues&hide_rank=false&show_icons=true&include_all_commits=true&count_private=true&disable_animations=false&theme=transparent&locale=en&hide_border=false&order=1&custom_title=Stats" height="150" alt="stats graph"/>
 </div>
 
 ###
