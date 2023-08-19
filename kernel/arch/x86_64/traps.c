@@ -38,13 +38,6 @@ void dump_tf(tf_t *tf, int halt) {
 
 void trap(tf_t *tf) {
 
-    if (current) {
-        if (thread_killed(current))
-            thread_exit(-EINTR);
-
-        signal_handle(tf);
-    }
-
     switch (tf->trapno) {
     case IRQ(0):
         pit_intr();
@@ -91,14 +84,20 @@ void trap(tf_t *tf) {
     if (!current)
         return;
 
-    signal_handle(tf);
-
-    if (thread_killed(current))
+    if (current_killed()) {
+        printk("trapno: %d\n", tf->trapno);
+        thread_debugloc();
         thread_exit(-EINTR);
+    }
+
+    signal_handle(tf);
 
     if (!atomic_read(&current->t_sched_attr.timeslice))
         thread_yield();
 
-    if (thread_killed(current))
+    if (current_killed()) {
+        printk("trapno: %d\n", tf->trapno);
+        thread_debugloc();
         thread_exit(-EINTR);
+    }
 }

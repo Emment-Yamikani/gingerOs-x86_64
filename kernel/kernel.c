@@ -49,8 +49,6 @@ __noreturn void kthread_main(void) {
 
     sigaction(SIGQUIT, &act, NULL);
     builtin_threads_begin(&nthread, NULL);
-    
-    core_start();
 
     current_tgroup_lock();
     tgroup_sigqueue(current_tgroup(), SIGQUIT);
@@ -61,11 +59,3 @@ __noreturn void kthread_main(void) {
         thread_join(0, NULL, NULL);
     }
 }
-
-void *garbbage_collector(void) {
-    BUILTIN_THREAD_ANOUNCE(__func__);
-    jiffies_timed_wait(1);
-    return 0;
-}
-
-BUILTIN_THREAD(garbbage_collector, garbbage_collector, NULL);

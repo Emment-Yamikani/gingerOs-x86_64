@@ -256,10 +256,11 @@ int tgroup_sigqueue(tgroup_t *tgroup, int signo) {
 
         return 0;
     case SIGKILL:
-        tgroup_kill_thread(tgroup, -1, 0);
+        if ((err = tgroup_kill_thread(tgroup, -1, 0)))
+            printk("ERROR OCCURED: %d\n", err);
         if (current_tgroup() == tgroup) {
             tgroup_unlock(tgroup);
-            thread_exit(0);
+            thread_exit(-EINTR);
         }
         return 0;
     }

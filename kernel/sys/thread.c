@@ -261,29 +261,52 @@ int thread_remove_queue(thread_t *thread, queue_t *queue) {
     return queue_remove(queue, (void *)thread);
 }
 
-int thread_kill_n(thread_t *thread, int wait) {
+int thread_reap(thread_t *thread, int reap, thread_info_t *info, void **retval) {
     int err = 0;
-
     thread_assert_locked(thread);
-    if (thread == current) {
-        current_unlock();
-        thread_exit(0);
+    if (current == thread)
+        return -EDEADLK;
+
+    while(!thread_iszombie(thread)) {
+        if (current_killed())
+            return -EINTR;
+        thread_unlock(thread);
+        err = cond_wait(thread->t_wait);
+        thread_lock(thread);
+        if (err) return err;
     }
 
-    if ((thread_isterminated(thread)) ||
-        (thread_iszombie(thread)) ||
-        thread_killed(thread))
+    if (info) {
+        info->ti_tid    = thread->t_tid;
+        info->ti_exit   = thread->t_exit;
+        info->ti_flags  = thread->t_flags;
+        info->ti_errno  = thread->t_errno;
+        info->ti_state  = thread->t_state;
+        info->ti_killer = thread->t_killer;
+        info->ti_sched  = thread->t_sched_attr;
+    }
+
+    if (retval)
+        *retval = (void *)thread->t_exit;
+
+    if(reap)
+        thread_free(thread);
+    return 0;
+}
+
+int thread_kill_n(thread_t *thread, int wait) {
+    int err = 0;
+    thread_assert_locked(thread);
+
+    if (thread_iszombie(thread)||
+        thread_isterminated(thread))
         return 0;
-
-    thread->t_killer = thread_self();
+    
     thread_setflags(thread, THREAD_KILLED);
-
     if ((err = thread_wake(thread)))
         return err;
 
-    if (wait)
-        err = thread_wait(thread, wait, NULL);
-    return err;
+    return thread_reap(thread, wait, NULL, NULL);
 }
 
 int thread_kill(tid_t tid, int wait) {
@@ -321,7 +344,6 @@ int thread_join(tid_t tid, thread_info_t *info, void **retval) {
     }
 
     current_tgroup_unlock();
-
     thread_assert_locked(thread);
 
     if ((err = thread_join_r(thread, info, retval))) {
@@ -334,73 +356,14 @@ int thread_join(tid_t tid, thread_info_t *info, void **retval) {
 
 int thread_join_r(thread_t *thread, thread_info_t *info, void **retval) {
     thread_assert_locked(thread);
-
-    if (thread == NULL)
-        return -EINVAL;
-
-    if (info) {
-        info->ti_tid    = thread->t_tid;
-        info->ti_exit   = thread->t_exit;
-        info->ti_flags  = thread->t_flags;
-        info->ti_errno  = thread->t_errno;
-        info->ti_state  = thread->t_state;
-        info->ti_killer = thread->t_killer;
-        info->ti_sched  = thread->t_sched_attr;
-    }
-
-    if (thread == current)
-        return -EDEADLOCK;
-
-    loop() {
-        if (current_killed())
-            return -EINTR;
-
-        if (thread->t_state == T_ZOMBIE) {
-            if (retval) *retval = (void *)thread->t_exit;
-            thread_free(thread);
-            break;
-        }
-
-        thread_unlock(thread);
-        cond_wait(thread->t_wait);
-        thread_lock(thread);
-    }
-
-    return 0;
-}
-
-int thread_wait(thread_t *thread, int reap, void **retval) {
-    int err = 0;
-    (void)err;
-    thread_assert_locked(thread);
-
-    loop() {
-        if (thread_killed(current))
-            return -EINTR;
-
-        if ((thread->t_state == T_ZOMBIE)) {
-            if (retval)
-                *retval = (void *)thread->t_exit;
-            if (reap) thread_free(thread);
-            break;
-        }
-
-        thread_unlock(thread);
-        if ((err = cond_wait(thread->t_wait))) {
-            thread_lock(thread);
-            return err;
-        }
-        thread_lock(thread);
-    }
-
-    return 0;
+    return thread_reap(thread, 1, info, retval);
 }
 
 int thread_kill_all(void) {
     int err = 0;
     current_assert();
     tgroup_lock(current_tgroup());
-    err = tgroup_kill_thread(current_tgroup(), 0, 1);
+    err = tgroup_kill_thread(current_tgroup(), -1, 1);
     tgroup_unlock(current_tgroup());
     return err;
 }

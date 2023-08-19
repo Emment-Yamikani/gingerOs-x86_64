@@ -236,9 +236,7 @@ void sched(void) {
     pushcli();
     uint64_t ncli = cpu->ncli;
     uint64_t intena = cpu->intena;
-    
-    //printk("%s:%d: %s() tid(%d), ncli: %d, intena: %d [%p]\n", __FILE__, __LINE__, __func__, current->t_tid, cpu->ncli, cpu->intena, return_address(0));
-    
+
     current_assert_locked();
     
     if (current_issetpark() && current_isisleep()) {
@@ -248,12 +246,9 @@ void sched(void) {
             return;
         }
     }
-    
+
     swtch(&current->t_arch.t_ctx0, cpu->ctx);
     current_assert_locked();
-    
-    //printk("%s:%d: %s() tid(%d), ncli: %d, intena: %d [%p]\n", __FILE__, __LINE__, __func__, current->t_tid, cpu->ncli, cpu->intena, return_address(0));
-    
     cpu->ncli = ncli;
     cpu->intena = intena;
     popcli();
@@ -289,6 +284,14 @@ void sched_yield(void)
 }
 
 void sched_self_destruct(void) {
+    int err = 0;
+    /**
+     * pushcli() to avoid interrupts being enabled
+     * immediately we do current_unlock() at the end of this routine.
+     * because that will call reentrance into schedule() from trap().
+     * TRUST ME: it's a VERY NAST BUG :).
+    */
+    pushcli();
     current_unlock();
     current_tgroup_lock();
     tgroup_dec_running(current_tgroup());
@@ -301,8 +304,8 @@ void sched_self_destruct(void) {
         current_lock();
     }
 
-    sched_zombie(current);
-
+    if ((err = sched_zombie(current)))
+        panic("FAILED TOO ZOMBIE: err = %d\n", err);
     if (current->t_arch.t_sig_kstack)
         thread_free_kstack(current->t_arch.t_sig_kstack, current->t_arch.t_sig_kstacksz);
     current_unlock();
@@ -322,8 +325,9 @@ void sched_remove_zombies(void) {
     if (time_after(jiffies_get(), next_time)) {
         
         queue_lock(zombie_queue);
-        
-        if ((thread = thread_dequeue(zombie_queue))) {
+        thread = thread_dequeue(zombie_queue);
+        queue_unlock(zombie_queue);
+        if (thread) {
             if (thread_isdetached(thread) && thread_iszombie(thread))
                 thread_free(thread);
             else {
@@ -332,8 +336,6 @@ void sched_remove_zombies(void) {
             }
         }
         
-        queue_unlock(zombie_queue);
-
         next_time = s_TO_jiffies(600) + jiffies_get();
     }
     spin_unlock(next_timelk);
@@ -361,13 +363,14 @@ void schedule(void) {
         current = thread;
         current_assert_locked();
 
-        if (thread_killed(thread)) {
+        if (thread_killed(thread) ||
+            thread_iszombie(thread) ||
+            thread_isterminated(thread)) {
             thread_enter_state(thread, T_TERMINATED);
             thread->t_exit = -EINTR;
             sched_self_destruct();
             continue;
         }
-
 
         before = jiffies_get();
         current->t_sched_attr.last_sched = jiffies_TO_s(before);
@@ -408,9 +411,3 @@ void schedule(void) {
         }
     }
 }
-
-void sched_balancer(void) {
-    BUILTIN_THREAD_ANOUNCE(__func__);
-}
-
-BUILTIN_THREAD(scheduler_balancer, sched_balancer, NULL);

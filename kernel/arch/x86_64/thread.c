@@ -10,7 +10,7 @@
 void arch_thread_exit(uintptr_t exit_code) {
     current_lock();
     current->t_exit = exit_code;
-    current->t_state = T_TERMINATED;
+    current_enter_state(T_TERMINATED);
     sched();
     panic("thread: %d failed to zombie\n", current->t_tid);
     loop();

@@ -203,6 +203,9 @@ typedef struct thread {
     tid_t           t_killer;           // thread that killed this thread.
     uintptr_t       t_entry;            // thread entry point.
     tstate_t        t_state;            // thread's execution state.
+    tid_t           t_statetid;
+    char            *t_statefile;
+    long            t_stateline;
     uintptr_t       t_exit;             // thread exit code.
     atomic_t        t_flags;            // thread's flags.
     atomic_t        t_spinlocks;
@@ -263,13 +266,18 @@ typedef struct {
 #define thread_testflags(t, flags)      ({ thread_assert_locked(t); atomic_read(&((t)->t_flags)) & (flags); })
 #define thread_setflags(t, flags)       ({ thread_assert_locked(t); atomic_fetch_or(&((t)->t_flags), (flags)); })
 #define thread_maskflags(t, flags)      ({ thread_assert_locked(t); atomic_fetch_and(&((t)->t_flags), ~(flags)); })
-#define thread_enter_state(t, state)    ({        \
+#define thread_enter_state(t, state) ({           \
     thread_assert_locked(t);                      \
     int err = 0;                                  \
     if ((state) < T_EMBRYO || (state) > T_ZOMBIE) \
         err = -EINVAL;                            \
     else                                          \
+    {                                             \
         (t)->t_state = state;                     \
+        (t)->t_statetid = thread_self();          \
+        (t)->t_statefile = __FILE__;              \
+        (t)->t_stateline = __LINE__;              \
+    }                                             \
     err;                                          \
 })
 
@@ -325,8 +333,6 @@ typedef struct {
 #define current_locked()                ({ thread_locked(current); })
 #define current_assert_locked()         ({ thread_assert_locked(current); })
 
-#define current_inc_spinlocks()         ({ })
-
 #define current_tgroup()                ({ thread_tgroup(current); })
 #define current_tgroup_lock()           ({ thread_tgroup_lock(current); })
 #define current_tgroup_unlock()         ({ thread_tgroup_unlock(current); })
@@ -381,9 +387,13 @@ typedef struct {
 
 int builtin_threads_begin(int *nthreads, thread_t ***threads);
 
-#define thread_debugloc() ({                                  \
-    printk("%s:%d in %s(), current[%d], return[%p]\n", \
-           __FILE__, __LINE__, __func__, current ? current->t_tid : 0, __retaddr(0));              \
+#define thread_debugloc() ({                                                                                                       \
+    printk("%s:%d in %s(), current[%d] state: %s:%s @%s:%d by thread[%d], signal: %s, return[%p]\n",                                                     \
+           __FILE__, __LINE__, __func__, current ? current->t_tid : 0, current ? current_killed() ? "killed" : "n/a" : "n/a",      \
+           current ? t_states[current->t_state] : "n/a", current ? current->t_statefile ? current->t_statefile : "no-file" : "no-file",\
+           current ? current->t_stateline : -1, \
+           current ? current->t_statetid : 0,\
+           current ? current_handling() ? "handling" : "n/a" : "n/a", __retaddr(0)); \
 })
 
 int thread_sigdequeue(thread_t *thread);
@@ -496,10 +506,11 @@ int thread_remove_queue(thread_t *thread, queue_t *queue);
  * \brief Wait for thread to terminate.
  * \param thread thread to be waited upon.
  * \param reap if '1' then the resources allocated to the thread and the structure are freed.
+ * \param info pointer to minimal status info of thread.
  * \param retval return value of the thread that is being waited upon.
  * \return (int)0 on success or error on faliure.
 */
-int thread_wait(thread_t *thread, int reap, void **retval);
+int thread_reap(thread_t *thread, int reap, thread_info_t *info, void **retval);
 
 /**
  * \brief Wait for thread to terminate.

@@ -104,8 +104,8 @@
 #define CR4_SMAP            BS(21)   // SMAP-Enable Bit.
 
 typedef struct cpu {
-    uint64_t        ncli;
-    uint64_t        intena;
+    long            ncli;
+    long            intena;
     uint64_t        version;
 
     uint64_t        apicID;
