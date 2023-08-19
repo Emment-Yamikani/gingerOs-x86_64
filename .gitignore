@@ -6,4 +6,5 @@
 *.a
 *.iso
 lime.asm
-*.gitignore
+serial
+serial.log

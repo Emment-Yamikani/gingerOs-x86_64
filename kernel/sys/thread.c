@@ -21,8 +21,8 @@ const char *t_states[] = {
     [T_RUNNING]     = "RUNNING",
     [T_ISLEEP]      = "ISLEEP",
     [T_STOPPED]     = "STOPPED",
-    [T_TERMINATED]  = "TERMINATED",
     [T_USLEEP]      = "USLEEP",
+    [T_TERMINATED]  = "TERMINATED",
     [T_ZOMBIE]      = "ZOMBIE",
 };
 
@@ -381,8 +381,7 @@ int thread_wait(thread_t *thread, int reap, void **retval) {
         if ((thread->t_state == T_ZOMBIE)) {
             if (retval)
                 *retval = (void *)thread->t_exit;
-            if (reap)
-                thread_free(thread);
+            if (reap) thread_free(thread);
             break;
         }
 
@@ -440,6 +439,11 @@ int thread_wake(thread_t *thread) {
         return err;
 
     return thread_schedule(thread);
+}
+
+int thread_stop(thread_t *thread, queue_t *queue) {
+    thread_assert_locked(thread);
+    return sched_sleep(queue, T_STOPPED, NULL);
 }
 
 int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread) {
@@ -510,6 +514,36 @@ int thread_sigdequeue(thread_t *thread) {
     }
 
     return 0;
+}
+
+int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset) {
+    int err = 0;
+    thread_assert_locked(thread);
+    
+    if (oset)
+        *oset = thread->t_sigmask;
+    
+    if (set == NULL)
+        return 0;
+    
+    if (sigismember(set, SIGKILL) || sigismember(set, SIGSTOP))
+        return -EINVAL;
+
+    switch (how) {
+    case SIG_BLOCK:
+        thread->t_sigmask |= *set;
+        break;
+    case SIG_UNBLOCK:
+        thread->t_sigmask &= ~*set;
+        break;
+    case SIG_SETMASK:
+        thread->t_sigmask = *set;
+        break;
+    default:
+        err = -EINVAL;
+        break;
+    }
+    return err;
 }
 
 int builtin_threads_begin(int *nthreads, thread_t ***threads) {

@@ -179,72 +179,11 @@ int sigwait(const sigset_t *restrict set, int *restrict signop) {
     return 0;
 }
 
-static int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset) {
-    int err = 0;
-    thread_assert_locked(thread);
-    
-    if (oset)
-        *oset = thread->t_sigmask;
-    
-    if (set == NULL)
-        return 0;
-    
-    if (sigismember(set, SIGKILL) || sigismember(set, SIGSTOP))
-        return -EINVAL;
-
-    switch (how) {
-    case SIG_BLOCK:
-        thread->t_sigmask |= *set;
-        break;
-    case SIG_UNBLOCK:
-        thread->t_sigmask &= ~*set;
-        break;
-    case SIG_SETMASK:
-        thread->t_sigmask = *set;
-        break;
-    default:
-        err = -EINVAL;
-        break;
-    }
-    return err;
-}
-
 int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset) {
     int err = 0;
     current_lock();
     err = thread_sigmask(current, how, set, oset);
     current_unlock();
-    return err;
-}
-
-static int tgroup_sigprocmask(tgroup_t *tgroup, int how, const sigset_t *restrict set, sigset_t *restrict oset) {
-    int err = 0;
-    tgroup_assert_locked(tgroup);
-
-    if (oset)
-        *oset = tgroup->sig_mask;
-
-    if (set == NULL)
-        return 0;
-
-    if (sigismember(set, SIGKILL) || sigismember(set, SIGSTOP))
-        return -EINVAL;
-
-    switch (how) {
-    case SIG_BLOCK:
-        tgroup->sig_mask |= *set;
-        break;
-    case SIG_UNBLOCK:
-        tgroup->sig_mask &= ~*set;
-        break;
-    case SIG_SETMASK:
-        tgroup->sig_mask = *set;
-        break;
-    default:
-        err = -EINVAL;
-        break;
-    }
-
     return err;
 }
 
@@ -417,8 +356,8 @@ block_signal:
         assert_msg(0, "%s default action: TERMINATE+CORE\n", signal_str[signo]);
         break;
     case SIG_STOP:
-        assert_msg(0, "%s default action: STOP\n", signal_str[signo]);
-        break;
+        printk("%s default action: STOP\n", signal_str[signo]);
+        return thread_stop(current, sched_stopq);
     case SIG_CONT:
         assert_msg(0, "%s default action: CONTINUE\n", signal_str[signo]);
         break;

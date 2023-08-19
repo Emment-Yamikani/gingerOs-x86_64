@@ -10,6 +10,7 @@
 #include <ginger/jiffies.h>
 #include <arch/lapic.h>
 
+queue_t *sched_stopq = QUEUE_NEW("stopped-queue");
 static queue_t *embryo_queue = QUEUE_NEW("embryo-threads-queue");
 static queue_t *zombie_queue = QUEUE_NEW("zombie-threads-queue");
 
@@ -357,6 +358,9 @@ void schedule(void) {
 
         cli();
 
+        current = thread;
+        current_assert_locked();
+
         if (thread_killed(thread)) {
             thread_enter_state(thread, T_TERMINATED);
             thread->t_exit = -EINTR;
@@ -364,8 +368,6 @@ void schedule(void) {
             continue;
         }
 
-        current = thread;
-        current_assert_locked();
 
         before = jiffies_get();
         current->t_sched_attr.last_sched = jiffies_TO_s(before);
@@ -396,11 +398,13 @@ void schedule(void) {
         case T_RUNNING:
             panic("thread sched while running???\n");
             break;
+        case T_USLEEP:
+        case T_STOPPED:
         case T_ISLEEP:
             current_unlock();
             break;
         default:
-            panic("tid: %d state: %d\n", current->t_tid, current->t_state);
+            panic("tid: %d state: %s\n", thread_self(), t_states[current->t_state]);
         }
     }
 }

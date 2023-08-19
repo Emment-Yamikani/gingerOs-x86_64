@@ -61,7 +61,6 @@ int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait) {
     thread_t *thread = NULL;
     queue_node_t *next = NULL;
     tgroup_assert_locked(tgroup);
-
     if (current_killed())
         return -EINTR;
 
@@ -82,10 +81,10 @@ int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait) {
                 goto error;
             }
 
-            tgroup_lock(tgroup);
-            tgroup_queue_lock(tgroup);
             if (wait == 0)
                 thread_unlock(thread);
+            tgroup_lock(tgroup);
+            tgroup_queue_lock(tgroup);
         }
         tgroup_queue_unlock(tgroup);
     } else {
@@ -230,10 +229,40 @@ int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pt
 }
 
 int tgroup_sigqueue(tgroup_t *tgroup, int signo) {
-    int err = 0;
-    queue_node_t *next = NULL;
     thread_t *thread = NULL;
+    queue_node_t *next = NULL;
+    int err = 0, send_current = 0;
+
     tgroup_assert_locked(tgroup);
+
+    switch (signo) {
+    case SIGSTOP:
+        forlinked(node, tgroup->tg_queue->head, next) {
+            next = node->next;
+            thread = node->data;
+
+            if (current == thread)
+                send_current = 1;
+
+            thread_lock(thread);
+            thread_sigqueue(thread, SIGSTOP);
+            thread_unlock(thread);
+        }
+
+        current_lock();
+        if (send_current)
+            thread_sigqueue(current, SIGSTOP);
+        current_unlock();
+
+        return 0;
+    case SIGKILL:
+        tgroup_kill_thread(tgroup, -1, 0);
+        if (current_tgroup() == tgroup) {
+            tgroup_unlock(tgroup);
+            thread_exit(0);
+        }
+        return 0;
+    }
 
     switch (sigismember(&tgroup->sig_mask, signo)) {
     case 0:
@@ -242,7 +271,8 @@ int tgroup_sigqueue(tgroup_t *tgroup, int signo) {
             next = node->next;
             thread = node->data;
             thread_lock(thread);
-            err = thread_wake(thread);
+            if ((err = sigismember(&thread->t_sigmask, signo)) == 0)
+                err = thread_wake(thread);
             thread_unlock(thread);
             if (err == 0)
                 break;
@@ -254,6 +284,56 @@ int tgroup_sigqueue(tgroup_t *tgroup, int signo) {
     case 1:
         err = -EINVAL;
         break;
+    }
+
+    return err;
+}
+
+int tgroup_sigprocmask(tgroup_t *tgroup, int how, const sigset_t *restrict set, sigset_t *restrict oset) {
+    int err = 0;
+    tgroup_assert_locked(tgroup);
+
+    if (oset)
+        *oset = tgroup->sig_mask;
+
+    if (set == NULL)
+        return 0;
+
+    if (sigismember(set, SIGKILL) || sigismember(set, SIGSTOP))
+        return -EINVAL;
+
+    switch (how) {
+    case SIG_BLOCK:
+        tgroup->sig_mask |= *set;
+        break;
+    case SIG_UNBLOCK:
+        tgroup->sig_mask &= ~*set;
+        break;
+    case SIG_SETMASK:
+        tgroup->sig_mask = *set;
+        break;
+    default:
+        err = -EINVAL;
+        break;
+    }
+
+    return err;
+}
+
+int tgroup_stop(tgroup_t *tgroup) {
+    int err = 0;
+    thread_t *thread = NULL;
+    queue_node_t *next = NULL;
+    tgroup_assert_locked(tgroup);
+
+    forlinked(node, tgroup->tg_queue->head, next) {
+        next = node->next;
+        thread = node->data;
+        if (current != thread)
+            continue;
+        thread_lock(thread);
+        err = thread_sigqueue(thread, SIGSTOP);
+        thread_unlock(thread);
     }
 
     return err;

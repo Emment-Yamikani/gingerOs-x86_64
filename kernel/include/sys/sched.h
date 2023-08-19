@@ -25,6 +25,8 @@ typedef struct sched_queue
     level_t level[NLEVELS];
 } sched_queue_t;
 
+extern queue_t *sched_stopq;
+
 /*queue up a thread*/
 int sched_park(thread_t *);
 

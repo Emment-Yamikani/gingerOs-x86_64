@@ -181,7 +181,22 @@ int tgroup_remove_thread(tgroup_t *tgroup, thread_t *thread);
  **/
 int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pthread);
 
+/// @brief 
+/// @param tgroup 
+/// @param signo 
+/// @return 
 int tgroup_sigqueue(tgroup_t *tgroup, int signo);
+
+
+/// @brief 
+/// @param tgroup 
+/// @param how 
+/// @param set 
+/// @param oset 
+/// @return 
+int tgroup_sigprocmask(tgroup_t *tgroup, int how, const sigset_t *restrict set, sigset_t *restrict oset);
+
+int tgroup_stop(tgroup_t *tgroup);
 
 typedef struct thread {
     tid_t           t_tid;              // thread ID.
@@ -195,7 +210,7 @@ typedef struct thread {
     
     thread_attr_t   t_attr;             // thread' attributes.
 
-    sigset_t        t_sigmask;        // thread's masked signal set.
+    sigset_t        t_sigmask;          // thread's masked signal set.
     uint8_t         t_sigqueue[NSIG];   // thread's queue of pending signals.
 
     void            *t_simd_ctx;        // thread's Single Instruction Multiple Data (SIMD) context.
@@ -563,3 +578,11 @@ int kthread_create(thread_entry_t entry, void *arg, tid_t *__tid, thread_t **pth
  * \return (int)0 on success or error on faliure.
  */
 int thread_create(thread_t **pthread, thread_attr_t *attr, thread_entry_t entry, void *arg);
+
+int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset);
+
+/// @brief 
+/// @param thread 
+/// @param queue 
+/// @return 
+int thread_stop(thread_t *thread, queue_t *queue);

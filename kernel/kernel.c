@@ -36,38 +36,25 @@ __noreturn void kthread_main(void) {
 
     sigemptyset(&set);
     sigfillset(&set);
+    sigdelset(&set, SIGKILL);
+    sigdelset(&set, SIGSTOP);
 
     pthread_sigmask(SIG_SETMASK, &set, NULL);
+    sigdelset(&set, SIGQUIT);
     sigprocmask(SIG_SETMASK, &set, NULL);
+    
     act.sa_sigaction = NULL;
     sigfillset(&act.sa_mask);
     act.sa_handler = signal_handler;
 
     sigaction(SIGQUIT, &act, NULL);
-
-
     builtin_threads_begin(&nthread, NULL);
     
     core_start();
 
-    pthread_kill(6, SIGQUIT);
-    pthread_kill(6, SIGCANCEL);
-    pthread_kill(6, SIGQUIT);
-    pthread_kill(6, SIGQUIT);
-
     current_tgroup_lock();
     tgroup_sigqueue(current_tgroup(), SIGQUIT);
-    tgroup_sigqueue(current_tgroup(), SIGQUIT);
-    tgroup_sigqueue(current_tgroup(), SIGQUIT);
-    tgroup_sigqueue(current_tgroup(), SIGQUIT);
-    tgroup_sigqueue(current_tgroup(), SIGQUIT);
-    tgroup_sigqueue(current_tgroup(), SIGQUIT);
-    tgroup_sigqueue(current_tgroup(), SIGQUIT);
-    tgroup_sigqueue(current_tgroup(), SIGQUIT);
-    tgroup_sigqueue(current_tgroup(), SIGQUIT);
-    tgroup_sigqueue(current_tgroup(), SIGQUIT);
-    tgroup_sigqueue(current_tgroup(), SIGQUIT);
-    tgroup_sigqueue(current_tgroup(), SIGQUIT);
+    tgroup_sigqueue(current_tgroup(), SIGKILL);
     current_tgroup_unlock();
 
     loop() {
