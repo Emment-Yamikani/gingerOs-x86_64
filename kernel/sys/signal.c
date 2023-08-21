@@ -349,23 +349,17 @@ block_signal:
         return 0;
     case SIG_ABRT:
         assert_msg(0, "%s default action: ABORT\n", signal_str[signo]);
-        current_unlock();
-        err = tgroup_die(current_tgroup());
-        current_tgroup_unlock();
+        err = tgroup_terminate(current_tgroup(), &current->t_lock);
         return err;
         break;
     case SIG_TERM:
         assert_msg(0, "%s default action: TERMINATE\n", signal_str[signo]);
-        current_unlock();
-        err = tgroup_die(current_tgroup());
-        current_tgroup_unlock();
+        err = tgroup_terminate(current_tgroup(), &current->t_lock);
         return err;
         break;
     case SIG_TERM_CORE:
         assert_msg(0, "%s default action: TERMINATE+CORE\n", signal_str[signo]);
-        current_unlock();
-        err = tgroup_die(current_tgroup());
-        current_tgroup_unlock();
+        err = tgroup_terminate(current_tgroup(), &current->t_lock);
         return err;
         break;
     case SIG_STOP:

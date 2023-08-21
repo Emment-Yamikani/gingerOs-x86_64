@@ -198,7 +198,7 @@ int tgroup_sigprocmask(tgroup_t *tgroup, int how, const sigset_t *restrict set, 
 
 int tgroup_stop(tgroup_t *tgroup);
 
-int tgroup_die(tgroup_t *tgroup);
+int tgroup_terminate(tgroup_t *tgroup, spinlock_t *lock);
 
 int tgroup_spawn(thread_entry_t entry, void *arg, int flags, tgroup_t **ptgroup);
 

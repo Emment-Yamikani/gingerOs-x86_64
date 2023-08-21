@@ -274,9 +274,12 @@ error:
     return err;
 }
 
-int tgroup_die(tgroup_t *tgroup) {
+int tgroup_terminate(tgroup_t *tgroup, spinlock_t *lock) {
     int err = 0;
     tgroup_assert_locked(tgroup);
+    if (lock)
+        spin_unlock(lock);
+
     if ((err = tgroup_kill_thread(tgroup, -1, 0)))
         printk("ERROR OCCURED: %d\n", err);
     if (current_tgroup() == tgroup)
