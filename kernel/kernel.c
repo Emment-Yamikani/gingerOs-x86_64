@@ -50,6 +50,24 @@ __noreturn void kthread_main(void) {
     sigaction(SIGQUIT, &act, NULL);
     builtin_threads_begin(&nthread, NULL);
 
+    tgroup_t *core = NULL;
+    tgroup_spawn((thread_entry_t)core_start, NULL, 0, &core);
+    thread_lock(core->tg_tmain);
+    thread_schedule(core->tg_tmain);
+    thread_unlock(core->tg_tmain);
+    tgroup_unlock(core);
+
+    tgroup_lock(core);
+    tgroup_sigqueue(core, SIGXFSZ);
+    tgroup_sigqueue(core, SIGXFSZ);
+    tgroup_unlock(core);
+
+    tgroup_lock(core);
+    tgroup_sigqueue(core, SIGSTOP);
+    tgroup_unlock(core);
+
+    printk("going to sleep\n");
+    sleep(5);
     current_tgroup_lock();
     tgroup_sigqueue(current_tgroup(), SIGQUIT);
     tgroup_sigqueue(current_tgroup(), SIGKILL);

@@ -117,6 +117,9 @@ int pthread_kill(tid_t tid, int signo) {
     int err = 0;
     thread_t *thread = NULL;
 
+    if (SIGBAD(signo))
+        return -EINVAL;
+
     current_tgroup_lock();
     if ((err = tgroup_get_thread(current_tgroup(), tid, 0, &thread))) {
         current_tgroup_unlock();
@@ -317,11 +320,7 @@ int signal_handle(tf_t *tf __unused) {
         return 0;
     }
 
-    
 block_signal:
-    tgroup_sigprocmask(current_tgroup(), SIG_BLOCK, &set, &oset);
-    current_tgroup_unlock();
-    
     /**
      * Block signo and other signals specified in sigaction->sigmask.
      * NOTE: This blocks the signal set globally i.e in the tgroup.
@@ -331,6 +330,7 @@ block_signal:
     sigaddset(&set, signo);
     set |= current_tgroup()->sig_mask;
     thread_sigmask(current, SIG_BLOCK, &set, &tset);
+    tgroup_sigprocmask(current_tgroup(), SIG_BLOCK, &set, &oset);
 
     arg = (void *)(uintptr_t)signo--;
     act = current_tgroup()->sig_action[signo];
@@ -344,24 +344,42 @@ block_signal:
         printk("%s default action: IGNORE\n", signal_str[signo]);
         thread_sigmask(current, SIG_SETMASK, &tset, NULL);
         current_unlock();
-        sigprocmask(SIG_SETMASK, &oset, NULL);
+        tgroup_sigprocmask(current_tgroup(), SIG_SETMASK, &oset, NULL);
+        current_tgroup_unlock();
         return 0;
     case SIG_ABRT:
         assert_msg(0, "%s default action: ABORT\n", signal_str[signo]);
+        current_unlock();
+        err = tgroup_die(current_tgroup());
+        current_tgroup_unlock();
+        return err;
         break;
     case SIG_TERM:
         assert_msg(0, "%s default action: TERMINATE\n", signal_str[signo]);
+        current_unlock();
+        err = tgroup_die(current_tgroup());
+        current_tgroup_unlock();
+        return err;
         break;
     case SIG_TERM_CORE:
         assert_msg(0, "%s default action: TERMINATE+CORE\n", signal_str[signo]);
+        current_unlock();
+        err = tgroup_die(current_tgroup());
+        current_tgroup_unlock();
+        return err;
         break;
     case SIG_STOP:
+        current_unlock();
+        err = tgroup_stop(current_tgroup());
         printk("%s default action: STOP\n", signal_str[signo]);
-        return thread_stop(current, sched_stopq);
+        current_tgroup_unlock();
+        return err;
     case SIG_CONT:
         assert_msg(0, "%s default action: CONTINUE\n", signal_str[signo]);
         break;
     }
+
+    current_tgroup_unlock();
 
     if (!current_isuser()) {
         if (NULL == (sig_stack = stack = (uintptr_t *)thread_alloc_kstack(STACKSZMIN))) {

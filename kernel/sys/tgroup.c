@@ -228,60 +228,105 @@ int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pt
     return -ESRCH;
 }
 
+int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry, void *arg, int flags, int sched, thread_t **pthread) {
+    int err = 0;
+    thread_t *thread = NULL;
+    
+    if (!pthread)
+        return -EINVAL;
+
+    tgroup_assert_locked(tgroup);
+    if ((err = thread_new(NULL, entry, arg, flags, &thread)))
+        goto error;
+
+    if ((tgroup_add_thread(tgroup, thread)))
+        goto error;
+
+    *pthread = thread;
+
+    if (sched)
+        thread_schedule(thread);
+    
+    return 0;
+error:
+    if (thread) thread_free(thread);
+    return err;
+}
+
+int tgroup_spawn(thread_entry_t entry, void *arg, int flags, tgroup_t **ptgroup) {
+    int err = 0;
+    tgroup_t *tgroup = NULL;
+    thread_t *thread = NULL;
+
+    if ((err = tgroup_create(&tgroup)))
+        return err;
+    
+    if ((err = tgroup_thread_create(tgroup, entry, arg, flags, 0, &thread)))
+        goto error;
+    
+    *ptgroup = tgroup;
+    thread_unlock(thread);
+
+    return 0;
+error:
+    if (thread) thread_free(thread);
+    if (tgroup) tgroup_destroy(tgroup);
+    return err;
+}
+
+int tgroup_die(tgroup_t *tgroup) {
+    int err = 0;
+    tgroup_assert_locked(tgroup);
+    if ((err = tgroup_kill_thread(tgroup, -1, 0)))
+        printk("ERROR OCCURED: %d\n", err);
+    if (current_tgroup() == tgroup)
+    {
+        tgroup_unlock(tgroup);
+        thread_exit(-EINTR);
+    }
+    return err;
+}
+
 int tgroup_sigqueue(tgroup_t *tgroup, int signo) {
     thread_t *thread = NULL;
     queue_node_t *next = NULL;
-    int err = 0, send_current = 0;
+    int err = 0, __unused send_current = 0;
+
+    if (SIGBAD(signo))
+        return -EINVAL;
 
     tgroup_assert_locked(tgroup);
-
-    switch (signo) {
-    case SIGSTOP:
-        forlinked(node, tgroup->tg_queue->head, next) {
-            next = node->next;
-            thread = node->data;
-
-            if (current == thread)
-                send_current = 1;
-
-            thread_lock(thread);
-            thread_sigqueue(thread, SIGSTOP);
-            thread_unlock(thread);
-        }
-
-        current_lock();
-        if (send_current)
-            thread_sigqueue(current, SIGSTOP);
-        current_unlock();
-
-        return 0;
-    case SIGKILL:
-        if ((err = tgroup_kill_thread(tgroup, -1, 0)))
-            printk("ERROR OCCURED: %d\n", err);
-        if (current_tgroup() == tgroup) {
-            tgroup_unlock(tgroup);
-            thread_exit(-EINTR);
-        }
-        return 0;
-    }
 
     switch (sigismember(&tgroup->sig_mask, signo)) {
     case 0:
         tgroup->sig_queues[signo - 1]++;
+        tgroup_queue_lock(tgroup);
         forlinked (node, tgroup->tg_queue->head, next) {
+            err = -EINVAL;
             next = node->next;
             thread = node->data;
+  
             thread_lock(thread);
-            if ((err = sigismember(&thread->t_sigmask, signo)) == 0)
-                err = thread_wake(thread);
+            if (thread_isstopped(thread)) {
+                if ((signo != SIGKILL) && (signo != SIGCONT)) {
+                    thread_unlock(thread);
+                    continue;
+                }
+            }
+
+            if (!thread_isterminated(thread) &&
+                !thread_iszombie(thread)) {
+                if ((err = sigismember(&thread->t_sigmask, signo)) == 0)
+                    err = thread_wake(thread);
+            }
             thread_unlock(thread);
+
             if (err == 0)
                 break;
         }
-        err = 0;
+        tgroup_queue_unlock(tgroup);
         break;
     case -EINVAL:
-        __fallthrough;
     case 1:
         err = -EINVAL;
         break;
@@ -322,20 +367,19 @@ int tgroup_sigprocmask(tgroup_t *tgroup, int how, const sigset_t *restrict set, 
 }
 
 int tgroup_stop(tgroup_t *tgroup) {
-    int err = 0;
     thread_t *thread = NULL;
     queue_node_t *next = NULL;
     tgroup_assert_locked(tgroup);
 
+    tgroup_queue_lock(tgroup);
     forlinked(node, tgroup->tg_queue->head, next) {
         next = node->next;
         thread = node->data;
-        if (current != thread)
-            continue;
         thread_lock(thread);
-        err = thread_sigqueue(thread, SIGSTOP);
+        thread_setflags(thread, THREAD_STOP);
+        thread_wake(thread);
         thread_unlock(thread);
     }
-
-    return err;
+    tgroup_queue_unlock(tgroup);
+    return 0;
 }

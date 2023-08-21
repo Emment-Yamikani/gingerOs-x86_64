@@ -374,7 +374,7 @@ int thread_wake(thread_t *thread) {
 
     if (thread_iszombie(thread) ||
         thread_isterminated(thread))
-        return -EINVAL;
+        return 0;
 
     if (thread_testflags(thread, THREAD_SETPARK))
         thread_setflags(thread, THREAD_SETWAKE);
@@ -590,13 +590,11 @@ int thread_create(thread_t **pthread, thread_attr_t *attr, thread_entry_t entry,
     }
 
     if ((err = tgroup_add_thread(tgroup, thread))) {
-        thread_unlock(thread);
         tgroup_unlock(tgroup);
         goto error;
     }
 
     if ((err = thread_schedule(thread))) {
-        thread_unlock(thread);
         tgroup_unlock(tgroup);
         goto error;
     }
@@ -610,8 +608,10 @@ int thread_create(thread_t **pthread, thread_attr_t *attr, thread_entry_t entry,
 
     return 0;
 error:
-    if (newgroup && tgroup)
+    if (newgroup && tgroup) {
+        tgroup_lock(tgroup);
         tgroup_destroy(tgroup);
+    }
     
     if (thread)
         thread_free(thread);

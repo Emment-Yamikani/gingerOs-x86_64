@@ -212,6 +212,7 @@ int sched_wake1(queue_t *sleep_queue)
 
 int sched_wakeall(queue_t *sleep_queue)
 {
+    int err = 0;
     int count = 0;
     thread_t *thread = NULL;
     queue_node_t *next = NULL;
@@ -224,7 +225,8 @@ int sched_wakeall(queue_t *sleep_queue)
         next = node->next;
         thread = node->data;
         thread_lock(thread);
-        assert(!thread_wake(thread), "failed to park thread");
+        if ((err = thread_wake(thread)))
+            panic("failed to park thread[%d], err=%d\n", thread_gettid(thread), err);
         thread_unlock(thread);
     }
 
@@ -309,6 +311,7 @@ void sched_self_destruct(void) {
     if (current->t_arch.t_sig_kstack)
         thread_free_kstack(current->t_arch.t_sig_kstack, current->t_arch.t_sig_kstacksz);
     current_unlock();
+    thread_debugloc();
 }
 
 static jiffies_t next_time = 0;

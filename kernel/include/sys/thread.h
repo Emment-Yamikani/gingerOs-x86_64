@@ -41,7 +41,7 @@ typedef struct
 typedef struct {
     time_t      ctime;      // Thread ceation time.
     time_t      cpu_time;   // CPU time in jiffies(n seconds = (jiffy * (HZ_TO_ns(SYS_HZ) / seconds_TO_ns(1))) ).
-    atomic_t    timeslice;  // Quantum of CPU time for which this thread is allowed to run.
+    time_t      timeslice;  // Quantum of CPU time for which this thread is allowed to run.
     time_t      total_time; // Total time this thread has run.
     time_t      last_sched; // Last time this thread was scheduled to run.
 
@@ -198,6 +198,12 @@ int tgroup_sigprocmask(tgroup_t *tgroup, int how, const sigset_t *restrict set, 
 
 int tgroup_stop(tgroup_t *tgroup);
 
+int tgroup_die(tgroup_t *tgroup);
+
+int tgroup_spawn(thread_entry_t entry, void *arg, int flags, tgroup_t **ptgroup);
+
+int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry, void *arg, int flags, int sched, thread_t **pthread);
+
 typedef struct thread {
     tid_t           t_tid;              // thread ID.
     tid_t           t_killer;           // thread that killed this thread.
@@ -246,6 +252,7 @@ typedef struct {
 #define THREAD_SETWAKE                  BS(3)   // thread has the wakeup flag set.
 #define THREAD_HANDLING_SIG             BS(4)   // thread is currently handling a signal.
 #define THREAD_DETACHED                 BS(5)   // free resources allocated to this thread imediately to terminates.
+#define THREAD_STOP                     BS(6)   // thread stop
 #define THREAD_SIMD_DIRTY               BS(7)   // thread's SIMD context is dirty and must be save on context swtich.
 
 #define thread_assert(t)                ({ assert(t, "No thread pointer\n");})
