@@ -372,6 +372,9 @@ int thread_wake(thread_t *thread) {
     int err = 0, guard_locked = 0, q_locked = 0;
     thread_assert_locked(thread);
 
+    if (current == thread)
+    return 0;
+
     if (thread_iszombie(thread) ||
         thread_isterminated(thread))
         return 0;
@@ -395,6 +398,9 @@ int thread_wake(thread_t *thread) {
 
     if (thread->sleep_attr.guard && guard_locked)
         spin_unlock(thread->sleep_attr.guard);
+
+    if (thread_isstopped(thread))
+        thread_maskflags(thread, THREAD_STOP);
 
     if (err) return err;
 
@@ -439,12 +445,20 @@ int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread) {
 int thread_sigqueue(thread_t *thread, int signo) {
     int err = 0;
 
-    if (!thread)
+    if (!thread || SIGBAD(signo))
+        return -EINVAL;
+    thread_assert_locked(thread);
+
+    if (thread_iszombie(thread) ||
+        thread_isterminated(thread))
         return -EINVAL;
 
-    thread_assert_locked(thread);
-    switch ((err = sigismember(&thread->t_sigmask, signo)))
-    {
+    if (thread_isstopped(thread) &&
+        ((signo != SIGKILL) &&
+         (signo != SIGCONT)))
+        return -EINVAL;
+
+    switch ((err = sigismember(&thread->t_sigmask, signo))) {
     case -EINVAL:
         break;
     case 0:

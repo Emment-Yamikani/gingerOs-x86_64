@@ -197,6 +197,7 @@ int tgroup_sigqueue(tgroup_t *tgroup, int signo);
 int tgroup_sigprocmask(tgroup_t *tgroup, int how, const sigset_t *restrict set, sigset_t *restrict oset);
 
 int tgroup_stop(tgroup_t *tgroup);
+int tgroup_continue(tgroup_t *tgroup);
 
 int tgroup_terminate(tgroup_t *tgroup, spinlock_t *lock);
 

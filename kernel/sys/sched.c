@@ -311,7 +311,6 @@ void sched_self_destruct(void) {
     if (current->t_arch.t_sig_kstack)
         thread_free_kstack(current->t_arch.t_sig_kstack, current->t_arch.t_sig_kstacksz);
     current_unlock();
-    thread_debugloc();
 }
 
 static jiffies_t next_time = 0;
@@ -375,11 +374,18 @@ void schedule(void) {
             continue;
         }
 
+        if (current_isstopped()) {
+            pushcli();
+            thread_stop(current, sched_stopq);
+            continue;
+        }
+
         before = jiffies_get();
         current->t_sched_attr.last_sched = jiffies_TO_s(before);
 
         swtch(&cpu->ctx, current->t_arch.t_ctx0);
         
+        pushcli();
         current_assert_locked();
         current->t_sched_attr.cpu_time += (jiffies_get() - before);
 

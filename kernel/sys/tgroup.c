@@ -290,6 +290,25 @@ int tgroup_terminate(tgroup_t *tgroup, spinlock_t *lock) {
     return err;
 }
 
+int tgroup_continue(tgroup_t *tgroup) {
+    thread_t *thread = NULL;
+    queue_node_t *next = NULL;
+
+    tgroup_assert_locked(tgroup);
+
+    tgroup_queue_lock(tgroup);
+    forlinked(node, tgroup->tg_queue->head, next) {
+        next = node->next;
+        thread = node->data;
+        thread_lock(thread);
+        thread_wake(thread);
+        thread_unlock(thread);
+    }
+    tgroup_queue_unlock(tgroup);
+
+    return 0;
+}
+
 int tgroup_sigqueue(tgroup_t *tgroup, int signo) {
     thread_t *thread = NULL;
     queue_node_t *next = NULL;
@@ -310,11 +329,11 @@ int tgroup_sigqueue(tgroup_t *tgroup, int signo) {
             thread = node->data;
   
             thread_lock(thread);
-            if (thread_isstopped(thread)) {
-                if ((signo != SIGKILL) && (signo != SIGCONT)) {
-                    thread_unlock(thread);
-                    continue;
-                }
+            if (thread_isstopped(thread) &&
+                ((signo != SIGKILL) &&
+                 (signo != SIGCONT))) {
+                thread_unlock(thread);
+                continue;
             }
 
             if (!thread_isterminated(thread) &&

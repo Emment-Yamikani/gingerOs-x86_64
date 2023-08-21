@@ -286,7 +286,7 @@ int signal_handle(tf_t *tf __unused) {
     sigfunc_t handler = NULL;
     context_t *sig_ctx = NULL;
     uintptr_t default_act = 0;
-    siginfo_t *sig_info = NULL, info;
+    siginfo_t *sig_info = NULL, info = {0};
     sigset_t set = {0}, oset = {0}, tset = {0};
     uintptr_t *sig_stack = NULL, *stack = NULL;
 
@@ -341,27 +341,24 @@ block_signal:
 
     switch (default_act) {
     case SIG_IGNORE:
-        printk("%s default action: IGNORE\n", signal_str[signo]);
+        printk("thread[%d]: %s default action: IGNORE\n", thread_self(), signal_str[signo]);
         thread_sigmask(current, SIG_SETMASK, &tset, NULL);
-        current_unlock();
         tgroup_sigprocmask(current_tgroup(), SIG_SETMASK, &oset, NULL);
+        current_unlock();
         current_tgroup_unlock();
         return 0;
     case SIG_ABRT:
-        assert_msg(0, "%s default action: ABORT\n", signal_str[signo]);
+        printk("thread[%d]: %s default action: ABORT\n", thread_self(), signal_str[signo]);
         err = tgroup_terminate(current_tgroup(), &current->t_lock);
         return err;
-        break;
     case SIG_TERM:
-        assert_msg(0, "%s default action: TERMINATE\n", signal_str[signo]);
+        printk("thread[%d]: %s default action: TERMINATE\n", thread_self(), signal_str[signo]);
         err = tgroup_terminate(current_tgroup(), &current->t_lock);
         return err;
-        break;
     case SIG_TERM_CORE:
-        assert_msg(0, "%s default action: TERMINATE+CORE\n", signal_str[signo]);
+        printk("thread[%d]: %s default action: TERMINATE+CORE\n", thread_self(), signal_str[signo]);
         err = tgroup_terminate(current_tgroup(), &current->t_lock);
         return err;
-        break;
     case SIG_STOP:
         current_unlock();
         err = tgroup_stop(current_tgroup());
@@ -369,8 +366,13 @@ block_signal:
         current_tgroup_unlock();
         return err;
     case SIG_CONT:
-        assert_msg(0, "%s default action: CONTINUE\n", signal_str[signo]);
-        break;
+        printk("thread[%d]: %s default action: CONTINUE\n", thread_self(), signal_str[signo]);
+        thread_sigmask(current, SIG_SETMASK, &tset, NULL);
+        tgroup_sigprocmask(current_tgroup(), SIG_SETMASK, &oset, NULL);
+        current_unlock();
+        tgroup_continue(current_tgroup());
+        current_tgroup_unlock();
+        return 0;
     }
 
     current_tgroup_unlock();
@@ -385,6 +387,7 @@ block_signal:
 
         current->t_arch.t_sig_kstacksz = STACKSZMIN;
         current->t_arch.t_sig_kstack = (uintptr_t)stack;
+
         sig_stack = (uintptr_t *)ALIGN16(((uintptr_t)sig_stack + STACKSZMIN));
 
         if (act.sa_flags & SA_SIGINFO) {

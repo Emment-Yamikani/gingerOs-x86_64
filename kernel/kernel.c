@@ -67,7 +67,12 @@ __noreturn void kthread_main(void) {
     tgroup_unlock(core);
 
     printk("going to sleep\n");
-    sleep(5);
+    sleep(2);
+
+    tgroup_lock(core);
+    tgroup_sigqueue(core, SIGCONT);
+    tgroup_unlock(core);
+
     current_tgroup_lock();
     tgroup_sigqueue(current_tgroup(), SIGQUIT);
     tgroup_sigqueue(current_tgroup(), SIGKILL);

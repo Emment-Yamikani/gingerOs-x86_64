@@ -93,7 +93,6 @@ size_t vsnprintf(char* buffer, size_t count, const char* format, va_list va);
  */
 size_t vprintf(const char* format, va_list va);
 
-
 /**
  * printf with output function
  * You may use this as dynamic alternative to printf() with its fixed _putchar() output
