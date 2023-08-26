@@ -10,6 +10,7 @@
 #include <ds/list.h>
 #include <sys/_stat.h>
 #include <sys/_fcntl.h>
+#include <fs/mount.h>
 
 #define MAXFNAME 1024
 
@@ -101,3 +102,7 @@ extern int vfs_lookup(const char *path, UIO uio, int oflags, mode_t mode, int fl
 
 extern ssize_t vfs_iread(INODE, void *, size_t);
 extern int vfs_open(const char *path, int oflags, int mode, INODE *ref);
+
+extern int vfs_mountat(const char *__src, const char *__target,
+                       const char *__type, uint32_t __mount_flags,
+                       const void *__data, inode_t *__inode, uio_t *__uio);
