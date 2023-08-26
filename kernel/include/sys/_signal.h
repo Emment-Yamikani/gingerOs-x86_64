@@ -182,14 +182,12 @@ context.
 */
 #define SA_SIGINFO      BS(6)
 
-union sigval
-{
+union sigval {
     int sigval_int;   /* Integer value */
     void *sigval_ptr; /* Pointer value */
 };
 
-typedef struct
-{
+typedef struct {
     int     si_signo;      /* Signal number */
     int     si_code;       /* Signal code */
     pid_t   si_pid;        /* Sending process ID */

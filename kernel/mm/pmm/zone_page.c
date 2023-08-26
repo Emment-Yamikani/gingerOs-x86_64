@@ -1,34 +1,34 @@
-#include <mm/mm_zone.h>
 #include <mm/pmm.h>
+#include <mm/vmm.h>
+#include <mm/mm_zone.h>
 #include <sys/system.h>
 #include <bits/errno.h>
 #include <lib/string.h>
+#include <sys/thread.h>
 #include <sync/atomic.h>
-// #include <sys/kthread.h>
-// #include <arch/i386/paging.h>
+#include <arch/x86_64/pml4.h>
 
-uintptr_t mm_alloc(void);
-void mm_free(uintptr_t);
 size_t mem_free(void);
 size_t mem_used(void);
+void mm_free(uintptr_t);
+uintptr_t mm_alloc(void);
 
 struct pmman pmman = {
     .free = mm_free,
     .alloc = mm_alloc,
+    .mem_used = mem_used,
+    .mem_free = mem_free,
     .get_page = __get_free_page,
     .get_pages = __get_free_pages,
-    .mem_free = mem_free,
-    .mem_used = mem_used,
     .init = physical_memory_init,
 };
 
-page_t *alloc_pages(gfp_mask_t gfp, size_t order)
-{
+page_t *alloc_pages(gfp_mask_t gfp, size_t order) {
     size_t index = 0;
     size_t start = 0;
     page_t *page = NULL;
     uintptr_t paddr = 0;
-    __unused uintptr_t vaddr = 0;
+    uintptr_t vaddr = 0;
     mm_zone_t *zone = NULL;
     size_t alloced = 0, npages = BS(order);
     int where = !(gfp & 0x0F) ? MM_ZONE_NORM : (gfp & 0x0F) - 1;
@@ -38,12 +38,9 @@ page_t *alloc_pages(gfp_mask_t gfp, size_t order)
         return NULL;
     // printk("trying allocation from zone: %d: npages: %d\n", where, zone->free_pages);
     // printk("getting ppage frame...\n");
-    loop()
-    {
-        for (start = index = 0; index < zone->nrpages; ++index)
-        {
-            if (zone->pages[index].ref_count)
-            {
+    loop() {
+        for (start = index = 0; index < zone->nrpages; ++index) {
+            if (zone->pages[index].ref_count) {
                 alloced = 0;
                 start = index + 1;
                 continue;
@@ -59,36 +56,35 @@ page_t *alloc_pages(gfp_mask_t gfp, size_t order)
 
 done:
     page = &zone->pages[start];
-    for (size_t count = 0; count < npages; ++count)
-    {
+    for (size_t count = 0; count < npages; ++count) {
         page[count].flags.mm_zone = zone - zones;
         page[count].ref_count++;
         zone->free_pages--;
     }
 
-    if (gfp & GFP_ZERO) // zero out the page frame(s)
-    {
+    if (gfp & GFP_ZERO) {
+    // zero out the page frame(s)
         for (size_t count = 0; count < npages; ++count) {
             paddr = zone->start + ((&page[count] - zone->pages) * PAGESZ);
             if (where == MM_ZONE_HIGH) {
+                printk("may need to properly sleep\n");
             map:
                 if (current)
                     goto map;
-                /*
-                vaddr = paging_mount(paddr);
+                vaddr = page_mount(paddr);
                 if (vaddr == 0) {
                     if (current)
                         goto map;
                     if (current) {
                         current_lock();
-                        xched_sleep(zone->sleep_queue, zone->lock);
+                        sched_sleep(mm_zone_sleep_queue[where], T_ISLEEP, &zone->lock);
                         current_unlock();
                         goto map;
                     }
                 } else {
                     memset((void *)vaddr, 0, PAGESZ);
-                    paging_unmount((uintptr_t)vaddr);
-                }*/
+                    page_unmount((uintptr_t)vaddr);
+                }
             } else {
                 memset((void *)VMA2HI(paddr), 0, PAGESZ);
             }
@@ -101,13 +97,11 @@ error:
     return NULL;
 }
 
-page_t *alloc_page(gfp_mask_t gfp)
-{
+page_t *alloc_page(gfp_mask_t gfp) {
     return alloc_pages(gfp, 0);
 }
 
-uintptr_t page_address(page_t *page)
-{
+uintptr_t page_address(page_t *page) {
     long index = 0;
     uintptr_t addr = 0;
     mm_zone_t *zone = NULL;
@@ -120,8 +114,7 @@ uintptr_t page_address(page_t *page)
 
     index = page - zone->pages;
 
-    if ((index < 0) || (index > (long)zone->nrpages))
-    {
+    if ((index < 0) || (index > (long)zone->nrpages)) {
         mm_zone_unlock(zone);
         return 0;
     }
@@ -131,8 +124,7 @@ uintptr_t page_address(page_t *page)
     return addr;
 }
 
-int __page_incr(uintptr_t addr)
-{
+int __page_incr(uintptr_t addr) {
     size_t refcnt = 0;
     mm_zone_t *zone = NULL;
 
@@ -145,13 +137,11 @@ int __page_incr(uintptr_t addr)
     return refcnt;
 }
 
-int page_incr(page_t *page)
-{
+int page_incr(page_t *page) {
     return __page_incr(page_address(page));
 }
 
-int __page_count(uintptr_t addr)
-{
+int __page_count(uintptr_t addr) {
     size_t refcnt = 0;
     mm_zone_t *zone = NULL;
 
@@ -164,33 +154,27 @@ int __page_count(uintptr_t addr)
     return refcnt;
 }
 
-int page_count(page_t *page)
-{
+int page_count(page_t *page) {
     return __page_count(-page_address(page));
 }
 
-uintptr_t __get_free_pages(gfp_mask_t gfp, size_t order)
-{
+uintptr_t __get_free_pages(gfp_mask_t gfp, size_t order) {
     return page_address(alloc_pages(gfp, order));
 }
 
-uintptr_t __get_free_page(gfp_mask_t gfp)
-{
+uintptr_t __get_free_page(gfp_mask_t gfp) {
     return __get_free_pages(gfp, 0);
 }
 
-void pages_put(page_t *page, size_t order)
-{
+void pages_put(page_t *page, size_t order) {
     __pages_put(page_address(page), order);
 }
 
-void page_put(page_t *page)
-{
+void page_put(page_t *page) {
     pages_put(page, 0);
 }
 
-void __pages_put(uintptr_t addr, size_t order)
-{
+void __pages_put(uintptr_t addr, size_t order) {
     page_t *page = NULL;
     mm_zone_t *zone = NULL;
     size_t npages = BS(order);
@@ -202,13 +186,11 @@ void __pages_put(uintptr_t addr, size_t order)
         return;
     
     page = &zone->pages[(addr - zone->start) / PAGESZ];
-    for (size_t pages = 0; pages < npages; ++pages, ++page)
-    {
+    for (size_t pages = 0; pages < npages; ++pages, ++page) {
         if (atomic_read(&page->ref_count) == 0)
             continue;
         atomic_dec(&page->ref_count);
-        if (atomic_read(&page->ref_count) == 0)
-        {
+        if (atomic_read(&page->ref_count) == 0) {
             page->mapping = NULL;
             page->ref_count = 0;
             page->virtual = 0;
@@ -228,27 +210,48 @@ void __pages_put(uintptr_t addr, size_t order)
     mm_zone_unlock(zone);
 }
 
-void __page_put(uintptr_t addr)
-{
+void __page_put(uintptr_t addr) {
     __pages_put(addr, 0);
 }
 
-uintptr_t mm_alloc(void)
-{
+uintptr_t page_mount(uintptr_t paddr) {
+    int err = 0;
+    uintptr_t vaddr = 0;
+
+    if ((paddr == 0) || !(vaddr = vmman.alloc(PGSZ)))
+        return 0;
+
+    pagemap_binary_lock(&kernel_map);
+    err = map_page_to(&kernel_map, vaddr, paddr, VM_KRW);
+    pagemap_binary_unlock(&kernel_map);
+
+    if (err) {
+        vmman.free(vaddr);
+        return 0;
+    }
+
+    return vaddr;
+}
+
+void page_unmount(uintptr_t vaddr) {
+    pagemap_binary_lock(&kernel_map);
+    unmap_page(&kernel_map, vaddr);
+    pagemap_binary_unlock(&kernel_map);
+    vmman.free(vaddr);
+}
+
+uintptr_t mm_alloc(void) {
     return __get_free_page(GFP_NORMAL);
 }
 
-void mm_free(uintptr_t addr)
-{
+void mm_free(uintptr_t addr) {
     //printk("%s(%p)\n", __func__, addr);
     __page_put(addr);
 }
 
-size_t mem_free(void)
-{
+size_t mem_free(void) {
     size_t size = 0;
-    for (size_t zone = MM_ZONE_DMA; zone < 3; ++zone)
-    {
+    for (size_t zone = MM_ZONE_DMA; zone < 3; ++zone) {
         mm_zone_lock(&zones[zone]);
         if (mm_zone_isvalid(&zones[zone]))
             size += zones[zone].free_pages * PAGESZ;
@@ -257,11 +260,9 @@ size_t mem_free(void)
     return (size / 1024);
 }
 
-size_t mem_used(void)
-{
+size_t mem_used(void) {
     size_t size = 0;
-    for (size_t zone = MM_ZONE_DMA; zone < 3; ++zone)
-    {
+    for (size_t zone = MM_ZONE_DMA; zone < 3; ++zone) {
         mm_zone_lock(&zones[zone]);
         if (mm_zone_isvalid(&zones[zone]))
             size += (zones[zone].nrpages - zones[zone].free_pages) * PAGESZ;
@@ -270,8 +271,7 @@ size_t mem_used(void)
     return (size / 1024);
 }
 
-void *memory(void *arg)
-{
+void *memory(void *arg) {
     
     return arg;
 }

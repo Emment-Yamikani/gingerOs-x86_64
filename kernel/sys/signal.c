@@ -214,21 +214,17 @@ int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict 
         return 0;
     }
 
-    switch (signo) {
-    case SIGSTOP:
-        __fallthrough;
-    case SIGKILL:
-        if (act->sa_handler || act->sa_handler)
+    if (((signo == SIGSTOP) ||
+        (signo == SIGKILL)) &&
+        (act->sa_handler || act->sa_handler))
             goto error;
-        break;
-    }
 
     if (!act->sa_handler && !act->sa_handler)
         goto error;
 
     switch ((uintptr_t)act->sa_handler) {
     case SIG_IGNORE:
-        __fallthrough;
+        break;
     case SIG_ABRT:
         __fallthrough;
     case SIG_TERM:
@@ -244,7 +240,7 @@ int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict 
 
     switch ((uintptr_t)act->sa_sigaction) {
     case SIG_IGNORE:
-        __fallthrough;
+        break;
     case SIG_ABRT:
         __fallthrough;
     case SIG_TERM:

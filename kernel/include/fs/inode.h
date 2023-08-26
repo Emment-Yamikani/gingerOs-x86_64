@@ -28,7 +28,15 @@ typedef struct ialloc_desc
     unsigned long p_flags;
 } ialloc_desc_t;
 
-#define IPROT(type, flags, uid, gid, major, minor, mode) ((ialloc_desc_t){.p_type = type, .p_flags = flags, .p_gid = gid, .p_uid = uid, .p_major = major, .p_minor = minor, .p_mode = mode})
+#define IPROT(type, flags, uid, gid, major, minor, mode) ((ialloc_desc_t){ \
+    .p_type = type,                                                        \
+    .p_flags = flags,                                                      \
+    .p_gid = gid,                                                          \
+    .p_uid = uid,                                                          \
+    .p_major = major,                                                      \
+    .p_minor = minor,                                                      \
+    .p_mode = mode,                                                        \
+})
 
 struct dentry;
 
@@ -36,18 +44,21 @@ struct inode;
 
 typedef struct iops
 {
-    int (*iclose)(INODE inode);
-    int (*iperm)(INODE inode, int mask);
-    int (*itrunc)(INODE inode, off_t length);
-    int (*imkdir)(INODE dir, struct dentry *dentry, mode_t mode);
-    int (*irmdir)(INODE dir, struct dentry *dentry);
-    int (*iunlink)(INODE dir, struct dentry *dentry);
-    int (*ilookup)(INODE dir, struct dentry *dentry);
-    int (*icreate)(INODE dir, struct dentry *dentry, int mode);
-    int (*imknod)(INODE dir, struct dentry *dentry, int mode, devid_t dev);
-    int (*isymlink)(INODE dir, struct dentry *dentry, const char *symname);
-    int (*ilink)(struct dentry *old_dentry, INODE dir, struct dentry *new_dentry);
-    int (*irename)(INODE old_dir, struct dentry *old_dentry, INODE new_dir, struct dentry *new_dentry);
+    int     (*iclose)   (INODE inode);
+    int     (*iperm)    (INODE inode, int mask);
+    int     (*itrunc)   (INODE inode, off_t length);
+    int     (*irmdir)   (INODE dir, struct dentry *dentry);
+    int     (*iunlink)  (INODE dir, struct dentry *dentry);
+    int     (*ilookup)  (INODE dir, struct dentry *dentry);
+    int     (*iioctl)   (INODE ip, int request, void *argp);
+    int     (*icreate)  (INODE dir, struct dentry *dentry, int mode);
+    int     (*imkdir)   (INODE dir, struct dentry *dentry, mode_t mode);
+    ssize_t (*iread)    (INODE ip, off_t off, void *buff, size_t nbytes);
+    ssize_t (*iwrite)   (INODE ip, off_t off, void *buff, size_t nbytes);
+    int     (*imknod)   (INODE dir, struct dentry *dentry, int mode, devid_t dev);
+    int     (*isymlink) (INODE dir, struct dentry *dentry, const char *symname);
+    int     (*ilink)    (struct dentry *old_dentry, INODE dir, struct dentry *new_dentry);
+    int     (*irename)  (INODE old_dir, struct dentry *old_dentry, INODE new_dir, struct dentry *new_dentry);
 } iops_t;
 
 struct inode
@@ -78,20 +89,27 @@ struct inode
     spinlock_t   i_lock;
 };
 
+#define iassert(ip)         ({ assert(ip, "No inode"); })
+#define ilock(ip)           ({ iassert(ip); spin_lock(&ip->i_lock); })
+#define iunlock(ip)         ({ iassert(ip); spin_unlock(&ip->i_lock); })
+#define iassert_locked(ip)  ({ iassert(ip); spin_assert_locked(&ip->i_lock); })
 
-#define check_iop(ip, func) ({ int ret = 0; \
-    if (!ip) ret = -EINVAL; \
-    else if (ip->i_ops) { \
-        if (!ip->i_ops->func) ret = -ENOSYS; \
-    } else  ret = -ENOSYS; ret; })
-
-#define iassert(ip) ({ assert(ip, "No inode"); })
-#define ilock(ip) ({ iassert(ip); spin_lock(&ip->i_lock); })
-#define iunlock(ip) ({ iassert(ip); spin_unlock(&ip->i_lock); })
-#define iassert_locked(ip) ({ iassert(ip); spin_assert_locked(&ip->i_lock); })
+#define check_iop(ip, func) ({ \
+    iassert_locked(ip);        \
+    int ret = 0;               \
+    if (!ip)                   \
+        ret = -EINVAL;         \
+    else if (ip->i_ops)        \
+    {                          \
+        if (!ip->i_ops->func)  \
+            ret = -ENOSYS;     \
+    }                          \
+    else                       \
+        ret = -ENOSYS;         \
+    ret;                       \
+})
 
 #define INODE_ISTYPE(ip, __type) ({ iassert_locked(ip); (ip->i_type == __type); })
-
 #define INODE_ISDIR(ip)     INODE_ISTYPE(ip, FS_DIR)
 #define INODE_ISREG(ip)     INODE_ISTYPE(ip, FS_REG)
 #define INODE_ISSYM(ip)     INODE_ISTYPE(ip, FS_SYM)
@@ -184,11 +202,14 @@ int iperm(INODE inode, int mask);
 int itrunc(INODE inode, off_t length);
 int iopen(INODE, struct dentry *dentry);
 int ialloc(ialloc_desc_t prot, INODE *pip);
-int imkdir(INODE dir, struct dentry *dentry, mode_t mode);
 int irmdir(INODE dir, struct dentry *dentry);
 int iunlink(INODE dir, struct dentry *dentry);
 int ilookup(INODE dir, struct dentry *dentry);
 int icreate(INODE dir, struct dentry *dentry, int mode);
+int iioctl(INODE ip, int request, void *argp);
+int imkdir(INODE dir, struct dentry *dentry, mode_t mode);
+ssize_t iread(INODE ip, off_t off, void *buff, size_t nbytes);
+ssize_t iwrite(INODE ip, off_t off, void *buff, size_t nbytes);
 int imknod(INODE dir, struct dentry *dentry, int mode, devid_t dev);
 int isymlink(INODE dir, struct dentry *dentry, const char *symname);
 int ilink(struct dentry *old_dentry, INODE dir, struct dentry *new_dentry);

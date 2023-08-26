@@ -125,11 +125,14 @@ int generic_tmpfs_iopen(INODE inode __unused, struct dentry *dentry __unused)
 
 int generic_tmpfs_imkdir(INODE dir, struct dentry *dentry, mode_t mode)
 {
+    ialloc_desc_t idesc;
     if (!dir || !dentry)
         return -EINVAL;
     if (!INODE_ISDIR(dir))
         return -ENOTDIR;
-    return generic_tmpfs_create(dir, dentry->d_name, IPROT(FS_DIR, 0, dir->i_uid, dir->i_gid, 0, 0, mode), &dentry->d_inode);
+
+    idesc = IPROT(FS_DIR, 0, dir->i_uid, dir->i_gid, 0, 0, mode);
+    return generic_tmpfs_create(dir, dentry->d_name, idesc, &dentry->d_inode);
 }
 
 int generic_tmpfs_irmdir(INODE dir __unused, struct dentry *dentry __unused)

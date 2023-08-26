@@ -89,8 +89,7 @@ void vfs_filesystem_put(filesystem_t *fs) {
     fs->fs_count--;
 }
 
-int vfs_filesystem_unregister(filesystem_t *fs)
-{
+int vfs_filesystem_unregister(filesystem_t *fs) {
     int err = 0;
 
     (void)fs;
@@ -156,8 +155,7 @@ error:
     return err;
 }
 
-int vfs_lookup(const char *path, UIO uio, int oflags, mode_t mode, int flags __unused, INODE *pinode, dentry_t **pdentry)
-{
+int vfs_lookup(const char *path, UIO uio, int oflags, mode_t mode, int flags __unused, INODE *pinode, dentry_t **pdentry) {
     int err = 0;
     size_t tok_i = 0;
     char *cwd = NULL, *abspath = NULL;
@@ -176,18 +174,15 @@ int vfs_lookup(const char *path, UIO uio, int oflags, mode_t mode, int flags __u
     if ((err = parse_path(path, cwd, &abspath, &path_tokens, &last_tok)))
         goto error;
 
-
     err = -EINVAL;
     if (!(dir = vfs_get_droot()))
         goto error;
 
-    if (!compare_strings("/", abspath))
-    {
+    if (!compare_strings("/", abspath)) {
         dentry = dir;
         inode = dentry->d_inode;
         ilock(inode);
-        if ((err = check_iperm(dentry->d_inode, uio, oflags)))
-        {
+        if ((err = check_iperm(dentry->d_inode, uio, oflags))) {
             iunlock(dentry->d_inode);
             dentry_release(dentry);
             dentry_unlock(dentry);
@@ -196,10 +191,8 @@ int vfs_lookup(const char *path, UIO uio, int oflags, mode_t mode, int flags __u
         goto found;
     }
 
-    foreach (filename, path_tokens)
-    {
-        if ((err = dentry_find(dir, filename, &dentry)) == -ENOENT)
-        {
+    foreach (filename, path_tokens) {
+        if ((err = dentry_find(dir, filename, &dentry)) == -ENOENT) {
             i_dir = dir->d_inode;
             ilock(i_dir);
             goto delegate_lookup;

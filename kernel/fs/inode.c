@@ -3,6 +3,7 @@
 #include <mm/kalloc.h>
 #include <lib/printk.h>
 #include <lib/string.h>
+#include <dev/dev.h>
 
 static LIST_HEAD(icache_list);
 spinlock_t *icache_list_lock = &SPINLOCK_INIT();
@@ -285,7 +286,7 @@ int irename(INODE old_dir, dentry_t *old_dentry, INODE new_dir, dentry_t *new_de
 
     if (!old_dir || !new_dir || !old_dentry || !new_dentry)
         return -EINVAL;
-    
+
     if ((err = check_iop(old_dir, irename)))
         goto error;
     
@@ -295,4 +296,68 @@ int irename(INODE old_dir, dentry_t *old_dentry, INODE new_dir, dentry_t *new_de
     return 0;
 error:
     return err;
+}
+
+ssize_t iread(INODE ip, off_t off, void *buff, size_t nbytes) {
+    int err = 0;
+    iassert_locked(ip);
+
+    if (!buff)
+        return -EINVAL;
+
+    if (INODE_ISDIR(ip))
+        return -EISDIR;
+
+    if (INODE_ISDEV(ip))
+        return kdev_read(IDEVID(ip), off, buff, nbytes);
+
+    if ((err = check_iop(ip, iread)))
+        goto error;
+    
+    if ((err = ip->i_ops->iread(ip, off, buff, nbytes)))
+        goto error;
+
+    return 0;
+error:
+    return err;
+}
+
+ssize_t iwrite(INODE ip, off_t off, void *buff, size_t nbytes) {
+    int err = 0;
+    iassert_locked(ip);
+
+    if (!buff)
+        return -EINVAL;
+
+    if (INODE_ISDIR(ip))
+        return -EISDIR;
+
+    if (INODE_ISDEV(ip))
+        return kdev_write(IDEVID(ip), off, buff, nbytes);
+
+    if ((err = check_iop(ip, iwrite)))
+        goto error;
+    
+    if ((err = ip->i_ops->iwrite(ip, off, buff, nbytes)))
+        goto error;
+
+    return 0;
+error:
+    return err;
+}
+
+int iioctl(INODE ip, int request, void *argp) {
+    int err = 0;
+    iassert_locked(ip);
+
+    if (!argp)
+        return -EINVAL;
+    
+    if (INODE_ISDEV(ip))
+        return kdev_ioctl(IDEVID(ip), request, argp);
+
+    if ((err = check_iop(ip, iioctl)))
+        return err;    
+
+    return ip->i_ops->iioctl(ip, request, argp);
 }

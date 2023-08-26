@@ -14,8 +14,8 @@ typedef long clock_t;
 typedef long clockid_t;
 
 
-typedef signed long ssize_t;
 typedef uint16_t devid_t;
+typedef signed long ssize_t;
 typedef unsigned long off_t;
 
 typedef struct inode *INODE;

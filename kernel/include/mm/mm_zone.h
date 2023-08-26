@@ -13,15 +13,15 @@ typedef struct mm_zone
     page_t      *pages;
     size_t      nrpages;
     size_t      free_pages;
-    // queue_t     *sleep_queue;
     size_t      size; // in bytes
     spinlock_t  lock;
 } mm_zone_t;
 
-#define MM_ZONE_DMA   0 //  mem < 16 MiB
-#define MM_ZONE_NORM  1 // 16 MiB <= mem < 2 GiB
-#define MM_ZONE_HOLE  2 // 2 GiB <= mem < 4 GiB
-#define MM_ZONE_HIGH  3 //  mem >= 4 GiB
+extern    queue_t     *mm_zone_sleep_queue[];
+#define MM_ZONE_DMA   0 //  mem < 16 MiB.
+#define MM_ZONE_NORM  1 //  16 MiB <= mem < 2 GiB.
+#define MM_ZONE_HOLE  2 //  2 GiB <= mem < 4 GiB.
+#define MM_ZONE_HIGH  3 //  mem >= 4 GiB.
 
 #define MM_ZONE_INVAL (0x0000)
 #define MM_ZONE_VALID (0x0010)
@@ -82,3 +82,6 @@ void page_put(page_t *page);
 // same as pages_put() and page_put(), only that they take 'addr' instead of 'page_t *'
 void __pages_put(uintptr_t addr, size_t order);
 void __page_put(uintptr_t addr);
+
+extern uintptr_t page_mount(uintptr_t paddr);
+extern void page_unmount(uintptr_t vaddr);

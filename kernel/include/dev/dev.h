@@ -34,19 +34,23 @@ typedef struct {
     spinlock_t      devlock;
 } dev_t;
 
-#define dev_assert(dev) ({ assert(dev, "No dev"); })
-#define dev_lock(dev) ({ dev_assert(dev); spin_lock(&dev->devlock); })
-#define dev_unlock(dev) ({ dev_assert(dev); spin_unlock(&dev->devlock); })
-#define dev_assert_locked(dev) ({ dev_assert(dev); spin_assert_locked(&dev->devlock); })
+#define dev_assert(dev)         ({ assert((dev), "No dev"); })
+#define dev_lock(dev)           ({ dev_assert(dev); spin_lock(&(dev)->devlock); })
+#define dev_unlock(dev)         ({ dev_assert(dev); spin_unlock(&(dev)->devlock); })
+#define dev_assert_locked(dev)  ({ dev_assert(dev); spin_assert_locked(&(dev)->devlock); })
 
-#define DEVID(type, rdev) (&(struct devid){ \
-    .type = type,                       \
-    .major = ((devid_t)rdev & 0xff),        \
-    .minor = ((devid_t)rdev >> 8) & 0xff,   \
+#define DEVID(_type, rdev) (&(struct devid){ \
+    .type = (_type),                         \
+    .major = ((devid_t)(rdev)&0xff),        \
+    .minor = ((devid_t)(rdev) >> 8) & 0xff, \
 })
 
-#define IDEVID(inode) ({ DEVID(inode->i_type, inode->i_rdev); })
-#define DEV_T(minor, major) ((devid_t)(((devid_t)minor << 8) & 0xff00) | ((devid_t)major & 0xff))
+#define IDEVID(inode) ({    \
+    DEVID((inode)->i_type,  \
+          (inode)->i_rdev); \
+})
+
+#define DEV_T(minor, major) ((devid_t)(((devid_t)(minor) << 8) & 0xff00) | ((devid_t)(major) & 0xff))
 
 extern int dev_init(void);
 extern dev_t *kdev_get(struct devid *dd);

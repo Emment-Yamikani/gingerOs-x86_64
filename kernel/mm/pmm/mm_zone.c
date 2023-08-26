@@ -9,7 +9,20 @@
 #include <lib/string.h>
 
 mm_zone_t zones[4] = {0};
-const char *str_zone[] = { "DMA", "NORM", "HOLE", "HIGH", NULL };
+const char *str_zone[] = {
+    "DMA",
+    "NORM",
+    "HOLE",
+    "HIGH",
+    NULL,
+};
+
+queue_t *mm_zone_sleep_queue[] = {
+    QUEUE_NEW("MM_ZONE_DMA"),
+    QUEUE_NEW("MM_ZONE_NORM"),
+    QUEUE_NEW("MM_ZONE_HOLE"),
+    QUEUE_NEW("MM_ZONE_HIGH"),
+};
 
 static __unused void zone_dump(mm_zone_t *zone)
 {
@@ -262,7 +275,7 @@ int physical_memory_init(void)
     }
 
     // unmap_table_entry(&kernel_map, LVL_PML4E, 0, 0, 0, 0);
-    unmap_table_entry(&kernel_map, LVL_PDPTE, PML4I(VMA2HI(0xC0000000)), PDPTI(0xC0000000), 0, 0);
+    // unmap_table_entry(&kernel_map, LVL_PDPTE, PML4I(VMA2HI(0xC0000000)), PDPTI(0xC0000000), 0, 0);
     map_page_to_n(&kernel_map, VMA2HI(MEMMDEV), MEMMDEV, (4 * GiB) - MEMMDEV, VM_KRW | VM_PCD);
     pagemap_binary_unlock(&kernel_map);
     return 0;

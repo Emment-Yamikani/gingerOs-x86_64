@@ -348,7 +348,7 @@ void schedule(void) {
     thread_t *thread = NULL;
 
     sched_init();
-    lapic_recalibrate(100);
+    lapic_recalibrate(SYS_HZ);
 
     loop() {
         current = NULL;

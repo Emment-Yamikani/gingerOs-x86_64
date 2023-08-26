@@ -85,13 +85,13 @@ void trap(tf_t *tf) {
     if (!current)
         return;
 
+    if (current_killed())
+        thread_exit(-EINTR);
+
     current_lock();
     if (current_testflags(THREAD_STOP))
         thread_stop(current, sched_stopq);
     current_unlock();
-
-    if (current_killed())
-        thread_exit(-EINTR);
 
     signal_handle(tf);
 
