@@ -20,11 +20,11 @@ typedef struct __uio
     uid_t u_euid;
     gid_t u_gid;
     gid_t u_egid;
-    char *u_cwd;
+    char  *u_cwd;
 } uio_t, *UIO;
 
 #define __UIO(__wd) (&(uio_t){ \
-    .u_cwd = __wd,             \
+    .u_cwd = (__wd),             \
     .u_egid = 0,               \
     .u_euid = 0,               \
     .u_gid = 0,                \

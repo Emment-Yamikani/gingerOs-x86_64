@@ -13,8 +13,7 @@ static spinlock_t *fs_IDlock = &SPINLOCK_INIT();
 static dentry_t *droot = NULL;
 static spinlock_t *droot_lock = &SPINLOCK_INIT();
 
-int vfs_init(void)
-{
+int vfs_init(void) {
     int err = -EINVAL;
 
     if (!(droot= dentry_alloc("/")))
@@ -158,8 +157,8 @@ error:
 int vfs_lookup(const char *path, UIO uio, int oflags, mode_t mode, int flags __unused, INODE *pinode, dentry_t **pdentry) {
     int err = 0;
     size_t tok_i = 0;
-    char *cwd = NULL, *abspath = NULL;
     INODE i_dir = NULL, inode = NULL;
+    char *cwd = NULL, *abspath = NULL;
     dentry_t *dir = droot, *dentry = NULL;
     char **path_tokens = NULL, *last_tok = NULL;
 
@@ -181,13 +180,17 @@ int vfs_lookup(const char *path, UIO uio, int oflags, mode_t mode, int flags __u
     if (!compare_strings("/", abspath)) {
         dentry = dir;
         inode = dentry->d_inode;
-        ilock(inode);
-        if ((err = check_iperm(dentry->d_inode, uio, oflags))) {
-            iunlock(dentry->d_inode);
-            dentry_release(dentry);
-            dentry_unlock(dentry);
-            goto error;
+
+        if (inode) {
+            ilock(inode);
+            if ((err = check_iperm(inode, uio, oflags))) {
+                iunlock(inode);
+                dentry_release(dentry);
+                dentry_unlock(dentry);
+                goto error;
+            }
         }
+
         goto found;
     }
 
@@ -215,10 +218,8 @@ int vfs_lookup(const char *path, UIO uio, int oflags, mode_t mode, int flags __u
     }
 
 delegate_lookup:
-    foreach (filename, &path_tokens[tok_i])
-    {
-        if (!(dentry = dentry_alloc(filename)))
-        {
+    foreach (filename, &path_tokens[tok_i]) {
+        if (!(dentry = dentry_alloc(filename))) {
             err = -ENOMEM;
             iunlock(i_dir);
             dentry_release(dir);
@@ -228,10 +229,8 @@ delegate_lookup:
 
         err = ilookup(i_dir, dentry);
 
-        if ((err == -ENOENT) && ((oflags & (O_CREAT | __O_TMPFILE))))
-        {
-            if ((err = icreate(i_dir, dentry, mode)))
-            {
+        if ((err == -ENOENT) && ((oflags & (O_CREAT | __O_TMPFILE)))) {
+            if ((err = icreate(i_dir, dentry, mode))) {
                 dentry_close(dentry);
 
                 iunlock(i_dir);
@@ -240,8 +239,7 @@ delegate_lookup:
                 goto error;
             }
 
-            if ((err = ilookup(i_dir, dentry)))
-            {
+            if ((err = ilookup(i_dir, dentry))) {
                 if (dentry->d_inode)
                     dentry_close(dentry);
 
@@ -251,8 +249,7 @@ delegate_lookup:
                 goto error;
             }
         }
-        else if (err != 0)
-        {
+        else if (err != 0) {
             dentry_close(dentry);
 
             iunlock(i_dir);
@@ -261,8 +258,7 @@ delegate_lookup:
             goto error;
         }
 
-        if ((err = dentry_bind(dir, dentry)))
-        {
+        if ((err = dentry_bind(dir, dentry))) {
             dentry_close(dentry);
 
             iunlock(i_dir);
@@ -288,20 +284,19 @@ delegate_lookup:
     }
 
 found:
-    if (pinode)
-    {
+    if (pinode) {
         *pinode = inode;
-        idup((inode));
+        if (inode)
+            idup(inode);
+    } else {
+        if (inode)
+            iunlock(inode);
     }
-    else
-        iunlock(inode);
 
-    if (!pdentry)
-    {
+    if (!pdentry) {
         dentry_release(dentry);
         dentry_unlock(dentry);
-    }
-    else
+    } else
         *pdentry = dentry;
 
     tokens_free(path_tokens);
