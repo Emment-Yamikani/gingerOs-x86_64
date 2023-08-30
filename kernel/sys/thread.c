@@ -279,10 +279,10 @@ int thread_reap(thread_t *thread, int reap, thread_info_t *info, void **retval) 
     if (info) {
         info->ti_tid    = thread->t_tid;
         info->ti_exit   = thread->t_exit;
+        info->ti_ktid   = thread->t_ktid;
         info->ti_flags  = thread->t_flags;
         info->ti_errno  = thread->t_errno;
         info->ti_state  = thread->t_state;
-        info->ti_killer = thread->t_killer;
         info->ti_sched  = thread->t_sched_attr;
     }
 

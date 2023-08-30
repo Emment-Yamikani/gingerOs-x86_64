@@ -32,10 +32,10 @@ typedef void *(*thread_entry_t)(void *);
 
 typedef struct
 {
-    int detachstate;
-    size_t guardsz;
-    uintptr_t stackaddr;
-    size_t stacksz;
+    int         detachstate;
+    size_t      guardsz;
+    uintptr_t   stackaddr;
+    size_t      stacksz;
 } thread_attr_t;
 
 typedef struct {
@@ -207,7 +207,7 @@ int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry, void *arg, int 
 
 typedef struct thread {
     tid_t           t_tid;              // thread ID.
-    tid_t           t_killer;           // thread that killed this thread.
+    tid_t           t_ktid;             // killer thread ID for thread that killed this thread.
     uintptr_t       t_entry;            // thread entry point.
     tstate_t        t_state;            // thread's execution state.
     tid_t           t_statetid;
@@ -239,7 +239,7 @@ typedef struct thread {
 
 typedef struct {
     tid_t           ti_tid;
-    tid_t           ti_killer;
+    tid_t           ti_ktid;
     tstate_t        ti_state;
     sched_attr_t    ti_sched;
     uintptr_t       ti_errno;
