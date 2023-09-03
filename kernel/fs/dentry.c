@@ -203,8 +203,7 @@ int dentry_find(dentry_t *d_parent, const char *name, dentry_t **d_child)
 
     dentry_assert_locked(d_parent);
 
-    if (!compare_strings(".", name))
-    {
+    if (!compare_strings(".", name)) {
         if (d_child)
         {
             if ((err = dentry_dup(d_parent)))
@@ -212,9 +211,7 @@ int dentry_find(dentry_t *d_parent, const char *name, dentry_t **d_child)
             *d_child = d_parent;
         }
         return 0;
-    }
-    else if (!compare_strings("..", name))
-    {
+    } else if (!compare_strings("..", name)) {
         if (d_child)
         {
             if (d_parent->d_parent)
@@ -304,4 +301,20 @@ void dentry_close(dentry_t *dentry)
     }
 
     dentry_release(dentry);
+}
+
+int dentry_iset(dentry_t *dentry, inode_t *ip, int overwrite) {
+    int err = 0;
+    dentry_assert_locked(dentry);
+    iassert_locked(ip);
+
+    if (dentry->d_inode && !overwrite)
+        return -EALREADY;
+    else if (dentry->d_inode)
+        err = iclose(dentry->d_inode);
+        
+    if (err)
+        return err;
+    
+    return iopen(ip, dentry);
 }

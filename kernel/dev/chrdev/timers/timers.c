@@ -49,4 +49,4 @@ void timer_intr(void) {
 }
 
 
-MODULE_INIT(timer, timer_init, NULL);
+MODULE_INIT(timer, NULL, timer_init, NULL);

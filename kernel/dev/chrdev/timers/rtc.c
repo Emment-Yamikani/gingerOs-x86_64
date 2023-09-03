@@ -12,4 +12,4 @@ int rtc_init(void) {
 
 
 
-MODULE_INIT(RTC0, rtc_init, NULL);
+MODULE_INIT(RTC0, NULL, rtc_init, NULL);

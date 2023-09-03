@@ -42,13 +42,11 @@ int generic_tmpfs_create(INODE dir, const char *name, ialloc_desc_t type, INODE 
     table = directory ? directory->table : NULL;
 
     err = -ENOMEM;
-    if (!directory)
-    {
+    if (!directory) {
         if (!(directory = kcalloc(1, sizeof *directory)))
             goto error;
 
-        if (!(directory->table = kcalloc(2, sizeof *dirent)))
-        {
+        if (!(directory->table = kcalloc(2, sizeof *dirent))) {
             kfree(directory);
             goto error;
         }

@@ -382,9 +382,21 @@ typedef struct {
 #define current_set_simd_dirty()        ({ thread_set_simd_dirty(current); })
 #define current_mask_simd_dirty()       ({ thread_mask_simd_dirty(current); })
 
-#define BUILTIN_THREAD(name, entry, arg)                                                        \
-    __section(".__builtin_thread_entry")    void *__CAT(__builtin_thread_entry_, name) = entry; \
-    __section(".__builtin_thread_arg")      void *__CAT(__builtin_thread_arg_, name) = (void *)arg;
+typedef struct {
+    char            *thread_name;
+    void            *thread_arg;
+    void            *thread_entry;
+} builtin_thread_t;
+
+extern builtin_thread_t __builtin_threads[], __builtin_threads_end[];
+
+#define BUILTIN_THREAD(name, entry, arg)               \
+    builtin_thread_t __used_section(__builtin_threads) \
+        __builtin_thread_##name = {                    \
+            .thread_arg = arg,                         \
+            .thread_name = #name,                      \
+            .thread_entry = entry,                     \
+    }
 
 #define BUILTIN_THREAD_ANOUNCE(name)    ({ printk("\"%s\" thread [tid: %d] running...\n", name, thread_self()); })
 

@@ -51,6 +51,7 @@ typedef struct iops
     int     (*iunlink)  (INODE dir, struct dentry *dentry);
     int     (*ilookup)  (INODE dir, struct dentry *dentry);
     int     (*iioctl)   (INODE ip, int request, void *argp);
+    int     (*ibind)    (INODE dir, dentry_t *dentry, INODE ip);
     int     (*icreate)  (INODE dir, struct dentry *dentry, int mode);
     int     (*imkdir)   (INODE dir, struct dentry *dentry, mode_t mode);
     ssize_t (*iread)    (INODE ip, off_t off, void *buff, size_t nbytes);
@@ -212,5 +213,6 @@ ssize_t iread(INODE ip, off_t off, void *buff, size_t nbytes);
 ssize_t iwrite(INODE ip, off_t off, void *buff, size_t nbytes);
 int imknod(INODE dir, struct dentry *dentry, int mode, devid_t dev);
 int isymlink(INODE dir, struct dentry *dentry, const char *symname);
+int ibind(INODE dir, dentry_t *dentry, INODE ip);
 int ilink(struct dentry *old_dentry, INODE dir, struct dentry *new_dentry);
 int irename(INODE old_dir, struct dentry *old_dentry, INODE new_dir, struct dentry *new_dentry);

@@ -2,12 +2,13 @@
 
 #define __CAT(a, b) a##b
 
-#define __unused __attribute__((unused))
-#define __packed __attribute__((packed))
-#define __aligned(n) __attribute__((aligned(n)))
-#define __noreturn __attribute__((noreturn))
-#define __section(s) __attribute__((section(s)))
-#define __fallthrough __attribute__((fallthrough))
+#define __unused                        __attribute__((unused))
+#define __packed                        __attribute__((packed))
+#define __aligned(n)                    __attribute__((aligned(n)))
+#define __noreturn                      __attribute__((noreturn))
+#define __section(s)                    __attribute__((section(s)))
+#define __fallthrough                   __attribute__((fallthrough))
+#define __used_section(__section__)     __attribute__((used, section(#__section__)))
 #define barrier()   ({ asm volatile ("":::"memory"); })
 
 #define loop() for (;;)

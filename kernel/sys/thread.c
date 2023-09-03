@@ -12,9 +12,6 @@
 static atomic_t tids = {0};
 static atomic_t pids = {0};
 
-extern char __builtin_thread_arg, __builtin_thread_arg_end;
-extern char __builtin_thread_entry, __builtin_thread_entry_end;
-
 const char *t_states[] = {
     [T_EMBRYO]      = "EMBRYO",
     [T_READY]       = "READY",
@@ -526,20 +523,12 @@ int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigs
 int builtin_threads_begin(int *nthreads, thread_t ***threads) {
     int nt = 0;
     int err = 0;
-    size_t nr = 0;
     thread_t *thread = NULL;
+    builtin_thread_t *builtin = __builtin_threads;
     thread_t **builtin_threads = NULL;
+    size_t nr = __builtin_threads_end - __builtin_threads;
 
-    void **argv = (void **)&__builtin_thread_arg;
-    void **entryv = (void **)&__builtin_thread_entry;
-    void **end = (void **)&__builtin_thread_entry_end;
-
-    nr = (end - entryv);
-
-    for (size_t i = 0; i < nr; ++i) {
-        void *arg = argv[i];
-        void *(*entry)(void *) = entryv[i];
-
+    for (size_t i = 0; i < nr; ++i, ++builtin) {
         thread_attr_t t_attr = {
             .detachstate = 0,
             .guardsz = 0,
@@ -547,7 +536,7 @@ int builtin_threads_begin(int *nthreads, thread_t ***threads) {
             .stacksz = STACKSZMIN,
         };
 
-        if (entry) {
+        if (builtin->thread_entry) {
             if (builtin_threads == NULL) {
                 if ((builtin_threads = kmalloc(sizeof(thread_t *))) == NULL) {
                     err = -ENOMEM;
@@ -559,7 +548,7 @@ int builtin_threads_begin(int *nthreads, thread_t ***threads) {
                 break;
             }
 
-            if ((err = thread_create(&thread, &t_attr, entry, arg)))
+            if ((err = thread_create(&thread, &t_attr, builtin->thread_entry, builtin->thread_arg)))
                 break;
 
             thread_unlock(thread);

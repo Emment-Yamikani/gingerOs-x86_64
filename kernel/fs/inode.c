@@ -346,6 +346,21 @@ error:
     return err;
 }
 
+int ibind(INODE dir, dentry_t *dentry, INODE ip) {
+    int err = 0;
+    iassert_locked(ip);
+    iassert_locked(dir);
+    dentry_assert_locked(dentry);
+
+    if (!INODE_ISDIR(dir))
+        return -ENOTDIR;
+
+    if ((err = check_iop(dir, ibind)))
+        return err;
+
+    return dir->i_ops->ibind(dir, dentry, ip);
+}
+
 int iioctl(INODE ip, int request, void *argp) {
     int err = 0;
     iassert_locked(ip);

@@ -19,6 +19,7 @@
 #include <sys/sleep.h>
 #include <sys/_signal.h>
 #include <dev/hpet.h>
+#include <modules/module.h>
 
 void core_start(void);
 
@@ -26,10 +27,20 @@ void signal_handler(int signo) {
     printk("%s delivered: thread[%d]\n", signal_str[signo - 1], thread_self());
 }
 
+EXPORT_SYMBOL(signal_handler);
+
 __noreturn void kthread_main(void) {
     sigset_t set;
     int nthread = 0;
     sigaction_t act = {0};
+    symbl_t *sym = ksym_table;
+    size_t sym_count = ksym_table_end - ksym_table;
+
+    printk("sym_count: %ld, ksym_table: %p\n", sym_count, ksym_table);
+
+    for (size_t i =0; i < sym_count; ++i, ++sym) {
+        printk("symbol: %s at: %p\n", sym->sym_name, sym->sym_addr);
+    }
 
     BUILTIN_THREAD_ANOUNCE(__func__);
     printk("Welcome to 'Ginger OS'.\n");

@@ -212,4 +212,4 @@ static int ramdisk_init(void) {
     return 0;
 }
 
-MODULE_INIT(ramdiskdev, ramdisk_init, NULL);
+MODULE_INIT(ramdiskdev, NULL, ramdisk_init, NULL);

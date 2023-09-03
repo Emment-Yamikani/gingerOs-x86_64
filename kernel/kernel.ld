@@ -21,22 +21,22 @@ SECTIONS {
         *(.rodata)
     }
 
-    .__minit ALIGN (4K) : AT(ADDR(.__minit) - KERNEL_VMA) {
-        __minit = .;
-        *(.__minit*)
-        __mfini = .;
+    .ksym_table ALIGN (4K) : AT(ADDR(.ksym_table) - KERNEL_VMA) {
+        ksym_table = .;
+        *(.ksym_table*)
+        ksym_table_end = .;
     }
 
-    .__builtin_thread_entry ALIGN (4K) : AT(ADDR(.__builtin_thread_entry) - KERNEL_VMA) {
-        __builtin_thread_entry = .;
-        *(.__builtin_thread_entry*)
-        __builtin_thread_entry_end = .;
+    .__builtin_mods ALIGN (4K) : AT(ADDR(.__builtin_mods) - KERNEL_VMA) {
+        __builtin_mods = .;
+        *(.__builtin_mods*)
+        __builtin_mods_end = .;
     }
 
-    .__builtin_thread_arg ALIGN (4K) : AT(ADDR(.__builtin_thread_arg) - KERNEL_VMA) {
-        __builtin_thread_arg = .;
-        *(.__builtin_thread_arg*)
-        __builtin_thread_arg_end = .;
+    .__builtin_threads ALIGN (4K) : AT(ADDR(.__builtin_threads) - KERNEL_VMA) {
+        __builtin_threads = .;
+        *(.__builtin_threads*)
+        __builtin_threads_end = .;
     }
 
     .data ALIGN (4K) : AT (ADDR (.data) - KERNEL_VMA) {

@@ -31,28 +31,29 @@ int vfs_mountat(const char *__src, const char *__target,
     if ((err = parse_path((char *)__target, cwd, &abs_path_target, NULL, NULL)))
         goto error;
 
-    if (__mount_flags & MS_REMOUNT)
-    {
-        goto done;
+    if (__mount_flags & MS_REMOUNT) {
+        goto error;
     }
 
-    if (__mount_flags & MS_BIND)
-    {
+    if (__mount_flags & MS_BIND) {
+        if ((err = vfs_lookup(__target, __uio, O_RDWR, 0777, 0, NULL, &parent_dentry)))
+            goto error;
+        
+        if ((err = dentry_iset(parent_dentry, __inode, 1)))
+            goto error;
+        
         goto error; // TODO: handle filesystem specific bind mount.
     }
 
-    if (__mount_flags & MS_MOVE)
-    {
+    if (__mount_flags & MS_MOVE) {
+        goto error;
+    }
+
+    if (MS_NONE(__mount_flags)) {
         goto done;
     }
 
-    if (MS_NONE(__mount_flags))
-    {
-        goto done;
-    }
-
-    if (__type)
-    { 
+    if (__type) {
         goto done;
     }
 

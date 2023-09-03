@@ -4,6 +4,7 @@
 #include <lib/stdint.h>
 #include <sync/assert.h>
 #include <sync/spinlock.h>
+#include <lib/types.h>
 
 struct inode;
 
@@ -38,4 +39,5 @@ void dentry_close(dentry_t *dentry);
 void dentry_release(dentry_t *dentry);
 dentry_t *dentry_alloc(const char *name);
 int dentry_bind(dentry_t *d_parent, dentry_t *d_child);
+int dentry_iset(dentry_t *dentry, inode_t *ip, int overwrite);
 int dentry_find(dentry_t *d_parent, const char *name, dentry_t **d_child);

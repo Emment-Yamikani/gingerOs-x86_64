@@ -20,4 +20,4 @@ static int console_init(void) {
     return 0;
 }
 
-MODULE_INIT(console, console_init, NULL);
+MODULE_INIT(console, NULL, console_init, NULL);

@@ -10,6 +10,7 @@
 #define MS_PRIVATE      0x00000010
 #define MS_SLAVE        0x00000020
 #define MS_UNBINDABLE   0x00000040
+#define MS_CREAT        0x00000080
 #define MS_NONE(m_flags) (!(m_flags & (MS_REMOUNT | MS_BIND | MS_MOVE | MS_SHARED | MS_PRIVATE | MS_SLAVE | MS_UNBINDABLE)))
 
 
