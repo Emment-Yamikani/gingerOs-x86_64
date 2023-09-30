@@ -19,6 +19,7 @@ extern struct vmman vmman;
 
 uintptr_t mapped_alloc(size_t);
 void mapped_free(uintptr_t, size_t);
+void memory_usage(void);
 
 int getpagesize(void);
 

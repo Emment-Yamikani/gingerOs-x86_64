@@ -18,10 +18,10 @@ const char *str_zone[] = {
 };
 
 queue_t *mm_zone_sleep_queue[] = {
-    QUEUE_NEW("MM_ZONE_DMA"),
-    QUEUE_NEW("MM_ZONE_NORM"),
-    QUEUE_NEW("MM_ZONE_HOLE"),
-    QUEUE_NEW("MM_ZONE_HIGH"),
+    QUEUE_NEW(/*"MM_ZONE_DMA"*/),
+    QUEUE_NEW(/*"MM_ZONE_NORM"*/),
+    QUEUE_NEW(/*"MM_ZONE_HOLE"*/),
+    QUEUE_NEW(/*"MM_ZONE_HIGH"*/),
 };
 
 static __unused void zone_dump(mm_zone_t *zone)

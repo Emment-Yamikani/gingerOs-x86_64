@@ -14,7 +14,7 @@ static spinlock_t *jiffies_res_lock = &SPINLOCK_INIT();
 
 static jiffies_t jiffies = 0;
 static spinlock_t *jiffies_lock = &SPINLOCK_INIT();
-static queue_t *jiffies_sleep_queue = QUEUE_NEW("jiffies-sleep-queue");
+static queue_t *jiffies_sleep_queue = QUEUE_NEW(/*"jiffies-sleep-queue"*/);
 
 void jiffies_update(void) {
     spin_lock(jiffies_lock);

@@ -25,7 +25,7 @@ void core_start(void) {
     sigaction(SIGXFSZ, &act, NULL);
     printk("thread[%d]: tgroup[%d]:\n", thread_self(), current_tgroup()->tg_tgid);
     loop() {
-        sleep(1);
+        jiffies_timed_wait(1);
         printk("%s\n", __func__);
     };
 }

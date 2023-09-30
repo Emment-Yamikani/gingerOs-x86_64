@@ -1,64 +1,90 @@
-#include <bits/errno.h>
 #include <fs/fs.h>
-#include <fs/dentry.h>
-#include <fs/devfs.h>
-// #include <fs/ramfs.h>
-#include <lib/string.h>
 #include <mm/kalloc.h>
-#include <printk.h>
-// #include <fs/pipefs.h>
-#include <fs/tmpfs.h>
+#include <bits/errno.h>
+#include <sys/_fcntl.h>
 
-int vfs_mountat(const char *__src, const char *__target,
-                const char *__type, uint32_t __mount_flags,
-                const void *__data, inode_t *__inode, uio_t *__uio) {
-    int err = -EINVAL;
-    struct filesystem *fs = NULL;
-    char **target_tokens = NULL, *src_tokens = NULL;
-    dentry_t *parent_dentry = NULL, *child_dentry = NULL;
-    char *cwd = NULL, *abs_path_src = NULL, *abs_path_target = NULL;
+fs_mount_t *alloc_fsmount(void) {
+    fs_mount_t *mnt = NULL;
+    if ((mnt = kmalloc(sizeof *mnt)) == NULL)
+        return NULL;
+    memset(mnt, 0, sizeof *mnt);
+    mnt->mnt_lock = SPINLOCK_INIT();
+    return mnt;
+}
 
-    if (__uio && (__uio->u_uid && __uio->u_gid))
-        return -EPERM;
+static int do_new_mount(filesystem_t *fs, const char *src, unsigned long flags, void *data, fs_mount_t **pmnt) {
+    int err = 0;
+    fs_mount_t *mnt = NULL;
+    superblock_t *sb = NULL;
 
-    if (!__uio)
-        cwd = "/";
-    else if (!__uio->u_cwd)
-        cwd = "/";
-    else
-        cwd = __uio->u_cwd;
+    fsassert_locked(fs);
 
-    if ((err = parse_path((char *)__target, cwd, &abs_path_target, NULL, NULL)))
-        goto error;
+    if (pmnt == NULL || fs == NULL)
+        return -EINVAL;
 
-    if (__mount_flags & MS_REMOUNT) {
+    if ((mnt = alloc_fsmount()) == NULL) {
+        err = -ENOMEM;
         goto error;
     }
 
-    if (__mount_flags & MS_BIND) {
-        if ((err = vfs_lookup(__target, __uio, O_RDWR, 0777, 0, NULL, &parent_dentry)))
-            goto error;
-        
-        if ((err = dentry_iset(parent_dentry, __inode, 1)))
-            goto error;
-        
-        goto error; // TODO: handle filesystem specific bind mount.
-    }
-
-    if (__mount_flags & MS_MOVE) {
+    if (fs->get_sb == NULL) {
+        err = -EINVAL;
         goto error;
     }
 
-    if (MS_NONE(__mount_flags)) {
-        goto done;
-    }
+    if ((err = fs->get_sb(fs, src, flags, data, &sb)))
+        goto error;
 
-    if (__type) {
-        goto done;
-    }
+    mnt->mnt_sb = sb;
+    sb->sb_mnt = mnt;
+    mnt->mnt_root = sb->sb_root;
+    sbunlock(sb);
+    *pmnt = mnt;
 
-done:
     return 0;
 error:
+    if (mnt) kfree(mnt);
+    return err;
+}
+
+int vfs_mount(const char *src,
+              const char *target,
+              const char *type,
+              unsigned long flags,
+              const void *data) {
+    int err = 0;
+    fs_mount_t *mnt = NULL;
+    filesystem_t *fs = NULL;
+    __unused inode_t *isrc = NULL, *itarget = NULL;
+    __unused dentry_t *dentry = NULL, *dsrc = NULL, *dtarget = NULL;
+
+    if (target == NULL)
+        return -EINVAL;
+
+    if ((err = vfs_getfs(type, &fs)))
+        return err;
+
+    if (flags & MS_REMOUNT) {
+    } else if (flags & MS_BIND) {
+    } else if (flags & MS_MOVE) {
+    } else {
+        // Do New Mount.
+        if ((err = do_new_mount(fs, src, flags, (void *)data, &mnt))) {
+            fsunlock(fs);
+            return err;
+        }
+        goto bind;
+    }
+
+    fsunlock(fs);
+
+    return 0;
+bind:
+    if ((err = vfs_lookup(target, NULL, O_RDONLY, 0, 0, NULL, &dtarget)))
+        goto error;
+    return 0;
+
+error:
+    panic("%s: error: %d\n", __func__, err);
     return err;
 }

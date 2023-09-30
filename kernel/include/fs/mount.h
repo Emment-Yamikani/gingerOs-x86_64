@@ -25,6 +25,16 @@
 #define MS_NOATIME      0x00002000
 #define MS_SILENT       0x00004000
 
-int mount(const char *, const char *, const char *, uintptr_t, const void *);
+typedef struct fs_mount
+{
+    struct superblock *mnt_sb;
+    int mnt_flags;
+    char *mnt_path;
+    void *mnt_priv;
+    dentry_t *mnt_root;
+    struct fs_mount *mnt_parent;
+    spinlock_t mnt_lock;
+} fs_mount_t;
+int vfs_mount(const char *src, const char *dest, const char *type, unsigned long flags, const void *data);
 
 #endif // FS_MOUNT_H

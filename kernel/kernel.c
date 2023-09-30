@@ -20,6 +20,7 @@
 #include <sys/_signal.h>
 #include <dev/hpet.h>
 #include <modules/module.h>
+#include <fs/tmpfs.h>
 
 void core_start(void);
 
@@ -30,66 +31,11 @@ void signal_handler(int signo) {
 EXPORT_SYMBOL(signal_handler);
 
 __noreturn void kthread_main(void) {
-    sigset_t set;
     int nthread = 0;
-    sigaction_t act = {0};
-    symbl_t *sym = ksym_table;
-    size_t sym_count = ksym_table_end - ksym_table;
-
-    printk("sym_count: %ld, ksym_table: %p\n", sym_count, ksym_table);
-
-    for (size_t i =0; i < sym_count; ++i, ++sym) {
-        printk("symbol: %s at: %p\n", sym->sym_name, sym->sym_addr);
-    }
-
-    BUILTIN_THREAD_ANOUNCE(__func__);
     printk("Welcome to 'Ginger OS'.\n");
-
-    sigemptyset(&set);
-    sigfillset(&set);
-    sigdelset(&set, SIGKILL);
-    sigdelset(&set, SIGSTOP);
-
-    pthread_sigmask(SIG_SETMASK, &set, NULL);
-    sigdelset(&set, SIGQUIT);
-    sigprocmask(SIG_SETMASK, &set, NULL);
     
-    act.sa_sigaction = NULL;
-    sigfillset(&act.sa_mask);
-    act.sa_handler = signal_handler;
-
-    sigaction(SIGQUIT, &act, NULL);
     builtin_threads_begin(&nthread, NULL);
 
-    tgroup_t *core = NULL;
-    tgroup_spawn((thread_entry_t)core_start, NULL, 0, &core);
-    thread_lock(core->tg_tmain);
-    thread_schedule(core->tg_tmain);
-    thread_unlock(core->tg_tmain);
-    tgroup_unlock(core);
-
-    tgroup_lock(core);
-    tgroup_sigqueue(core, SIGXFSZ);
-    tgroup_sigqueue(core, SIGXFSZ);
-    tgroup_unlock(core);
-
-    tgroup_lock(core);
-    tgroup_sigqueue(core, SIGSTOP);
-    tgroup_unlock(core);
-
-    printk("going to sleep\n");
-    sleep(2);
-
-    tgroup_lock(core);
-    tgroup_sigqueue(core, SIGCONT);
-    tgroup_unlock(core);
-
-    current_tgroup_lock();
-    tgroup_sigqueue(current_tgroup(), SIGQUIT);
-    tgroup_sigqueue(current_tgroup(), SIGKILL);
-    current_tgroup_unlock();
-
-    loop() {
-        thread_join(0, NULL, NULL);
-    }
+    memory_usage();
+    loop() thread_join(0, NULL, NULL);
 }

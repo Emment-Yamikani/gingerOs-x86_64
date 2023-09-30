@@ -6,7 +6,7 @@
 #include <ds/queue.h>
 #include <bits/errno.h>
 
-static queue_t *global_sleep_queue = QUEUE_NEW("Global sleep queue");
+static queue_t *global_sleep_queue = QUEUE_NEW(/*"Global sleep queue"*/);
 
 long sleep(long s) {
     jiffies_t jiffies = s_TO_jiffies(s);

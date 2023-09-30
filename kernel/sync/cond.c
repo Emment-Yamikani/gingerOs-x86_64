@@ -41,7 +41,7 @@ int cond_init(cond_t *c, const char *__name, cond_t **ref)
         err = -EINVAL;
         goto error;
     }
-    if ((err = queue_new(__name, &waiters)))
+    if ((err = queue_alloc(&waiters)))
         goto error;
 
     *c = (cond_t){0};

@@ -112,8 +112,8 @@ ssize_t ramdisk_read(struct devid *dd, off_t off, void *buf, size_t nbyte) {
     if (!(rd = ramdisk_get(dd->minor)))
         return -ENOENT;
 
-    if (!(locked = spin_locked(&rd->lock)))
-        spin_unlock(&rd->lock);
+    if (!(locked = spin_islocked(&rd->lock)))
+        spin_lock(&rd->lock);
 
     retval = MIN(rd->size - off, nbyte);
     memcpy(buf, rd->addr + off, retval);
@@ -132,8 +132,8 @@ ssize_t ramdisk_write(struct devid *dd, off_t off, void *buf, size_t nbyte) {
     if (!(rd = ramdisk_get(dd->minor)))
         return -ENOENT;
 
-    if (!(locked = spin_locked(&rd->lock)))
-        spin_unlock(&rd->lock);
+    if (!(locked = spin_islocked(&rd->lock)))
+        spin_lock(&rd->lock);
 
     retval = MIN(rd->size - off, nbyte);
     memcpy(rd->addr + off,  buf, retval);

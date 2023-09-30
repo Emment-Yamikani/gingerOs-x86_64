@@ -1,378 +1,411 @@
+#include <fs/inode.h>
+#include <fs/dentry.h>
 #include <fs/fs.h>
 #include <bits/errno.h>
-#include <mm/kalloc.h>
-#include <lib/printk.h>
 #include <lib/string.h>
-#include <dev/dev.h>
+#include <lib/types.h>
+#include <mm/kalloc.h>
+#include <sys/_fcntl.h>
+#include <sys/_stat.h>
 
-static LIST_HEAD(icache_list);
-spinlock_t *icache_list_lock = &SPINLOCK_INIT();
+int ialloc(inode_t **pip) {
+    int err = -ENOMEM;
+    inode_t *ip = NULL;
 
-void idup(INODE ip)
-{
+    if (pip == NULL)
+        return -EINVAL;
+
+    if ((ip = kmalloc(sizeof *ip)) == NULL)
+        return err;
+
+    memset(ip, 0, sizeof *ip);
+
+    ip->i_count = 1;
+    ip->i_alias = QUEUE_INIT();
+    ip->i_lock = SPINLOCK_INIT();
+    ilock(ip);
+    *pip = ip;
+
+    return 0;
+}
+
+void ifree(inode_t *ip) {
+    iassert_locked(ip);
+
+    if (ip->i_count <= 0) {
+        iunlink(ip);
+        kfree(ip);
+    }
+}
+
+void idupcnt(inode_t *ip) {
     iassert_locked(ip);
     ip->i_count++;
 }
 
-int iopen(INODE ip, dentry_t *dentry)
-{
-    if (!ip || !dentry)
-        return -EINVAL;
-    iassert_locked(ip);
-    dentry_assert_locked(dentry);
-    idup(ip);
-    list_add(&dentry->d_alias, &ip->i_dentry);
-    dentry->d_inode = ip;
-    return 0;
-}
-
-static void ifree(INODE ip)
-{
-    iassert_locked(ip);
-    list_del(&ip->i_inodes);
-    *ip = (inode_t){0};
-    kfree(ip);
-    printk("%s:%d %s() returning...\n", __FILE__, __LINE__, __func__);
-}
-
-void irelease(INODE ip)
-{
+void iputcnt(inode_t *ip) {
     iassert_locked(ip);
     ip->i_count--;
-    if (ip->i_count <= 0)
-        ifree(ip);
 }
 
-int iclose(INODE ip)
-{
-    if (!ip) return -EINVAL;
+void iputlink(inode_t *ip) {
     iassert_locked(ip);
-    irelease(ip);
-    return 0;
+    ip->i_links--;
 }
 
-int ialloc(ialloc_desc_t desc, INODE *pip)
-{
-    int err = -ENOMEM;
-    INODE ip = NULL;
-
-    if (!pip || !desc.p_mode || !desc.p_type)
-        return -EINVAL;
-
-    if ((ip = kcalloc(1, sizeof *ip)) == NULL)
-        goto error;
-
-    ip->i_count = 0;
-    ip->i_gid   = desc.p_gid;
-    ip->i_uid   = desc.p_uid;
-    ip->i_mode  = desc.p_mode;
-    ip->i_type  = desc.p_type; 
-    ip->i_flags = desc.p_flags;
-    ip->i_lock = SPINLOCK_INIT();
-
-    ilock(ip);
-    INIT_LIST_HEAD(&ip->i_dentry);
-    INIT_LIST_HEAD(&ip->i_inodes);
-
-    spin_lock(icache_list_lock);
-    list_add(&ip->i_inodes, &icache_list);
-    spin_unlock(icache_list_lock);
-
-    *pip = ip;
-    return 0;
-error:
-    if (ip) kfree(ip);
-    return err;
-}
-
-int itrunc(INODE inode, off_t length)
-{
-    int err = 0;
-    iassert_locked(inode);
-    
-    if ((err = check_iop(inode, itrunc)))
-        goto error;
-
-    inode->i_ops->itrunc(inode, length);
-    return 0;
-error:
-    return err;
-}
-
-int iperm(INODE inode, int mask)
-{
-    int err = 0;
-    iassert_locked(inode);
-
-    if ((err = check_iop(inode, iperm)))
-        goto error;
-    
-    if ((err = inode->i_ops->iperm(inode, mask)))
-        goto error;
-
-    return 0;
-error:
-    return err;
-}
-
-int imkdir(INODE dir, struct dentry *dentry, mode_t mode)
-{
-    int err = 0;
-    iassert_locked(dir);
-    dentry_assert_locked(dentry);
-
-    if (!dentry)
-        return -EINVAL;
-
-    if ((err = check_iop(dir, imkdir)))
-        goto error;
-    
-    if ((err = dir->i_ops->imkdir(dir, dentry, mode)))
-        goto error;
-
-    return 0;
-error:
-    return err;
-}
-
-int irmdir(INODE dir, dentry_t *dentry)
-{
-    int err = 0;
-    iassert_locked(dir);
-    dentry_assert_locked(dentry);
-
-    if (!dentry)
-        return -EINVAL;
-
-    if ((err = check_iop(dir, irmdir)))
-        goto error;
-    
-    if ((err = dir->i_ops->irmdir(dir, dentry)))
-        goto error;
-
-    return 0;
-error:
-    return err;
-}
-
-int iunlink(INODE dir, dentry_t *dentry)
-{
-    int err = 0;
-    iassert_locked(dir);
-    dentry_assert_locked(dentry);
-
-    if (!dentry)
-        return -EINVAL;
-    
-    if ((err = check_iop(dir, iunlink)))
-        goto error;
-    
-    if ((err = dir->i_ops->iunlink(dir, dentry)))
-        goto error;
-
-    return 0;
-error:
-    return err;
-}
-
-int ilookup(INODE dir, dentry_t *dentry)
-{
-    int err = 0;
-    iassert_locked(dir);
-    dentry_assert_locked(dentry);
-
-    if (!dentry)
-        return -EINVAL;
-
-    if ((err = check_iop(dir, ilookup)))
-        goto error;
-    
-    if ((err = dir->i_ops->ilookup(dir, dentry)))
-        goto error;
-
-    return 0;
-error:
-    return err;
-}
-
-int icreate(INODE dir, dentry_t *dentry, int mode)
-{
-    int err = 0;
-    iassert_locked(dir);
-    dentry_assert_locked(dentry);
-
-    if (!dentry)
-        return -EINVAL;
-
-    if ((err = check_iop(dir, icreate)))
-        goto error;
-    
-    if ((err = dir->i_ops->icreate(dir, dentry, mode)))
-        goto error;
-
-    return 0;
-error:
-    return err;
-}
-
-int imknod(INODE dir, dentry_t *dentry, int mode, devid_t dev)
-{
-    int err = 0;
-    iassert_locked(dir);
-    dentry_assert_locked(dentry);
-
-    if (!dentry)
-        return -EINVAL;
-
-    if ((err = check_iop(dir, imknod)))
-        goto error;
-    
-    if ((err = dir->i_ops->imknod(dir, dentry, mode, dev)))
-        goto error;
-
-    return 0;
-error:
-    return err;
-}
-
-int isymlink(INODE dir, dentry_t *dentry, const char *symname)
-{
-    int err = 0;
-    iassert_locked(dir);
-    dentry_assert_locked(dentry);
-
-    if (!dentry || !symname)
-        return -EINVAL;
-
-    if ((err = check_iop(dir, isymlink)))
-        goto error;
-    
-    if ((err = dir->i_ops->isymlink(dir, dentry, symname)))
-        goto error;
-
-    return 0;
-error:
-    return err;
-}
-
-int ilink(dentry_t *old_dentry, INODE dir, dentry_t *new_dentry)
-{
-    int err = 0;
-    iassert_locked(dir);
-    dentry_assert_locked(old_dentry);
-    dentry_assert_locked(new_dentry);
-
-    if (!old_dentry || !new_dentry)
-        return -EINVAL;
-
-    if ((err = check_iop(dir, ilink)))
-        goto error;
-    
-    if ((err = dir->i_ops->ilink(old_dentry, dir, new_dentry)))
-        goto error;
-
-    return 0;
-error:
-    return err;
-}
-
-int irename(INODE old_dir, dentry_t *old_dentry, INODE new_dir, dentry_t *new_dentry)
-{
-    int err = 0;
-    iassert_locked(old_dir);
-    iassert_locked(new_dir);
-    dentry_assert_locked(old_dentry);
-    dentry_assert_locked(new_dentry);
-
-    if (!old_dir || !new_dir || !old_dentry || !new_dentry)
-        return -EINVAL;
-
-    if ((err = check_iop(old_dir, irename)))
-        goto error;
-    
-    if ((err = old_dir->i_ops->irename(old_dir, old_dentry, new_dir, new_dentry)))
-        goto error;
-
-    return 0;
-error:
-    return err;
-}
-
-ssize_t iread(INODE ip, off_t off, void *buff, size_t nbytes) {
-    int err = 0;
+void iduplink(inode_t *ip) {
     iassert_locked(ip);
+    ip->i_links++;
+}
 
-    if (!buff)
+int iadd_alias(inode_t *ip, dentry_t *dentry) {
+    int err = 0;
+    if (ip == NULL || dentry == NULL)
         return -EINVAL;
-
-    if (INODE_ISDIR(ip))
-        return -EISDIR;
-
-    if (INODE_ISDEV(ip))
-        return kdev_read(IDEVID(ip), off, buff, nbytes);
-
-    if ((err = check_iop(ip, iread)))
-        goto error;
     
-    if ((err = ip->i_ops->iread(ip, off, buff, nbytes)))
-        goto error;
+    queue_lock(&ip->i_alias);
+    err = enqueue(&ip->i_alias, dentry) ? 0 : -ENOMEM;
+    queue_unlock(&ip->i_alias);
 
-    return 0;
-error:
+    dentry->d_inode = ip;
+    idupcnt(ip);
+
+    printk("add %s to inode alias\n", dentry->d_name);
     return err;
 }
 
-ssize_t iwrite(INODE ip, off_t off, void *buff, size_t nbytes) {
+int idel_alias(inode_t *ip, dentry_t *dentry) {
     int err = 0;
-    iassert_locked(ip);
-
-    if (!buff)
+    if (ip == NULL || dentry == NULL)
         return -EINVAL;
 
-    if (INODE_ISDIR(ip))
-        return -EISDIR;
+    queue_lock(&ip->i_alias);
+    err = queue_remove(&ip->i_alias, dentry);
+    queue_unlock(&ip->i_alias);
 
-    if (INODE_ISDEV(ip))
-        return kdev_write(IDEVID(ip), off, buff, nbytes);
+    dentry->d_inode = NULL;
 
-    if ((err = check_iop(ip, iwrite)))
-        goto error;
-    
-    if ((err = ip->i_ops->iwrite(ip, off, buff, nbytes)))
-        goto error;
-
-    return 0;
-error:
     return err;
 }
 
-int ibind(INODE dir, dentry_t *dentry, INODE ip) {
+int     ibind(inode_t *dir, struct dentry *dentry, inode_t *ip) {
     int err = 0;
-    iassert_locked(ip);
     iassert_locked(dir);
-    dentry_assert_locked(dentry);
+    iassert_locked(ip);
+    dassert_locked(dentry);
 
-    if (!INODE_ISDIR(dir))
+    if (IISDIR(dir) == 0)
         return -ENOTDIR;
-
-    if ((err = check_iop(dir, ibind)))
+    
+    if ((err = icheck_op(dir, ibind)))
         return err;
-
+    
     return dir->i_ops->ibind(dir, dentry, ip);
 }
 
-int iioctl(INODE ip, int request, void *argp) {
+int     isync(inode_t *ip) {
     int err = 0;
     iassert_locked(ip);
 
-    if (!argp)
-        return -EINVAL;
+    if ((err = icheck_op(ip, isync)))
+        return err;
     
-    if (INODE_ISDEV(ip))
-        return kdev_ioctl(IDEVID(ip), request, argp);
+    return ip->i_ops->isync(ip);
+}
 
-    if ((err = check_iop(ip, iioctl)))
-        return err;    
+int     ilink(struct dentry *oldname, inode_t *dir, struct dentry *newname) {
+    int err = 0;
+    iassert_locked(dir);
+    dassert_locked(oldname);
+    dassert_locked(newname);
 
-    return ip->i_ops->iioctl(ip, request, argp);
+    if (IISDIR(dir) == 0)
+        return -ENOTDIR;
+
+    if ((err = icheck_op(dir, ilink)))
+        return err;
+    
+    return dir->i_ops->ilink(oldname, dir, newname);
+}
+
+int     iclose(inode_t *ip) {
+    int err = 0;
+    iassert_locked(ip);
+
+    if ((err = icheck_op(ip, iclose)))
+        return err;
+    
+    return ip->i_ops->iclose(ip);
+}
+
+ssize_t iread(inode_t *ip, off_t off, void *buf, size_t nb) {
+    ssize_t err = 0;
+
+    iassert_locked(ip);
+
+    if (IISDIR(ip))
+        return -EISDIR;
+
+    if ((err = icheck_op(ip, iread)))
+        return err;
+    
+    return ip->i_ops->iread(ip, off, buf, nb);
+}
+
+ssize_t iwrite(inode_t *ip, off_t off, void *buf, size_t nb) {
+    ssize_t err = 0;
+    iassert_locked(ip);
+
+    if (IISDIR(ip))
+        return -EISDIR;
+
+    if ((err = icheck_op(ip, iwrite)))
+        return err;
+    
+    return ip->i_ops->iwrite(ip, off, buf, nb);
+}
+
+int     imknod(inode_t *dir, struct dentry *dentry, mode_t mode, int devid) {
+    int err = 0;
+    iassert_locked(dir);
+    dassert_locked(dentry);
+
+    if (IISDIR(dir) == 0)
+        return -ENOTDIR;
+
+    if ((err = icheck_op(dir, imknod)))
+        return err;
+    
+    return dir->i_ops->imknod(dir, dentry, mode, devid);
+}
+
+int     ifcntl(inode_t *ip, int cmd, void *argp) {
+    int err = 0;
+    iassert_locked(ip);
+
+    if (argp == NULL)
+        return -EINVAL;
+
+    if ((err = icheck_op(ip, ifcntl)))
+        return err;
+    
+    return ip->i_ops->ifcntl(ip, cmd, argp);
+}
+
+int     iioctl(inode_t *ip, int req, void *argp) {
+    int err = 0;
+    iassert_locked(ip);
+
+    if (argp == NULL)
+        return -EINVAL;
+
+    if (IISDIR(ip))
+        return -EISDIR;
+
+    if ((err = icheck_op(ip, iioctl)))
+        return err;
+    
+    return ip->i_ops->iioctl(ip, req, argp);
+}
+
+int     imkdir(inode_t *dir, struct dentry *dentry, mode_t mode) {
+    int err = 0;
+    iassert_locked(dir);
+    dassert_locked(dentry);
+    
+    if (IISDIR(dir) == 0)
+        return -ENOTDIR;
+
+    if ((err = icheck_op(dir, imkdir)))
+        return err;
+    
+    return dir->i_ops->imkdir(dir, dentry, mode);
+}
+
+int     iunlink(inode_t *ip) {
+    int err = 0;
+    iassert_locked(ip);
+
+    if ((err = icheck_op(ip, iunlink)))
+        return err;
+    
+    return ip->i_ops->iunlink(ip);
+}
+
+int     ilookup(inode_t *dir, dentry_t *dentry) {
+    int err = 0;
+    
+    iassert_locked(dir);
+    dassert_locked(dentry);
+
+    if (IISDIR(dir) == 0)
+        return -ENOTDIR;
+
+    if ((err = icheck_op(dir, ilookup)))
+        return err;
+    
+    return dir->i_ops->ilookup(dir, dentry);
+}
+
+int     icreate(inode_t *dir, struct dentry *dentry, mode_t mode) {
+    int err = 0;
+    iassert_locked(dir);
+    dassert_locked(dentry);
+
+    if (IISDIR(dir) == 0)
+        return -ENOTDIR;
+
+    if ((err = icheck_op(dir, icreate)))
+        return err;
+    
+    return dir->i_ops->icreate(dir, dentry, mode);
+}
+
+int     irename(inode_t *dir, struct dentry *old, inode_t *newdir, struct dentry *new) {
+    int err = 0;
+    iassert_locked(dir);
+    iassert_locked(newdir);
+    dassert_locked(old);
+    dassert_locked(new);
+
+    if ((err = icheck_op(dir, irename)))
+        return err;
+    
+    return dir->i_ops->irename(dir, old, newdir, new);
+}
+
+ssize_t ireaddir(inode_t *dir, off_t off, void *buf, size_t count) {
+    ssize_t err = 0;
+    iassert_locked(dir);
+
+    if (IISDIR(dir) == 0)
+        return -ENOTDIR;
+
+    if (buf == NULL)
+        return -EINVAL;
+
+    if ((err = icheck_op(dir, ireaddir)))
+        return err;
+    
+    return dir->i_ops->ireaddir(dir, off, buf, count);
+}
+
+int     isymlink(inode_t *ip, inode_t *atdir, const char *symname) {
+    int err = 0;
+    iassert_locked(ip);
+    if ((err = icheck_op(ip, isymlink)))
+        return err;
+    
+    return ip->i_ops->isymlink(ip, atdir, symname);
+}
+
+int     igetattr(inode_t *ip, void *attr) {
+    int err = 0;
+    iassert_locked(ip);
+    if ((err = icheck_op(ip, igetattr)))
+        return err;
+    
+    return ip->i_ops->igetattr(ip, attr);
+}
+
+int     isetattr(inode_t *ip, void *attr) {
+    int err = 0;
+    iassert_locked(ip);
+    if ((err = icheck_op(ip, isetattr)))
+        return err;
+    
+    return ip->i_ops->isetattr(ip, attr);
+}
+
+int     itruncate(inode_t *ip) {
+    int err = 0;
+    iassert_locked(ip);
+
+    if (IISDIR(ip))
+        return -EISDIR;
+
+    if ((err = icheck_op(ip, itruncate)))
+        return err;
+    
+    return ip->i_ops->itruncate(ip);
+}
+
+/* check for file permission */
+int check_iperm(inode_t *ip, uio_t *uio, int oflags)
+{
+    // printk("%s(\e[0;15mip=%p, uio=%p, oflags=%d)\e[0m\n", __func__, ip, uio, oflags);
+    if (!ip || !uio)
+        return -EINVAL;
+
+    iassert_locked(ip);
+
+    if (uio->u_uid == 0) /* root */
+        return 0;
+
+    if (((oflags & O_ACCMODE) == O_RDONLY) || (oflags & O_ACCMODE) != O_WRONLY)
+    {
+        if (ip->i_uid == uio->u_uid)
+        {
+            if (ip->i_mode & S_IRUSR)
+                goto write_perms;
+        }
+        else if (ip->i_gid == uio->u_gid)
+        {
+            if (ip->i_mode & S_IRGRP)
+                goto write_perms;
+        }
+        else
+        {
+            if (ip->i_mode & S_IROTH)
+                goto write_perms;
+        }
+
+        return -EACCES;
+    }
+
+write_perms:
+    if (((oflags & O_ACCMODE) == O_WRONLY) || (oflags & O_ACCMODE) == O_RDWR)
+    {
+        if (ip->i_uid == uio->u_uid)
+        {
+            if (ip->i_mode & S_IWUSR)
+                goto exec_perms;
+        }
+        else if (ip->i_gid == uio->u_gid)
+        {
+            if (ip->i_mode & S_IWGRP)
+                goto exec_perms;
+        }
+        else
+        {
+            if (ip->i_mode & S_IWOTH)
+                goto exec_perms;
+        }
+
+        return -EACCES;
+    }
+
+exec_perms:
+    if ((oflags & O_EXCL))
+    {
+        if (ip->i_uid == uio->u_uid)
+        {
+            if (ip->i_mode & S_IXUSR)
+                goto done;
+        }
+        else if (ip->i_gid == uio->u_gid)
+        {
+            if (ip->i_mode & S_IXGRP)
+                goto done;
+        }
+        else
+        {
+            if (ip->i_mode & S_IXOTH)
+                goto done;
+        }
+        return -EACCES;
+    }
+done:
+    // printk("%s(): \e[0;12maccess granted\e[0m\n", __func__);
+    return 0;
 }

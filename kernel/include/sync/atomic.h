@@ -7,12 +7,12 @@
  * functions prefixed with atomic_ptr require passing pointers rather than direct variables.
 */
 
-typedef volatile unsigned long atomic_t;
+typedef unsigned long atomic_t;
 
 #define atomic_read(ptr)               ({ __atomic_load_n((ptr), __ATOMIC_SEQ_CST); })
 #define atomic_write(ptr, val)         ({ __atomic_store_n((ptr), (val), __ATOMIC_SEQ_CST); })
 /// clear, only used with 'char' or 'bool'
-#define atomic_clear(ptr)              ({ atomic_write((ptr), 0); })
+#define atomic_clear(ptr)              ({ __atomic_clear((ptr), __ATOMIC_SEQ_CST); })
 
 /// test and set, only used with 'char' or 'bool'
 /// returns 'true' if only the previous value was 'true'

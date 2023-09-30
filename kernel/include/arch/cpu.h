@@ -108,7 +108,7 @@ typedef struct cpu {
     long            intena;
     uint64_t        version;
 
-    uint64_t        apicID;
+    long            apicID;
     long            freq;
     uint64_t        flags;
     uint64_t        features;

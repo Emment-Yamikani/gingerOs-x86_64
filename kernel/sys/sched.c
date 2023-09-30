@@ -10,9 +10,9 @@
 #include <ginger/jiffies.h>
 #include <arch/lapic.h>
 
-queue_t *sched_stopq = QUEUE_NEW("stopped-queue");
-static queue_t *embryo_queue = QUEUE_NEW("embryo-threads-queue");
-static queue_t *zombie_queue = QUEUE_NEW("zombie-threads-queue");
+queue_t *sched_stopq = QUEUE_NEW(/*"stopped-queue"*/);
+static queue_t *embryo_queue = QUEUE_NEW(/*"embryo-threads-queue"*/);
+static queue_t *zombie_queue = QUEUE_NEW(/*"zombie-threads-queue"*/);
 
 int sched_init(void)
 {
@@ -26,7 +26,7 @@ int sched_init(void)
     memset(sq, 0, sizeof *sq);
 
     for (int i = 0; i < NLEVELS; ++i) {
-        if ((err = queue_new("sched_queue", &q)))
+        if ((err = queue_alloc(&q)))
             panic("error initailizing scheduler queues, error=%d\n", err);
 
         sq->level[i].queue = q;

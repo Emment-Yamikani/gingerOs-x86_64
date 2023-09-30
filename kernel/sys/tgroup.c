@@ -123,10 +123,10 @@ int tgroup_create(tgroup_t **ptgroup) {
         return -ENOMEM;
 
 
-    if ((err = queue_new("tgroup-stop", &stopq)))
+    if ((err = queue_alloc(&stopq)))
         goto error;
     
-    if ((err = queue_new("tgroup", &queue)))
+    if ((err = queue_alloc(&queue)))
         goto error;
 
     memset(tgroup, 0, sizeof *tgroup);

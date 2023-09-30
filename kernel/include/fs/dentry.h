@@ -1,43 +1,79 @@
 #pragma once
 
-#include <ds/list.h>
 #include <lib/stdint.h>
-#include <sync/assert.h>
+#include <lib/stdlib.h>
+#include <lib/printk.h>
+#include <fs/inode.h>
 #include <sync/spinlock.h>
-#include <lib/types.h>
 
-struct inode;
+#define DCACHE_MOUNTED      1
+#define DCACHE_CAN_FREE     2
+#define DCACHE_REFERENCED   4
 
-typedef struct dentry
-{
-    list_head_t     d_list;
-    list_head_t     d_alias;
+struct dentry;
 
-    char            *d_name;
-    unsigned long   d_flags;
-    long            d_count;
+typedef struct{
+    void (*diput)(struct dentry *dp);
+    int  (*ddelete)(struct dentry *dp);
+    void (*drelease)(struct dentry *dp);
+    int  (*drevalidate)(struct dentry *dp);
+} dops_t;
 
-    struct dentry   *d_prev;
-    struct dentry   *d_next;
-    struct dentry   *d_child;
-    struct dentry   *d_parent;
-    
-    struct inode    *d_inode;
-
-    spinlock_t      d_lock;
+typedef struct dentry {
+    char            *d_name;    // dentry's name.
+    unsigned long   d_flags;    // dentry's flags.
+    inode_t         *d_inode;   // dentry's inode.
+    long            d_count;    // dentry's ref count.
+    dops_t          d_ops;      // dentry's operations.
+    struct dentry   *d_next;    // dentry's next sibling.
+    struct dentry   *d_prev;    // dentry's prev sibling.
+    struct dentry   *d_parent;  // dentry's parent.
+    struct dentry   *d_child;   // dentry's first child, if dentry is a directory.
+    spinlock_t      d_lock;     // dentry's spinlock.
 } dentry_t;
 
-#define dentry_assert(dentry)           ({ assert(dentry, "No dentry"); })
-#define dentry_lock(dentry)             ({ dentry_assert(dentry); spin_lock(&dentry->d_lock); })
-#define dentry_unlock(dentry)           ({ dentry_assert(dentry); spin_unlock(&dentry->d_lock); })
-#define dentry_assert_locked(dentry)    ({ dentry_assert(dentry); spin_assert_locked(&dentry->d_lock); })
+#define dassert(dentry) ({                \
+    assert((dentry), "No dentry struct"); \
+})
 
-int dentry_cache(void);
-int dentry_dup(dentry_t *dentry);
-list_head_t *dcache_list_get(void);
-void dentry_close(dentry_t *dentry);
-void dentry_release(dentry_t *dentry);
-dentry_t *dentry_alloc(const char *name);
-int dentry_bind(dentry_t *d_parent, dentry_t *d_child);
-int dentry_iset(dentry_t *dentry, inode_t *ip, int overwrite);
-int dentry_find(dentry_t *d_parent, const char *name, dentry_t **d_child);
+#define dassert_locked(dentry) ({          \
+    dassert(dentry);                       \
+    spin_assert_locked(&(dentry)->d_lock); \
+})
+
+#define dlocked(dentry) ({            \
+    spin_islocked(&(dentry)->d_lock); \
+})
+
+#define dlock(dentry) ({          \
+    dassert(dentry);              \
+    spin_lock(&(dentry)->d_lock); \
+})
+
+#define dunlock(dentry) ({          \
+    dassert(dentry);                \
+    spin_unlock(&(dentry)->d_lock); \
+})
+
+#define dsetflags(dentry, flags) ({ \
+    (dentry)->d_flags |= (flags);   \
+})
+
+#define dunsetflags(dentry, flags) ({ \
+    (dentry)->d_flags &= ~(flags);    \
+})
+
+void ddump(dentry_t *dentry, int flags);
+#define DDUMP_HANG  1
+#define DDUMP_PANIC 2
+
+int dmkdentry(dentry_t *dir, const char *name, dentry_t **pdp);
+void dput(dentry_t *dp);
+void ddup(dentry_t *dentry);
+void dclose(dentry_t *dentry);
+void dunbind(dentry_t *dentry);
+long dget_count(dentry_t *dp);
+void drelease(dentry_t *dentry);
+int dbind(dentry_t *parent, dentry_t *child);
+int dalloc(const char *name, dentry_t **pdentry);
+int dlookup(dentry_t *dir, const char *name, dentry_t **pchild);

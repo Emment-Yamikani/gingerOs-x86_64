@@ -47,6 +47,17 @@ dev_t *kdev_get(struct devid *dd) {
         dev = NULL;
     }
 
+    if (dev && !DEVID_CMP(&dev->devid, dd)) {
+        printk("dd does not match a device\n");
+        forlinked(node, dev->devnext, node->devnext) {
+            if (DEVID_CMP(&node->devid, dd)) {
+                dev = node;
+                break;
+            }
+        }
+        dev = NULL;
+    }
+
     return dev;
 }
 
@@ -164,4 +175,70 @@ ssize_t kdev_write(struct devid *dd, off_t off, void *buf, size_t nbyte) {
     if (!(dev->devops.write))
         return -ENOSYS;
     return dev->devops.write(dd, off, buf, nbyte);
+}
+
+int kdev_open_bdev(const char *bdev_name, struct devid *pdev) {
+    dev_t *dev = NULL;
+
+    if (bdev_name == NULL || pdev == NULL)
+        return -EINVAL;
+    
+    spin_lock(blkdevlk);
+    for (int i =0; i < DEVMAX; ++i) {
+        dev = blkdev[i];
+        if (dev == NULL)
+            continue;
+    
+        if (!compare_strings(bdev_name, dev->devname)) {
+            spin_unlock(blkdevlk);
+            *pdev = dev->devid;
+            return 0;
+        }
+    }
+
+    spin_unlock(blkdevlk);
+    return -ENOENT;
+}
+
+int kdev_getinfo(struct devid *dd, void *info) {
+    dev_t *dev = NULL;
+
+    if (dd == NULL || info == NULL)
+        return -EINVAL;
+    
+    if ((dev = kdev_get(dd)) == NULL)
+        return -ENOENT;
+
+    return dev->devops.getinfo(dd, info);
+}
+
+int kdev_create(const char *dev_name,
+                uint8_t type, uint8_t major,
+                uint8_t minor, dev_t **pdev) {
+    int err = 0;
+    dev_t *dev = NULL;
+
+    if (type != FS_BLK && type != FS_CHR)
+        return -EINVAL;
+
+    if ((dev = kdev_get(DEVID(type, DEV_T(major, minor)))))
+        return -EEXIST;
+
+    if (dev_name == NULL || pdev == NULL)
+        return -EINVAL;
+
+    if ((dev = kmalloc(sizeof *dev)) == NULL)
+        return -ENOMEM;
+
+    memset(dev, 0, sizeof *dev);
+
+    dev->devlock = SPINLOCK_INIT();
+    dev_lock(dev);
+
+    dev->devid = *DEVID(type, DEV_T(major, minor));
+    *pdev = dev;
+
+    return 0;
+    if (dev) kfree(dev);
+    return err;
 }

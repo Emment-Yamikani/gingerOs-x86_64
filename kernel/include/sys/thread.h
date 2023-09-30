@@ -259,7 +259,7 @@ typedef struct {
 #define thread_assert(t)                ({ assert(t, "No thread pointer\n");})
 #define thread_lock(t)                  ({ thread_assert(t); spin_lock(&((t)->t_lock)); })
 #define thread_unlock(t)                ({ thread_assert(t); spin_unlock(&((t)->t_lock)); })
-#define thread_locked(t)                ({ thread_assert(t); spin_locked(&((t)->t_lock)); })
+#define thread_locked(t)                ({ thread_assert(t); spin_islocked(&((t)->t_lock)); })
 #define thread_assert_locked(t)         ({ thread_assert(t); spin_assert_locked(&((t)->t_lock)); })
 
 #define thread_isstate(t, state)        ({ thread_assert_locked(t); ((t)->t_state == (state)); })

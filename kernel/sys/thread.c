@@ -10,7 +10,7 @@
 #include <arch/x86_64/thread.h>
 
 static atomic_t tids = {0};
-static atomic_t pids = {0};
+__unused static atomic_t pids = {0};
 
 const char *t_states[] = {
     [T_EMBRYO]      = "EMBRYO",
@@ -77,7 +77,7 @@ int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, 
 
     thread = (thread_t *)ALIGN16((kstack + kstacksz) - (sizeof *thread));
 
-    if ((err = queue_new("thread", &queue)))
+    if ((err = queue_alloc(&queue)))
         goto error;
 
     if ((err = cond_new("thread", &wait)))
@@ -239,7 +239,7 @@ thread_t *thread_dequeue(queue_t *queue) {
     thread_lock(thread);
     queue_lock(thread->t_queues);
     if ((err = queue_remove(thread->t_queues, (void *)queue)))
-        panic("queue: \'%s\' not on \'%s\', error: %d\n", queue->name, thread->t_queues->name, err);
+        panic("queue is not on thread[%d]'s threads-queue, error: %d\n", thread_gettid(thread), err);
     queue_unlock(thread->t_queues);
     return thread;
 }
@@ -382,10 +382,10 @@ int thread_wake(thread_t *thread) {
     if (thread->sleep_attr.queue == NULL)
         return 0;
 
-    if (thread->sleep_attr.guard && (guard_locked = !spin_locked(thread->sleep_attr.guard)))
+    if (thread->sleep_attr.guard && (guard_locked = !spin_islocked(thread->sleep_attr.guard)))
         spin_lock(thread->sleep_attr.guard);
 
-    if ((q_locked = !queue_locked(thread->sleep_attr.queue)))
+    if ((q_locked = !queue_islocked(thread->sleep_attr.queue)))
         queue_lock(thread->sleep_attr.queue);
 
     err = thread_remove_queue(thread, thread->sleep_attr.queue);

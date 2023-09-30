@@ -36,11 +36,11 @@ typedef struct btree
     spinlock_t lock;
 } btree_t;
 
-#define btree_assert(btree) assert(btree, "No Btree")
-#define btree_lock(btree)       ({btree_assert(btree); spin_lock(&btree->lock);})
-#define btree_unlock(btree)     ({btree_assert(btree); spin_unlock(&btree->lock);})
-#define btree_holding(btree)    ({btree_assert(btree); spin_locked(&btree->lock);})
-#define btree_assert_locked(btree) ({btree_assert(btree); spin_assert_locked(&btree->lock);})
+#define btree_assert(btree)         ({assert(btree, "No Btree");})
+#define btree_lock(btree)           ({btree_assert(btree); spin_lock(&btree->lock);})
+#define btree_unlock(btree)         ({btree_assert(btree); spin_unlock(&btree->lock);})
+#define btree_holding(btree)        ({btree_assert(btree); spin_locked(&btree->lock);})
+#define btree_assert_locked(btree)  ({btree_assert(btree); spin_assert_locked(&btree->lock);})
 
 #define btree_nr_nodes(btree)   ({btree_assert_locked(btree); (btree->nr_nodes); })
 #define btree_isempty(btree)    ({ btree_assert_locked(btree); (btree->root == NULL);})

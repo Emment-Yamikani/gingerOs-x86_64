@@ -7,10 +7,9 @@
 int use_cga = 0;
 static int pos = 0;
 static uint8_t cga_attr = 0;
-static uint16_t *cga_addr = (uint16_t *)0xffff8000000b8000;
+static uint16_t *cga_addr = ((uint16_t *)0xffff8000000b8000);
 
-void cga_setcolor(int back, int fore)
-{
+void cga_setcolor(int back, int fore) {
     cga_attr = (back << 4) | fore;
 }
 
@@ -24,17 +23,17 @@ void cga_setcursor(int pos) {
 void cga_scroll(void) {
     memmove(cga_addr, &cga_addr[80], 2 * ((80 * 25) - 80));
     pos -= 80;
-    memsetw(&cga_addr[80*24], 0xf00| (' '), 80);
+    memsetw(&cga_addr[80 * 24], ((uint16_t)cga_attr << 8) | (' '), 80);
 }
 
 void cga_clr(void) {
-    memsetw(&cga_addr[0], 0x0f00, (25 * 80));
+    memsetw(&cga_addr[0], (uint16_t)cga_attr << 8, (25 * 80));
     cga_setcursor(pos = 0);
 }
 
 int cga_init(void) {
+    cga_setcolor(CGA_BLACK, CGA_CYAN);
     cga_clr();
-    cga_setcolor(0, 0xF);
     use_cga = 1;
     return 0;
 }
@@ -62,9 +61,10 @@ void cga_putc(const int c) {
 }
 
 size_t cga_puts(const char *s) {
-    char *S = (char *)s;
-    for (; *S; S++)
+    char *S = NULL;
+    for (S = (char *)s; *S; S++) {
         if (cga_putchar(*S))
             break;
+    }
     return (size_t)(S - s);
 }
