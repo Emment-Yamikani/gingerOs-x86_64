@@ -82,6 +82,14 @@ int vfs_mount(const char *src,
 bind:
     if ((err = vfs_lookup(target, NULL, O_RDONLY, 0, 0, NULL, &dtarget)))
         goto error;
+    
+    if (dtarget->d_parent == NULL){
+        if ((err = vfs_mount_droot(dtarget)))
+            goto error;
+    } else {
+        
+    }
+    
     return 0;
 
 error:
