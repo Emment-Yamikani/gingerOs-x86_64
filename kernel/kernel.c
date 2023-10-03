@@ -36,6 +36,5 @@ __noreturn void kthread_main(void) {
     
     builtin_threads_begin(&nthread, NULL);
 
-    memory_usage();
     loop() thread_join(0, NULL, NULL);
 }

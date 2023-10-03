@@ -32,7 +32,7 @@ void cga_clr(void) {
 }
 
 int cga_init(void) {
-    cga_setcolor(CGA_BLACK, CGA_CYAN);
+    cga_setcolor(CGA_BLACK, CGA_WHITE);
     cga_clr();
     use_cga = 1;
     return 0;

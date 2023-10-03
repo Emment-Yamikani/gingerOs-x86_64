@@ -75,8 +75,8 @@ static int tmpfs_fill_sb(filesystem_t *fs __unused, struct devid *devid __unused
     };
     sb->sb_root = droot;
 
-    iroot->i_type = FS_DIR;
     iroot->i_sb = sb;
+    iroot->i_type = FS_DIR;
     iroot->i_ops = sb->sb_iops;
     dunlock(droot);
     iunlock(iroot);

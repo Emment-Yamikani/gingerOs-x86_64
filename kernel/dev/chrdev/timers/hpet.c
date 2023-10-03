@@ -140,6 +140,7 @@ void hpet_eoi(int i) {
 int hpet_init(void) {
     int err = -ENOENT;
     hpet_timer_t tmr = {0};
+    return -ENOTSUP;
 
     printk("Initializing High Precision Event Timer (HPET)...\n");
 

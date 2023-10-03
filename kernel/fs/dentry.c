@@ -206,6 +206,7 @@ void dclose(dentry_t *dp) {
     dassert_locked(dp);
     dput(dp);
     if (dget_count(dp) == 0) {
+        printk("%s()...\n", __func__);
         dp->d_ops.ddelete(dp);
         dunlock(dp);
     } else if (dget_count(dp) < 0) {

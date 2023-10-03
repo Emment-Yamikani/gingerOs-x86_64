@@ -3,13 +3,60 @@
 #include <bits/errno.h>
 #include <sys/_fcntl.h>
 
+static queue_t *mnt_queue = QUEUE_NEW();
+
 fs_mount_t *alloc_fsmount(void) {
     fs_mount_t *mnt = NULL;
     if ((mnt = kmalloc(sizeof *mnt)) == NULL)
         return NULL;
     memset(mnt, 0, sizeof *mnt);
     mnt->mnt_lock = SPINLOCK_INIT();
+    mnt_lock(mnt);
     return mnt;
+}
+
+static int mnt_insert(fs_mount_t *mnt) {
+    if (mnt == NULL)
+        return -EINVAL;
+    mnt_assert_locked(mnt);
+
+    queue_lock(mnt_queue);
+    if (enqueue(mnt_queue, (void *)mnt) == NULL) {
+        queue_unlock(mnt_queue);
+        return -ENOMEM;
+    }
+    queue_unlock(mnt_queue);
+    return 0;
+}
+
+static int mnt_bind(fs_mount_t *mnt, dentry_t *target) {
+    if (mnt == NULL || target == NULL)
+        return -EINVAL;
+    
+    mnt_assert_locked(mnt);
+    dassert_locked(target);
+
+    return 0;
+}
+
+
+static int mnt_remove(fs_mount_t *mnt) {
+    int err = 0;
+
+    if (mnt == NULL)
+        return -EINVAL;
+    
+    mnt_assert_locked(mnt);
+
+    queue_lock(mnt_queue);
+
+    if ((err = queue_remove(mnt_queue, (void *)mnt))) {
+        queue_unlock(mnt_queue);
+        return err;
+    }
+
+    queue_unlock(mnt_queue);
+    return 0;
 }
 
 static int do_new_mount(filesystem_t *fs, const char *src, unsigned long flags, void *data, fs_mount_t **pmnt) {
@@ -73,23 +120,28 @@ int vfs_mount(const char *src,
             fsunlock(fs);
             return err;
         }
+
+
         goto bind;
     }
-
     fsunlock(fs);
-
     return 0;
 bind:
     if ((err = vfs_lookup(target, NULL, O_RDONLY, 0, 0, NULL, &dtarget)))
         goto error;
     
     if (dtarget->d_parent == NULL){
-        if ((err = vfs_mount_droot(dtarget)))
+        if ((err = vfs_mount_droot(mnt->mnt_root))) {
             goto error;
+            fsunlock(fs);
+        }
     } else {
-        
+
     }
-    
+
+    dclose(dtarget);
+    fsunlock(fs);
+
     return 0;
 
 error:
