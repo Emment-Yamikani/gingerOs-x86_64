@@ -15,7 +15,7 @@ fs_mount_t *alloc_fsmount(void) {
     return mnt;
 }
 
-__unused static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
+static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
     int err = 0;
     int locked_root= 0, parent_lk = 0;
     stack_t *stack = NULL;
@@ -42,11 +42,14 @@ __unused static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
 
     }
 
+    stack_lock(stack);
     if ((err = stack_push(stack, (void *)target))) {
+        stack_unlock(stack);
         if (locked_root)
             dunlock(mnt->mnt_root);
         goto error;
     }
+    stack_unlock(stack);
 
     if ((parent = target->d_parent)) {
         if ((parent_lk = dislocked(parent)))
@@ -75,19 +78,11 @@ __unused static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
     }
 
     queue_lock(mnt_queue);
-    if ((err = queue_contains(mnt_queue, (void *)mnt, NULL))) {
-        queue_unlock(mnt_queue);
-        if (locked_root)
-            dunlock(mnt->mnt_root);
-        goto error;
-        return err;
-    }
 
-    if (enqueue(mnt_queue, (void *)mnt) == NULL) {
+    if ((err = enqueue(mnt_queue, (void *)mnt, 1, NULL))) {
         queue_unlock(mnt_queue);
         if (locked_root)
             dunlock(mnt->mnt_root);
-        err -ENOMEM;
         goto error;
     }
     queue_unlock(mnt_queue);
@@ -192,6 +187,7 @@ bind:
         goto error;
     
     if ((err = mnt_insert(mnt, dtarget))) {
+        printk("error @ line %d:%s:%s\n", __LINE__, __func__, fs->fs_name);
         dclose(dtarget);
         fsunlock(fs);
         goto error;

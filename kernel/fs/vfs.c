@@ -222,17 +222,20 @@ error:
 }
 
 int vfs_register_fs(filesystem_t *fs) {
+    int err = 0;
+
     fsassert_locked(fs);
     if (fs == NULL)
         return -EINVAL;
 
     queue_lock(fs_queue);
 
-    enqueue(fs_queue, fs);
+    err = enqueue(fs_queue, fs, 1, NULL);
 
     queue_unlock(fs_queue);
     
-    return 0;
+    
+    return err;
 }
 
 int vfs_unregister_fs(filesystem_t *fs) {

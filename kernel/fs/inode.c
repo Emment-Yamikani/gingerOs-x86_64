@@ -64,7 +64,7 @@ int iadd_alias(inode_t *ip, dentry_t *dentry) {
         return -EINVAL;
     
     queue_lock(&ip->i_alias);
-    err = enqueue(&ip->i_alias, dentry) ? 0 : -ENOMEM;
+    err = enqueue(&ip->i_alias, dentry, 0, NULL);
     queue_unlock(&ip->i_alias);
 
     dentry->d_inode = ip;

@@ -198,15 +198,14 @@ int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode) {
     queue_lock(queue);
     queue_lock(thread->t_queues);
 
-    if (!(node = enqueue(queue, (void *)thread)))
-    {
+    if ((err = enqueue(queue, (void *)thread, 1, NULL))) {
         err = -ENOMEM;
         queue_unlock(thread->t_queues);
         queue_unlock(queue);
         goto error;
     }
 
-    if (!enqueue(thread->t_queues, (void *)queue))
+    if ((err = enqueue(thread->t_queues, (void *)queue, 1, NULL)))
     {
         err = -ENOMEM;
         node = NULL;

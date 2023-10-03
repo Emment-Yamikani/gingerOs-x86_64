@@ -27,13 +27,15 @@ static inline int stack_init(stack_t *s) {
 }
 
 static inline int stack_push(stack_t *s, void *pd) {
+    int err = 0;
+    
     if (s == NULL)
         return -EINVAL;
     
     stack_assert_locked(s);
 
     queue_lock(&s->s_queue);
-    if (enqueue(&s->s_queue, pd) == NULL) {
+    if ((err = enqueue(&s->s_queue, pd, 0, NULL))) {
         queue_unlock(&s->s_queue);
         return -ENOMEM;
     }

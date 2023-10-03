@@ -111,15 +111,41 @@ static inline int queue_peek(queue_t *q, int tail, void **pdp) {
     return 0;
 }
 
-static inline queue_node_t *enqueue(queue_t *q, void *data)
-{
-    queue_node_t *node = NULL;
+static inline int queue_contains(queue_t *q, void *data, queue_node_t **pnp) {
+    queue_node_t *next = NULL;
     queue_assert_locked(q);
     if (q == NULL)
-        return NULL;
+        return -EINVAL;
+
+    forlinked(node, q->head, next)
+    {
+        next = node->next;
+        if (node->data == data)
+        {
+            if (pnp)
+                *pnp = node;
+            return 0;
+        }
+    }
+
+    return -ENOENT;
+}
+
+static inline int enqueue(queue_t *q, void *data, int unique, queue_node_t **pnp) {
+    int err = 0;
+    queue_node_t *node = NULL;
+    queue_assert_locked(q);
+
+    if (q == NULL)
+        return -EINVAL;
+
+    if (unique){
+        if ((err = queue_contains(q, data, NULL)) == 0)
+            return -EEXIST;
+    }
 
     if ((node = kmalloc(sizeof(*node))) == NULL)
-        return NULL;
+        return -ENOMEM;
 
     memset(node, 0, sizeof *node);
 
@@ -136,17 +162,27 @@ static inline queue_node_t *enqueue(queue_t *q, void *data)
     q->tail = node;
     node->queue = q;
     q->q_count++;
-    return node;
+
+    if (pnp)
+        *pnp = node;
+
+    return 0;
 }
 
-static inline queue_node_t *enqueue_head(queue_t *q, void *data) {
+static inline int enqueue_head(queue_t *q, int unique, void *data, queue_node_t **pnp) {
+    int err = 0;
     queue_node_t *node = NULL;
     queue_assert_locked(q);
     if (q == NULL)
-        return NULL;
+        return -EINVAL;
+
+    if (unique) {
+        if ((err = queue_contains(q, data, NULL)) == 0)
+            return -EEXIST;
+    }
 
     if ((node = kmalloc(sizeof(*node))) == NULL)
-        return NULL;
+        return -ENOMEM;
 
     memset(node, 0, sizeof *node);
 
@@ -162,7 +198,10 @@ static inline queue_node_t *enqueue_head(queue_t *q, void *data) {
     q->head = node;
     node->queue = q;
     q->q_count++;
-    return node;
+
+    if (pnp)
+        *pnp = node;
+    return 0;
 }
 
 static inline int dequeue(queue_t *q, void **pdp) {
@@ -194,27 +233,6 @@ static inline int dequeue(queue_t *q, void **pdp) {
         kfree(node);
 
         return 0;
-    }
-
-    return -ENOENT;
-}
-
-static inline int queue_contains(queue_t *q, void *data, queue_node_t **pnp)
-{
-    queue_node_t *next = NULL;
-    queue_assert_locked(q);
-    if (q == NULL)
-        return -EINVAL;
-
-    forlinked(node, q->head, next)
-    {
-        next = node->next;
-        if (node->data == data)
-        {
-            if (pnp)
-                *pnp = node;
-            return 0;
-        }
     }
 
     return -ENOENT;

@@ -136,13 +136,14 @@ int fs_set_iops(filesystem_t *fs, iops_t *iops) {
 }
 
 int fs_add_superblock(filesystem_t *fs, superblock_t *sb) {
-    fsassert_locked(fs);
+    int err = 0;
 
+    fsassert_locked(fs);
     if (fs == NULL || sb == NULL)
         return -EINVAL;
     
     queue_lock(fs->fs_superblocks);
-    if (NULL == enqueue(fs->fs_superblocks, sb)) {
+    if ((err =  enqueue(fs->fs_superblocks, sb, 1, NULL))) {
         queue_unlock(fs->fs_superblocks);
         return -ENOMEM;
     }
