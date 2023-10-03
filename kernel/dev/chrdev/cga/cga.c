@@ -50,7 +50,7 @@ static int cga_putchar(const int c) {
     if (c >= ' ')
         cga_addr[pos++] = ((cga_attr << 8) & 0xff00) | (c & 0xff);
     /*cons_scroll up*/
-    if ((pos / 80) >= 25)
+    if ((pos / 80) > 24)
         cga_scroll();
     cga_setcursor(pos);
     return 0;

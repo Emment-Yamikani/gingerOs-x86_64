@@ -25,6 +25,7 @@ typedef struct dentry {
     inode_t         *d_inode;   // dentry's inode.
     long            d_count;    // dentry's ref count.
     dops_t          d_ops;      // dentry's operations.
+    
     struct dentry   *d_next;    // dentry's next sibling.
     struct dentry   *d_prev;    // dentry's prev sibling.
     struct dentry   *d_parent;  // dentry's parent.
