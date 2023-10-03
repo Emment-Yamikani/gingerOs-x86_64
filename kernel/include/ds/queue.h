@@ -122,8 +122,7 @@ static inline queue_node_t *enqueue(queue_t *q, void *data)
     return node;
 }
 
-static inline queue_node_t *enqueue_head(queue_t *q, void *data)
-{
+static inline queue_node_t *enqueue_head(queue_t *q, void *data) {
     queue_node_t *node = NULL;
     queue_assert_locked(q);
     if (q == NULL)
@@ -149,21 +148,20 @@ static inline queue_node_t *enqueue_head(queue_t *q, void *data)
     return node;
 }
 
-static inline void *dequeue(queue_t *q)
-{
-    void *data = NULL;
+static inline int dequeue(queue_t *q, void **pdp) {
     queue_node_t *node = NULL, *prev = NULL, *next = NULL;
     queue_assert_locked(q);
 
-    if (q == NULL)
-        return NULL;
+    if (q == NULL || pdp == NULL)
+        return -EINVAL;
 
     node = q->head;
     if (node)
     {
-        data = node->data;
+        *pdp = node->data;
         prev = node->prev;
         next = node->next;
+
 
         if (prev)
             prev->next = next;
@@ -177,9 +175,11 @@ static inline void *dequeue(queue_t *q)
         q->q_count--;
         node->queue = NULL;
         kfree(node);
+
+        return 0;
     }
 
-    return data;
+    return -ENOENT;
 }
 
 static inline int queue_contains(queue_t *q, void *data, queue_node_t **pnp)
@@ -268,19 +268,18 @@ static inline int queue_remove(queue_t *q, void *data)
     return -ENOENT;
 }
 
-static inline void *dequeue_tail(queue_t *q) {
-    void *data = NULL;
+static inline int dequeue_tail(queue_t *q, void **pdp) {
     queue_node_t *next = NULL, *node = NULL, *prev = NULL;
 
     queue_assert_locked(q);
-    if (q == NULL)
+    if (q == NULL || pdp == NULL)
         return -EINVAL;
 
     node = q->tail;
     
     if (node) {
         next = node->next;
-        data = node->data;
+        *pdp = node->data;
         prev = node->prev;
 
         if (prev)
@@ -295,7 +294,9 @@ static inline void *dequeue_tail(queue_t *q) {
         q->q_count--;
         node->queue = NULL;
         kfree(node);
+
+        return 0;
     }
 
-    return data;
+    return -ENOENT;
 }

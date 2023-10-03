@@ -234,7 +234,7 @@ thread_t *thread_dequeue(queue_t *queue) {
     assert(queue, "no queue");
     queue_assert_locked(queue);
 
-    if (!(thread = dequeue(queue)))
+    if ((err = dequeue(queue, (void **)&thread)))
         return NULL;
     thread_lock(thread);
     queue_lock(thread->t_queues);

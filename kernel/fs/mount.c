@@ -15,7 +15,7 @@ fs_mount_t *alloc_fsmount(void) {
     return mnt;
 }
 
-static int mnt_insert(fs_mount_t *mnt) {
+__unused static int mnt_insert(fs_mount_t *mnt) {
     int err = 0;
 
     if (mnt == NULL)
@@ -23,7 +23,7 @@ static int mnt_insert(fs_mount_t *mnt) {
     mnt_assert_locked(mnt);
 
     queue_lock(mnt_queue);
-    if ((err = queue_conteains(mnt_queue, (void *)mnt, NULL))) {
+    if ((err = queue_contains(mnt_queue, (void *)mnt, NULL))) {
         queue_unlock(mnt_queue);
         return err;
     }
@@ -36,7 +36,7 @@ static int mnt_insert(fs_mount_t *mnt) {
     return 0;
 }
 
-static int mnt_bind(fs_mount_t *mnt, dentry_t *target) {
+__unused static int mnt_bind(fs_mount_t *mnt, dentry_t *target) {
     if (mnt == NULL || target == NULL)
         return -EINVAL;
     
@@ -47,7 +47,7 @@ static int mnt_bind(fs_mount_t *mnt, dentry_t *target) {
 }
 
 
-static int mnt_remove(fs_mount_t *mnt) {
+__unused static int mnt_remove(fs_mount_t *mnt) {
     int err = 0;
 
     if (mnt == NULL)
