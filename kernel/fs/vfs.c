@@ -50,6 +50,8 @@ static int vfs_mkpauedo_dir(const char *name, dentry_t *parent) {
 
 int vfs_init(void) {
     int err = 0;
+    inode_t *dir = NULL;
+    dentry_t *dentry = NULL;
 
     if ((err = dalloc("/", &droot)))
         return err;
@@ -74,14 +76,27 @@ int vfs_init(void) {
     if ((err = vfs_mkpauedo_dir("mnt", droot)))
         return err;
 
-    if ((err = vfs_mount(NULL, "/tmp", "tmpfs", 0, NULL)))
+    if ((err = vfs_mount(NULL, "/tmp/", "tmpfs", 0, NULL)))
         return err;
 
-    if ((err = vfs_mount(NULL, "/dev", "tmpfs", 0, NULL)))
+    if ((err = vfs_mount(NULL, "/dev/", "tmpfs", 0, NULL)))
         return err;
 
-    if ((err = vfs_mount(NULL, "/mnt", "tmpfs", 0, NULL)))
+    if ((err = vfs_mount(NULL, "/mnt/", "tmpfs", 0, NULL)))
         return err;
+
+    if ((err = vfs_lookup("/tmp/", NULL, O_RDWR, 0, 0, &dir, NULL)))
+        return err;
+
+    if ((err = dalloc("bin", &dentry)))
+        return err;
+
+
+    if ((err = imkdir(dir, dentry, 0555)))
+        return err;
+
+    dunlock(dentry);
+    iunlock(dir);
 
     return 0;
 }
@@ -167,18 +182,19 @@ int vfs_lookup(const char *fn, uio_t *__uio,
     next:
         dunlock(d_dir);
         if (!compare_strings(tok, last_tok)) {
+            if (dp->d_inode)
+                ilock(dp->d_inode);
             if (isdir) {
                 if (dp->d_inode) {
-                    ilock(dp->d_inode);
                     if (IISDIR(dp->d_inode) == 0) {
                         err = -ENOTDIR;
                         iunlock(dp->d_inode);
                         dunlock(dp);
                         goto error;
                     }
-                    iunlock(dp->d_inode);
                 }
             }
+            ip = dp->d_inode;
             goto found;
         }
         d_dir = dp;
