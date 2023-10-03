@@ -5,6 +5,7 @@
 #include <lib/printk.h>
 #include <fs/inode.h>
 #include <sync/spinlock.h>
+#include <ds/stack.h>
 
 #define DCACHE_MOUNTED      1
 #define DCACHE_CAN_FREE     2
@@ -25,7 +26,7 @@ typedef struct dentry {
     inode_t         *d_inode;   // dentry's inode.
     long            d_count;    // dentry's ref count.
     dops_t          d_ops;      // dentry's operations.
-    
+    stack_t         *d_mnt_stack;// dentry's mountpoint stack.
     struct dentry   *d_next;    // dentry's next sibling.
     struct dentry   *d_prev;    // dentry's prev sibling.
     struct dentry   *d_parent;  // dentry's parent.
@@ -42,7 +43,7 @@ typedef struct dentry {
     spin_assert_locked(&(dentry)->d_lock); \
 })
 
-#define dlocked(dentry) ({            \
+#define dislocked(dentry) ({            \
     spin_islocked(&(dentry)->d_lock); \
 })
 
@@ -54,6 +55,10 @@ typedef struct dentry {
 #define dunlock(dentry) ({          \
     dassert(dentry);                \
     spin_unlock(&(dentry)->d_lock); \
+})
+
+#define dtestflags(dentry, flags) ({ \
+    (dentry)->d_flags & (flags);   \
 })
 
 #define dsetflags(dentry, flags) ({ \

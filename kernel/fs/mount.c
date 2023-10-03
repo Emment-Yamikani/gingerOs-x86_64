@@ -15,35 +15,89 @@ fs_mount_t *alloc_fsmount(void) {
     return mnt;
 }
 
-__unused static int mnt_insert(fs_mount_t *mnt) {
+__unused static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
     int err = 0;
+    int locked_root= 0, parent_lk = 0;
+    stack_t *stack = NULL;
+    dentry_t *parent = NULL;
 
-    if (mnt == NULL)
-        return -EINVAL;
-    mnt_assert_locked(mnt);
-
-    queue_lock(mnt_queue);
-    if ((err = queue_contains(mnt_queue, (void *)mnt, NULL))) {
-        queue_unlock(mnt_queue);
-        return err;
-    }
-
-    if (enqueue(mnt_queue, (void *)mnt) == NULL) {
-        queue_unlock(mnt_queue);
-        return -ENOMEM;
-    }
-    queue_unlock(mnt_queue);
-    return 0;
-}
-
-__unused static int mnt_bind(fs_mount_t *mnt, dentry_t *target) {
     if (mnt == NULL || target == NULL)
         return -EINVAL;
     
     mnt_assert_locked(mnt);
     dassert_locked(target);
 
+    if (mnt->mnt_root == NULL)
+        return -EINVAL;
+    
+    if ((locked_root = !dislocked(mnt->mnt_root)))
+        dlock(mnt->mnt_root);
+    
+    if (mnt->mnt_root->d_mnt_stack == NULL) {
+        if ((err = stack_alloc(&stack))) {
+            if (locked_root)
+                dunlock(mnt->mnt_root);
+            return err;
+        }
+
+    }
+
+    if ((err = stack_push(stack, (void *)target))) {
+        if (locked_root)
+            dunlock(mnt->mnt_root);
+        goto error;
+    }
+
+    if ((parent = target->d_parent)) {
+        if ((parent_lk = dislocked(parent)))
+            dlock(parent);
+        ddup(parent);
+        dunbind(target);
+        if ((err = dbind(parent, mnt->mnt_root))) {
+            if (parent_lk) {
+                dput(parent);
+                dunlock(parent);
+            }
+
+            if (locked_root)
+                dunlock(mnt->mnt_root);
+            goto error;
+        }
+        
+        if (parent_lk) {
+            dput(parent);
+            dunlock(parent);
+        }
+    } else if ((err = vfs_mount_droot(mnt->mnt_root))) {
+            if (locked_root)
+                dunlock(mnt->mnt_root);
+            goto error;
+    }
+
+    queue_lock(mnt_queue);
+    if ((err = queue_contains(mnt_queue, (void *)mnt, NULL))) {
+        queue_unlock(mnt_queue);
+        if (locked_root)
+            dunlock(mnt->mnt_root);
+        goto error;
+        return err;
+    }
+
+    if (enqueue(mnt_queue, (void *)mnt) == NULL) {
+        queue_unlock(mnt_queue);
+        if (locked_root)
+            dunlock(mnt->mnt_root);
+        err -ENOMEM;
+        goto error;
+    }
+    queue_unlock(mnt_queue);
+
+    mnt->mnt_root->d_mnt_stack = stack;
     return 0;
+error:
+    if (stack)
+        stack_free(stack);
+    return err;
 }
 
 
