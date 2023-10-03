@@ -27,8 +27,6 @@ static inline int stack_init(stack_t *s) {
 }
 
 static inline int stack_push(stack_t *s, void *pd) {
-    int err = 0;
-    
     if (s == NULL)
         return -EINVAL;
     
@@ -41,14 +39,11 @@ static inline int stack_push(stack_t *s, void *pd) {
     }
     queue_unlock(&s->s_queue);
 
-    return 0;
-error:
-    return err;    
+    return 0;   
 }
 
 static inline int stack_pop(stack_t *s, void **pdp) {
     int err = 0;
-    void *data = NULL;
 
     if (s == NULL)
         return -EINVAL;
@@ -128,4 +123,14 @@ static inline int stack_alloc(stack_t **psp) {
 error:
     if (s) kfree((void *)s);
     return err;
+}
+
+static inline void stack_free(stack_t *s) {
+    if (s == NULL)
+        return;
+    if (!stack_islocked(s))
+        stack_lock(s);
+    stack_flush(s);
+    stack_unlock(s);
+    kfree(s);
 }

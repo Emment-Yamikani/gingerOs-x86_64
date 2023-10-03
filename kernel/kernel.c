@@ -21,6 +21,7 @@
 #include <dev/hpet.h>
 #include <modules/module.h>
 #include <fs/tmpfs.h>
+#include <ds/stack.h>
 
 void core_start(void);
 
@@ -35,6 +36,20 @@ __noreturn void kthread_main(void) {
     printk("Welcome to 'Ginger OS'.\n");
     
     builtin_threads_begin(&nthread, NULL);
+
+    stack_t *s = NULL;
+
+    stack_alloc(&s);
+
+    stack_lock(s);
+
+    for (long i = 0; i < 24; ++i)
+        stack_push(s, (void *)i);
+    
+    for (long i = 0; stack_pop(s, (void **)&i) == 0; )
+        printk("stack[%2d]: %ld\n", 20 - i, i);
+
+    stack_unlock(s);
 
     loop() thread_join(0, NULL, NULL);
 }
