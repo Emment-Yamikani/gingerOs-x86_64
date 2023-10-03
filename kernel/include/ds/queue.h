@@ -94,6 +94,25 @@ static inline size_t queue_count(queue_t *q)
     return q->q_count;
 }
 
+static inline int queue_peek(queue_t *q, int tail, void **pdp) {
+    int err = 0;
+
+    queue_assert_locked(q);
+
+    if (q == NULL || pdp == NULL)
+        return -EINVAL;
+    
+    if (queue_count(q) == 0)
+        return -ENOENT;
+    
+    if (tail)
+        *pdp = q->tail->data;
+    else
+        *pdp = q->head->data;
+    
+    return 0;
+}
+
 static inline queue_node_t *enqueue(queue_t *q, void *data)
 {
     queue_node_t *node = NULL;

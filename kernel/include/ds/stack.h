@@ -135,19 +135,18 @@ static inline void stack_free(stack_t *s) {
     kfree(s);
 }
 
-static inline int stack_peek(stack_t *s, void **pdp) {
-    long err = 0;
+static inline int stack_peek(stack_t *s, int top, void **pdp) {
+    int err = 0;
     if (s == NULL || pdp == NULL)
         return -EINVAL;
     
     stack_assert_locked(s);
 
     queue_lock(&s->s_queue);
-    if ((err = queue_count(&s->s_queue)) == 0) {
+    if ((err = queue_peek(&s->s_queue, top, pdp))) {
         queue_unlock(&s->s_queue);
-        return -ENONET;
+        return err;
     }
-    *pdp = s->s_queue.head->data;
     queue_unlock(&s->s_queue);
 
     return 0;
