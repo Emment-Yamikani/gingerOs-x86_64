@@ -51,12 +51,6 @@ int parse_path(const char *path, const char *__cwd, char **__abspath, char ***__
     char *tmp_path = NULL, *last_token = NULL, **token_buffer = NULL;
     char *cwd = NULL, **tokens = NULL, *abspath = NULL, *tmp_cwd = NULL;
 
-    if (!__abspath)
-    {
-        err = -EINVAL;
-        goto error;
-    }
-
     if (!path || !*path)
         goto error;
 
@@ -166,7 +160,10 @@ int parse_path(const char *path, const char *__cwd, char **__abspath, char ***__
     if (tmp_cwd)
         kfree(tmp_cwd);
 
-    *__abspath = abspath;
+    if (__abspath)
+        *__abspath = abspath;
+    else
+        kfree(__abspath);
 
     if (__abspath_tokens)
         *__abspath_tokens = token_buffer;
@@ -188,4 +185,8 @@ error:
     if (token_buffer)
         tokens_free(token_buffer);
     return err;
+}
+
+int path_get_lasttoken(const char *path, char **ltok) {
+    return parse_path(path, NULL, NULL, NULL, ltok, NULL);
 }

@@ -91,9 +91,9 @@ int getsb(filesystem_t * fs, struct devid *devid, superblock_t **psb)
     return 0;
 }
 
-int getsb_bdev(filesystem_t *fs, const char *bdev_name,
+int getsb_bdev(filesystem_t *fs, const char *bdev_name, const char *target,
                 unsigned long flags, void *data __unused, superblock_t **psbp,
-                int (*sb_fill)(filesystem_t *fs, struct devid *dd, superblock_t *sb))
+                int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb))
 {
     int err = 0;
     struct devid devid;
@@ -123,15 +123,17 @@ int getsb_bdev(filesystem_t *fs, const char *bdev_name,
     sb->sb_blocksize = bdevinfo.bi_blocksize;
 
     sbassert_locked(sb);
-    if ((err = sb_fill(fs, &devid, sb)))
+    if ((err = sb_fill(fs, target, &devid, sb)))
         return err;
 
     *psbp = sb;
     return 0;
 }
 
-int getsb_nodev(filesystem_t *fs, unsigned long flags __unused, void *data __unused, superblock_t **psbp,
-                int (*sb_fill)(filesystem_t *fs, struct devid *dd, superblock_t *sb)) {
+int getsb_nodev(filesystem_t *fs, const char *target,
+                unsigned long flags __unused, void *data __unused,
+                superblock_t **psbp, int (*sb_fill)(filesystem_t *fs,
+                const char *target, struct devid *dd, superblock_t *sb)) {
     int err = 0;
     dev_t *dev = NULL;
     char *name = NULL;
@@ -158,12 +160,18 @@ int getsb_nodev(filesystem_t *fs, unsigned long flags __unused, void *data __unu
     if ((err = getsb(fs, &dev->devid, &sb)))
         return err;
     
-    if ((err = sb_fill(fs, &dev->devid, sb)))
+    if ((err = sb_fill(fs, target, &dev->devid, sb)))
         return err;
 
     *psbp = sb;
     return 0;
 }
 
-int getsb_pseudo(filesystem_t *fs, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, struct devid *dd, superblock_t *sb));
-int getsb_single(filesystem_t *fs, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, struct devid *dd, superblock_t *sb));
+int getsb_pseudo(filesystem_t *fs, const char *target,
+    unsigned long flags, void *data, superblock_t **psbp,
+    int (*sb_fill)(filesystem_t *fs, const char *target,
+    struct devid *dd, superblock_t *sb));
+int getsb_single(filesystem_t *fs, const char *target,
+    unsigned long flags, void *data, superblock_t **psbp,
+    int (*sb_fill)(filesystem_t *fs, const char *target,
+    struct devid *dd, superblock_t *sb));

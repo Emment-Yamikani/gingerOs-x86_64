@@ -78,7 +78,7 @@ typedef struct filesystem {
     iops_t      *fs_iops;
     void        *fs_priv;
     queue_t     *fs_superblocks;
-    int         (*get_sb)(struct filesystem *fs, const char *src, unsigned long flags, void *data, superblock_t **psbp);
+    int         (*get_sb)(struct filesystem *fs, const char *src, const char *target, unsigned long flags, void *data, superblock_t **psbp);
     int         (*mount)(struct filesystem *fs, dentry_t *src, dentry_t *dst, unsigned long flags, void *data);
     spinlock_t  fs_lock;
 } filesystem_t;
@@ -104,6 +104,7 @@ int verify_path(const char *path);
 int parse_path(const char *path, const char *cwd,
                char **abspath, char ***abspath_tokens,
                char **last_token, int *isdir);
+int path_get_lasttoken(const char *path, char **ltok);
 
 int vfs_init(void);
 int ramfs_init(void);
@@ -128,7 +129,7 @@ fs_mount_t *alloc_fsmount(void);
  * Super block helpers
 */
 
-int getsb_bdev(filesystem_t *fs, const char *bdev_name, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, struct devid *dd, superblock_t *sb));
-int getsb_nodev(filesystem_t *fs, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, struct devid *dd, superblock_t *sb));
-int getsb_pseudo(filesystem_t *fs, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, struct devid *dd, superblock_t *sb));
-int getsb_single(filesystem_t *fs, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, struct devid *dd, superblock_t *sb));
+int getsb_bdev(filesystem_t *fs, const char *bdev_name, const char *target, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb));
+int getsb_nodev(filesystem_t *fs, const char *target, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb));
+int getsb_pseudo(filesystem_t *fs, const char *target, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb));
+int getsb_single(filesystem_t *fs, const char *target, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb));
