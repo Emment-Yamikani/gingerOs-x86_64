@@ -52,25 +52,30 @@ static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
     stack_unlock(stack);
 
     if ((parent = target->d_parent)) {
-        if ((parent_lk = dislocked(parent)))
+        if ((parent_lk = !dislocked(parent)))
             dlock(parent);
         ddup(parent);
+        if (parent_lk)
+            dunlock(parent);
+
         dunbind(target);
+
+        if ((parent_lk = !dislocked(parent)))
+            dlock(parent);
+
         if ((err = dbind(parent, mnt->mnt_root))) {
-            if (parent_lk) {
-                dput(parent);
+            dput(parent);
+            if (parent_lk)
                 dunlock(parent);
-            }
 
             if (locked_root)
                 dunlock(mnt->mnt_root);
             goto error;
         }
         
-        if (parent_lk) {
-            dput(parent);
+        dput(parent);
+        if (parent_lk)
             dunlock(parent);
-        }
     } else if ((err = vfs_mount_droot(mnt->mnt_root))) {
             if (locked_root)
                 dunlock(mnt->mnt_root);
@@ -88,6 +93,9 @@ static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
     queue_unlock(mnt_queue);
 
     mnt->mnt_root->d_mnt_stack = stack;
+
+    if (locked_root)
+        dunlock(mnt->mnt_root);
     return 0;
 error:
     if (stack)

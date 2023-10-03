@@ -73,12 +73,24 @@ void ddump(dentry_t *dentry, int flags);
 #define DDUMP_HANG  1
 #define DDUMP_PANIC 2
 
+#define dget_count(dp) ({ \
+    dassert_locked(dp);   \
+    dp->d_count;          \
+})
+
+#define ddup(dp) ({     \
+    dassert_locked(dp); \
+    ++dp->d_count;      \
+})
+
+#define dput(dp) ({     \
+    dassert_locked(dp); \
+    --dp->d_count;      \
+})
+
 int dmkdentry(dentry_t *dir, const char *name, dentry_t **pdp);
-void dput(dentry_t *dp);
-void ddup(dentry_t *dentry);
 void dclose(dentry_t *dentry);
 void dunbind(dentry_t *dentry);
-long dget_count(dentry_t *dp);
 void drelease(dentry_t *dentry);
 int dbind(dentry_t *parent, dentry_t *child);
 int dalloc(const char *name, dentry_t **pdentry);

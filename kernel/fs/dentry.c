@@ -24,21 +24,6 @@ void ddump(dentry_t *dp, int flags) {
         panic("PANICKED\n");
 }
 
-long dget_count(dentry_t *dp) {
-    dassert_locked(dp);
-    return dp->d_count;
-}
-
-void ddup(dentry_t *dp) {
-    dassert_locked(dp);
-    ++dp->d_count;
-}
-
-void dput(dentry_t *dp) {
-    dassert_locked(dp);
-    --dp->d_count;
-}
-
 void diput(dentry_t *dp) {
     dassert_locked(dp);
 }
