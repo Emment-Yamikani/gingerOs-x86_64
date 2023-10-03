@@ -191,13 +191,10 @@ bind:
     if ((err = vfs_lookup(target, NULL, O_RDONLY, 0, 0, NULL, &dtarget)))
         goto error;
     
-    if (dtarget->d_parent == NULL){
-        if ((err = vfs_mount_droot(mnt->mnt_root))) {
-            goto error;
-            fsunlock(fs);
-        }
-    } else {
-
+    if ((err = mnt_insert(mnt, dtarget))) {
+        dclose(dtarget);
+        fsunlock(fs);
+        goto error;
     }
 
     dclose(dtarget);

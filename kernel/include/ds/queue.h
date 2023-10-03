@@ -95,8 +95,6 @@ static inline size_t queue_count(queue_t *q)
 }
 
 static inline int queue_peek(queue_t *q, int tail, void **pdp) {
-    int err = 0;
-
     queue_assert_locked(q);
 
     if (q == NULL || pdp == NULL)
