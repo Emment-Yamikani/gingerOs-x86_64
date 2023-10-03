@@ -48,7 +48,6 @@ dev_t *kdev_get(struct devid *dd) {
     }
 
     if (dev && !DEVID_CMP(&dev->devid, dd)) {
-        printk("dd does not match a device\n");
         forlinked(node, dev->devnext, node->devnext) {
             if (DEVID_CMP(&node->devid, dd)) {
                 dev = node;
@@ -195,7 +194,6 @@ int kdev_open_bdev(const char *bdev_name, struct devid *pdev) {
             return 0;
         }
     }
-
     spin_unlock(blkdevlk);
     return -ENOENT;
 }

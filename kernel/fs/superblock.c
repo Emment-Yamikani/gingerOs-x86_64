@@ -47,7 +47,6 @@ int getsb(filesystem_t * fs, struct devid *devid, superblock_t **psb)
     if (psb == NULL || devid == NULL)
         return -EINVAL;
 
-    printk("fs: %s\n", fs->fs_name);
     queue_lock(fs->fs_superblocks);
     forlinked(node, fs->fs_superblocks->head, next) {
         next = node->next;
@@ -62,10 +61,8 @@ int getsb(filesystem_t * fs, struct devid *devid, superblock_t **psb)
     }
     queue_unlock(fs->fs_superblocks);
 
-    if ((sb = kmalloc(sizeof *sb)) == NULL) {
-        queue_unlock(fs->fs_superblocks);
+    if ((sb = kmalloc(sizeof *sb)) == NULL)
         return -ENOMEM;
-    }
 
     memset(sb, 0, sizeof *sb);
     sb->sb_lock = SPINLOCK_INIT();
@@ -83,6 +80,7 @@ int getsb(filesystem_t * fs, struct devid *devid, superblock_t **psb)
     sblock(sb);
 
     if ((err = fs_add_superblock(fs, sb))) {
+        sbunlock(sb);
         kfree(sb);
         return err;
     }
@@ -93,8 +91,7 @@ int getsb(filesystem_t * fs, struct devid *devid, superblock_t **psb)
 
 int getsb_bdev(filesystem_t *fs, const char *bdev_name, const char *target,
                 unsigned long flags, void *data __unused, superblock_t **psbp,
-                int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb))
-{
+                int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb)) {
     int err = 0;
     struct devid devid;
     bdev_info_t bdevinfo;
@@ -122,7 +119,6 @@ int getsb_bdev(filesystem_t *fs, const char *bdev_name, const char *target,
     sb->sb_size = bdevinfo.bi_size;
     sb->sb_blocksize = bdevinfo.bi_blocksize;
 
-    sbassert_locked(sb);
     if ((err = sb_fill(fs, target, &devid, sb)))
         return err;
 
@@ -157,12 +153,17 @@ int getsb_nodev(filesystem_t *fs, const char *target,
     if ((err = kdev_create(name, FS_BLK, 0, minor, &dev)))
         return err;
 
-    if ((err = getsb(fs, &dev->devid, &sb)))
+    if ((err = getsb(fs, &dev->devid, &sb))) {
+        dev_unlock(dev);
         return err;
+    }
     
-    if ((err = sb_fill(fs, target, &dev->devid, sb)))
+    if ((err = sb_fill(fs, target, &dev->devid, sb))) {
+        dev_unlock(dev);
         return err;
+    }
 
+    dev_unlock(dev);
     *psbp = sb;
     return 0;
 }

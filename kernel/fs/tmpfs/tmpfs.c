@@ -42,12 +42,11 @@ static size_t tmpfs_hash(const char *str) {
     return hash;
 }
 
-static int tmpfs_fill_sb(filesystem_t *fs __unused, const char *target, struct devid *devid __unused, superblock_t *sb) {
+static int tmpfs_fill_sb(filesystem_t *fs __unused, const char *target,
+    struct devid *devid __unused, superblock_t *sb) {
     int err = 0;
     inode_t *iroot = NULL;
     dentry_t *droot = NULL;
-
-    printk("%s()...\n", __func__);
 
     if ((err = tmpfs_ialloc(FS_DIR, &iroot)))
         return err;
@@ -84,7 +83,6 @@ static int tmpfs_fill_sb(filesystem_t *fs __unused, const char *target, struct d
 }
 
 static int tmpfs_getsb(filesystem_t *fs, const char *src __unused, const char *target, unsigned long flags, void *data, superblock_t **psbp) {
-    printk("%s()...\n", __func__);
     return getsb_nodev(fs, target, flags, data, psbp, tmpfs_fill_sb);
 }
 
@@ -97,8 +95,10 @@ int tmpfs_init(void) {
     tmpfs->get_sb = tmpfs_getsb;
     tmpfs->mount = NULL;
 
-    if ((err = vfs_register_fs(tmpfs)))
+    if ((err = vfs_register_fs(tmpfs))) {
+        fsunlock(tmpfs);
         goto error;
+    }
 
     fsunlock(tmpfs);
     return 0;

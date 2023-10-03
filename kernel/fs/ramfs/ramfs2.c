@@ -43,12 +43,15 @@ int ramfs_init(void)
     return err;
 }
 
-static int ramfs_getsb(filesystem_t *fs, const char *src, const char *target, unsigned long flags, void *data, superblock_t **psb)
+static int ramfs_getsb(filesystem_t *fs, const char *src,
+            const char *target, unsigned long flags,
+            void *data, superblock_t **psb)
 {
     return getsb_bdev(fs, src, target, flags, data, psb, ramfs_fill_sb);
 }
 
-static int ramfs_fill_sb(filesystem_t *fs, const char *target, struct devid *devid, superblock_t *sb)
+static int ramfs_fill_sb(filesystem_t *fs, const char *target, 
+                    struct devid *devid, superblock_t *sb)
 {
     ssize_t err = 0;
     size_t sbsz = 0;
@@ -77,9 +80,10 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target, struct devid *dev
     if ((err = ialloc(&iroot)))
         return err;
 
-
-    if ((err = dalloc(target, &droot)))
+    if ((err = dalloc(target, &droot))) {
+        iclose(iroot);
         return err;
+    }
 
     if ((err = iadd_alias(iroot, droot))) {
         dclose(droot);
@@ -88,7 +92,8 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target, struct devid *dev
     }
 
     sb->sb_blocksize = 512;
-    strncpy(sb->sb_magic0, ramfs2_super->header.magic, strlen(ramfs2_super->header.magic));
+    strncpy(sb->sb_magic0, ramfs2_super->header.magic,
+            strlen(ramfs2_super->header.magic));
     sb->sb_size = ramfs2_super->header.file_size;
     sb->sb_uio  = (uio_t) {
         .u_cwd = "/",
@@ -144,7 +149,6 @@ int ramfs2_find(ramfs2_super_t *super, const char *fn, ramfs2_node_t **pnode)
 
     for (uint32_t indx = 0; indx < super->header.nfile; ++indx)
     {
-        printk("checking... %s\n", super->nodes[indx].name);
         if (!compare_strings(super->nodes[indx].name, (char *)fn))
         {
             *pnode = &super->nodes[indx];

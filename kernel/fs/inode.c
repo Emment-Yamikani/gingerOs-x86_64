@@ -69,8 +69,6 @@ int iadd_alias(inode_t *ip, dentry_t *dentry) {
 
     dentry->d_inode = ip;
     idupcnt(ip);
-
-    printk("add %s to inode alias\n", dentry->d_name);
     return err;
 }
 
@@ -212,13 +210,13 @@ int     imkdir(inode_t *dir, struct dentry *dentry, mode_t mode) {
     int err = 0;
     iassert_locked(dir);
     dassert_locked(dentry);
-    
+
     if (IISDIR(dir) == 0)
         return -ENOTDIR;
 
     if ((err = icheck_op(dir, imkdir)))
         return err;
-    
+
     return dir->i_ops->imkdir(dir, dentry, mode);
 }
 

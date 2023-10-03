@@ -4,6 +4,7 @@
 #include <mm/kalloc.h>
 #include <bits/errno.h>
 #include <fs/tmpfs.h>
+#include <sys/_fcntl.h>
 
 static dentry_t *droot = NULL;
 static queue_t *fs_queue = &QUEUE_INIT();
@@ -23,10 +24,32 @@ int vfs_mount_droot(dentry_t *dentry) {
     return 0;
 }
 
-int vfs_init(void) {
+static int vfs_mkpauedo_dir(const char *name, dentry_t *parent) {
     int err = 0;
     inode_t *ip = NULL;
     dentry_t *dnt = NULL;
+    if ((err = vfs_alloc_vnode(name, FS_DIR, &ip, &dnt)))
+        return err;
+
+    dlock(parent);
+    if ((err = dbind(parent, dnt)))
+    {
+        dunlock(parent);
+        dclose(dnt);
+        iclose(ip);
+        return err;
+    }
+
+    dunlock(parent);
+
+    dunlock(dnt);
+    iunlock(ip);
+
+    return 0;
+}
+
+int vfs_init(void) {
+    int err = 0;
 
     if ((err = dalloc("/", &droot)))
         return err;
@@ -42,25 +65,23 @@ int vfs_init(void) {
     if ((err = vfs_mount("ramdisk", "/", "ramfs", 0, NULL)))
         return err;
 
-    if ((err = vfs_alloc_vnode("tmp", FS_DIR, &ip, &dnt)))
+    if ((err = vfs_mkpauedo_dir("dev", droot)))
+        return err;
+
+    if ((err = vfs_mkpauedo_dir("tmp", droot)))
         return err;
     
-    dlock(droot);
-    if ((err = dbind(droot, dnt))){
-        dclose(dnt);
-        iclose(ip);
-        dunlock(droot);
+    if ((err = vfs_mkpauedo_dir("mnt", droot)))
         return err;
-    }
-
-    dunlock(droot);
-
-    dunlock(dnt);
-    iunlock(ip);
 
     if ((err = vfs_mount(NULL, "/tmp", "tmpfs", 0, NULL)))
         return err;
-    
+
+    if ((err = vfs_mount(NULL, "/dev", "tmpfs", 0, NULL)))
+        return err;
+
+    if ((err = vfs_mount(NULL, "/mnt", "tmpfs", 0, NULL)))
+        return err;
 
     return 0;
 }
@@ -127,6 +148,9 @@ int vfs_lookup(const char *fn, uio_t *__uio,
 
     if (!compare_strings(path, "/")) {
         dp = d_dir;
+        ip = dp->d_inode;
+        if (ip)
+            ilock(ip);
         goto found;
     }
 
@@ -201,21 +225,20 @@ delegate:
     }
 
 found:
-    if (pdp) {
-        ddup(dp);
-        *pdp = dp;
-    }
-    else
-        dclose(dp);
-    
     if (pip) {
         idupcnt(ip);
         *pip = ip;
     }
     else if (ip)
         iputcnt(ip);
-    
-    printk("%s() done...\n", __func__);
+
+    if (pdp) {
+        ddup(dp);
+        *pdp = dp;
+    }
+    else {
+        dclose(dp);
+    }
     return 0;
 error:
     return err;

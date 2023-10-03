@@ -15,6 +15,22 @@ fs_mount_t *alloc_fsmount(void) {
     return mnt;
 }
 
+void fsmount_free(fs_mount_t *mnt) {
+    if (mnt == NULL)
+        return;
+    
+    if (!mnt_islocked(mnt))
+        mnt_lock(mnt);
+
+    if (mnt->mnt_root) {
+        dlock(mnt->mnt_root);
+        dclose(mnt->mnt_root);
+    }
+
+    mnt_unlock(mnt);
+    kfree(mnt);
+}
+
 static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
     int err = 0;
     int locked_root= 0, parent_lk = 0;
@@ -103,7 +119,6 @@ error:
     return err;
 }
 
-
 __unused static int mnt_remove(fs_mount_t *mnt) {
     int err = 0;
 
@@ -123,7 +138,9 @@ __unused static int mnt_remove(fs_mount_t *mnt) {
     return 0;
 }
 
-static int do_new_mount(filesystem_t *fs, const char *src, const char *target, unsigned long flags, void *data, fs_mount_t **pmnt) {
+static int do_new_mount(filesystem_t *fs, const char *src,
+                        const char *target, unsigned long flags,
+                        void *data, fs_mount_t **pmnt) {
     int err = 0;
     fs_mount_t *mnt = NULL;
     superblock_t *sb = NULL;
@@ -132,14 +149,14 @@ static int do_new_mount(filesystem_t *fs, const char *src, const char *target, u
 
     if (pmnt == NULL || fs == NULL)
         return -EINVAL;
-
+    
     if ((mnt = alloc_fsmount()) == NULL) {
         err = -ENOMEM;
         goto error;
     }
 
     if (fs->get_sb == NULL) {
-        err = -EINVAL;
+        err = -ENOSYS;
         goto error;
     }
 
@@ -154,7 +171,7 @@ static int do_new_mount(filesystem_t *fs, const char *src, const char *target, u
 
     return 0;
 error:
-    if (mnt) kfree(mnt);
+    if (mnt) fsmount_free(mnt);
     return err;
 }
 
@@ -172,6 +189,7 @@ int vfs_mount(const char *src,
 
     if (target == NULL)
         return -EINVAL;
+
 
     if ((err = vfs_getfs(type, &fs)))
         return err;
@@ -191,8 +209,6 @@ int vfs_mount(const char *src,
             fsunlock(fs);
             return err;
         }
-
-
         goto bind;
     }
 
@@ -201,22 +217,27 @@ int vfs_mount(const char *src,
 
     return 0;
 bind:
-    if ((err = vfs_lookup(target, NULL, O_RDONLY, 0, 0, NULL, &dtarget)))
+    if ((err = vfs_lookup(target, NULL, O_RDONLY, 0, 0, NULL, &dtarget))) {
+        mnt_unlock(mnt);
+        fsunlock(fs);
         goto error;
-    
+    }
+
     if ((err = mnt_insert(mnt, dtarget))) {
-        printk("error @ line %d:%s:%s\n", __LINE__, __func__, fs->fs_name);
         dclose(dtarget);
+        mnt_unlock(mnt);
         fsunlock(fs);
         goto error;
     }
 
     dclose(dtarget);
+    mnt_unlock(mnt);
     fsunlock(fs);
 
     return 0;
 
 error:
+    if (mnt) fsmount_free(mnt);
     panic("%s: error: %d\n", __func__, err);
     return err;
 }

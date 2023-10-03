@@ -39,8 +39,8 @@ typedef struct fs_mount
 #define mnt_assert(mnt)         ({assert(mnt, "No mnt ptr"); })
 #define mnt_lock(mnt)           ({mnt_assert(mnt); spin_lock(&(mnt)->mnt_lock);})
 #define mnt_unlock(mnt)         ({mnt_assert(mnt); spin_unlock(&(mnt)->mnt_lock);})
-#define mnt_islock(mnt)         ({mnt_assert(mnt); spin_islocked(&(mnt)->mnt_lock); })
-#define mnt_assert_locked(mnt)   ({mnt_assert(mnt); spin_assert_locked(&(mnt)->mnt_lock); })
+#define mnt_islocked(mnt)       ({mnt_assert(mnt); spin_islocked(&(mnt)->mnt_lock); })
+#define mnt_assert_locked(mnt)  ({mnt_assert(mnt); spin_assert_locked(&(mnt)->mnt_lock); })
 
 
 int vfs_mount(const char *src, const char *dest, const char *type, unsigned long flags, const void *data);
