@@ -16,11 +16,18 @@ fs_mount_t *alloc_fsmount(void) {
 }
 
 static int mnt_insert(fs_mount_t *mnt) {
+    int err = 0;
+
     if (mnt == NULL)
         return -EINVAL;
     mnt_assert_locked(mnt);
 
     queue_lock(mnt_queue);
+    if ((err = queue_conteains(mnt_queue, (void *)mnt, NULL))) {
+        queue_unlock(mnt_queue);
+        return err;
+    }
+
     if (enqueue(mnt_queue, (void *)mnt) == NULL) {
         queue_unlock(mnt_queue);
         return -ENOMEM;

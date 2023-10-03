@@ -38,11 +38,11 @@ typedef struct queue
     (q)->q_lock = SPINLOCK_INIT(); \
 })
 
-static inline int queue_alloc(queue_t **pq)
+static inline int queue_alloc(queue_t **pqp)
 {
     queue_t *q = NULL;
 
-    if (pq == NULL)
+    if (pqp == NULL)
         return -EINVAL;
 
     if ((q = kmalloc(sizeof *q)) == NULL)
@@ -50,7 +50,7 @@ static inline int queue_alloc(queue_t **pq)
 
     memset(q, 0, sizeof *q);
     q->q_lock = SPINLOCK_INIT();
-    *pq = q;
+    *pqp = q;
 
     return 0;
 }
@@ -122,6 +122,33 @@ static inline queue_node_t *enqueue(queue_t *q, void *data)
     return node;
 }
 
+static inline queue_node_t *enqueue_head(queue_t *q, void *data)
+{
+    queue_node_t *node = NULL;
+    queue_assert_locked(q);
+    if (q == NULL)
+        return NULL;
+
+    if ((node = kmalloc(sizeof(*node))) == NULL)
+        return NULL;
+
+    memset(node, 0, sizeof *node);
+
+    node->data = data;
+
+    if (q->head == NULL) {
+        q->tail = node;
+    } else {
+        q->head->prev = node;
+        node->next = q->head;
+    }
+
+    q->head = node;
+    node->queue = q;
+    q->q_count++;
+    return node;
+}
+
 static inline void *dequeue(queue_t *q)
 {
     void *data = NULL;
@@ -155,7 +182,7 @@ static inline void *dequeue(queue_t *q)
     return data;
 }
 
-static inline int queue_contains(queue_t *q, void *data, queue_node_t **pnode)
+static inline int queue_contains(queue_t *q, void *data, queue_node_t **pnp)
 {
     queue_node_t *next = NULL;
     queue_assert_locked(q);
@@ -167,8 +194,8 @@ static inline int queue_contains(queue_t *q, void *data, queue_node_t **pnode)
         next = node->next;
         if (node->data == data)
         {
-            if (pnode)
-                *pnode = node;
+            if (pnp)
+                *pnp = node;
             return 0;
         }
     }
@@ -239,4 +266,36 @@ static inline int queue_remove(queue_t *q, void *data)
     }
 
     return -ENOENT;
+}
+
+static inline void *dequeue_tail(queue_t *q) {
+    void *data = NULL;
+    queue_node_t *next = NULL, *node = NULL, *prev = NULL;
+
+    queue_assert_locked(q);
+    if (q == NULL)
+        return -EINVAL;
+
+    node = q->tail;
+    
+    if (node) {
+        next = node->next;
+        data = node->data;
+        prev = node->prev;
+
+        if (prev)
+            prev->next = next;
+        if (next)
+            next->prev = prev;
+        if (node == q->head)
+            q->head = next;
+        if (node == q->tail)
+            q->tail = prev;
+
+        q->q_count--;
+        node->queue = NULL;
+        kfree(node);
+    }
+
+    return data;
 }
