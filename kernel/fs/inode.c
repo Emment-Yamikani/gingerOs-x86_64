@@ -1,6 +1,6 @@
+#include <fs/fs.h>
 #include <fs/inode.h>
 #include <fs/dentry.h>
-#include <fs/fs.h>
 #include <bits/errno.h>
 #include <lib/string.h>
 #include <lib/types.h>
@@ -21,7 +21,6 @@ int ialloc(inode_t **pip) {
     memset(ip, 0, sizeof *ip);
 
     ip->i_count = 1;
-    ip->i_alias = QUEUE_INIT();
     ip->i_lock = SPINLOCK_INIT();
     ilock(ip);
     *pip = ip;
@@ -58,32 +57,100 @@ void iduplink(inode_t *ip) {
     ip->i_links++;
 }
 
-int iadd_alias(inode_t *ip, dentry_t *dentry) {
-    int err = 0;
-    if (ip == NULL || dentry == NULL)
+int ddel_alias(inode_t *inode, dentry_t *dentry) {
+    dentry_t *prev = NULL, *next = NULL;
+
+    iassert_locked(inode);
+    dassert_locked(dentry);
+
+    if (dentry->d_inode != inode)
         return -EINVAL;
     
-    queue_lock(&ip->i_alias);
-    err = enqueue(&ip->i_alias, dentry, 0, NULL);
-    queue_unlock(&ip->i_alias);
+    if (inode->i_alias == NULL)
+        return -ENOENT;
 
-    dentry->d_inode = ip;
-    idupcnt(ip);
-    return err;
+    prev = dentry->d_alias_prev;
+    next = dentry->d_alias_next;
+
+    if (prev)
+        dlock(prev);
+    if (next)
+        dlock(next);
+
+    if (next)
+        next->d_alias_prev = prev;
+
+    if (prev)
+        prev->d_alias_next = next;
+    else
+        inode->i_alias = next;
+
+    if (next)
+        dunlock(next);
+    if (prev)
+        dunlock(prev);
+
+    iputcnt(inode);
+
+    dentry->d_alias_next = NULL;
+    dentry->d_alias_prev = NULL;
+
+    return 0;
 }
 
-int idel_alias(inode_t *ip, dentry_t *dentry) {
-    int err = 0;
-    if (ip == NULL || dentry == NULL)
+int iadd_alias(inode_t *inode, dentry_t *dentry) {
+    dentry_t *last = NULL;
+    dentry_t *next = NULL;
+
+    if (inode == NULL || dentry == NULL)
         return -EINVAL;
+    
+    iassert_locked(inode);
+    dassert_locked(dentry);
 
-    queue_lock(&ip->i_alias);
-    err = queue_remove(&ip->i_alias, dentry);
-    queue_unlock(&ip->i_alias);
+    forlinked(node, inode->i_alias, next) {
+        dlock(node);
+        next = node->d_alias_next;
+        last = node;
+        
+        /// unlock node in case we still have a next alias.
+        /// this is done so that when the loop ends
+        /// the last node in alias list is passed locked.
+        if (next)
+            dunlock(node);
+    }
 
-    dentry->d_inode = NULL;
+    dentry->d_alias_next = NULL;
+    dentry->d_alias_prev = NULL;
 
-    return err;
+    if (last) {
+        last->d_alias_next = dentry;
+        dentry->d_alias_prev = last;
+
+        /// Unlock the last alias node.
+        /// Remember we locked this node in to forlink() loop above?,
+        /// Yeah, so do this to prevent deadlock.
+        dunlock(last);
+    } else inode->i_alias = dentry;
+    
+
+    /// Increase the reference count to this inode
+    /// because we have added an inode alias.
+    idupcnt(inode);
+    dentry->d_inode = inode;
+
+    return 0;
+}
+
+int iopen(inode_t *ip) {
+    if (ip == NULL)
+        return -EINVAL;
+    iassert_locked(ip);
+
+    idupcnt(ip);
+
+    // TODO: add filesystem specific open here if need be.
+    return 0;
 }
 
 int     ibind(inode_t *dir, struct dentry *dentry, inode_t *ip) {

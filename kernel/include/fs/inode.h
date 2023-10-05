@@ -27,20 +27,20 @@ typedef enum {
 } itype_t;
 
 typedef struct inode {
-    queue_t     i_alias;
-    itype_t     i_type;
-    int         i_flags;
-    ssize_t     i_count;
-    ssize_t     i_links;
-    uintptr_t   i_ino;
-    uid_t       i_uid;
-    gid_t       i_gid;
-    mode_t      i_mode;
-    size_t      i_size;
-    struct iops *i_ops;
-    void        *i_priv;
-    superblock_t *i_sb;
-    spinlock_t  i_lock;
+    uintptr_t       i_ino;
+    uid_t           i_uid;
+    gid_t           i_gid;
+    itype_t         i_type;
+    mode_t          i_mode;
+    size_t          i_size;
+    int             i_flags;
+    ssize_t         i_count;
+    ssize_t         i_links;
+    superblock_t    *i_sb;
+    struct iops     *i_ops;
+    void            *i_priv;
+    struct dentry   *i_alias;
+    spinlock_t      i_lock;
 } inode_t;
 
 typedef struct iops {
@@ -99,6 +99,7 @@ typedef struct iops {
 #define IISDEV(ip) ({ IISCHR(ip) || IISBLK(ip); })
 
 int ialloc(inode_t **pip);
+int iopen(inode_t *ip);
 void iputcnt(inode_t *ip);
 void idupcnt(inode_t *ip);
 void iputlink(inode_t *ip);
