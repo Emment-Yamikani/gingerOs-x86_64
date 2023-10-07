@@ -14,13 +14,18 @@ int verify_path(const char *path)
     if (!*path)
         goto error;
 
-    for (; *path; ++path)
-    {
-        if ((*path < (char)' ') || (*path == (char)'\\') ||
-            (*path == (char)0x7f) || (*path == (char)0x81) ||
-            (*path == (char)0x8D) || (*path == (char)0x9D) ||
-            (*path == (char)0xA0) || (*path == (char)0xAD) ||
-            (*path == '\n') || (*path == '\t') || (*path == '\r')) // NOT NECESSARY. REALLY!
+    for (; *path; ++path) {
+        if ((*path == '\n') ||
+            (*path == '\t') ||
+            (*path < (char)' ') ||
+            (*path == (char)'\\') ||
+            (*path == (char)0x7f) ||
+            (*path == (char)0x81) ||
+            (*path == (char)0x8D) ||
+            (*path == (char)0x9D) ||
+            (*path == (char)0xA0) ||
+            (*path == (char)0xAD) ||
+            (*path == '\r')) // NOT NECESSARY. REALLY!
             goto error;
     }
 
@@ -43,7 +48,9 @@ error:
  * @returns (int)0 on success and non-zero on failure.
  * 
 */
-int parse_path(const char *path, const char *__cwd, char **__abspath, char ***__abspath_tokens, char **__last_token, int *pisdir) {
+int parse_path(const char *path, const char *__cwd,
+               char **__abspath, char ***__abspath_tokens,
+               char **__last_token, int *pisdir) {
     int err = -ENOTNAM;
     int is_dir = 0;
     size_t tmp_cwdlen = 0, tmp_pathlen = 0;

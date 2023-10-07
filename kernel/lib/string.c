@@ -781,8 +781,7 @@ grabtok(char *s, int *rlen, int c)
     return tok;
 }
 
-char **tokenize(char *s, int c, size_t *ptoks, char **plast_tok)
-{
+char **tokenize(char *s, int c, size_t *ntoks, char **plast_tok) {
     int len = 0;
     size_t i = 0;
     char *buf = NULL;
@@ -819,8 +818,8 @@ char **tokenize(char *s, int c, size_t *ptoks, char **plast_tok)
     tokens[i] = NULL;
     kfree(tmp);
 
-    if (ptoks)
-        *ptoks = i;
+    if (ntoks)
+        *ntoks = i;
     if (plast_tok)
         *plast_tok = last_tok;
     return tokens;
@@ -835,10 +834,10 @@ void tokens_free(char **tokens)
     kfree(tokens);
 }
 
-char **canonicalize_path(const char *path, size_t *ptoks, char **plast)
+char **canonicalize_path(const char *path, size_t *ntoks, char **plast)
 {
     /* Tokenize slash seperated words in path into tokens */
-    char **tokens = tokenize((char *)path, '/', ptoks, plast);
+    char **tokens = tokenize((char *)path, '/', ntoks, plast);
     return tokens;
 }
 
