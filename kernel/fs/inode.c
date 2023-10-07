@@ -20,7 +20,7 @@ int ialloc(inode_t **pip) {
 
     memset(ip, 0, sizeof *ip);
 
-    ip->i_count = 1;
+    ip->i_refcnt = 1;
     ip->i_lock = SPINLOCK_INIT();
     ilock(ip);
     *pip = ip;
@@ -31,7 +31,7 @@ int ialloc(inode_t **pip) {
 void ifree(inode_t *ip) {
     iassert_locked(ip);
 
-    if (ip->i_count <= 0) {
+    if (ip->i_refcnt <= 0) {
         iunlink(ip);
         kfree(ip);
     }
@@ -39,22 +39,22 @@ void ifree(inode_t *ip) {
 
 void idupcnt(inode_t *ip) {
     iassert_locked(ip);
-    ip->i_count++;
+    ip->i_refcnt++;
 }
 
 void iputcnt(inode_t *ip) {
     iassert_locked(ip);
-    ip->i_count--;
+    ip->i_refcnt--;
 }
 
 void iputlink(inode_t *ip) {
     iassert_locked(ip);
-    ip->i_links--;
+    ip->i_hlinks--;
 }
 
 void iduplink(inode_t *ip) {
     iassert_locked(ip);
-    ip->i_links++;
+    ip->i_hlinks++;
 }
 
 int ddel_alias(inode_t *inode, dentry_t *dentry) {

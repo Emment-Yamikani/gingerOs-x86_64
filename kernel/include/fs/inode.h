@@ -27,20 +27,28 @@ typedef enum {
 } itype_t;
 
 typedef struct inode {
-    uintptr_t       i_ino;
-    uid_t           i_uid;
-    gid_t           i_gid;
-    itype_t         i_type;
-    mode_t          i_mode;
-    size_t          i_size;
-    int             i_flags;
-    ssize_t         i_count;
-    ssize_t         i_links;
-    superblock_t    *i_sb;
-    struct iops     *i_ops;
-    void            *i_priv;
-    struct dentry   *i_alias;
-    spinlock_t      i_lock;
+    uintptr_t       i_ino;      // Filesystem specific i-number for this file.
+    uid_t           i_uid;      // User identifier of owner.
+    gid_t           i_gid;      // Group identifier of group that owns this file.
+    itype_t         i_type;     // Type of file this inode represents.
+    mode_t          i_mode;     // Inode's access mode.
+    size_t          i_size;     // Inode's data size.
+    int             i_flags;    // Inode flags.
+    ssize_t         i_refcnt;   // Number of references to this inode.
+    ssize_t         i_hlinks;   // Number of hard links to this inode. 
+    superblock_t    *i_sb;      // Superblock to while this inode belongs.
+    struct iops     *i_ops;     // Filesystem specific inode operations. 
+    void            *i_priv;    // Filesystem specific private data.
+    struct dentry   *i_alias;   // Alias to this inode (can be multiple).
+    spinlock_t      i_lock;     // Spinlock to protect access to this inode.
+    /**
+     * TODO: May need to add another type of locking mechanism
+     * specifically for data manipulation in this file.
+     * (RW-locks, semaphores and mutex locking mechanisms).
+     * 
+     * And also a file lock(or maybe this will go in the struct file::file_lock)
+     * for file-address space locking.
+    */
 } inode_t;
 
 typedef struct iops {
