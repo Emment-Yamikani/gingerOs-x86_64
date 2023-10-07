@@ -559,9 +559,17 @@ void mapped_free(uintptr_t v, size_t sz)
 #include <mm/pmm.h>
 void memory_usage(void)
 {
-    printk("\n\t\t\t\e[0;06mMEMORY USAGE INFO\e[0m\n");
-    printk("\t\t\t\e[0;015mPhysical Memory\e[0m\nFree  : \e[0;012m%8dKB\e[0m\nIn use: \e[0;04m%8dKB\e[0m\n\n", pmman.mem_free(), pmman.mem_used());
-    printk("\t\t\t\e[0;015mVirtual Memory\e[0m\nFree  : \e[0;012m%8dKB\e[0m\nIn use: \e[0;04m%8dKB\e[0m\n\n", vmman.getfreesize(), vmman.getinuse());
+    printk("\n\t\t\t\e[0;06mMEMORY USAGE INFO\e[0m\n"
+           "\t\t\t\e[0;015mPhysical Memory\e[0m\n"
+           "Free  : \e[0;012m%-5.1F MiB\e[0m\n"
+           "In use: \e[0;04m%-5.1F MiB\e[0m\n\n"
+           "\t\t\t\e[0;015mVirtual Memory\e[0m\n"
+           "Free  : \e[0;012m%-5.1F MiB\e[0m\n"
+           "In use: \e[0;04m%-5.1F MiB\e[0m\n\n",
+           (double)pmman.mem_free() / KiB,
+           (double)pmman.mem_used() / KiB,
+           (double)vmman.getfreesize() / KiB,
+           (double)vmman.getinuse() / KiB);
 }
 
 struct vmman vmman = {

@@ -6,6 +6,8 @@
 #include <sync/spinlock.h>
 #include <ds/queue.h>
 #include <lib/types.h>
+#include <sys/_fcntl.h>
+#include <sys/_stat.h>
 
 #define MAXFNAME 255
 

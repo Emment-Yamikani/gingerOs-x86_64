@@ -171,6 +171,7 @@ int vfs_lookup(const char *fn, uio_t *__uio,
 
     foreach(tok, toks) {
         dp = NULL;
+        printk("looking up '%s' in '%s'\n", tok, d_dir->d_name);
         if ((err = dlookup(d_dir, tok, &dp)) == 0)
             goto next;
         else if (err == -ENOENT)

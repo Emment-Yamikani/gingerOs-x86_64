@@ -390,6 +390,7 @@ void panic(const char *restrict fmt, ...) {
 	va_start(args, fmt);
 	spin_lock(lock);
 	cli();
+	
 	xvasprintf(cb_printf, NULL, fmt, args);
 	spin_unlock(lock);
 	va_end(args);

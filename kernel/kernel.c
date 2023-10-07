@@ -21,15 +21,26 @@
 #include <dev/hpet.h>
 #include <modules/module.h>
 #include <fs/tmpfs.h>
+#include <fs/fs.h>
 #include <ds/stack.h>
+#include <lib/ctype.h>
 
 void core_start(void);
 
 __noreturn void kthread_main(void) {
+    int err = 0;
     int nthread = 0;
     printk("Welcome to 'Ginger OS'.\n");
     
     builtin_threads_begin(&nthread, NULL);
+
+    inode_t *folder = NULL;
+    mode_t mode = S_IRWXU | S_IRWXG | S_IRGRP;
+
+    memory_usage();
+
+    if ((err = vfs_lookup("/mnt/folder", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, &folder, NULL)))
+        panic("[PANIC]: %s(), err = %d\n", __func__, err);
 
     loop() thread_join(0, NULL, NULL);
 }

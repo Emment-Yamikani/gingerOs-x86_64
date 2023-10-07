@@ -106,14 +106,14 @@ typedef struct iops {
 #define IISFIFO(ip)({ IISTYPE(ip, FS_FIFO); })
 #define IISDEV(ip) ({ IISCHR(ip) || IISBLK(ip); })
 
-int ialloc(inode_t **pip);
-int iopen(inode_t *ip);
-void iputcnt(inode_t *ip);
-void idupcnt(inode_t *ip);
-void iputlink(inode_t *ip);
-void iduplink(inode_t *ip);
-int idel_alias(inode_t *ip, struct dentry *dentry);
-int  iadd_alias(inode_t *ip, struct dentry *dentry);
+int     ialloc(inode_t **pip);
+int     iopen(inode_t *ip);
+void    iputcnt(inode_t *ip);
+void    idupcnt(inode_t *ip);
+void    iputlink(inode_t *ip);
+void    iduplink(inode_t *ip);
+int     idel_alias(inode_t *ip, struct dentry *dentry);
+int     iadd_alias(inode_t *ip, struct dentry *dentry);
 
 int     isync(inode_t *ip);
 int     iclose(inode_t *ip);
