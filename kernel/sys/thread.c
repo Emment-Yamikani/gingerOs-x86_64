@@ -9,7 +9,19 @@
 #include <ginger/jiffies.h>
 #include <arch/x86_64/thread.h>
 
+/**
+ * Used Thread ID allocation.
+ * to implement a way in which we can reuse tids.
+ * use a tree maybe.
+ * recycle a tid if and only if the thread group
+ * in which rid was has terminated completely. 
+*/
 static atomic_t tids = {0};
+
+/** 
+ * For process ID alocation.
+ * to be moved to sys/proc.c
+*/
 __unused static atomic_t pids = {0};
 
 const char *t_states[] = {
