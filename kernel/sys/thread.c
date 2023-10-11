@@ -35,6 +35,11 @@ const char *t_states[] = {
     [T_ZOMBIE]      = "ZOMBIE",
 };
 
+// convert from t_state_t literal to char *
+char *tget_state(const t_state_t st) {
+    return t_states[st];
+}
+
 static tid_t tid_alloc(void) {
     return atomic_inc_fetch(&tids);
 }
