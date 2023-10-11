@@ -27,6 +27,7 @@ typedef enum tstate_t {
 } tstate_t;
 
 extern const char *t_states[];
+extern char *tget_state(const t_state_t st);
 
 typedef void *(*thread_entry_t)(void *);
 
@@ -253,8 +254,9 @@ typedef struct {
 #define THREAD_SETWAKE                  BS(3)   // thread has the wakeup flag set.
 #define THREAD_HANDLING_SIG             BS(4)   // thread is currently handling a signal.
 #define THREAD_DETACHED                 BS(5)   // free resources allocated to this thread imediately to terminates.
-#define THREAD_STOP                     BS(6)   // thread stop
+#define THREAD_STOP                     BS(6)   // thread stop.
 #define THREAD_SIMD_DIRTY               BS(7)   // thread's SIMD context is dirty and must be save on context swtich.
+#define THREAD_ISTMAIN                  BS(8)   // thread is a main thread in the tgroup.
 
 #define thread_assert(t)                ({ assert(t, "No thread pointer\n");})
 #define thread_lock(t)                  ({ thread_assert(t); spin_lock(&((t)->t_lock)); })
