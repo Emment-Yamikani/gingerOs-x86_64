@@ -27,7 +27,7 @@ typedef enum tstate_t {
 } tstate_t;
 
 extern const char *t_states[];
-extern char *tget_state(const t_state_t st);
+extern char *tget_state(const tstate_t st);
 
 typedef void *(*thread_entry_t)(void *);
 

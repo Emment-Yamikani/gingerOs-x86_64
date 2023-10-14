@@ -35,8 +35,8 @@ const char *t_states[] = {
     [T_ZOMBIE]      = "ZOMBIE",
 };
 
-// convert from t_state_t literal to char *
-char *tget_state(const t_state_t st) {
+// convert from tstate_t literal to char *
+char *tget_state(const tstate_t st) {
     return t_states[st];
 }
 
