@@ -101,7 +101,7 @@ off_t   ramdisk_lseek(struct devid *dd __unused, off_t off __unused, int whence 
 }
 
 int     ramdisk_ioctl(struct devid *dd __unused, int request __unused, void *argp __unused) {
-    return -EINVAL;
+    return -ENOSYS;
 }
 
 ssize_t ramdisk_read(struct devid *dd, off_t off, void *buf, size_t nbyte) {
@@ -163,6 +163,31 @@ error:
     return err;
 }
 
+static int ramdisk_getinfo(struct devid *dd, void *info) {
+    int locked = 0;
+    ramdisk_t *rd = NULL;
+    bdev_info_t *bdev_info = info;
+
+    if (dd == NULL || bdev_info == NULL)
+        return -EINVAL;
+
+    if (!(rd = ramdisk_get(dd->minor)))
+        return -ENOENT;
+
+    if (!(locked = spin_islocked(&rd->lock)))
+        spin_lock(&rd->lock);
+    
+    *bdev_info = (bdev_info_t) {
+        .bi_blocksize = 1,
+        .bi_size = rd->size,
+    };
+
+    if (!locked)
+        spin_unlock(&rd->lock);
+
+    return 0;
+}
+
 static dev_t ramdiskdev = (dev_t) {
     .devlock = {0},
     .devname = "ramdisk",
@@ -180,6 +205,7 @@ static dev_t ramdiskdev = (dev_t) {
         .lseek = ramdisk_lseek,
         .ioctl = ramdisk_ioctl,
         .close = ramdisk_close,
+        .getinfo = ramdisk_getinfo,
     },
 };
 

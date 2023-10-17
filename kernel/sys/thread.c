@@ -37,7 +37,7 @@ const char *t_states[] = {
 
 // convert from tstate_t literal to char *
 char *tget_state(const tstate_t st) {
-    return t_states[st];
+    return (char *)t_states[st];
 }
 
 static tid_t tid_alloc(void) {

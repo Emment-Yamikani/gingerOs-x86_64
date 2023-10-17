@@ -4,26 +4,23 @@
 #include <mm/kalloc.h>
 #include <fs/tmpfs.h>
 
-typedef struct {
+typedef struct tmpfs_inode_t {
     uio_t       uio;
     uintptr_t   ino;
     itype_t     type;
     size_t      size;
     size_t      nlink;
     void        *data;
-    void        *priv;
 } tmpfs_inode_t;
 
-typedef struct tmpfs_dirent {
-    struct tmpfs_dirent *prev;
-    tmpfs_inode_t       *d_ino;
-    size_t              d_len;
-    struct tmpfs_dirent *next;
-    char                d_name[];
+typedef struct tmpfs_dirent_t {
+    char                    *name;
+    struct tmpfs_dirent_t   *prev;
+    struct tmpfs_dirent_t   *next;
+    inode_t                 *inode;
 } tmpfs_dirent_t;
 
 static filesystem_t *tmpfs = NULL;
-
 
 int tmpfs_init(void);
 static int tmpfs_ialloc(itype_t type, inode_t **pip);
@@ -31,6 +28,7 @@ static int tmpfs_ialloc(itype_t type, inode_t **pip);
 static iops_t tmpfs_iops = {
     .imkdir = tmpfs_imkdir,
     .icreate = tmpfs_icreate,
+    .ilookup = tmpfs_ilookup,
 
 };
 
@@ -82,7 +80,9 @@ static int tmpfs_fill_sb(filesystem_t *fs __unused, const char *target,
     return 0;
 }
 
-static int tmpfs_getsb(filesystem_t *fs, const char *src __unused, const char *target, unsigned long flags, void *data, superblock_t **psbp) {
+static int tmpfs_getsb(filesystem_t *fs, const char *src __unused,
+                       const char *target, unsigned long flags,
+                       void *data, superblock_t **psbp) {
     return getsb_nodev(fs, target, flags, data, psbp, tmpfs_fill_sb);
 }
 
@@ -110,6 +110,7 @@ error:
 
 static int tmpfs_ialloc(itype_t type, inode_t **pip) {
     int err =  0;
+    char *name = NULL;
     btree_t *bt = NULL;
     inode_t *inode = NULL;
     static long tmpfs_inos = 0;
@@ -131,19 +132,22 @@ static int tmpfs_ialloc(itype_t type, inode_t **pip) {
     if ((err = ialloc(&inode)))
         goto error;
 
-    inode->i_type = type;
-    inode->i_priv = tmpfs_ip;
-    inode->i_ops = &tmpfs_iops;
+    inode->i_type   = type;
+    inode->i_priv   = tmpfs_ip;
+    inode->i_ops    = &tmpfs_iops;
+    inode->i_ino    = atomic_fetch_inc(&tmpfs_inos);
 
-    tmpfs_ip->data = bt;
-    tmpfs_ip->type= type;
-    tmpfs_ip->priv = inode;
-    tmpfs_ip->ino = atomic_fetch_inc(&tmpfs_inos);
-    inode->i_ino = tmpfs_ip->ino;
+    tmpfs_ip->nlink = 1;
+    tmpfs_ip->data  = bt;
+    tmpfs_ip->type  = type;
+    tmpfs_ip->ino   = inode->i_ino;
 
     *pip = inode;
     return 0;
 error:
+    if (name)
+        kfree(name);
+
     if (tmpfs_ip)
         kfree(tmpfs_ip);
     
@@ -152,217 +156,158 @@ error:
     return err;
 }
 
-static int tmpfs_search_dir(inode_t *dir, const char *fn, tmpfs_dirent_t **pdp) {
+static int tmpfs_dirent_alloc(const char *fname, inode_t *inode, tmpfs_dirent_t **ptde) {
     int err = 0;
-    size_t hash = 0;
-    btree_t *bt = NULL;
-    tmpfs_inode_t *tdp = NULL;
-    tmpfs_dirent_t *dirent = NULL, *next = NULL;
+    char *name = NULL;
+    tmpfs_dirent_t *tde = NULL;
 
-    if (dir == NULL || pdp == NULL)
+    iassert_locked(inode);
+
+    if (fname == NULL || ptde == NULL)
         return -EINVAL;
-    
-    if (fn == NULL || *fn == '\0')
-        return -ENOTNAM;
-    
-    iassert_locked(dir);
 
-    if ((IISDIR(dir)) == 0)
-        return -ENOTDIR;
+    if ((name = strdup(fname)) == NULL)
+        return -ENOMEM;
 
-    if ((tdp = dir->i_priv) == NULL)
-        return -EINVAL;
-    
-    if ((bt = tdp->data) == NULL)
-        return -EINVAL;
-    
-    hash = tmpfs_hash(fn);
+    err = -ENOMEM;
+    if ((tde = kmalloc(sizeof *tde)) == NULL)
+        goto error;
 
-    btree_lock(bt);
-    err = btree_search(bt, hash, (void **)&dirent);
-    btree_unlock(bt);
+    if ((err = iopen(inode)))
+        goto error;
 
-    if (err)
-        return err;
+    tde->prev = NULL;
+    tde->next = NULL;
+    tde->name = name;
+    tde->inode = inode;
 
-    if (compare_strings(fn, dirent->d_name)) {
-        forlinked(node, dirent->next, next) {
-            next = node->next;
-            if (!compare_strings(fn, node->d_name)) {
-                dirent = node;
-                goto done;
-            }
-        }
-        return -ENOENT;
-    }
-
-done:
-    *pdp = dirent;
+    *ptde = tde;
     return 0;
+error:
+    if (name)
+        kfree(name);
+    
+    if (tde)
+        kfree(tde);
+    
+    return err;
 }
 
-static int tmpfs_insert(inode_t *dir, tmpfs_dirent_t *dirent) {
+int tmpfs_delete(inode_t *dir, const char *fname);
+
+static int tmpfs_create_node(inode_t *dir, struct dentry *dentry, mode_t mode, itype_t type) {
     int err = 0;
     size_t hash = 0;
+    inode_t *ip = NULL;
     btree_t *bt = NULL;
-    tmpfs_inode_t *pti = NULL;
-    tmpfs_dirent_t *pde = NULL, *last = NULL;
+    tmpfs_inode_t *tino = NULL;
+    tmpfs_inode_t *tdir = NULL;
+    tmpfs_dirent_t *last = NULL;
+    tmpfs_dirent_t *tde = NULL, *dirent = NULL, *next = NULL;
 
-    if (dir == NULL || dirent == NULL)
+    if (dir == NULL || dentry == NULL)
         return -EINVAL;
-    
+
     iassert_locked(dir);
+    dassert_locked(dentry);
 
     if (IISDIR(dir) == 0)
         return -ENOTDIR;
-
-    if ((pti = dir->i_priv) == NULL)
-        return -EINVAL;
     
-    if ((bt = pti->data) == NULL)
+    if ((tdir = dir->i_priv) == NULL)
         return -EINVAL;
-    
-    if (!(err = tmpfs_search_dir(dir, dirent->d_name, &pde)))
-        return -EEXIST;
 
-    hash = tmpfs_hash(dirent->d_name);
+    if ((bt = tdir->data) == NULL)
+        return -EINVAL;
+
+    if ((err = tmpfs_ialloc(type, &ip)))
+        goto error;
+
+    if ((err = tmpfs_dirent_alloc(dentry->d_name, ip, &tde)))
+        goto error;
+
+    hash = tmpfs_hash(dentry->d_name);
 
     btree_lock(bt);
-    if (!(err = btree_search(bt, hash, (void **)&pde))) {
-        forlinked(node, pde, node->next)
-            last = node;
-        last->next = dirent;
-        dirent->prev = last;
-        dirent->next = NULL;
-    } else
-        err = btree_insert(bt, hash, dirent);
-    btree_unlock(bt);
-    return err;
-}
-
-__unused static int tmpfs_delete(inode_t *dir, const char *fn) {
-    int err = 0;
-    size_t hash = 0;
-    btree_t *bt = NULL;
-    tmpfs_dirent_t *pde = NULL, *dirent = NULL;
-
-    if ((err = tmpfs_search_dir(dir, fn, &pde)))
-        return err;
-
-    if (pde->d_ino == NULL)
-        return -EINVAL;
-    
-    if ((bt = pde->d_ino->data) == NULL)
-        return -EINVAL;
-    
-    hash = tmpfs_hash(fn);
-
-    btree_lock(bt);
-    if (!(err = btree_search(bt, hash, (void **)&dirent))) {
-        if ((pde == dirent)) {
-            btree_delete(bt, hash);
-            if (pde->next)
-                err = tmpfs_insert(dir, pde->next);
-        } else {
-            if (pde->prev)
-                pde->prev->next = pde->next;
-            if (pde->next)
-                pde->next->prev = pde->prev;
+    if ((err = btree_search(bt, hash, (void **)&dirent)) == 0) {
+        /// Validate we don't already have an entry of the same name.
+        /// and return the last dirent.
+        forlinked(node, dirent, next) {
+            next = (last = node)->next;
+            if (!compare_strings(dentry->d_name, node->name)) {
+                err = -EEXIST;
+                btree_unlock(bt);
+                goto error;
+            }
         }
+        
+        /**
+         * There was a collision in the binary search tree at this hash
+         * so handle it by using a linked list.
+         * Unreal but yeah, behold a simple HASH algorithm that works(Ain't i a genius?).
+        */
+        last->next = tde;
+        tde->prev = last;
+        btree_unlock(bt);
+        goto done;
+    } else if (err == -ENOENT) {
+        /**
+         * If no existing entry was found
+         * Just add the New dirent to this btree.
+        */
+        if ((err = btree_insert(bt, hash, tde))) {
+            btree_unlock(bt);
+            goto error;
+        }
+    } else {
+        /**
+         * otherwise another type of error occured
+         * SO, bailout.
+        */
+        btree_unlock(bt);
+        goto error;
     }
     btree_unlock(bt);
 
+done:
+    ip->i_mode = mode;
+    tino = ip->i_priv;
+    ip->i_hlinks = tino->nlink;
+
     return 0;
+error:
+    if (tino)
+        kfree(tino);
+    return err;
 }
 
 int tmpfs_imkdir(inode_t *dir, struct dentry *dentry, mode_t mode) {
-    int err = 0;
-    inode_t *ip = NULL;
-    btree_t *bt = NULL;
-    tmpfs_dirent_t *dp = NULL;
-
-    iassert_locked(dir);
-    dassert_locked(dentry);
-
-    printk("[WARNING]:: check permissions: mode(%x)\n", mode);
-
-    if ((dp = kmalloc(sizeof *dp + strlen(dentry->d_name) + 1)) == NULL)
-        return -ENOMEM;
-
-    dp->d_len = strlen(dentry->d_name);
-
-    if ((err = tmpfs_ialloc(FS_DIR, &ip)))
-        return err;
-
-    if ((err = iadd_alias(ip, dentry)))
-        goto error;
-    
-    ip->i_mode = mode;
-
-    bt = dir->i_priv ? ((tmpfs_inode_t *)dir->i_priv)->data : NULL;
-
-    err = -EINVAL;
-    if (bt == NULL)
-        goto error;
-
-    dp->d_ino = ip->i_priv;
-    dp->d_name[dp->d_len] = '\0';
-    strncmp(dp->d_name, dentry->d_name, dp->d_len);
-
-    if ((err = tmpfs_insert(dir, dp)))
-        goto error;
-
-    iunlock(ip);
-    return 0;
-error:
-    if (dp) kfree(dp);
-    if (ip) iclose(ip);
-    return err;
+    return tmpfs_create_node(dir, dentry, mode, FS_DIR);
 }
 
 int tmpfs_icreate(inode_t *dir, struct dentry *dentry, mode_t mode) {
-    int err = 0;
-    inode_t *ip = NULL;
-    btree_t *bt = NULL;
-    tmpfs_dirent_t *dp = NULL;
+    return tmpfs_create_node(dir, dentry, mode, FS_RGL);
+}
+
+int tmpfs_ilookup(inode_t *dir, struct dentry *dentry) {
+    // int err = 0;
+    // btree_t *bt = NULL;
+    tmpfs_inode_t *tino = NULL;
+    // tmpfs_dirent_t *tde = NULL;
 
     iassert_locked(dir);
     dassert_locked(dentry);
 
-    printk("[WARNING]:: check permissions: mode(%x)\n", mode);
-
-    if ((dp = kmalloc(sizeof *dp + strlen(dentry->d_name) + 1)) == NULL)
-        return -ENOMEM;
-
-    dp->d_len = strlen(dentry->d_name);
-
-    if ((err = tmpfs_ialloc(FS_RGL, &ip)))
-        return err;
-
-    if ((err = iadd_alias(ip, dentry)))
-        goto error;
+    if (dir == NULL || dentry == NULL)
+        return -EINVAL;
     
-    ip->i_mode = mode;
+    if (IISDIR(dir) == 0)
+        return -ENOTDIR;
 
-    bt = dir->i_priv ? ((tmpfs_inode_t *)dir->i_priv)->data : NULL;
+    if ((tino = dir->i_priv) == NULL)
+        return -EINVAL;
 
-    err = -EINVAL;
-    if (bt == NULL)
-        goto error;
-
-    dp->d_ino = ip->i_priv;
-    dp->d_name[dp->d_len] = '\0';
-    strncmp(dp->d_name, dentry->d_name, dp->d_len);
-
-    if ((err = tmpfs_insert(dir, dp)))
-        goto error;
-
-    iunlock(ip);
     return 0;
-error:
-    if (dp) kfree(dp);
-    if (ip) iclose(ip);
-    return err;
 }
 
 int tmpfs_isync(inode_t *ip);
@@ -373,7 +318,6 @@ int tmpfs_igetattr(inode_t *ip, void *attr);
 int tmpfs_isetattr(inode_t *ip, void *attr);
 int tmpfs_ifcntl(inode_t *ip, int cmd, void *argp);
 int tmpfs_iioctl(inode_t *ip, int req, void *argp);
-int tmpfs_ilookup(inode_t *dir, struct dentry *dentry);
 int tmpfs_ibind(inode_t *dir, struct dentry *dentry, inode_t *ip);
 ssize_t tmpfs_iread(inode_t *ip, off_t off, void *buf, size_t nb);
 ssize_t tmpfs_iwrite(inode_t *ip, off_t off, void *buf, size_t nb);

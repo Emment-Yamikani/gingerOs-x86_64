@@ -91,7 +91,6 @@ int vfs_init(void) {
     if ((err = dalloc("bin", &dentry)))
         return err;
 
-
     if ((err = imkdir(dir, dentry, 0555)))
         return err;
 
@@ -171,7 +170,6 @@ int vfs_lookup(const char *fn, uio_t *__uio,
 
     foreach(tok, toks) {
         dp = NULL;
-        printk("looking up '%s' in '%s'\n", tok, d_dir->d_name);
         if ((err = dlookup(d_dir, tok, &dp)) == 0)
             goto next;
         else if (err == -ENOENT)
@@ -205,14 +203,20 @@ int vfs_lookup(const char *fn, uio_t *__uio,
 delegate:
     dp = NULL;
     foreach(tok, &toks[tok_i]) {
-        printk("looking up '%s' in '%s'\n", tok, d_dir->d_name);
+        printk("delegate looking up '%s' in '%s'\n", tok, d_dir->d_name);
         if ((err = dalloc(tok, &dp))) {
             dunlock(d_dir);
             goto error;
         }
 
         ilock(d_dir->d_inode);
-        if ((err = ilookup(d_dir->d_inode, dp))) {
+        printk("looking up\n");
+        if ((err = ilookup(d_dir->d_inode, dp)) == -ENOENT) {
+            printk("file no found by delegate\n");
+            if ((oflags & O_CREAT))
+                goto creat;
+            else goto error;
+        } else if (err) {
             dunlock(d_dir);
             iunlock(d_dir->d_inode);
             goto error;
@@ -256,6 +260,16 @@ found:
     else {
         dclose(dp);
     }
+    return 0;
+
+creat:
+    // create a directory
+    if (oflags & O_DIRECTORY) {
+        printk("creating a directory file\n");
+    } else { // create a regular file.
+        printk("create a regular file\n");
+    }
+
     return 0;
 error:
     return err;

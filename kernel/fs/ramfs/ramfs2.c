@@ -71,6 +71,7 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
     if ((ramfs2_super = kcalloc(1, sbsz)) == NULL)
         return -ENOMEM;
 
+
     if ((err = kdev_read(devid, 0, ramfs2_super, sbsz)) < 0)
         return err;
 

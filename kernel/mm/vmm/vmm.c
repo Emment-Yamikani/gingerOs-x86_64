@@ -8,7 +8,7 @@
 #include <arch/paging.h>
 #include <lib/string.h>
 
-static atomic_t alive = 0;
+static atomic_t vmm_online = 0;
 static size_t used_virtual_mmsz = 0;
 static spinlock_t *vmm_spinlock = &SPINLOCK_INIT();
 
@@ -413,7 +413,7 @@ static uintptr_t vmm_alloc(size_t sz)
     uintptr_t addr = 0;
     node_t *split = NULL, *node = NULL;
 
-    if (!atomic_read(&alive))
+    if (!atomic_read(&vmm_online))
         vmman.init();
 
     spin_lock(vmm_spinlock);
@@ -525,9 +525,13 @@ static int vmm_init(void)
         .size = KHEAPSZ};
 
     freevmr_put(node);
-    atomic_write(&alive, 1);
+    atomic_write(&vmm_online, 1);
 
     return 0;
+}
+
+int vmm_active(void) {
+    return atomic_read(&vmm_online);
 }
 
 uintptr_t mapped_alloc(size_t sz)

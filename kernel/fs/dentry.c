@@ -30,7 +30,6 @@ void diput(dentry_t *dp) {
 
 int ddelete(struct dentry *dp) {
     dassert_locked(dp);
-    printk("delete dentry object\n");
     return -ENOSYS;
 }
 

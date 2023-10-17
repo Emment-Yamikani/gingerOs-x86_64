@@ -93,9 +93,9 @@ int getsb_bdev(filesystem_t *fs, const char *bdev_name, const char *target,
                 unsigned long flags, void *data __unused, superblock_t **psbp,
                 int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb)) {
     int err = 0;
-    struct devid devid;
-    bdev_info_t bdevinfo;
     superblock_t *sb = NULL;
+    struct devid devid = {0};
+    bdev_info_t bdevinfo = {0};
 
     fsassert_locked(fs);
 

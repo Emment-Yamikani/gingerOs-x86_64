@@ -6,6 +6,7 @@
 #include <ds/stack.h>
 #include <mm/kalloc.h>
 #include <lib/ctype.h>
+#include <mm/vmm.h>
 
 int use_cga = 0;
 static int pos = 0;
@@ -47,53 +48,76 @@ int cga_init(void) {
 
 
 static int cga_putchar(const int c) {
-    if (c == '\e') {
-        cga_esc = 1;
-        return 0;
-    }
-
-#if defined(KALLOC_H)
-    if (cga_esc) {
-        long val = 0;
-        static int open_ = 0;
-        static int16_t fg = 0;
-        static int16_t bg = 0;
-        if (c == '[') {
-            open_ = 1;
-            val = cga_attr;
-            stack_lock(cga_themes);
-            stack_push(cga_themes, (void *)val);
-            stack_unlock(cga_themes);
+    if (vmm_active()) {
+        if (c == '\e') {
+            cga_esc = 1;
             return 0;
         }
 
-        if (open_) {
-            if (c == ';') {
-                open_ = 0;
+        if (cga_esc) {
+            long val = 0;
+            static int open_ = 0;
+            static int16_t fg = 0;
+            static int16_t bg = 0;
+            if (c == '[') {
+                open_ = 1;
+                val = cga_attr;
+                stack_lock(cga_themes);
+                stack_push(cga_themes, (void *)val);
+                stack_unlock(cga_themes);
+                return 0;
+            }
+
+            if (open_) {
+                if (c == ';') {
+                    open_ = 0;
+                    stack_lock(cga_chars);
+                    for (int ni = 0, i = 0, pw = 1;
+                        stack_pop(cga_chars, (void **)((long *)&c)) == 0; ni++) {
+                        for (pw = 1, i = ni; i; --i)
+                            pw *= 8;
+                        bg += c * pw;
+                    }
+                    stack_unlock(cga_chars);
+                    return 0;
+                }
+
+                if (c == 'm') {
+                    stack_lock(cga_themes);
+                    stack_pop(cga_themes, (void **)&val);
+                    stack_pop(cga_themes, (void **)&val);
+                    stack_unlock(cga_themes);
+                    cga_attr = val;
+                    fg = 0;
+                    bg = 0;
+                    open_ = 0;
+                    cga_esc = 0;
+                    return 0;
+                }
+
+                if (isdigit(c)) {
+                    stack_lock(cga_chars);
+                    stack_push(cga_chars, (void *)(long)(c - '0'));
+                    stack_unlock(cga_chars);
+                }
+                return 0;
+            }
+
+            if (c == 'm') {
                 stack_lock(cga_chars);
                 for (int ni = 0, i = 0, pw = 1;
                     stack_pop(cga_chars, (void **)((long *)&c)) == 0; ni++) {
                     for (pw = 1, i = ni; i; --i)
                         pw *= 8;
-                    bg += c * pw;
+                    fg += c * pw;
                 }
                 stack_unlock(cga_chars);
-                return 0;
-            }
-
-            if (c == 'm') {
-                stack_lock(cga_themes);
-                stack_pop(cga_themes, (void **)&val);
-                stack_pop(cga_themes, (void **)&val);
-                stack_unlock(cga_themes);
-                cga_attr = val;
+                cga_setcolor(bg, fg);
                 fg = 0;
                 bg = 0;
-                open_ = 0;
                 cga_esc = 0;
                 return 0;
             }
-
             if (isdigit(c)) {
                 stack_lock(cga_chars);
                 stack_push(cga_chars, (void *)(long)(c - '0'));
@@ -101,30 +125,7 @@ static int cga_putchar(const int c) {
             }
             return 0;
         }
-
-        if (c == 'm') {
-            stack_lock(cga_chars);
-            for (int ni = 0, i = 0, pw = 1;
-                 stack_pop(cga_chars, (void **)((long *)&c)) == 0; ni++) {
-                for (pw = 1, i = ni; i; --i)
-                    pw *= 8;
-                fg += c * pw;
-            }
-            stack_unlock(cga_chars);
-            cga_setcolor(bg, fg);
-            fg = 0;
-            bg = 0;
-            cga_esc = 0;
-            return 0;
-        }
-        if (isdigit(c)) {
-            stack_lock(cga_chars);
-            stack_push(cga_chars, (void *)(long)(c - '0'));
-            stack_unlock(cga_chars);
-        }
-        return 0;
     }
-#endif
 
     if (c == '\n')
         pos += 80 - pos % 80;

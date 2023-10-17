@@ -190,7 +190,6 @@ int vfs_mount(const char *src,
     if (target == NULL)
         return -EINVAL;
 
-
     if ((err = vfs_getfs(type, &fs)))
         return err;
     
