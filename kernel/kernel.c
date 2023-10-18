@@ -39,7 +39,6 @@ __noreturn void kthread_main(void) {
 
     memory_usage();
 
-
     if ((err = vfs_lookup("/mnt/folder", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, &folder, NULL)))
         panic("[PANIC]: %s(), err = %d\n", __func__, err);
 
