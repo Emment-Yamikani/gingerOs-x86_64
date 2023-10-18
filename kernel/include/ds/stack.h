@@ -21,6 +21,7 @@ typedef struct stack {
 static inline int stack_init(stack_t *s) {
     if (s == NULL)
         return -EINVAL;
+
     s->s_queue = QUEUE_INIT();
     s->s_lock = SPINLOCK_INIT();
     return 0;
@@ -31,17 +32,12 @@ static inline int stack_push(stack_t *s, void *pd) {
     
     if (s == NULL)
         return -EINVAL;
-    
     stack_assert_locked(s);
 
     queue_lock(&s->s_queue);
-    if ((err = enqueue(&s->s_queue, pd, 0, NULL))) {
-        queue_unlock(&s->s_queue);
-        return -ENOMEM;
-    }
+    err = enqueue(&s->s_queue, pd, 0, NULL);
     queue_unlock(&s->s_queue);
-
-    return 0;   
+    return err;
 }
 
 static inline int stack_pop(stack_t *s, void **pdp) {
@@ -49,16 +45,12 @@ static inline int stack_pop(stack_t *s, void **pdp) {
 
     if (s == NULL)
         return -EINVAL;
-    
     stack_assert_locked(s);
 
     queue_lock(&s->s_queue);
-    if ((err = dequeue_tail(&s->s_queue, pdp))) {
-        queue_unlock(&s->s_queue);
-        return err;
-    }
+    err = dequeue_tail(&s->s_queue, pdp);
     queue_unlock(&s->s_queue);
-    return 0; 
+    return err; 
 }
 
 static inline int stack_remove(stack_t *s, void *data) {
@@ -66,13 +58,11 @@ static inline int stack_remove(stack_t *s, void *data) {
     if (s == NULL)
         return -EINVAL;
     stack_assert_locked(s);
+
     queue_lock(&s->s_queue);
-    if ((err = queue_remove(&s->s_queue, data))) {
-        queue_unlock(&s->s_queue);
-        return err;
-    }
+    err = queue_remove(&s->s_queue, data);
     queue_unlock(&s->s_queue);
-    return 0;
+    return err;
 }
 
 static inline int stack_contains(stack_t *s, void *data) {
@@ -80,32 +70,31 @@ static inline int stack_contains(stack_t *s, void *data) {
     if (s == NULL)
         return -EINVAL;
     stack_assert_locked(s);
+
     queue_lock(&s->s_queue);
-    if ((err = queue_contains(&s->s_queue, data, NULL))) {
-        queue_unlock(&s->s_queue);
-        return err;
-    }
+    err = queue_contains(&s->s_queue, data, NULL);
     queue_unlock(&s->s_queue);
-    return 0;
+    return err;
 }
 
 static inline size_t stack_size(stack_t *s) {
+    size_t size = 0;
     stack_assert_locked(s);
+
     queue_lock(&s->s_queue);
-    size_t size = queue_count(&s->s_queue);
+    size = queue_count(&s->s_queue);
     queue_unlock(&s->s_queue);
     return size;
 }
 
 static inline int stack_flush(stack_t *s) {
-    stack_assert_locked(s);
     if (s == NULL)
         return -EINVAL;
+    stack_assert_locked(s);
 
     queue_lock(&s->s_queue);
     queue_flush(&s->s_queue);
     queue_unlock(&s->s_queue);
-
     return 0;
 }
 
@@ -132,6 +121,7 @@ static inline void stack_free(stack_t *s) {
         return;
     if (!stack_islocked(s))
         stack_lock(s);
+
     stack_flush(s);
     stack_unlock(s);
     kfree(s);
@@ -141,15 +131,10 @@ static inline int stack_peek(stack_t *s, int top, void **pdp) {
     int err = 0;
     if (s == NULL || pdp == NULL)
         return -EINVAL;
-    
     stack_assert_locked(s);
 
     queue_lock(&s->s_queue);
-    if ((err = queue_peek(&s->s_queue, top, pdp))) {
-        queue_unlock(&s->s_queue);
-        return err;
-    }
+    err = queue_peek(&s->s_queue, top, pdp);
     queue_unlock(&s->s_queue);
-
-    return 0;
+    return err;
 }
