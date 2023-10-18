@@ -251,10 +251,12 @@ void mm_free(uintptr_t addr) {
 
 size_t mem_free(void) {
     size_t size = 0;
-    for (size_t zone = MM_ZONE_DMA; zone < 3; ++zone) {
+    for (size_t zone = MM_ZONE_DMA; zone < NELEM(zones); ++zone) {
         mm_zone_lock(&zones[zone]);
-        if (mm_zone_isvalid(&zones[zone]))
+        if (mm_zone_isvalid(&zones[zone])){
             size += zones[zone].free_pages * PAGESZ;
+            printk("size: %ld\n", size);
+        }
         mm_zone_unlock(&zones[zone]);
     }
     return (size / 1024);
@@ -262,7 +264,7 @@ size_t mem_free(void) {
 
 size_t mem_used(void) {
     size_t size = 0;
-    for (size_t zone = MM_ZONE_DMA; zone < 3; ++zone) {
+    for (size_t zone = MM_ZONE_DMA; zone < NELEM(zones); ++zone) {
         mm_zone_lock(&zones[zone]);
         if (mm_zone_isvalid(&zones[zone]))
             size += (zones[zone].nrpages - zones[zone].free_pages) * PAGESZ;

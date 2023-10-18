@@ -8,7 +8,7 @@
 #include <arch/x86_64/pml4.h>
 #include <lib/string.h>
 
-mm_zone_t zones[4] = {0};
+mm_zone_t zones[NZONE] = {0};
 const char *str_zone[] = {
     "DMA",
     "NORM",
@@ -178,8 +178,7 @@ int mm_zone_contains(int z, uintptr_t addr, size_t size)
     return 0;
 }
 
-int physical_memory_init(void)
-{
+int physical_memory_init(void) {
     int err = 0;
     size_t index = 0;
     size_t size = 0;

@@ -6,8 +6,7 @@
 #include <mm/mm_gfp.h>
 //#include <ds/queue.h>
 
-typedef struct mm_zone
-{
+typedef struct mm_zone {
     uintptr_t   start;
     uint32_t    flags;
     page_t      *pages;
@@ -33,7 +32,9 @@ extern    queue_t     *mm_zone_sleep_queue[];
 
 #define mm_zone_isvalid(zone) ({mm_zone_assert_locked(zone); ((zone)->flags & MM_ZONE_VALID); })
 
-extern mm_zone_t zones[];
+#define NZONE   4
+
+extern mm_zone_t zones[NZONE];
 extern const char *str_zone[];
 
 
