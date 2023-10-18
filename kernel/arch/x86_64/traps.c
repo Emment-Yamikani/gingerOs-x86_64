@@ -85,7 +85,7 @@ void trap(tf_t *tf) {
     if (!current)
         return;
 
-    if (current_killed())
+    if (current_iskilled())
         thread_exit(-EINTR);
 
     current_lock();
@@ -104,6 +104,6 @@ void trap(tf_t *tf) {
     if (time <= 0)
         thread_yield();
 
-    if (current_killed())
+    if (current_iskilled())
         thread_exit(-EINTR);
 }

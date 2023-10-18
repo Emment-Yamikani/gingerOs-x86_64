@@ -281,7 +281,7 @@ int thread_reap(thread_t *thread, int reap, thread_info_t *info, void **retval) 
         return -EDEADLK;
 
     while(!thread_iszombie(thread)) {
-        if (current_killed())
+        if (current_iskilled())
             return -EINTR;
         thread_unlock(thread);
         err = cond_wait(thread->t_wait);
@@ -316,6 +316,7 @@ int thread_kill_n(thread_t *thread, int wait) {
         return 0;
     
     thread_setflags(thread, THREAD_KILLED);
+    
     if ((err = thread_wake(thread)))
         return err;
 
@@ -346,7 +347,7 @@ int thread_join(tid_t tid, thread_info_t *info, void **retval) {
 
     current_assert();
 
-    if (current_killed())
+    if (current_iskilled())
         return -EINTR;
 
     current_tgroup_lock();
@@ -392,8 +393,8 @@ int thread_wake(thread_t *thread) {
         thread_isterminated(thread))
         return 0;
 
-    if (thread_testflags(thread, THREAD_SETPARK))
-        thread_setflags(thread, THREAD_SETWAKE);
+    if (thread_issetpark(thread))
+        thread_setwake(thread);
 
     if (thread->sleep_attr.queue == NULL)
         return 0;

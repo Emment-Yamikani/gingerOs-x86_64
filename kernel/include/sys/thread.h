@@ -40,15 +40,16 @@ typedef struct
 } thread_attr_t;
 
 typedef struct {
-    time_t      ctime;      // Thread ceation time.
-    time_t      cpu_time;   // CPU time in jiffies(n seconds = (jiffy * (HZ_TO_ns(SYS_HZ) / seconds_TO_ns(1))) ).
-    time_t      timeslice;  // Quantum of CPU time for which this thread is allowed to run.
-    time_t      total_time; // Total time this thread has run.
-    time_t      last_sched; // Last time this thread was scheduled to run.
+    time_t      ctime;              // Thread ceation time.
+    time_t      cpu_time;           // CPU time in jiffies(n seconds = (jiffy * (HZ_TO_ns(SYS_HZ) / seconds_TO_ns(1))) ).
+    time_t      timeslice;          // Quantum of CPU time for which this thread is allowed to run.
+    time_t      total_time;         // Total time this thread has run.
+    time_t      last_sched;         // Last time this thread was scheduled to run.
 
-    cpu_t       *processor; // Processor for which this thread has affinity.
-    atomic_t    affinity;   // Type of affinity (SOFT or HARD)
-    atomic_t    priority;   // Thread scheduling Priority.
+    cpu_t       *processor;         // Current Processor for which this thread has affinity.
+    uint8_t     affinity_type;      // Type of affinity (SOFT or HARD).
+    flags32_t   cpu_affinity_set;   // cpu set for which thread can have affinity for.
+    atomic_t    priority;           // Thread scheduling Priority.
 } sched_attr_t;
 
 #define SCHED_ATTR_DEFAULT() (sched_attr_t){0}
@@ -248,10 +249,10 @@ typedef struct {
     atomic_t        ti_flags;
 } thread_info_t;
 
-#define THREAD_USER                     BS(0)   // thread is a user thread.
+#define THREAD_USER                   BS(0)   // thread is a user thread.
 #define THREAD_KILLED                   BS(1)   // thread was killed by another thread.
-#define THREAD_SETPARK                  BS(2)   // thread has the park flag set.
-#define THREAD_SETWAKE                  BS(3)   // thread has the wakeup flag set.
+#define THREAD_PARK                     BS(2)   // thread has the park flag set.
+#define THREAD_WAKE                     BS(3)   // thread has the wakeup flag set.
 #define THREAD_HANDLING_SIG             BS(4)   // thread is currently handling a signal.
 #define THREAD_DETACHED                 BS(5)   // free resources allocated to this thread imediately to terminates.
 #define THREAD_STOP                     BS(6)   // thread stop.
@@ -291,11 +292,11 @@ typedef struct {
     err;                                          \
 })
 
-#define thread_killed(t) ({                            \
+#define thread_iskilled(t) ({                            \
     int locked = thread_locked(t);                     \
     if (!locked)                                       \
         thread_lock(t);                                \
-    int killed = thread_testflags((t), THREAD_KILLED); \
+    int killed = thread_testflags((t), THREAD_KILLED  ); \
     if (!locked)                                       \
         thread_unlock(t);                              \
     killed;                                            \
@@ -318,21 +319,21 @@ typedef struct {
 
 #define thread_isuser(t)                ({ thread_testflags((t), THREAD_USER); })
 #define thread_isdetached(t)            ({ thread_testflags((t), THREAD_DETACHED); })
-#define thread_issetwake(t)             ({ thread_testflags((t), THREAD_SETWAKE); })
-#define thread_issetpark(t)             ({ thread_testflags((t), THREAD_SETPARK); })
+#define thread_issetwake(t)             ({ thread_testflags((t), THREAD_WAKE); })
+#define thread_issetpark(t)             ({ thread_testflags((t), THREAD_PARK); })
 
 #define thread_setuser(t)               ({ thread_setflags((t), THREAD_USER); })
 #define thread_setdetached(t)           ({ thread_setflags((t), THREAD_DETACHED); })
-#define thread_setwake(t)               ({ thread_setflags((t), THREAD_SETWAKE); })
-#define thread_setpark(t)               ({ thread_setflags((t), THREAD_SETPARK); })
-#define thread_set_park_wake(t)         ({ thread_setflags((t), THREAD_SETWAKE | THREAD_SETPARK); })
+#define thread_setwake(t)               ({ thread_setflags((t), THREAD_WAKE); })
+#define thread_setpark(t)               ({ thread_setflags((t), THREAD_PARK); })
+#define thread_set_park_wake(t)         ({ thread_setflags((t), THREAD_WAKE | THREAD_PARK); })
 
 #define thread_maskdetached(t)          ({ thread_maskflags((t), THREAD_DETACHED); })
-#define thread_maskwake(t)              ({ thread_maskflags((t), THREAD_SETWAKE); })
-#define thread_maskpark(t)              ({ thread_maskflags((t), THREAD_SETPARK); })
-#define thread_mask_park_wake(t)        ({ thread_maskflags((t), THREAD_SETWAKE | THREAD_SETPARK); })
+#define thread_maskwake(t)              ({ thread_maskflags((t), THREAD_WAKE); })
+#define thread_maskpark(t)              ({ thread_maskflags((t), THREAD_PARK); })
+#define thread_mask_park_wake(t)        ({ thread_maskflags((t), THREAD_WAKE | THREAD_PARK); })
 
-#define thread_issetpark_wake(t)        ({ thread_testflags((t), THREAD_SETWAKE | THREAD_SETPARK); })
+#define thread_issetpark_wake(t)        ({ thread_testflags((t), THREAD_WAKE | THREAD_PARK); })
 #define thread_issimd_dirty(t)          ({ thread_testflags((t), THREAD_SIMD_DIRTY); })
 #define thread_set_simd_dirty(t)        ({ thread_setflags((t), THREAD_SIMD_DIRTY); })
 #define thread_mask_simd_dirty(t)       ({ thread_maskflags((t), THREAD_SIMD_DIRTY); })
@@ -360,12 +361,12 @@ typedef struct {
 #define current_mask_park_wake()        ({ thread_mask_park_wake(current); })
 
 #define current_isuser()                ({ thread_isuser(current); })
-#define current_killed()                ({ thread_killed(current); })
+#define current_iskilled()              ({ thread_iskilled(current); })
 #define current_issetwake()             ({ thread_issetwake(current); })
 #define current_issetpark()             ({ thread_issetpark(current); })
 #define current_issetpark_wake()        ({ thread_issetpark_wake(current); })
 #define current_isdetached()            ({ thread_isdetached(current); })
-#define current_handling()              ({ thread_ishandling_signal(current); })
+#define current_ishandling()            ({ thread_ishandling_signal(current); })
 #define current_isstate(state)          ({ thread_isstate(current, state); })
 #define current_embryo()                ({ thread_isembryo(current); })
 #define current_ready ()                ({ thread_isready(current); })
@@ -410,12 +411,12 @@ extern builtin_thread_t __builtin_threads[], __builtin_threads_end[];
 int builtin_threads_begin(int *nthreads, thread_t ***threads);
 
 #define thread_debugloc() ({                                                                                                       \
-    printk("%s:%d in %s(), current[%d] state: %s:%s @%s:%d by thread[%d], signal: %s, return[%p]\n",                                                     \
+    printk("%s:%d in %s(), current[%d] ste: %s:%s @%s:%d by thread[%d], signal: %s, return[%p]\n",                                                     \
            __FILE__, __LINE__, __func__, current ? current->t_tid : 0, current ? current_killed() ? "killed" : "n/a" : "n/a",      \
            current ? t_states[current->t_state] : "n/a", current ? current->t_statefile ? current->t_statefile : "no-file" : "no-file",\
            current ? current->t_stateline : -1, \
            current ? current->t_statetid : 0,\
-           current ? current_handling() ? "handling" : "n/a" : "n/a", __retaddr(0)); \
+           current ? current_ishandling() "handling" : "n/a" : "n/a", __retaddr(0)); \
 })
 
 int thread_sigdequeue(thread_t *thread);

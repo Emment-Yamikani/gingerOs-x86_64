@@ -2,6 +2,11 @@
 
 #include <lib/stdint.h>
 
+typedef unsigned char  flags8_t;    // 8-bit flags.
+typedef unsigned short flags16_t;   // 16-bit flags.
+typedef unsigned int   flags32_t;   // 32-bit flags.
+typedef unsigned long  flags64_t;   // 64-bit flags.
+
 typedef int pid_t;
 typedef int tid_t;
 

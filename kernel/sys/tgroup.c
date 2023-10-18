@@ -61,7 +61,7 @@ int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait) {
     thread_t *thread = NULL;
     queue_node_t *next = NULL;
     tgroup_assert_locked(tgroup);
-    if (current_killed())
+    if (current_iskilled())
         return -EINTR;
 
     if (tid == -1) {

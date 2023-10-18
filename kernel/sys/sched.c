@@ -80,7 +80,7 @@ int sched_park(thread_t *thread)
         return thread_enqueue(embryo_queue, thread, NULL);
 
     core = thread->t_sched_attr.processor;
-    affinity = atomic_read(&thread->t_sched_attr.affinity);
+    affinity = thread->t_sched_attr.affinity_type;
     priority = atomic_read(&thread->t_sched_attr.priority);
 
     if (core == NULL)
@@ -184,7 +184,7 @@ int sched_sleep(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
     current->sleep_attr.node = NULL;
     current->sleep_attr.queue = NULL;
 
-    if (thread_killed(current))
+    if (thread_iskilled(current))
         return -EINTR;
 
     return 0;
@@ -264,7 +264,7 @@ int sched_setattr(thread_t *thread, int affinity, int core)
         return -EINVAL;
     if ((core < 0) || (core > (cpu_count() - 1)))
         return -EINVAL;
-    atomic_write(&thread->t_sched_attr.affinity, affinity);
+    thread->t_sched_attr.affinity_type = affinity;
     thread->t_sched_attr.processor = cpus[core];
     return 0;
 }
@@ -365,7 +365,7 @@ void schedule(void) {
         current = thread;
         current_assert_locked();
 
-        if (thread_killed(thread) ||
+        if (thread_iskilled(thread) ||
             thread_iszombie(thread) ||
             thread_isterminated(thread)) {
             thread_enter_state(thread, T_TERMINATED);
@@ -389,7 +389,7 @@ void schedule(void) {
         current_assert_locked();
         current->t_sched_attr.cpu_time += (jiffies_get() - before);
 
-        if (thread_killed(thread)) {
+        if (thread_iskilled(thread)) {
             thread_enter_state(thread, T_TERMINATED);
             thread->t_exit = -EINTR;
             sched_self_destruct();
