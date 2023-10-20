@@ -31,14 +31,14 @@ extern queue_t *sched_stopq;
 int sched_park(thread_t *);
 
 /**
- * @brief give up the cpu for on scheduling round
+ * @brief give up the cpu for one scheduling round
  *
  */
 void sched_yield(void);
 
 /**
  * @brief put thread on the zombie queue.
- * then signal all threads waiting for a signal from this thread.
+ * then signal(wake up) all threads waiting for a signal from this thread.
  * caller must hold thread->t_lock.
  *
  * @param thread
