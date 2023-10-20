@@ -24,8 +24,21 @@
 #include <fs/fs.h>
 #include <ds/stack.h>
 #include <lib/ctype.h>
+#include <ds/hash.h>
 
 void core_start(void);
+
+hash_key_t hash(const char *str) {
+    int c = 0;
+    hash_key_t hash = 5381;
+    while ((c = *str++))
+        hash = ((hash << 5) + hash) + c;
+    return hash;
+}
+
+int hash_verify(const char *s1, const char *s2) {
+    return compare_strings(s1, s2);
+}
 
 __noreturn void kthread_main(void) {
     int err = 0;
