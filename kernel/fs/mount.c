@@ -216,7 +216,7 @@ int vfs_mount(const char *src,
 
     return 0;
 bind:
-    if ((err = vfs_lookup(target, NULL, O_RDONLY, 0, 0, NULL, &dtarget))) {
+    if ((err = vfs_lookup(target, NULL, O_RDONLY, 0, 0, &dtarget))) {
         mnt_unlock(mnt);
         fsunlock(fs);
         goto error;

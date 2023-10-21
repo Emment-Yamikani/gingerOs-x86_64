@@ -91,6 +91,7 @@ void ddump(dentry_t *dentry, int flags);
 })
 
 int dmkdentry(dentry_t *dir, const char *name, dentry_t **pdp);
+int dopen(dentry_t *dentry);
 void dclose(dentry_t *dentry);
 void dunbind(dentry_t *dentry);
 void drelease(dentry_t *dentry);

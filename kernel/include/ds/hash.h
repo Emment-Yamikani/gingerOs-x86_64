@@ -16,7 +16,7 @@ typedef struct hash_ctx_t {
 } hash_ctx_t;
 
 typedef struct hash_table_t {
-    hash_ctx_t  h_ctx;
+    hash_ctx_t  *h_ctx;
     btree_t     h_btree;
     spinlock_t  h_spinlock;
 } hash_table_t;
@@ -34,31 +34,28 @@ typedef struct hash_node_t {
 #define hash_assert_locked(h)       ({hash_assert(h); spin_assert_locked(&(h)->h_spinlock); })
 
 
+#define hash_ctx(h)                 ({hash_assert_locked(h); ((h)->h_ctx); })
 #define hash_btree(h)               ({hash_assert_locked(h); (&(h)->h_btree); })
-#define hash_ctx(h)                 ({hash_assert_locked(h); (&(h)->h_ctx); })
 #define hash_btree_lock(h)          ({btree_lock(hash_btree(h)); })
 #define hash_btree_unlock(h)        ({btree_unlock(hash_btree(h)); })
 #define hash_btree_islocked(h)      ({btree_islocked(hash_btree(h)); })
 #define hash_btree_assert_locked(h) ({btree_assert_locked(hash_btree(h)); })
 
-#define HASH_INIT(ctx) ((hash_table_t){           \
-    .h_ctx = {                                    \
-        .hash_func = (ctx).hash_func,             \
-        .hash_verify_obj = (ctx).hash_verify_obj, \
-    },                                            \
-    .h_btree = {0},                               \
-    .h_spinlock = SPINLOCK_INIT(),                \
+#define HASH_INIT(ctx) ((hash_table_t){ \
+    .h_ctx = (ctx),                     \
+    .h_btree = {0},                     \
+    .h_spinlock = SPINLOCK_INIT(),      \
 })
 
-#define HASH_NEW(ctx)               (&HASH_INIT(ctx))
+#define HASH_NEW(ctx)   (HASH_INIT(ctx))
 
-static inline void hash_init(hash_table_t *ht, hash_ctx_t ctx) {
+static inline void hash_init(hash_table_t *ht, hash_ctx_t *ctx) {
     *ht = HASH_INIT(ctx);
 }
 
-static inline int hash_insert(hash_table_t *ht, void *data) {
+static inline int hash_insert(hash_table_t *ht, void *key, void *data) {
     int err = 0;
-    hash_key_t key = 0;
+    hash_key_t hashed_key = 0;
     hash_node_t *head = NULL;
     hash_node_t *tail = NULL;
     hash_node_t *node = NULL;
@@ -69,10 +66,13 @@ static inline int hash_insert(hash_table_t *ht, void *data) {
 
     hash_assert_locked(ht);
     
+    if (hash_ctx(ht) == NULL)
+        return -EINVAL;
+
     if (hash_ctx(ht)->hash_func)
-        key = (hash_ctx(ht)->hash_func)(data);
+        hashed_key = (hash_ctx(ht)->hash_func)(key);
     else
-        key = (hash_key_t)data;
+        hashed_key = (hash_key_t)key;
 
     if (NULL == (node = kmalloc(sizeof *node)))
         return -ENOMEM;
@@ -82,8 +82,8 @@ static inline int hash_insert(hash_table_t *ht, void *data) {
     node->hn_prev = NULL;
 
     hash_btree_lock(ht);
-    if ((err = btree_search(hash_btree(ht), key, (void **)&head)) == -ENOENT) {
-        err = btree_insert(hash_btree(ht), key, node);
+    if ((err = btree_search(hash_btree(ht), hashed_key, (void **)&head)) == -ENOENT) {
+        err = btree_insert(hash_btree(ht), hashed_key, node);
     } else if (err == 0) {
         forlinked(node, head, next)
             next = (tail = node)->hn_next;
@@ -102,9 +102,9 @@ error:
     return err;
 }
 
-static inline int hash_search(hash_table_t *ht, void *data, int isstring, void **pdp) {
+static inline int hash_search(hash_table_t *ht, void *key, int isstring, void **pdp) {
     int err = 0;
-    hash_key_t key = 0;
+    hash_key_t hashed_key = 0;
     hash_node_t *head = NULL, *next = NULL;
 
     if (ht == NULL)
@@ -112,22 +112,25 @@ static inline int hash_search(hash_table_t *ht, void *data, int isstring, void *
     
     hash_assert_locked(ht);
 
+    if (hash_ctx(ht) == NULL)
+        return -EINVAL;
+
     if (hash_ctx(ht)->hash_func)
-        key = (hash_ctx(ht)->hash_func)(data);
+        hashed_key = (hash_ctx(ht)->hash_func)(key);
     else
-        key = (hash_key_t)data;
+        hashed_key = (hash_key_t)key;
 
     hash_btree_lock(ht);
-    if ((err = btree_search(hash_btree(ht), key, (void **)&head)) == 0) {
+    if ((err = btree_search(hash_btree(ht), hashed_key, (void **)&head)) == 0) {
         forlinked(node, head, next) {
             head = node;
             if (hash_ctx(ht)->hash_verify_obj) {
-                if (((hash_ctx(ht)->hash_verify_obj)(data, node->hn_data)) == 0)
+                if (((hash_ctx(ht)->hash_verify_obj)(key, node->hn_data)) == 0)
                     goto found;
             } else if (isstring) {
-                if (!compare_strings(node->hn_data, data))
+                if (!compare_strings(node->hn_data, key))
                     goto found;
-            } else if (node->hn_data == data)
+            } else if (node->hn_data == key)
                     goto found;
             next = node->hn_next;
         }
@@ -142,9 +145,9 @@ found:
     return 0;
 }
 
-static inline int hash_delete(hash_table_t *ht, void *data, int isstring) {
+static inline int hash_delete(hash_table_t *ht, void *key, int isstring) {
     int err = 0;
-    hash_key_t key = 0;
+    hash_key_t hashed_key = 0;
     hash_node_t *prev = NULL, *next = NULL;
     hash_node_t *head = NULL, *target = NULL;
 
@@ -153,22 +156,25 @@ static inline int hash_delete(hash_table_t *ht, void *data, int isstring) {
 
     hash_assert_locked(ht);
 
+    if (hash_ctx(ht) == NULL)
+        return -EINVAL;
+
     if (hash_ctx(ht)->hash_func)
-        key = (hash_ctx(ht)->hash_func)(data);
+        hashed_key = (hash_ctx(ht)->hash_func)(key);
     else
-        key = (hash_key_t)data;
+        hashed_key = (hash_key_t)key;
 
     hash_btree_lock(ht);
-    if ((err = btree_search(hash_btree(ht), key, (void *)&head)) == 0) {
+    if ((err = btree_search(hash_btree(ht), hashed_key, (void *)&head)) == 0) {
         forlinked(node, head, next) {
             target = node;
             if (hash_ctx(ht)->hash_verify_obj) {
-                if (((hash_ctx(ht)->hash_verify_obj)(data, node->hn_data)) == 0)
+                if (((hash_ctx(ht)->hash_verify_obj)(key, node->hn_data)) == 0)
                     goto found;
             } else if (isstring) {
-                if (!compare_strings(node->hn_data, data))
+                if (!compare_strings(node->hn_data, key))
                     goto found;
-            } else if (node->hn_data == data)
+            } else if (node->hn_data == key)
                     goto found;
             next = node->hn_next;
         }
@@ -187,15 +193,15 @@ found:
     
     if (target == head) {
         /*Remove the head node*/
-        btree_delete(hash_btree(ht), key);
+        btree_delete(hash_btree(ht), hashed_key);
 
         /*Insert next node is available*/
         if (next) {
             if (hash_ctx(ht)->hash_func)
-                    key = (hash_ctx(ht)->hash_func)(next->hn_data);
+                    hashed_key = (hash_ctx(ht)->hash_func)(next->hn_data);
             else
-                    key = (hash_key_t)next->hn_data;
-            if ((err = btree_insert(hash_btree(ht), key, next)))
+                    hashed_key = (hash_key_t)next->hn_data;
+            if ((err = btree_insert(hash_btree(ht), hashed_key, next)))
                 goto error;
         }
     }
@@ -206,4 +212,34 @@ found:
 error:
     hash_btree_unlock(ht);
     return err;
+}
+
+static inline int hash_alloc(hash_ctx_t *ctx, hash_table_t **phtp) {
+    hash_table_t *ht = NULL;
+    
+    if (ctx == NULL || phtp == NULL)
+        return -EINVAL;
+
+    if ((ht = kmalloc(sizeof *ht)) == NULL)
+        return -ENOMEM;
+    
+    hash_init(ht, ctx);
+
+    *phtp = ht;
+    return 0;
+}
+
+static inline void hash_destroy(hash_table_t *ht) {
+    if (!hash_islocked(ht))
+        hash_lock(ht);
+    hash_unlock(ht);
+    kfree(ht);
+}
+
+static inline int hash_free(hash_table_t *ht) {
+    hash_assert_locked(ht);
+    if (!btree_isempty(hash_btree(ht)))
+        return -ENOTEMPTY;
+    hash_destroy(ht);
+    return 0;
 }

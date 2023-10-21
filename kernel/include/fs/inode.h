@@ -65,7 +65,7 @@ typedef struct iops {
     int     (*ifcntl)(inode_t *ip, int cmd, void *argp);
     int     (*iioctl)(inode_t *ip, int req, void *argp);
     int     (*imkdir)(inode_t *dir, struct dentry *dentry, mode_t mode);
-    int     (*ilookup)(inode_t *dir, struct dentry *dentry);
+    int     (*ilookup)(inode_t *dir, const char *fname, inode_t **pipp);
     int     (*icreate)(inode_t *dir, struct dentry *dentry, mode_t mode);
     int     (*irename)(inode_t *dir, struct dentry *old, inode_t *newdir, struct dentry *new);
     ssize_t (*ireaddir)(inode_t *dir, off_t off, struct dirent *buf, size_t count);
@@ -123,7 +123,7 @@ int     igetattr(inode_t *ip, void *attr);
 int     isetattr(inode_t *ip, void *attr);
 int     ifcntl(inode_t *ip, int cmd, void *argp);
 int     iioctl(inode_t *ip, int req, void *argp);
-int     ilookup(inode_t *dir, struct dentry *dentry);
+int     ilookup(inode_t *dir, const char *fname, inode_t **pipp);
 int     check_iperm(inode_t *ip, uio_t *uio, int oflags);
 ssize_t iread(inode_t *ip, off_t off, void *buf, size_t nb);
 ssize_t iwrite(inode_t *ip, off_t off, void *buf, size_t nb);

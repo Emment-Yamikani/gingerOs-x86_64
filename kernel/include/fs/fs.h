@@ -118,8 +118,7 @@ int vfs_unregister_fs(filesystem_t *fs);
 int  vfs_getfs(const char *type, filesystem_t **pfs);
 int vfs_lookup(const char *fn, uio_t *uio,
                int oflags, mode_t mode,
-               int flags, inode_t **pip,
-               dentry_t **pdp);
+               int flags, dentry_t **pdp);
 
 /**
  * VFS mount helpers

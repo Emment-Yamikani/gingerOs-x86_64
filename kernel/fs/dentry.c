@@ -220,14 +220,14 @@ int dlookup(dentry_t *d_parent, const char *name, dentry_t **pchild) {
         goto done;
     }
 
-    forlinked(d_node, d_parent->d_child, d_next) {
-        dlock(d_node);
-        d_next = d_node->d_next;
-        if (!compare_strings(d_node->d_name, name)) {
-            dp = d_node;
+    forlinked(dentry, d_parent->d_child, d_next) {
+        dlock(dentry);
+        d_next = dentry->d_next;
+        if (!compare_strings(dentry->d_name, name)) {
+            dopen((dp = dentry));
             goto done;
         }
-        dunlock(d_node);
+        dunlock(dentry);
     }
 
     return -ENOENT;
@@ -259,4 +259,10 @@ error:
     if (dp)
         dfree(dp);
     return err;
+}
+
+int dopen(dentry_t *dentry) {
+    dassert_locked(dentry);
+    ddup(dentry);
+    return 0;
 }

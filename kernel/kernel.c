@@ -47,11 +47,12 @@ __noreturn void kthread_main(void) {
     
     builtin_threads_begin(&nthread, NULL);
 
-    inode_t *folder = NULL;
+    dentry_t *folder = NULL;
     mode_t mode = S_IRWXU | S_IRWXG | S_IRGRP;
 
-    if ((err = vfs_lookup("/mnt/folder", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, &folder, NULL)))
+    if ((err = vfs_lookup("/mnt/folder", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, &folder)))
         panic("[PANIC]: %s(), err = %d\n", __func__, err);
 
+    printk("dentry(%s)\n", folder->d_name);
     loop() thread_join(0, NULL, NULL);
 }

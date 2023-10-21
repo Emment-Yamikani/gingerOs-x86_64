@@ -12,7 +12,7 @@ static queue_t *fs_queue = &QUEUE_INIT();
 dentry_t *vfs_getdroot(void) {
     if (droot) {
         dlock(droot);
-        ddup(droot);
+        dopen(droot);
     }
     return droot;
 }
@@ -50,8 +50,6 @@ static int vfs_mkpauedo_dir(const char *name, dentry_t *parent) {
 
 int vfs_init(void) {
     int err = 0;
-    inode_t *dir = NULL;
-    dentry_t *dentry = NULL;
 
     if ((err = dalloc("/", &droot)))
         return err;
@@ -84,18 +82,6 @@ int vfs_init(void) {
 
     if ((err = vfs_mount(NULL, "/mnt/", "tmpfs", 0, NULL)))
         return err;
-
-    if ((err = vfs_lookup("/tmp/", NULL, O_RDWR, 0, 0, &dir, NULL)))
-        return err;
-
-    if ((err = dalloc("bin", &dentry)))
-        return err;
-
-    if ((err = imkdir(dir, dentry, 0555)))
-        return err;
-
-    dunlock(dentry);
-    iunlock(dir);
 
     return 0;
 }
@@ -135,18 +121,18 @@ int vfs_alloc_vnode(const char *name, itype_t type, inode_t **pip, dentry_t **pd
     return 0;
 }
 
-int vfs_lookup(const char *fn, uio_t *__uio,
-               int oflags, mode_t mode __unused,
-               int flags __unused, inode_t **pip, dentry_t **pdp) {
+int vfs_lookup(const char *fn, uio_t *__uio, int oflags, mode_t mode, int flags, dentry_t **pdp) {
     size_t tok_i = 0;
     char *cwd = NULL;
     inode_t *ip = NULL;
     int err = 0, isdir = 0;
-    dentry_t *d_dir = NULL, *dp = NULL;
+    dentry_t *dir = NULL, *dp = NULL;
     uio_t uio = __uio ? *__uio : UIO_DEFAULT();
     char *path = NULL, *last_tok = NULL, **toks = NULL;
 
-    if ((d_dir = vfs_getdroot()) == NULL)
+    (void)flags;
+
+    if ((dir = vfs_getdroot()) == NULL)
         return -ENOENT;
 
     if (uio.u_cwd)
@@ -161,98 +147,96 @@ int vfs_lookup(const char *fn, uio_t *__uio,
         return err;
 
     if (!compare_strings(path, "/")) {
-        dp = d_dir;
-        ip = dp->d_inode;
-        if (ip)
-            ilock(ip);
+        dp = dir;
         goto found;
     }
 
     foreach(tok, toks) {
         dp = NULL;
-        if ((err = dlookup(d_dir, tok, &dp)) == 0)
+        switch ((err = dlookup(dir, tok, &dp))) {
+        case 0:
             goto next;
-        else if (err == -ENOENT)
+        case -ENOENT:
             goto delegate;
-        else {
-            dunlock(d_dir);
+        default:
+            dclose(dir);
             goto error;
         }
+
     next:
-        dunlock(d_dir);
+        dclose(dir);
         if (!compare_strings(tok, last_tok)) {
-            if (dp->d_inode)
+            if (isdir && dp->d_inode) {
                 ilock(dp->d_inode);
-            if (isdir) {
-                if (dp->d_inode) {
-                    if (IISDIR(dp->d_inode) == 0) {
-                        err = -ENOTDIR;
-                        iunlock(dp->d_inode);
-                        dunlock(dp);
-                        goto error;
-                    }
+                if (IISDIR(dp->d_inode) == 0) {
+                    err = -ENOTDIR;
+                    iunlock(dp->d_inode);
+                    dclose(dp);
+                    goto error;
                 }
+                iunlock(dp->d_inode);
             }
-            ip = dp->d_inode;
             goto found;
         }
-        d_dir = dp;
+        dir = dp;
         tok_i++;
     }
 
 delegate:
     dp = NULL;
     foreach(tok, &toks[tok_i]) {
-        printk("delegate looking up '%s' in '%s'\n", tok, d_dir->d_name);
-        if ((err = dalloc(tok, &dp))) {
-            dunlock(d_dir);
-            goto error;
-        }
-
-        ilock(d_dir->d_inode);
-        printk("looking up\n");
-        if ((err = ilookup(d_dir->d_inode, dp)) == -ENOENT) {
-            printk("file no found by delegate\n");
+        ilock(dir->d_inode);
+        printk("delegate looking up '%s' in '%s'\n", tok, dir->d_name);
+        switch ((err = ilookup(dir->d_inode, tok, &ip))) {
+        case 0:
+            break;
+        case -ENOENT:
+            printk("file not found by delegate\n");
+            // Did user specify O_CREAT flag?
             if ((oflags & O_CREAT))
                 goto creat;
-            else goto error;
-        } else if (err) {
-            dunlock(d_dir);
-            iunlock(d_dir->d_inode);
+            __fallthrough;
+        default:
+            iunlock(dir->d_inode);
+            dunlock(dir);
             goto error;
         }
-        iunlock(d_dir->d_inode);
+        iunlock(dir->d_inode);
 
-        if ((err = dbind(d_dir, dp))) {
+        if ((err = dalloc(tok, &dp))) {
+            iclose(ip);
+            dunlock(dir);
+            goto error;
+        }
+
+        if ((err = iadd_alias(ip, dp))) {
+            iclose(ip);
+            dunlock(dir);
+            goto error;
+        }
+
+        if ((err = dbind(dir, dp))) {
             iunlock(dp->d_inode);
             dclose(dp);
-            dunlock(d_dir);
+            dunlock(dir);
             goto error;
         }
 
-        dunlock(d_dir);
-        d_dir = dp;
-        ip = dp->d_inode;
+        dunlock(dir);
+        dir = dp;
 
-        if ((err = check_iperm(ip, &uio, oflags))) {
-            iunlock(ip);
+        if ((err = check_iperm(dp->d_inode, &uio, oflags))) {
+            iunlock(dp->d_inode);
             dunlock(dp);
             goto error;
         }
 
         printk("comparing...\n");
         if (compare_strings(tok, last_tok))
-            iunlock(ip);
+            iunlock(dp->d_inode);
     }
 
 found:
-    if (pip) {
-        idupcnt(ip);
-        *pip = ip;
-    }
-    else if (ip)
-        iputcnt(ip);
-
     if (pdp) {
         ddup(dp);
         *pdp = dp;
@@ -265,11 +249,21 @@ found:
 creat:
     // create a directory
     if (oflags & O_DIRECTORY) {
-        printk("creating a directory file\n");
+        printk("cpu:%d: creating a directory file\n", cpu_id);
+        if ((err = imkdir(dir->d_inode, dp, mode))) {
+            iunlock(dp->d_inode);
+            dclose(dp);
+            dunlock(dir);
+            goto error;
+        }
+
+        ilock(dp->d_inode);
     } else { // create a regular file.
         printk("create a regular file\n");
     }
 
+
+    goto found;
     return 0;
 error:
     return err;
