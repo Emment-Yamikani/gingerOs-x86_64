@@ -84,6 +84,11 @@ error:
 void dfree(dentry_t *dp) {
     dassert_locked(dp);
     dunbind(dp);
+    if (dp->d_inode) {
+        if (!iislocked(dp->d_inode))
+            ilock(dp->d_inode);
+        idel_alias(dp->d_inode, dp);
+    }
     if (dp->d_name)
         kfree(dp->d_name);
     dunlock(dp);

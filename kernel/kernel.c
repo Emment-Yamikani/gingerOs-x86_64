@@ -43,16 +43,22 @@ int hash_verify(const char *s1, const char *s2) {
 __noreturn void kthread_main(void) {
     int err = 0;
     int nthread = 0;
-    printk("Welcome to 'Ginger OS'.\n");
+    printk("Welcome to \e[0;011m'Ginger OS'\e[0m.\n");
     
     builtin_threads_begin(&nthread, NULL);
 
-    dentry_t *folder = NULL;
+    dentry_t *file = NULL;
     mode_t mode = S_IRWXU | S_IRWXG | S_IRGRP;
 
-    if ((err = vfs_lookup("/mnt/folder", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, &folder)))
+    if ((err = vfs_lookup("/mnt/sda0", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
         panic("[PANIC]: %s(), err = %d\n", __func__, err);
 
-    printk("dentry(%s)\n", folder->d_name);
+    if ((err = vfs_lookup("/mnt/sda0/bin", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
+        panic("[PANIC]: %s(), err = %d\n", __func__, err);
+
+    if ((err = vfs_lookup("/mnt/sda0/bin/sh", NULL, O_CREAT | O_RDWR, mode, 0, &file)))
+        panic("[PANIC]: %s(), err = %d\n", __func__, err);
+
+    debugloc();
     loop() thread_join(0, NULL, NULL);
 }

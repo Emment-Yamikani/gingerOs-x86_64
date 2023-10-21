@@ -160,19 +160,21 @@ int ramfs2_find(ramfs2_super_t *super, const char *fn, ramfs2_node_t **pnode)
     return -ENOENT;
 }
 
-static int ramfs_ilookup(inode_t *dir, dentry_t *dentry) {
+static int ramfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     int err = 0;
     inode_t *ip = NULL;
     ramfs2_node_t *node = NULL;
+    iassert_locked(dir);
 
-    if (!dir || dentry == NULL)
+    if (!dir || pipp == NULL)
         return -EINVAL;
 
     if (IISDIR(dir) == 0)
         return -ENOTDIR;
 
-    if ((err = ramfs2_find(ramfs2_super, dentry->d_name, &node)))
+    if ((err = ramfs2_find(ramfs2_super, fname, &node)))
         return err;
+
     if ((err = ialloc(&ip)))
         return err;
 
@@ -190,11 +192,7 @@ static int ramfs_ilookup(inode_t *dir, dentry_t *dentry) {
     }[node->type];
     ip->i_ino = node - ramfs2_super->nodes;
 
-    if ((err = iadd_alias(ip, dentry))) {
-        iclose(ip);
-        return err;
-    }
-
+    *pipp = ip;
     return 0;
 };
 
@@ -233,7 +231,7 @@ static int ramfs2_close(inode_t *ip __unused)
     return 0;
 }
 
-static int ramfs2_creat(inode_t *ip __unused, dentry_t *dentry __unused, int mode __unused)
+static int ramfs2_creat(inode_t *ip __unused, const char *fname __unused, int mode __unused)
 {
     return -EROFS;
 }

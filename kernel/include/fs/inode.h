@@ -64,9 +64,9 @@ typedef struct iops {
     int     (*imknod)(inode_t *dir, struct dentry *dentry, mode_t mode, int devid);
     int     (*ifcntl)(inode_t *ip, int cmd, void *argp);
     int     (*iioctl)(inode_t *ip, int req, void *argp);
-    int     (*imkdir)(inode_t *dir, struct dentry *dentry, mode_t mode);
+    int     (*imkdir)(inode_t *dir, const char *fname, mode_t mode);
     int     (*ilookup)(inode_t *dir, const char *fname, inode_t **pipp);
-    int     (*icreate)(inode_t *dir, struct dentry *dentry, mode_t mode);
+    int     (*icreate)(inode_t *dir, const char *fname, mode_t mode);
     int     (*irename)(inode_t *dir, struct dentry *old, inode_t *newdir, struct dentry *new);
     ssize_t (*ireaddir)(inode_t *dir, off_t off, struct dirent *buf, size_t count);
     int     (*isymlink)(inode_t *ip, inode_t *atdir, const char *symname);
@@ -77,7 +77,7 @@ typedef struct iops {
 #define iassert(ip)         ({ assert((ip), "No inode"); })
 #define ilock(ip)           ({ iassert(ip); spin_lock(&(ip)->i_lock); })
 #define iunlock(ip)         ({ iassert(ip); spin_unlock(&(ip)->i_lock); })
-#define ilocked(ip)         ({ iassert(ip); spin_islocked(&(ip)->i_lock); })
+#define iislocked(ip)         ({ iassert(ip); spin_islocked(&(ip)->i_lock); })
 #define iassert_locked(ip)  ({ iassert(ip); spin_assert_locked(&(ip)->i_lock); })
 
 #define icheck_op(ip, func) ({          \
@@ -112,6 +112,7 @@ void    iputcnt(inode_t *ip);
 void    idupcnt(inode_t *ip);
 void    iputlink(inode_t *ip);
 void    iduplink(inode_t *ip);
+void    irelease(inode_t *ip);
 int     idel_alias(inode_t *ip, struct dentry *dentry);
 int     iadd_alias(inode_t *ip, struct dentry *dentry);
 
@@ -128,8 +129,8 @@ int     check_iperm(inode_t *ip, uio_t *uio, int oflags);
 ssize_t iread(inode_t *ip, off_t off, void *buf, size_t nb);
 ssize_t iwrite(inode_t *ip, off_t off, void *buf, size_t nb);
 int     ibind(inode_t *dir, struct dentry *dentry, inode_t *ip);
-int     imkdir(inode_t *dir, struct dentry *dentry, mode_t mode);
-int     icreate(inode_t *dir, struct dentry *dentry, mode_t mode);
+int     imkdir(inode_t *dir, const char *fname, mode_t mode);
+int     icreate(inode_t *dir, const char *fname, mode_t mode);
 ssize_t ireaddir(inode_t *dir, off_t off, void *buf, size_t count);
 int     isymlink(inode_t *ip, inode_t *atdir, const char *symname);
 int     ilink(struct dentry *oldname, inode_t *dir, struct dentry *newname);

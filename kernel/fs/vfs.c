@@ -36,7 +36,7 @@ static int vfs_mkpauedo_dir(const char *name, dentry_t *parent) {
     {
         dunlock(parent);
         dclose(dnt);
-        iclose(ip);
+        irelease(ip);
         return err;
     }
 
@@ -102,13 +102,13 @@ int vfs_alloc_vnode(const char *name, itype_t type, inode_t **pip, dentry_t **pd
 
     if ((err = dalloc(name, &dp)))
     {
-        iclose(ip);
+        irelease(ip);
         return err;
     }
 
     if ((err = iadd_alias(ip, dp)))
     {
-        iclose(ip);
+        irelease(ip);
         dclose(dp);
         return err;
     }
@@ -186,86 +186,78 @@ delegate:
     dp = NULL;
     foreach(tok, &toks[tok_i]) {
         ilock(dir->d_inode);
-        printk("delegate looking up '%s' in '%s'\n", tok, dir->d_name);
+    try_lookup:
+        printk("delegate looking up '\e[0;013m%s\e[0m' in '\e[0;013m%s\e[0m'\n", tok, dir->d_name);
         switch ((err = ilookup(dir->d_inode, tok, &ip))) {
         case 0:
+            printk("file(\e[0;013m%s\e[0m) found.\n", tok);
             break;
         case -ENOENT:
-            printk("file not found by delegate\n");
+            printk("file(\e[0;013m%s\e[0m) not found.\n", tok);
             // Did user specify O_CREAT flag?
-            if ((oflags & O_CREAT))
-                goto creat;
+            if ((oflags & O_CREAT)) {
+                if (oflags & O_DIRECTORY) {
+                    if ((err = imkdir(dir->d_inode, tok, mode))) {
+                        iunlock(dir->d_inode);
+                        dclose(dir);
+                        goto error;
+                    }
+                } else if ((err = icreate(dir->d_inode, tok, mode))) {
+                // create a regular file.
+                    iunlock(dir->d_inode);
+                    dclose(dir);
+                    goto error;
+                }
+
+                goto try_lookup;   
+            }
             __fallthrough;
         default:
             iunlock(dir->d_inode);
-            dunlock(dir);
+            dclose(dir);
             goto error;
         }
         iunlock(dir->d_inode);
 
-        if ((err = dalloc(tok, &dp))) {
-            iclose(ip);
-            dunlock(dir);
+        if ((err = check_iperm(ip, &uio, oflags))) {
+            irelease(ip);
+            dclose(dir);
             goto error;
         }
 
-        if ((err = iadd_alias(ip, dp))) {
-            iclose(ip);
-            dunlock(dir);
-            goto error;
+        if ((err = dalloc(tok, &dp))) {
+            irelease(ip);
+            dclose(dir);
+            goto delegate_err;
         }
 
         if ((err = dbind(dir, dp))) {
-            iunlock(dp->d_inode);
             dclose(dp);
-            dunlock(dir);
-            goto error;
+            irelease(ip);
+            dclose(dir);
+            goto delegate_err;
         }
+        dclose(dir);
 
-        dunlock(dir);
+        if ((err = iadd_alias(ip, dp))) {
+            dclose(dp);
+            irelease(ip);
+            goto delegate_err;
+        }
+        irelease(ip);
+
         dir = dp;
-
-        if ((err = check_iperm(dp->d_inode, &uio, oflags))) {
-            iunlock(dp->d_inode);
-            dunlock(dp);
-            goto error;
-        }
-
-        printk("comparing...\n");
-        if (compare_strings(tok, last_tok))
-            iunlock(dp->d_inode);
     }
 
 found:
-    if (pdp) {
-        ddup(dp);
+    if (pdp)
         *pdp = dp;
-    }
-    else {
+    else
         dclose(dp);
-    }
-    return 0;
-
-creat:
-    // create a directory
-    if (oflags & O_DIRECTORY) {
-        printk("cpu:%d: creating a directory file\n", cpu_id);
-        if ((err = imkdir(dir->d_inode, dp, mode))) {
-            iunlock(dp->d_inode);
-            dclose(dp);
-            dunlock(dir);
-            goto error;
-        }
-
-        ilock(dp->d_inode);
-    } else { // create a regular file.
-        printk("create a regular file\n");
-    }
-
-
-    goto found;
     return 0;
 error:
+    return err;
+delegate_err:
     return err;
 }
 

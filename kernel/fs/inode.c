@@ -57,7 +57,17 @@ void iduplink(inode_t *ip) {
     ip->i_hlinks++;
 }
 
-int ddel_alias(inode_t *inode, dentry_t *dentry) {
+void irelease(inode_t *ip) {
+    iassert_locked(ip);
+    idupcnt(ip);
+    if (ip->i_refcnt <= 0) {
+        iclose(ip);
+        printk("ip closed\n");
+    } else
+        iunlock(ip);
+}
+
+int idel_alias(inode_t *inode, dentry_t *dentry) {
     dentry_t *prev = NULL, *next = NULL;
 
     iassert_locked(inode);
@@ -90,11 +100,10 @@ int ddel_alias(inode_t *inode, dentry_t *dentry) {
     if (prev)
         dunlock(prev);
 
-    iputcnt(inode);
-
     dentry->d_alias_next = NULL;
     dentry->d_alias_prev = NULL;
 
+    irelease(inode);
     return 0;
 }
 
@@ -273,10 +282,9 @@ int     iioctl(inode_t *ip, int req, void *argp) {
     return ip->i_ops->iioctl(ip, req, argp);
 }
 
-int     imkdir(inode_t *dir, struct dentry *dentry, mode_t mode) {
+int     imkdir(inode_t *dir, const char *fname, mode_t mode) {
     int err = 0;
     iassert_locked(dir);
-    dassert_locked(dentry);
 
     if (IISDIR(dir) == 0)
         return -ENOTDIR;
@@ -284,7 +292,7 @@ int     imkdir(inode_t *dir, struct dentry *dentry, mode_t mode) {
     if ((err = icheck_op(dir, imkdir)))
         return err;
 
-    return dir->i_ops->imkdir(dir, dentry, mode);
+    return dir->i_ops->imkdir(dir, fname, mode);
 }
 
 int     iunlink(inode_t *ip) {
@@ -297,11 +305,10 @@ int     iunlink(inode_t *ip) {
     return ip->i_ops->iunlink(ip);
 }
 
-int     ilookup(inode_t *dir, dentry_t *dentry) {
+int     ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     int err = 0;
     
     iassert_locked(dir);
-    dassert_locked(dentry);
 
     if (IISDIR(dir) == 0)
         return -ENOTDIR;
@@ -309,13 +316,12 @@ int     ilookup(inode_t *dir, dentry_t *dentry) {
     if ((err = icheck_op(dir, ilookup)))
         return err;
     
-    return dir->i_ops->ilookup(dir, dentry);
+    return dir->i_ops->ilookup(dir, fname, pipp);
 }
 
-int     icreate(inode_t *dir, struct dentry *dentry, mode_t mode) {
+int     icreate(inode_t *dir, const char *fname, mode_t mode) {
     int err = 0;
     iassert_locked(dir);
-    dassert_locked(dentry);
 
     if (IISDIR(dir) == 0)
         return -ENOTDIR;
@@ -323,7 +329,7 @@ int     icreate(inode_t *dir, struct dentry *dentry, mode_t mode) {
     if ((err = icheck_op(dir, icreate)))
         return err;
     
-    return dir->i_ops->icreate(dir, dentry, mode);
+    return dir->i_ops->icreate(dir, fname, mode);
 }
 
 int     irename(inode_t *dir, struct dentry *old, inode_t *newdir, struct dentry *new) {
