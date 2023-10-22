@@ -1,3 +1,36 @@
+## Features
+
+- [ ] Firmware
+  - [x] BIOS
+  - [ ] UEFI
+  - [x] ACPI
+
+- [ ] Memory Management
+  - [x] Physical Memery Management
+  - [x] Virtual Memory Management
+  - [x] Memory allocator(s)
+    - [x] Zones for physical memory (Similar, but same, as in Linux).
+    - [x] Liballoc (Credit to whom it is due)
+- [x] Multi-Threading
+  - [x] Thread groups
+- [ ] POSIX Signals
+- [ ] User processes
+- [ ] Virtual Filesystem
+  - [x] Generic inode operations.
+  - [ ] Generic file operations.
+  - [ ] File address space to alloc file sharing.
+  - [ ] File locks
+  - [ ] File times
+- [ ] File System
+  - [x] ginger ramfs
+  - [x] tmpfs
+  - [ ] devfs
+  - [ ] pipefs
+  - [ ] sysfs
+  - [ ] ext2fs
+  - [ ] FAT32
+
+#
 
 ## Virtual FileSystem
 
