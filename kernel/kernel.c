@@ -46,27 +46,33 @@ __noreturn void kthread_main(void) {
     printk("Welcome to \e[0;011m'Ginger OS'\e[0m.\n");
     
     builtin_threads_begin(&nthread, NULL);
-
-    dentry_t *dfile = NULL;
     mode_t mode = S_IRWXU | S_IRWXG | S_IRGRP;
 
     if ((err = vfs_lookup("/mnt/sda0/bin", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
         panic("[PANIC]: %s(), err = %d\n", __func__, err);
-
-    if ((err = vfs_lookup("/mnt/sda0/bin/sh", NULL, O_CREAT | O_RDWR, mode, 0, &dfile)))
+    
+    if ((err = vfs_lookup("/mnt/media/", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
         panic("[PANIC]: %s(), err = %d\n", __func__, err);
 
-    ilock(dfile->d_inode);
+    if ((err = vfs_lookup("/mnt/hda/", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
+        panic("[PANIC]: %s(), err = %d\n", __func__, err);
 
-    iwrite(dfile->d_inode, 0, "\e[0;012mHello World\e[0m\n", 25);
-    itruncate(dfile->d_inode);
+    if ((err = vfs_lookup("/mnt/sda1/", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
+        panic("[PANIC]: %s(), err = %d\n", __func__, err);
 
-    char buf[26] = {0};
-    iread(dfile->d_inode, 0, buf, sizeof buf);
-    iunlock(dfile->d_inode);
-    dclose(dfile);
+    if ((err = vfs_lookup("/mnt/sda", NULL, O_CREAT | O_RDWR, mode, 0, NULL)))
+        panic("[PANIC]: %s(), err = %d\n", __func__, err);
 
-    printk(buf);
+    if ((err = vfs_lookup("/mnt/sda2/", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
+        panic("[PANIC]: %s(), err = %d\n", __func__, err);
+
+    if ((err = vfs_lookup("/mnt/file", NULL, O_CREAT | O_RDWR, mode, 0, NULL)))
+        panic("[PANIC]: %s(), err = %d\n", __func__, err);
+
+    if ((err = vfs_lookup("/mnt/sda3/", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
+        panic("[PANIC]: %s(), err = %d\n", __func__, err);
+
+    vfs_dirlist("/mnt/");
 
     loop() thread_join(0, NULL, NULL);
 }

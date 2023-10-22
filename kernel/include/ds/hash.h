@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ds/btree.h>
+#include <ds/queue.h>
 #include <mm/kalloc.h>
 #include <bits/errno.h>
 #include <lib/stdint.h>
@@ -211,6 +212,39 @@ found:
     return 0;
 error:
     hash_btree_unlock(ht);
+    return err;
+}
+
+static inline int hash_traverse_btree_node(btree_node_t *tree, queue_t *queue) {
+    int err = 0;
+    hash_node_t *hnode = NULL;
+    queue_assert_locked(queue);
+
+    if (queue == NULL)
+        return -EINVAL;
+
+    if (tree) {
+        btree_assert_locked(tree->btree);
+        hash_traverse_btree_node(tree->left, queue);
+        hnode = tree->data;
+        forlinked(node, hnode, node->hn_next) {
+            if ((err = enqueue(queue, node->hn_data, 1, NULL)))
+                return err;
+        }
+        hash_traverse_btree_node(tree->right, queue);
+    }
+
+    return 0;
+}
+
+static inline int hash_traverse(hash_table_t *ht, queue_t *queue) {
+    int err = 0;
+    hash_assert_locked(ht);
+    queue_assert_locked(queue);
+
+    btree_lock(hash_btree(ht));
+    err = hash_traverse_btree_node(hash_btree(ht)->root, queue);
+    btree_unlock(hash_btree(ht));
     return err;
 }
 

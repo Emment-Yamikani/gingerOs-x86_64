@@ -5,6 +5,7 @@
 #include <sync/spinlock.h>
 #include <lib/types.h>
 #include <ds/queue.h>
+#include <sys/_stat.h>
 
 struct iops;
 struct uio;
@@ -25,6 +26,8 @@ typedef enum {
     FS_BLK,
     FS_FIFO,
 } itype_t;
+
+extern char * itype_strings [];
 
 typedef struct inode {
     uintptr_t       i_ino;      // Filesystem specific i-number for this file.

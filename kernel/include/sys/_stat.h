@@ -19,7 +19,6 @@ struct  stat
   time_t          st_ctime;
 };
 
-
 #define _IFMT       0170000 /* type of file */
 #define     _IFDIR  0040000 /* directory */
 #define     _IFCHR  0020000 /* character special */

@@ -6,6 +6,16 @@
 #include <fs/tmpfs.h>
 #include <sys/_fcntl.h>
 
+char *itype_strings[] = {
+    [FS_INV] = "INV",
+    [FS_RGL] = "REG",
+    [FS_DIR] = "DIR",
+    [FS_CHR] = "CHR",
+    [FS_SYM] = "SYM",
+    [FS_BLK] = "BLK",
+    [FS_FIFO]= "FIFO",
+};
+
 static dentry_t *droot = NULL;
 static queue_t *fs_queue = &QUEUE_INIT();
 
@@ -313,4 +323,32 @@ int vfs_getfs(const char *type, filesystem_t **pfs) {
 
     queue_unlock(fs_queue);
     return -ENOENT;
+}
+
+int vfs_dirlist(const char *path) {
+    int err = 0;
+    off_t off = 0;
+    dentry_t *dfile = NULL;
+    struct dirent dp = {0};
+
+    if ((err = vfs_lookup(path, NULL, O_RDONLY, 0, 0, &dfile)))
+        return err;
+
+    printk("%-8s %-5s %-5s %-7s\n", "Name", "I-number", "Size", "Type");
+
+    ilock(dfile->d_inode);
+    while ((0 == ireaddir(dfile->d_inode, off++, &dp, 1))) {
+        if (dp.d_type == FS_RGL)
+            printk("\e[0;011m%-8s\e[0m \e[0;03m%5ld\e[0m \e[0;04m%5ld\e[0m \e[0;08m%7s\e[0m\n",
+                   dp.d_name, dp.d_ino,
+                   dp.d_size, itype_strings[dp.d_type]);
+        if (dp.d_type == FS_DIR)
+            printk("\e[0;02m%-8s\e[0m \e[0;03m%5ld\e[0m \e[0;04m%5ld\e[0m \e[0;06m%7s\e[0m\n",
+                   dp.d_name, dp.d_ino,
+                   dp.d_size, itype_strings[dp.d_type]);
+    }
+    iunlock(dfile->d_inode);
+    dclose(dfile);
+
+    return 0;
 }

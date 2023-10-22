@@ -12,7 +12,12 @@
 #define MAXFNAME 255
 
 struct dirent {
-
+    size_t d_ino;
+    int    d_type;
+    off_t  d_off;
+    size_t d_reclen;
+    size_t d_size;
+    char   d_name[MAXFNAME];
 };
 
 typedef struct uio {
@@ -119,7 +124,7 @@ int  vfs_getfs(const char *type, filesystem_t **pfs);
 int vfs_lookup(const char *fn, uio_t *uio,
                int oflags, mode_t mode,
                int flags, dentry_t **pdp);
-
+int vfs_dirlist(const char *path);
 /**
  * VFS mount helpers
 */

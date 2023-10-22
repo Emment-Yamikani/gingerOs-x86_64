@@ -73,7 +73,6 @@ long_mode:
     mov ss, ax
     mov rsp, qword [stack]
     mov rbp, rsp
-
     retq
 
 times 4032 - ($ - $$) db 0

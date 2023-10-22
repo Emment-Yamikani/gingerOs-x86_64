@@ -216,3 +216,11 @@ error:
     btree_free_node(node);
     return err;
 }
+
+void btree_traverse(btree_node_t *tree) {
+    if (tree) {
+        btree_traverse(tree->left);
+        printk("Key: %ld\n", tree->key);
+        btree_traverse(tree->right);
+    }
+}

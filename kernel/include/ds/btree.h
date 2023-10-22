@@ -120,3 +120,5 @@ btree_node_t *btree_lookup(btree_t *btree, btree_key_t key);
  * @btree_insertbrief 
 */
 int btree_insert(btree_t *btree, btree_key_t key, void *data);
+
+void btree_traverse(btree_node_t *tree);
