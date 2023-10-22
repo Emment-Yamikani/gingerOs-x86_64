@@ -475,39 +475,47 @@ ssize_t tmpfs_iwrite(inode_t *ip, off_t off, void *buf, size_t sz) {
 }
 
 int tmpfs_isync(inode_t *ip __unused) {
-    return -ENOSYS;
+    return -ENOTSUP;
 }
 
 int tmpfs_iclose(inode_t *ip __unused) {
-    return -ENOSYS;
+    return -ENOTSUP;
 }
 
 int tmpfs_iunlink(inode_t *ip __unused) {
-    return -ENOSYS;
+    return -ENOTSUP;
 }
 
 int tmpfs_igetattr(inode_t *ip __unused, void *attr __unused) {
-    return -ENOSYS;
+    return -ENOTSUP;
 }
 
 int tmpfs_isetattr(inode_t *ip __unused, void *attr __unused) {
-    return -ENOSYS;
+    return -ENOTSUP;
 }
 
 int tmpfs_ifcntl(inode_t *ip __unused, int cmd __unused, void *argp __unused) {
-    return -ENOSYS;
+    return -ENOTSUP;
 }
 
-int tmpfs_iioctl(inode_t *ip __unused, int req __unused, void *argp __unused) {
-    return -ENOSYS;
+int tmpfs_iioctl(inode_t *ip, int req __unused, void *argp) {
+    iassert_locked(ip);
+    
+    if (ip == NULL || argp == NULL)
+        return -EINVAL;
+    
+    if (IISDEV(ip) == 0)
+        return -ENOTTY;
+
+    return -ENOTSUP;
 }
 
 int tmpfs_ibind(inode_t *dir __unused, dentry_t *dentry __unused, inode_t *ip __unused) {
-    return -ENOSYS;
+    return -ENOTSUP;
 }
 
 int tmpfs_isymlink(inode_t *ip __unused, inode_t *atdir __unused, const char *symname __unused) {
-    return -ENOSYS;
+    return -ENOTSUP;
 }
 
 ssize_t tmpfs_ireaddir(inode_t *dir, off_t off, struct dirent *buf, size_t count) {
@@ -581,13 +589,13 @@ done:
 }
 
 int tmpfs_ilink(dentry_t *oldname __unused, inode_t *dir __unused, dentry_t *newname __unused) {
-    return -ENOSYS;
+    return -ENOTSUP;
 }
 
 int tmpfs_imknod(inode_t *dir __unused, dentry_t *dentry __unused, mode_t mode __unused, int devid __unused) {
-    return -ENOSYS;
+    return -ENOTSUP;
 }
 
 int tmpfs_irename(inode_t *dir __unused, dentry_t *old __unused, inode_t *newdir __unused, dentry_t *new __unused) {
-    return -ENOSYS;
+    return -ENOTSUP;
 }

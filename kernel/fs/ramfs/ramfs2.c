@@ -56,6 +56,7 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
     ssize_t err = 0;
     size_t sbsz = 0;
     dentry_t *droot = NULL;
+    ramfs2_node_t *node = NULL;
     ramfs2_super_header_t hdr = {0};
 
     sbassert_locked(sb);
@@ -71,7 +72,6 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
     if ((ramfs2_super = kcalloc(1, sbsz)) == NULL)
         return -ENOMEM;
 
-
     if ((err = kdev_read(devid, 0, ramfs2_super, sbsz)) < 0)
         return err;
 
@@ -82,15 +82,25 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
         return err;
 
     if ((err = dalloc(target, &droot))) {
-        iclose(iroot);
+        irelease(iroot);
         return err;
     }
 
     if ((err = iadd_alias(iroot, droot))) {
         dclose(droot);
-        iclose(iroot);
+        irelease(iroot);
         return err;
     }
+
+    if ((node = kmalloc(sizeof *node)) == NULL) {
+        dclose(droot);
+        irelease(iroot);
+        return err;
+    }
+
+    memset(node, 0, sizeof *node);
+
+    strncpy(node->name, droot->d_name, strlen(droot->d_name));
 
     sb->sb_blocksize = 512;
     strncpy(sb->sb_magic0, ramfs2_super->header.magic,
@@ -105,6 +115,18 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
     };
     sb->sb_root = droot;
     ramfs2_sb = sb;
+
+    node->offset = 0;
+    node->mode = 0555;
+    node->type = RAMFS2_DIR;
+    node->gid = sb->sb_uio.u_gid;
+    node->uid = sb->sb_uio.u_uid;
+
+    iroot->i_mode = node->mode;
+    iroot->i_uid = node->uid;
+    iroot->i_gid = node->gid;
+    iroot->i_ino = node->offset;
+    iroot->i_priv = node;
 
     iroot->i_type = FS_DIR;
     iroot->i_sb = ramfs2_sb;
@@ -251,11 +273,52 @@ __unused static int ramfs2_lseek(inode_t *ip __unused, off_t off __unused, int w
     return -EINVAL;
 }
 
-static ssize_t ramfs2_readdir(inode_t *dir __unused, off_t offset __unused, struct dirent *dirent __unused, size_t count __unused)
-{
+static ssize_t ramfs2_readdir(inode_t *dir, off_t offset, struct dirent *buff, size_t count) {
+    ramfs2_node_t *node = NULL;
+    
+    iassert_locked(dir);
+
     if (iroot != dir)
         return -EINVAL;
-    return -ENOSYS;
+    
+    if (IISDIR(dir) == 0)
+        return -ENOTDIR;
+
+    if (offset >= ramfs2_super->header.nfile)
+        return -1;
+
+    if ((node = ramfs2_convert_inode(dir)) == NULL)
+        return -EINVAL;
+
+    for (uint32_t indx = 0; indx < ramfs2_super->header.nfile; ++indx) {
+        if (indx >= count)
+            break;
+        buff[indx] = (struct dirent){
+            .d_ino = offset + 1,
+            .d_off = offset,
+            .d_reclen = sizeof *buff,
+            .d_size = ramfs2_super->nodes[offset].size,
+            .d_type = (int[]){
+                [RAMFS2_INV] = 0,
+                [RAMFS2_REG] = _IFREG,
+                [RAMFS2_DIR] = _IFDIR,
+            }[ramfs2_super->nodes[offset].type],
+            .d_name[0] = '\0',
+        };
+        switch (ramfs2_super->nodes[offset].type) {
+        case RAMFS2_DIR:
+            buff[indx].d_type = FS_DIR;
+            break;
+        case RAMFS2_REG:
+            buff[indx].d_type = FS_RGL;
+            break;
+        default:
+            buff[indx].d_type = FS_INV;
+        }
+        strncpy(buff[indx].d_name, ramfs2_super->nodes[offset].name,
+            strlen(ramfs2_super->nodes[offset].name));
+    }
+    return 0;
 }
 
 __unused static int ramfs2_chown(inode_t *ip __unused, uid_t uid __unused, gid_t gid __unused)

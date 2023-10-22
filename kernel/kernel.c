@@ -28,51 +28,13 @@
 
 void core_start(void);
 
-hash_key_t hash(const char *str) {
-    int c = 0;
-    hash_key_t hash = 5381;
-    while ((c = *str++))
-        hash = ((hash << 5) + hash) + c;
-    return hash;
-}
-
-int hash_verify(const char *s1, const char *s2) {
-    return compare_strings(s1, s2);
-}
-
 __noreturn void kthread_main(void) {
-    int err = 0;
     int nthread = 0;
     printk("Welcome to \e[0;011m'Ginger OS'\e[0m.\n");
     
     builtin_threads_begin(&nthread, NULL);
-    mode_t mode = S_IRWXU | S_IRWXG | S_IRGRP;
-
-    if ((err = vfs_lookup("/mnt/sda0/bin", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
-        panic("[PANIC]: %s(), err = %d\n", __func__, err);
     
-    if ((err = vfs_lookup("/mnt/media/", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
-        panic("[PANIC]: %s(), err = %d\n", __func__, err);
-
-    if ((err = vfs_lookup("/mnt/hda/", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
-        panic("[PANIC]: %s(), err = %d\n", __func__, err);
-
-    if ((err = vfs_lookup("/mnt/sda1/", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
-        panic("[PANIC]: %s(), err = %d\n", __func__, err);
-
-    if ((err = vfs_lookup("/mnt/sda", NULL, O_CREAT | O_RDWR, mode, 0, NULL)))
-        panic("[PANIC]: %s(), err = %d\n", __func__, err);
-
-    if ((err = vfs_lookup("/mnt/sda2/", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
-        panic("[PANIC]: %s(), err = %d\n", __func__, err);
-
-    if ((err = vfs_lookup("/mnt/file", NULL, O_CREAT | O_RDWR, mode, 0, NULL)))
-        panic("[PANIC]: %s(), err = %d\n", __func__, err);
-
-    if ((err = vfs_lookup("/mnt/sda3/", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
-        panic("[PANIC]: %s(), err = %d\n", __func__, err);
-
-    vfs_dirlist("/mnt/");
+    vfs_dirlist("/");
 
     loop() thread_join(0, NULL, NULL);
 }
