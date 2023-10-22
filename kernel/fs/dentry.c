@@ -60,7 +60,7 @@ int dalloc(const char *__name, dentry_t **pdentry) {
 
     memset(dp, 0, sizeof *dp);
 
-    dp->d_count = 0;
+    dp->d_count = 1;
     dp->d_name = name;
     dp->d_lock = SPINLOCK_INIT();
     dp->d_ops = (dops_t) {

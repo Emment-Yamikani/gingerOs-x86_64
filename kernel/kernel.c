@@ -47,18 +47,26 @@ __noreturn void kthread_main(void) {
     
     builtin_threads_begin(&nthread, NULL);
 
-    dentry_t *file = NULL;
+    dentry_t *dfile = NULL;
     mode_t mode = S_IRWXU | S_IRWXG | S_IRGRP;
-
-    if ((err = vfs_lookup("/mnt/sda0", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
-        panic("[PANIC]: %s(), err = %d\n", __func__, err);
 
     if ((err = vfs_lookup("/mnt/sda0/bin", NULL, O_CREAT | O_RDWR | O_DIRECTORY, mode, 0, NULL)))
         panic("[PANIC]: %s(), err = %d\n", __func__, err);
 
-    if ((err = vfs_lookup("/mnt/sda0/bin/sh", NULL, O_CREAT | O_RDWR, mode, 0, &file)))
+    if ((err = vfs_lookup("/mnt/sda0/bin/sh", NULL, O_CREAT | O_RDWR, mode, 0, &dfile)))
         panic("[PANIC]: %s(), err = %d\n", __func__, err);
 
-    debugloc();
+    ilock(dfile->d_inode);
+
+    iwrite(dfile->d_inode, 0, "\e[0;012mHello World\e[0m\n", 25);
+    itruncate(dfile->d_inode);
+
+    char buf[26] = {0};
+    iread(dfile->d_inode, 0, buf, sizeof buf);
+    iunlock(dfile->d_inode);
+    dclose(dfile);
+
+    printk(buf);
+
     loop() thread_join(0, NULL, NULL);
 }

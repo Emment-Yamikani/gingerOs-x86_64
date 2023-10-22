@@ -124,8 +124,8 @@ size_t klog(int type, const char *restrict __fmt__, ...);
 #include <arch/cpu.h>
 
 #define debugloc() ({                     \
-    printk("%s:%d in %s(), return[%p]: ncli: %ld\n",             \
-           __FILE__, __LINE__, __func__, __retaddr(0), cpu->ncli); \
+    printk("%s:%d in %s(), return[%p]: cpu%d ncli: %ld\n",             \
+           __FILE__, __LINE__, __func__, __retaddr(0), cpu_id, cpu->ncli); \
 })
 
 #endif  // _PRINTF_H_

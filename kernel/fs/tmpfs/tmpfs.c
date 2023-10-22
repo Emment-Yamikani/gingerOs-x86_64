@@ -43,9 +43,13 @@ static hash_ctx_t tmpfs_hash_ctx = {
 };
 
 static iops_t tmpfs_iops = {
+    .iread = tmpfs_iread,
+    .iwrite = tmpfs_iwrite,
     .imkdir = tmpfs_imkdir,
     .icreate = tmpfs_icreate,
     .ilookup = tmpfs_ilookup,
+    .itruncate = tmpfs_itruncate,
+
 };
 
 static size_t tmpfs_hash(const char *str) {
@@ -299,7 +303,6 @@ static int tmpfs_create_node(inode_t *dir, const char *fname, mode_t mode, itype
 
     ip->mode = mode;
 
-    printk("tmpfs created file \"%s\"\n", fname);
     printk("[\e[0;04mWARNING\e[0m]: file credentials not fully set!\n");
     return 0;
 error:
@@ -336,7 +339,7 @@ int tmpfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     if (NULL == (htable = tmpfs_data(dir)))
         return -EINVAL;
 
-    printk("tmpfs looking-up file(\e[0;013m%s\e[0m).\n", fname);
+    // printk("tmpfs looking-up file(\e[0;013m%s\e[0m).\n", fname);
  
     hash_lock(htable);
     if ((err = hash_search(htable, (void *)fname, -1, (void **)&dirent))) {
@@ -345,7 +348,7 @@ int tmpfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     }
     hash_unlock(htable);
 
-    printk("tmpfs found file(\e[0;013m%s\e[0m).\n", fname);
+    // printk("tmpfs found file(\e[0;013m%s\e[0m).\n", fname);
 
     if (dirent->inode == NULL)
         return -EINVAL;
@@ -372,17 +375,98 @@ error:
     return err;
 }
 
+int tmpfs_itruncate(inode_t *ip) {
+    void *data = NULL;
+    tmpfs_inode_t *tino = NULL;
+
+    iassert_locked(ip);
+    if (ip == NULL)
+        return -EINVAL;
+    
+    if (IISDIR(ip))
+        return -EISDIR;
+
+    if ((tino = ip->i_priv) == NULL)
+        return -EINVAL;
+
+    if ((data = tmpfs_data(ip)) == NULL)
+        return 0;
+    
+    kfree(data);
+
+    ip->i_size = 0;
+    tino->size = 0;
+    tino->data = NULL;
+
+    return 0;
+}
+
+ssize_t tmpfs_iread(inode_t *ip, off_t off, void *buf, size_t sz) {
+    void *data = NULL;
+    tmpfs_inode_t *tino = NULL;
+
+    iassert_locked(ip);
+
+    if (ip == NULL || buf == NULL)
+        return -EINVAL;
+    
+    if (IISDIR(ip))
+        return -EISDIR;
+
+    data = tmpfs_data(ip);
+    tino = ip->i_priv;
+
+    if ((off >= tino->size) || data == NULL)
+        return -1;
+    sz = MIN((tino->size - off), sz);
+    memcpy(buf, (data + off), sz);
+
+    return sz;
+}
+
+ssize_t tmpfs_iwrite(inode_t *ip, off_t off, void *buf, size_t sz) {
+    void *data = NULL;
+    tmpfs_inode_t *tino = NULL;
+
+    iassert_locked(ip);
+
+    if (ip == NULL || buf == NULL)
+        return -EINVAL;
+
+    if (IISDIR(ip))
+        return -EISDIR;
+
+    if ((tino = ip->i_priv) == NULL)
+        return -EINVAL;
+
+    if ((off + sz) > tino->size) {
+        if (tino->data == NULL) {
+            if ((data = kmalloc(off + sz)) == NULL)
+                return -EAGAIN;
+        } else {
+            if ((data = krealloc(tino->data, off + sz)) == NULL)
+                return -EAGAIN;
+        }
+
+        tino->data = data;
+        tino->size = off + sz;
+        ip->i_size = tino->size;
+    }
+
+    sz = MIN((tino->size - off), sz);
+    memcpy(data + off, buf, sz);    
+
+    return sz;
+}
+
 int tmpfs_isync(inode_t *ip);
 int tmpfs_iclose(inode_t *ip);
 int tmpfs_iunlink(inode_t *ip);
-int tmpfs_itruncate(inode_t *ip);
 int tmpfs_igetattr(inode_t *ip, void *attr);
 int tmpfs_isetattr(inode_t *ip, void *attr);
 int tmpfs_ifcntl(inode_t *ip, int cmd, void *argp);
 int tmpfs_iioctl(inode_t *ip, int req, void *argp);
 int tmpfs_ibind(inode_t *dir, struct dentry *dentry, inode_t *ip);
-ssize_t tmpfs_iread(inode_t *ip, off_t off, void *buf, size_t nb);
-ssize_t tmpfs_iwrite(inode_t *ip, off_t off, void *buf, size_t nb);
 int tmpfs_isymlink(inode_t *ip, inode_t *atdir, const char *symname);
 ssize_t tmpfs_ireaddir(inode_t *dir, off_t off, void *buf, size_t count);
 int tmpfs_ilink(struct dentry *oldname, inode_t *dir, struct dentry *newname);

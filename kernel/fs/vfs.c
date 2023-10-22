@@ -187,13 +187,13 @@ delegate:
     foreach(tok, &toks[tok_i]) {
         ilock(dir->d_inode);
     try_lookup:
-        printk("delegate looking up '\e[0;013m%s\e[0m' in '\e[0;013m%s\e[0m'\n", tok, dir->d_name);
+        // printk("delegate looking up '\e[0;013m%s\e[0m' in '\e[0;013m%s\e[0m'\n", tok, dir->d_name);
         switch ((err = ilookup(dir->d_inode, tok, &ip))) {
         case 0:
-            printk("file(\e[0;013m%s\e[0m) found.\n", tok);
+            // printk("file(\e[0;013m%s\e[0m) found.\n", tok);
             break;
         case -ENOENT:
-            printk("file(\e[0;013m%s\e[0m) not found.\n", tok);
+            // printk("file(\e[0;013m%s\e[0m) not found.\n", tok);
             // Did user specify O_CREAT flag?
             if ((oflags & O_CREAT)) {
                 if (oflags & O_DIRECTORY) {
