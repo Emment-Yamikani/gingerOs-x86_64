@@ -29,6 +29,8 @@ typedef struct spinlock
     .s_cpu = NULL,                     \
 })
 
+#define SPINLOCK_NEW()  (&SPINLOCK_INIT())
+
 // assert_msg lock pointer
 #define spin_assert_msg(lk, __msg__) ({ assert_msg((lk), __msg__); })
 

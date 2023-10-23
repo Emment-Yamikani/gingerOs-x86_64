@@ -117,7 +117,7 @@ int early_init(multiboot_info_t *info) {
 
     bootothers();
     schedule();
-    assert(0, "Okay");
+    assert(0, "schedule returned :(");
     loop();
     return 0;
 }

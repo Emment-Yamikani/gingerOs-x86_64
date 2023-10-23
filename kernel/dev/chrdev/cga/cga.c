@@ -12,8 +12,8 @@ int use_cga = 0;
 static int pos = 0;
 static int cga_esc = 0;
 static uint8_t cga_attr = 0;
-__unused static stack_t *cga_chars = STACK_NEW();
-__unused static stack_t *cga_themes = STACK_NEW();
+static stack_t *cga_chars = STACK_NEW();
+static stack_t *cga_themes = STACK_NEW();
 
 static uint16_t *cga_addr = ((uint16_t *)0xffff8000000b8000);
 

@@ -25,6 +25,19 @@ typedef struct sched_queue
     level_t level[NLEVELS];
 } sched_queue_t;
 
+typedef struct sched_t {
+    char *s_name;
+    enum {
+        SCHED_RR,
+        SCHED_MLFQ,
+        SCHED_FIFO,
+        SCHED_LOTT,
+    }   s_type;
+    int (*s_init)();
+    int (*s_park)();
+    int (*s_next)();
+} sched_t;
+
 extern queue_t *sched_stopq;
 
 /*queue up a thread*/
