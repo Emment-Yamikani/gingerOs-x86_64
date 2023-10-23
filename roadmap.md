@@ -1,39 +1,44 @@
 # Features
 
-- [ ] Firmware
-  - [x] BIOS
-  - [ ] UEFI
-  - [x] ACPI
+## Firmware
+
+- [x] BIOS
+- [ ] UEFI
+- [x] ACPI
 
 - [x] Symmetric Multiprocessing up to 16 Cores
 
-- [ ] Device Drivers
-  - [ ] Physical Devices
-    - [x] Real Time Clock
-    - [x] High Precision Event Timer
-    - [ ] Central Processing unit
-    - [x] CGA
-    - [ ] Console
-    - [ ] PS2 Keyboard
-    - [ ] PS2 Mouse
-    - [ ] Serail ATA
-    - [ ] IDE
-    - [ ] CD ROM
+## Device Drivers
 
-  - [ ] Virtual Devices
-    - [ ] Null
-    - [ ] Zero
-    - [ ] Mem
-    - [ ] Random
-    - [ ] Pseudo Teminals
-    - [x] RamDisk
+### Physical Devices
 
-- [x] Memory Management
-  - [x] Physical Memery Management
-  - [x] Virtual Memory Management
-  - [x] Memory allocator(s)
-    - [x] Zones for physical memory (Similar, but not same, as in Linux).
-    - [x] Liballoc (Credit to whom it is due)
+- [x] Real Time Clock
+- [x] High Precision Event Timer
+- [ ] Central Processing unit
+- [x] CGA
+- [ ] Console
+- [ ] PS2 Keyboard
+- [ ] PS2 Mouse
+- [ ] Serail ATA
+- [ ] IDE
+- [ ] CD ROM
+
+### Virtual Devices
+
+- [ ] Null
+- [ ] Zero
+- [ ] Mem
+- [ ] Random
+- [ ] Pseudo Teminals
+- [x] RamDisk
+
+### Memory Management
+
+- [x] Physical Memery Management
+- [x] Virtual Memory Management
+- [x] Memory allocator(s)
+  - [x] Zones for physical memory (Similar, but not same, as in Linux).
+  - [x] Liballoc (Credit to whom it is due)
 
 - [x] Multi-Threading
   - [x] Thread groups
