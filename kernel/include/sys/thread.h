@@ -393,12 +393,12 @@ typedef struct {
 
 extern builtin_thread_t __builtin_threads[], __builtin_threads_end[];
 
-#define BUILTIN_THREAD(name, entry, arg)               \
-    builtin_thread_t __used_section(__builtin_threads) \
-        __builtin_thread_##name = {                    \
-            .thread_arg = arg,                         \
-            .thread_name = #name,                      \
-            .thread_entry = entry,                     \
+#define BUILTIN_THREAD(name, entry, arg)                \
+    builtin_thread_t __used_section(.__builtin_threads) \
+        __builtin_thread_##name = {                     \
+            .thread_arg = arg,                          \
+            .thread_name = #name,                       \
+            .thread_entry = entry,                      \
     }
 
 #define BUILTIN_THREAD_ANOUNCE(name)    ({ printk("\"%s\" thread [tid: %d] running...\n", name, thread_self()); })

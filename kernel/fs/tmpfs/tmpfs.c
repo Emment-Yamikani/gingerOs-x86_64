@@ -29,7 +29,6 @@ static int tmpfs_new_inode(itype_t type, inode_t **pip);
 static int tmpfs_ialloc(itype_t type, tmpfs_inode_t **pip);
 static int tmpfs_hash_verify(const char *fname, tmpfs_dirent_t *dirent);
 
-
 #define tmpfs_data(ip) ({       \
     void *data = NULL;          \
     tmpfs_inode_t *tino = NULL; \

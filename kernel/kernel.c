@@ -33,8 +33,18 @@ __noreturn void kthread_main(void) {
     printk("Welcome to \e[0;011m'Ginger OS'\e[0m.\n");
     
     builtin_threads_begin(&nthread, NULL);
-    
-    vfs_dirlist("/");
 
     loop() thread_join(0, NULL, NULL);
 }
+
+void func() {
+    BUILTIN_THREAD_ANOUNCE("OKay");
+}
+
+BUILTIN_THREAD(func, func, NULL);
+
+void func1() {
+    BUILTIN_THREAD_ANOUNCE("OKay");
+}
+
+BUILTIN_THREAD(func1, func1, NULL);

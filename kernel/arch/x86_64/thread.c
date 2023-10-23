@@ -25,6 +25,7 @@ static void arch_thread_start(void) {
 static void arch_thread_stop(void) {
     uintptr_t rax = rdrax();
     arch_thread_exit(rax);
+    debugloc();
 }
 
 int arch_thread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg) {

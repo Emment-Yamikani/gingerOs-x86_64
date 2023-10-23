@@ -6,10 +6,6 @@ void handler(int signo) {
     printk("%s on thread[%d]\n", signal_str[signo - 1], thread_self());
 }
 
-void B(void) {
-    loop();
-}
-BUILTIN_THREAD(B, B, NULL);
 
 void core_start(void) {
     sigset_t set;

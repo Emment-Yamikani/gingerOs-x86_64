@@ -145,8 +145,7 @@ self:
     return thread;
 }
 
-int sched_zombie(thread_t *thread)
-{
+int sched_zombie(thread_t *thread) {
     int err = 0;
     thread_assert_locked(thread);
     thread_enter_state(thread, T_ZOMBIE);
@@ -291,7 +290,7 @@ void sched_self_destruct(void) {
      * pushcli() to avoid interrupts being enabled
      * immediately we do current_unlock() at the end of this routine.
      * because that will call reentrance into schedule() from trap().
-     * TRUST ME: it's a VERY NAST BUG :).
+     * TRUST ME: it's a VERY NASTY BUG :).
     */
     pushcli();
     current_unlock();
