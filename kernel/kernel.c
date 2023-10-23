@@ -27,20 +27,9 @@
 #include <ds/hash.h>
 
 void core_start(void);
-
-__noreturn void kthread_main(void) {
-    int nthread = 0;
-    printk("Welcome to \e[0;011m'Ginger OS'\e[0m.\n");
-    
-    builtin_threads_begin(&nthread, NULL);
-
-    loop() thread_join(0, NULL, NULL);
-}
-
 void func() {
     BUILTIN_THREAD_ANOUNCE("OKay");
 }
-
 BUILTIN_THREAD(func, func, NULL);
 
 void func1() {
@@ -48,3 +37,13 @@ void func1() {
 }
 
 BUILTIN_THREAD(func1, func1, NULL);
+
+__noreturn void kthread_main(void) {
+    __unused size_t nthread = 0;
+    printk("Welcome to \e[0;011m'Ginger OS'\e[0m.\n");
+
+    builtin_threads_begin(&nthread);
+
+    loop() thread_join(0, NULL, NULL);
+}
+

@@ -381,7 +381,6 @@ void schedule(void) {
 
         before = jiffies_get();
         current->t_sched_attr.last_sched = jiffies_TO_s(before);
-
         swtch(&cpu->ctx, current->t_arch.t_ctx0);
         
         pushcli();

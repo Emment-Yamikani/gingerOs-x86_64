@@ -535,48 +535,19 @@ int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigs
     return err;
 }
 
-int builtin_threads_begin(int *nthreads, thread_t ***threads) {
-    int nt = 0;
+int builtin_threads_begin(size_t *nthreads) {
     int err = 0;
-    thread_t *thread = NULL;
-    builtin_thread_t *builtin = __builtin_threads;
-    thread_t **builtin_threads = NULL;
-    size_t nr = __builtin_threads_end - __builtin_threads;
+    builtin_thread_t *thrd = __builtin_thrds;
+    size_t nr = __builtin_thrds_end - __builtin_thrds;
 
-    for (size_t i = 0; i < nr; ++i, ++builtin) {
-        thread_attr_t t_attr = {
-            .detachstate = 0,
-            .guardsz = 0,
-            .stackaddr = 0,
-            .stacksz = STACKSZMIN,
-        };
-
-        if (builtin->thread_entry) {
-            if (builtin_threads == NULL) {
-                if ((builtin_threads = kmalloc(sizeof(thread_t *))) == NULL) {
-                    err = -ENOMEM;
-                    break;
-                }
-            }
-            else if ((builtin_threads = krealloc(builtin_threads, (sizeof(thread_t *) * (nt + 1)))) == NULL) {
-                err = -ENOMEM;
-                break;
-            }
-
-            if ((err = thread_create(&thread, &t_attr, builtin->thread_entry, builtin->thread_arg)))
-                break;
-
-            thread_unlock(thread);
-            builtin_threads[nt++] = thread;
-        }
+    for (size_t i = 0; i < nr; ++i, thrd++) {
+        if ((err = thread_create(NULL, NULL, (thread_entry_t)thrd->thread_entry, thrd->thread_arg)))
+            return err;
     }
 
-    *nthreads = nt;
-    if (threads)
-        *threads = builtin_threads;
-    else
-        kfree(builtin_threads);
-    return err;
+    if (nthreads)
+        *nthreads = nr;
+    return 0;
 }
 
 int thread_create(thread_t **pthread, thread_attr_t *attr, thread_entry_t entry, void *arg) {

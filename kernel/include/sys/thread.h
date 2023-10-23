@@ -389,16 +389,18 @@ typedef struct {
     char            *thread_name;
     void            *thread_arg;
     void            *thread_entry;
+    void            *thread_rsvd;
 } builtin_thread_t;
 
-extern builtin_thread_t __builtin_threads[], __builtin_threads_end[];
+extern builtin_thread_t __builtin_thrds[];
+extern builtin_thread_t __builtin_thrds_end[];
 
-#define BUILTIN_THREAD(name, entry, arg)                \
-    builtin_thread_t __used_section(.__builtin_threads) \
-        __builtin_thread_##name = {                     \
-            .thread_arg = arg,                          \
-            .thread_name = #name,                       \
-            .thread_entry = entry,                      \
+#define BUILTIN_THREAD(name, entry, arg)              \
+    builtin_thread_t __used_section(.__builtin_thrds) \
+        __thread_##name = {                           \
+            .thread_name = #name,                     \
+            .thread_arg = arg,                        \
+            .thread_entry = entry,                    \
     }
 
 #define BUILTIN_THREAD_ANOUNCE(name)    ({ printk("\"%s\" thread [tid: %d] running...\n", name, thread_self()); })
@@ -408,7 +410,7 @@ extern builtin_thread_t __builtin_threads[], __builtin_threads_end[];
 #define STACKSZMAX      (512 * KiB)
 #define BADSTACKSZ(sz)  ((sz) < STACKSZMIN || (sz) > STACKSZMAX)
 
-int builtin_threads_begin(int *nthreads, thread_t ***threads);
+int builtin_threads_begin(size_t *nthreads);
 
 #define thread_debugloc() ({                                                                                                       \
     printk("%s:%d in %s(), current[%d] ste: %s:%s @%s:%d by thread[%d], signal: %s, return[%p]\n",                                                     \

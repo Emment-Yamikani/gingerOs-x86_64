@@ -33,10 +33,10 @@ SECTIONS {
         __builtin_mods_end = .;
     }
 
-    .__builtin_threads ALIGN (4K) : AT(ADDR(.__builtin_threads) - KERNEL_VMA) {
-        __builtin_threads = .;
-        *(.__builtin_threads*)
-        __builtin_threads_end = .;
+    .__builtin_thrds ALIGN (4K) : AT(ADDR(.__builtin_thrds) - KERNEL_VMA) {
+        __builtin_thrds = .;
+        *(.__builtin_thrds*)
+        __builtin_thrds_end = .;
     }
 
     .data ALIGN (4K) : AT (ADDR (.data) - KERNEL_VMA) {

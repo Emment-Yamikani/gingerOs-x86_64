@@ -12,12 +12,13 @@ typedef struct {
 extern module_sym_t __builtin_mods[];
 extern module_sym_t __builtin_mods_end[];
 
-#define MODULE_INIT(name, a, i, f)                                                \
-    module_sym_t __attribute__((used, section(".__builtin_mods"))) __mod_##name = { \
-        .mod_name = #name,                                                        \
-        .mod_arg = a,                                                             \
-        .mod_init = i,                                                            \
-        .mod_fini = f,                                                            \
+#define MODULE_INIT(name, a, i, f)               \
+    module_sym_t __used_section(.__builtin_mods) \
+        __mod_##name = {                         \
+            .mod_name = #name,                   \
+            .mod_arg = a,                        \
+            .mod_init = i,                       \
+            .mod_fini = f,                       \
     }
 
 typedef struct {
