@@ -12,6 +12,7 @@
 
 #define LEG_PIT         2
 #define HPET            2
+#define IRQ_RTC         8
 #define LAPIC_ERROR     IRQ(18)
 #define LAPIC_SPURIOUS  IRQ(19)
 #define LAPIC_TIMER     IRQ(20)

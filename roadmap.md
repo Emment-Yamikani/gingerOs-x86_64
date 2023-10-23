@@ -7,6 +7,27 @@
 
 - [x] Symmetric Multiprocessing up to 16 Cores
 
+- [ ] Device Drivers
+  - [ ] Physical Devices
+    - [x] Real Time Clock
+    - [x] High Precision Event Timer
+    - [ ] Central Processing unit
+    - [x] CGA
+    - [ ] Console
+    - [ ] PS2 Keyboard
+    - [ ] PS2 Mouse
+    - [ ] Serail ATA
+    - [ ] IDE
+    - [ ] CD ROM
+
+  - [ ] Virtual Devices
+    - [ ] Null
+    - [ ] Zero
+    - [ ] Mem
+    - [ ] Random
+    - [ ] Pseudo Teminals
+    - [x] RamDisk
+
 - [x] Memory Management
   - [x] Physical Memery Management
   - [x] Virtual Memory Management
