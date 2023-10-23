@@ -6,22 +6,24 @@
 - [ ] UEFI
 - [x] ACPI
 
-- [x] Symmetric Multiprocessing up to 16 Cores
-
 ## Device Drivers
+
+### Buses
+
+- [ ] IDE
+- [ ] Serial ATA
+- [ ] USB
 
 ### Physical Devices
 
+- [x] CGA
+- [ ] CD ROM
+- [ ] Console
+- [ ] PS2 Mouse
+- [ ] PS2 Keyboard
 - [x] Real Time Clock
 - [x] High Precision Event Timer
 - [ ] Central Processing unit
-- [x] CGA
-- [ ] Console
-- [ ] PS2 Keyboard
-- [ ] PS2 Mouse
-- [ ] Serail ATA
-- [ ] IDE
-- [ ] CD ROM
 
 ### Virtual Devices
 
@@ -44,6 +46,7 @@
 
 ## Multitasking
 
+- [x] Symmetric Multiprocessing up to 16 Cores
 - [x] Multi-Threading
   - [x] Thread groups
 - [ ] User processes
