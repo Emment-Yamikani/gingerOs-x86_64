@@ -166,6 +166,13 @@ int vfs_lookup(const char *fn, uio_t *__uio, int oflags, mode_t mode, int flags,
         dp = NULL;
         switch ((err = dlookup(dir, tok, &dp))) {
         case 0:
+            ilock(dp->d_inode);
+            if ((err = check_iperm(dp->d_inode, &uio, oflags))) {
+                iunlock(dp->d_inode);
+                dclose(dp);
+                goto error;
+            }
+            iunlock(dp->d_inode);
             goto next;
         case -ENOENT:
             goto delegate;
