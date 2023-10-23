@@ -5,6 +5,7 @@
 #include <bits/errno.h>
 #include <fs/tmpfs.h>
 #include <sys/_fcntl.h>
+#include <lib/string.h>
 
 char *itype_strings[] = {
     [FS_INV] = "INV",

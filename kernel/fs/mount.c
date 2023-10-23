@@ -2,6 +2,7 @@
 #include <mm/kalloc.h>
 #include <bits/errno.h>
 #include <sys/_fcntl.h>
+#include <lib/string.h>
 
 static queue_t *mnt_queue = QUEUE_NEW();
 

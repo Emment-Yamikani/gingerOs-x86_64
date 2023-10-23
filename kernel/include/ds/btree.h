@@ -4,6 +4,7 @@
 #include <lib/stddef.h>
 #include <lib/printk.h>
 #include <sync/spinlock.h>
+#include <ds/queue.h>
 
 #ifndef foreach
 #define foreach(elem, list) \
@@ -69,17 +70,7 @@ btree_node_t *btree_least_node(btree_t *btree);
 /**
  * @brief btree_least
 */
-static inline void *btree_least(btree_t *btree)
-{
-    btree_node_t *node = NULL;
-
-    if (btree == NULL)
-        return NULL;
-    node = btree_least_node(btree);
-    if (node == NULL)
-        return NULL;
-    return node->data;
-}
+void *btree_least(btree_t *btree);
 
 /**
  * @brief btree_largest
@@ -89,17 +80,7 @@ btree_node_t *btree_largest_node(btree_t *btree);
 /**
  * @brief btree_largest
 */
-static inline void *btree_largest(btree_t *btree)
-{
-    btree_node_t *node = NULL;
-
-    if (btree == NULL)
-        return NULL;
-    node = btree_largest_node(btree);
-    if (node == NULL)
-        return NULL;
-    return node->data;
-}
+void *btree_largest(btree_t *btree);
 
 /**
  * @bbtree_deleterief 
@@ -121,4 +102,6 @@ btree_node_t *btree_lookup(btree_t *btree, btree_key_t key);
 */
 int btree_insert(btree_t *btree, btree_key_t key, void *data);
 
-void btree_traverse(btree_node_t *tree);
+int btree_node_traverse(btree_node_t *tree, queue_t *queue);
+
+int btree_traverse(btree_t *tree, queue_t *queue);

@@ -3,6 +3,7 @@
 #include <lib/stddef.h>
 #include <fs/fs.h>
 #include <mm/kalloc.h>
+#include <lib/string.h>
 
 int verify_path(const char *path)
 {

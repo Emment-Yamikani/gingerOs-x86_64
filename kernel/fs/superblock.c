@@ -1,6 +1,8 @@
 #include <fs/fs.h>
 #include <bits/errno.h>
 #include <dev/dev.h>
+#include <mm/kalloc.h>
+#include <lib/string.h>
 
 static atomic_t sbID = 0;
 

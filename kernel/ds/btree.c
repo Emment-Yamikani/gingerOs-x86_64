@@ -217,10 +217,50 @@ error:
     return err;
 }
 
-void btree_traverse(btree_node_t *tree) {
-    if (tree) {
-        btree_traverse(tree->left);
-        printk("Key: %ld\n", tree->key);
-        btree_traverse(tree->right);
+void *btree_least(btree_t *btree) {
+    btree_node_t *node = NULL;
+
+    if (btree == NULL)
+        return NULL;
+    node = btree_least_node(btree);
+    if (node == NULL)
+        return NULL;
+    return node->data;
+}
+
+void *btree_largest(btree_t *btree) {
+    btree_node_t *node = NULL;
+
+    if (btree == NULL)
+        return NULL;
+    node = btree_largest_node(btree);
+    if (node == NULL)
+        return NULL;
+    return node->data;
+}
+
+int btree_node_traverse(btree_node_t *node, queue_t *queue) {
+    int err = 0;
+
+    queue_assert_locked(queue);
+    if (queue == NULL)
+        return -EINVAL;
+    
+    if (node) {
+        btree_assert_locked(node->btree);
+        btree_node_traverse(node->left, queue);
+        if ((err = enqueue(queue, node->data, 1, NULL)))
+            return err;
+        btree_node_traverse(node->right, queue);
     }
+
+    return 0;
+}
+
+int btree_traverse(btree_t *btree, queue_t *queue) {
+    btree_assert_locked(btree);
+    queue_assert_locked(queue);
+    if (btree == NULL || queue == NULL)
+        return -EINVAL;
+    return btree_node_traverse(btree->root, queue);
 }

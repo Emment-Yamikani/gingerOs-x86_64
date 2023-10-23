@@ -44,7 +44,7 @@ void func() {
 BUILTIN_THREAD(func, func, NULL);
 
 void func1() {
-    BUILTIN_THREAD_ANOUNCE("OKay");
+    BUILTIN_THREAD_ANOUNCE("Road run");
 }
 
 BUILTIN_THREAD(func1, func1, NULL);
