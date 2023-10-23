@@ -56,6 +56,62 @@ typedef struct
     uint8_t apics[];
 } __packed acpiMADT_t;
 
+
+typedef struct {
+    acpiSDT_t   hdr;
+    uint32_t    firmware_ctrl;
+    uint32_t    dsdt;
+    uint8_t     rsvd0;
+    uint8_t     Preferred_PM_Profile;
+    uint16_t    SCI_INT;
+    uint32_t    SMI_CMD;
+    uint8_t     ACPI_ENABLE;
+    uint8_t     ACPI_DISABLE;
+    uint8_t     S4BIOS_REQ;
+    uint8_t     PSTATE_CNT;
+    uint32_t    PM1a_EVT_BLK;
+    uint32_t    PM1b_EVT_BLK;
+    uint32_t    PM1a_CNT_BLK;
+    uint32_t    PM1b_CNT_BLK;
+    uint32_t    PM2_CNT_BLK;
+    uint32_t    PM_TMR_BLK;
+    uint32_t    GPE0_BLK;
+    uint32_t    GPE1_BLK;
+    uint8_t     PM1_EVT_LEN;
+    uint8_t     PM1_CNT_LEN;
+    uint8_t     PM2_CNT_LEN;
+    uint8_t     PM_TMR_LEN;
+    uint8_t     GPE0_BLK_LEN;
+    uint8_t     GPE1_BLK_LEN;
+    uint8_t     GPE1_BASE;
+    uint8_t     CST_CNT;
+    uint16_t    P_LVL2_LAT;
+    uint16_t    P_LVL3_LAT;
+    uint16_t    FLUSH_SIZE;
+    uint16_t    FLUSH_STRIDE;
+    uint8_t     DUTY_OFFSET;
+    uint8_t     DUTY_WIDTH;
+    uint8_t     RTC_DAY_ALRM;
+    uint8_t     RTC_MON_ALRM;
+    uint8_t     RTC_CENTURY;
+    uint16_t    IAPC_BOOT_ARCH;
+    uint8_t     Reserved1;
+    uint32_t    Flags;
+    uint32_t    RESET_REG[3];
+    uint8_t     RESET_VALUE;
+    uint8_t     Reserved2[3];
+    uint64_t    X_FIRMWARE_CTRL;
+    uint64_t    X_DSDT;
+    uint32_t    X_PM1a_EVT_BLK[3];
+    uint32_t    X_PM1b_EVT_BLK[3];
+    uint32_t    X_PM1a_CNT_BLK[3];
+    uint32_t    X_PM1b_CNT_BLK[3];
+    uint32_t    X_PM2_CNT_BLK[3];
+    uint32_t    X_PM_TMR_BLK[3];
+    uint32_t    X_GPE0_BLK[3];
+    uint32_t    X_GPE1_BLK[3];
+} __packed acpiFADT_t;
+
 #define ACPI_APIC   0
 #define ACPI_IOAPIC 1
 

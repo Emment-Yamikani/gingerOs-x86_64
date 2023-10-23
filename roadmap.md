@@ -17,22 +17,22 @@
 ### Physical Devices
 
 - [x] CGA
-- [ ] CD ROM
+- [x] Real Time Clock
+- [x] High Precision Event Timer
 - [ ] Console
 - [ ] PS2 Mouse
 - [ ] PS2 Keyboard
-- [x] Real Time Clock
-- [x] High Precision Event Timer
+- [ ] CD ROM
 - [ ] Central Processing unit
 
 ### Virtual Devices
 
+- [x] RamDisk
 - [ ] Null
 - [ ] Zero
-- [ ] Mem
 - [ ] Random
+- [ ] Mem
 - [ ] Pseudo Teminals
-- [x] RamDisk
 
 ## Memory Management
 
@@ -56,10 +56,10 @@
 ## Virtual Filesystem
 
 - [x] Generic inode operations.
-- [ ] Generic file operations.
-- [ ] File address space to alloc file sharing.
 - [ ] File locks
 - [ ] File times
+- [ ] Generic file operations.
+- [ ] File address space to allow file sharing.
 
 ## File System
 

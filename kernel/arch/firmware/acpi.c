@@ -11,16 +11,14 @@ static rsdp20_t  *RSDP = NULL;
 static acpiSDT_t  *HPET = NULL;
 static acpiMADT_t  *MADT = NULL;
 
-int acpi_validate_table(char *addr, size_t size)
-{
+int acpi_validate_table(char *addr, size_t size) {
     uint8_t sum = 0;
     while (size--)
         sum += *addr++;
     return sum == 0;
 }
 
-void *acpi_findrsdp(void)
-{
+void *acpi_findrsdp(void) {
     char *bios = NULL;
     for (bios = (char *)((uintptr_t)VMA2HI(EBDA)); bios < (char *)(VMA2HI(EBDA) + KiB); bios +=4)
         if (!strncmp("RSD PTR ", bios, 8))
@@ -32,8 +30,7 @@ void *acpi_findrsdp(void)
     return NULL;
 }
 
-acpiSDT_t *acpi_parse_rsdt(rsdt_t *rsdt, const char *sign)
-{
+acpiSDT_t *acpi_parse_rsdt(rsdt_t *rsdt, const char *sign) {
     int count = 0;
     acpiSDT_t *sdt = NULL;
 
@@ -52,8 +49,7 @@ acpiSDT_t *acpi_parse_rsdt(rsdt_t *rsdt, const char *sign)
     return NULL;
 }
 
-acpiSDT_t *acpi_parse_xsdt(xsdt_t *xsdt, const char *sign)
-{
+acpiSDT_t *acpi_parse_xsdt(xsdt_t *xsdt, const char *sign) {
     int count = 0;
     acpiSDT_t *sdt = NULL;
 

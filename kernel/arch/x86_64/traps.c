@@ -10,6 +10,7 @@
 #include <dev/clocks.h>
 #include <arch/chipset.h>
 #include <sys/_signal.h>
+#include <dev/rtc.h>
 
 void dump_tf(tf_t *tf, int halt) {
     if (!halt)
@@ -38,7 +39,6 @@ void dump_tf(tf_t *tf, int halt) {
 
 void trap(tf_t *tf) {
     time_t time = 0;
-
     switch (tf->trapno) {
     case IRQ(0):
         pit_intr();
@@ -59,6 +59,10 @@ void trap(tf_t *tf) {
             cpu_id, thread_self(), tf->errno, rdcr2(), tf->rip);
         break;
     case LAPIC_ERROR:
+        lapic_eoi();
+        break;
+    case IRQ(IRQ_RTC):
+        rtc_intr();
         lapic_eoi();
         break;
     case IRQ(7):

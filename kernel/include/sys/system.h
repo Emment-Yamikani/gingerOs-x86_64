@@ -25,6 +25,8 @@
 	(type *)( (char *)__mptr - offsetof(type,member) ); })
 #endif
 
+#define BCD2binary(bcd) ((((bcd) & 0xF0) >> 1) + (((bcd) & 0xF0) >> 3) + ((bcd) & 0xf))
+
 #define __retaddr(l) __builtin_return_address(l)
 
 #define NOT(a)      (~(a))
@@ -69,5 +71,6 @@
 
 #define NELEM(x)    (sizeof ((x)) / sizeof ((x)[0]))
 
-extern void _kernel_end();
+                                                         extern void
+                                                         _kernel_end();
 extern void _kernel_start();
