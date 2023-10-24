@@ -101,7 +101,7 @@ off_t   ramdisk_lseek(struct devid *dd __unused, off_t off __unused, int whence 
 }
 
 int     ramdisk_ioctl(struct devid *dd __unused, int request __unused, void *argp __unused) {
-    return -ENOSYS;
+    return -ENOTTY;
 }
 
 ssize_t ramdisk_read(struct devid *dd, off_t off, void *buf, size_t nbyte) {

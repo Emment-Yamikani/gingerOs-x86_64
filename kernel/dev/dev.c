@@ -62,6 +62,7 @@ dev_t *kdev_get(struct devid *dd) {
 
 int    kdev_register(dev_t *dev, uint8_t major, uint8_t type) {
     int err = 0;
+    dev_t *tail = NULL;
 
     if (!dev) return -EINVAL;
 
@@ -70,9 +71,18 @@ int    kdev_register(dev_t *dev, uint8_t major, uint8_t type) {
         spin_lock(blkdevlk);
 
         if (blkdev[major]) {
-            err = -EALREADY;
-            spin_unlock(blkdevlk);
-            goto error;
+            forlinked(node, blkdev[major], node->devnext) {
+                tail = node;
+                if (node->devid.minor == dev->devid.minor) {
+                    err = -EALREADY;
+                    spin_unlock(blkdevlk);
+                    goto error;
+                }
+            }
+
+            tail->devnext = dev;
+            dev->devprev = tail;
+            dev->devnext = NULL;
         }
 
         if (dev->devprobe) {
@@ -90,9 +100,18 @@ int    kdev_register(dev_t *dev, uint8_t major, uint8_t type) {
         spin_lock(chrdevlk);
 
         if (chrdev[major]) {
-            err = -EALREADY;
-            spin_unlock(chrdevlk);
-            goto error;
+            forlinked(node, chrdev[major], node->devnext) {
+                tail = node;
+                if (node->devid.minor == dev->devid.minor) {
+                    err = -EALREADY;
+                    spin_unlock(chrdevlk);
+                    goto error;
+                }
+            }
+
+            tail->devnext = dev;
+            dev->devprev = tail;
+            dev->devnext = NULL;
         }
 
         if (dev->devprobe) {

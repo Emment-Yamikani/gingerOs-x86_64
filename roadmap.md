@@ -28,9 +28,10 @@
 ### Virtual Devices
 
 - [x] RamDisk
-- [ ] Null
-- [ ] Zero
-- [ ] Random
+- [x] Full
+- [x] Null
+- [x] Zero
+- [x] Random
 - [ ] Mem
 - [ ] Pseudo Teminals
 

@@ -180,8 +180,9 @@ int rtc_probe(void) {
 
     rtc_gettime(&rtc_tm);
 
-    printk("Time Of Day:\e[0;02m%d:%d:%d\e[0m\n",
-        rtc_tm.rtc_hrs, rtc_tm.rtc_min, rtc_tm.rtc_sec);
+    printk("Time: \e[0;02m%d:%d:%d\e[0m Date: \e[0;03m%d/%d/%d\e[0m\n",
+           rtc_tm.rtc_hrs, rtc_tm.rtc_min, rtc_tm.rtc_sec,
+           rtc_tm.rtc_day, rtc_tm.rtc_mon, rtc_tm.rtc_year);
     return 0;
 }
 
@@ -254,6 +255,8 @@ void rtc_intr(void) {
     spin_lock(rtclk);
     if (!((++rtc_ticks) % 2)) {
         ++rtc_secs;
+        if ((rtc_secs % 60) == 0)
+            rtc_gettime(&rtc_tm);
         cond_broadcast(rtc_event);
     }
 

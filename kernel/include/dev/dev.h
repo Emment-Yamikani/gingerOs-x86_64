@@ -9,25 +9,33 @@
 #include <sync/spinlock.h>
 #include <modules/module.h>
 
-#define DEV_RANDOM  1
-#define DEV_ZORE    1
-#define DEV_MEM     1
-#define DEV_NULL    1
-#define DEV_TTY     4
-#define DEV_CGA     5
-#define DEV_CONSOLE 5
-#define DEV_PTMX    5
-#define DEV_HPET    10
-#define DEV_PSAUX   10
-#define DEV_MOUSE0  13
-#define DEV_FB      29
-#define DEV_PTS     136
-#define DEV_CPU     202
-#define DEV_RTC0    248
+/**
+ * Character Devices */
 
-#define DEV_RAMDISK 0
-#define DEV_SDA     8
-#define DEV_CDROM   11
+#define DEV_MEM     1   // minor=1
+#define DEV_NULL    1   // minor=3
+#define DEV_ZERO    1   // minor=5
+#define DEV_FULL    1   // minor=7
+#define DEV_RANDOM  1   // minor=8
+#define DEV_TTY     4   // minor=x
+#define DEV_CONSOLE 5   // minor=1
+#define DEV_PTMX    5   // minor=2
+#define DEV_CGA     5   // minor=3
+#define DEV_PSAUX   10  // minor=1
+#define DEV_HPET    10  // minor=228
+#define DEV_MOUSE0  13  // minor=
+#define DEV_FB      29  // minor=0
+#define DEV_PTS     136 // minor=x
+#define DEV_CPU     202 // minor=x
+#define DEV_CPU_MSR 203 // minor=x
+#define DEV_RTC0    248 // minor=0
+
+/**
+ * Block Devices*/
+
+#define DEV_RAMDISK 0   // minor=1
+#define DEV_SDA     8   // minor=x
+#define DEV_CDROM   11  // minor=0
 
 typedef struct {
     int     (*close)(struct devid *dd);
@@ -68,6 +76,29 @@ typedef struct dev {
 #define DEVID_CMP(dd0, dd1) ({((dd0)->major == (dd1)->major && (dd0)->minor == (dd1)->minor);})
 
 #define DEV_T(major, minor) ((devid_t)(((devid_t)(minor) << 8) & 0xff00) | ((devid_t)(major) & 0xff))
+
+#define DEV_INIT(name, _type, _major, _minor) \
+    dev_t name##dev = {                       \
+        .devlock = SPINLOCK_INIT(),           \
+        .devname = #name,                     \
+        .devnext = NULL,                      \
+        .devprev = NULL,                      \
+        .devprobe = name##_probe,             \
+        .devid = {                            \
+            .type = (_type),                  \
+            .major = (_major),                \
+            .minor = (_minor),                \
+        },                                    \
+        .devops = {                           \
+            .close = name##_close,            \
+            .getinfo = name##_getinfo,        \
+            .open = name##_open,              \
+            .lseek = name##_lseek,            \
+            .ioctl = name##_ioctl,            \
+            .read = name##_read,              \
+            .write = name##_write,            \
+        },                                    \
+    }
 
 extern int dev_init(void);
 extern dev_t *kdev_get(struct devid *dd);
