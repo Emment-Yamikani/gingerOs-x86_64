@@ -25,8 +25,11 @@
 #include <ds/stack.h>
 #include <lib/ctype.h>
 #include <ds/hash.h>
+#include <sync/mutex.h>
 
 void core_start(void);
+mutex_t *mtx = MUTEX_NEW();
+
 void func() {
     BUILTIN_THREAD_ANOUNCE("OKay");
 }
@@ -39,10 +42,9 @@ void func1() {
 BUILTIN_THREAD(func1, func1, NULL);
 
 __noreturn void kthread_main(void) {
-    __unused size_t nthread = 0;
     printk("Welcome to \e[0;011m'Ginger OS'\e[0m.\n");
 
-    builtin_threads_begin(&nthread);
+    builtin_threads_begin(NULL);
 
     loop() thread_join(0, NULL, NULL);
 }

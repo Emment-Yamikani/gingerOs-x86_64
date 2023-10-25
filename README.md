@@ -8,11 +8,11 @@ Development of ginger Os started late in 2020 as a simple project for learning p
 
 ### qemu screenshots
 
-<img alt="qemu0-preview" src=screenshots/qemu0.png>
+![Qemu Screenshot](screenshots/qemu0.png)
 
 ### vbox screenshots
 
-<img alt="vbox0-preview" src=screenshots/vbox0.png>
+![VirtualBox Screenshot](screenshots/vbox0.png)
 
 ## Supported Architectures
 

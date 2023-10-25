@@ -277,6 +277,7 @@ typedef struct {
 #define thread_testflags(t, flags)      ({ thread_assert_locked(t); atomic_read(&((t)->t_flags)) & (flags); })
 #define thread_setflags(t, flags)       ({ thread_assert_locked(t); atomic_fetch_or(&((t)->t_flags), (flags)); })
 #define thread_maskflags(t, flags)      ({ thread_assert_locked(t); atomic_fetch_and(&((t)->t_flags), ~(flags)); })
+#define thread_getstate(t)              ({ thread_assert_locked(t); (t)->t_state; })
 #define thread_enter_state(t, state) ({           \
     thread_assert_locked(t);                      \
     int err = 0;                                  \
@@ -367,6 +368,7 @@ typedef struct {
 #define current_issetpark_wake()        ({ thread_issetpark_wake(current); })
 #define current_isdetached()            ({ thread_isdetached(current); })
 #define current_ishandling()            ({ thread_ishandling_signal(current); })
+
 #define current_isstate(state)          ({ thread_isstate(current, state); })
 #define current_embryo()                ({ thread_isembryo(current); })
 #define current_ready ()                ({ thread_isready(current); })
@@ -376,10 +378,12 @@ typedef struct {
 #define current_isstopped()             ({ thread_isstopped(current); })
 #define current_iszombie()              ({ thread_iszombie(current); })
 #define current_isterminated()          ({ thread_isterminated(current); })
+#define current_enter_state(state)      ({ thread_enter_state(current, (state)); })
+#define current_getstate()              ({ thread_getstate(current); })
+
 #define current_setflags(flags)         ({ thread_setflags(current, (flags)); })
 #define current_testflags(flags)        ({ thread_testflags(current, (flags)); })
 #define current_maskflags(flags)        ({ thread_maskflags(current, (flags)); })
-#define current_enter_state(state)      ({ thread_enter_state(current, (state)); })
 
 #define current_issimd_dirty()          ({ thread_issimd_dirty(current); })
 #define current_set_simd_dirty()        ({ thread_set_simd_dirty(current); })

@@ -220,8 +220,7 @@ int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode) {
         goto error;
     }
 
-    if ((err = enqueue(thread->t_queues, (void *)queue, 1, NULL)))
-    {
+    if ((err = enqueue(thread->t_queues, (void *)queue, 1, NULL))) {
         node = NULL;
         queue_remove(queue, (void *)thread);
         queue_unlock(thread->t_queues);
@@ -540,7 +539,9 @@ int builtin_threads_begin(size_t *nthreads) {
     size_t nr = __builtin_thrds_end - __builtin_thrds;
 
     for (size_t i = 0; i < nr; ++i, thrd++) {
-        if ((err = thread_create(NULL, NULL, (thread_entry_t)thrd->thread_entry, thrd->thread_arg)))
+        if ((err = thread_create(NULL, NULL,
+            (thread_entry_t)thrd->thread_entry,
+            thrd->thread_arg)))
             return err;
     }
 

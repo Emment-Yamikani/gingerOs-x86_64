@@ -189,38 +189,39 @@ int sched_sleep(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
     return 0;
 }
 
-int sched_wake1(queue_t *sleep_queue)
-{
-    int woken = 0;
+int sched_wake1(queue_t *sleep_queue) {
+    tstate_t state = 0;
+    int retval = -ESRCH;
     thread_t *thread = NULL;
 
     queue_lock(sleep_queue);
-    thread = thread_dequeue(sleep_queue);
+    if ((thread = thread_dequeue(sleep_queue))) {
+        thread_assert_locked(thread);
+        state = thread_getstate(thread);
+        thread_enter_state(thread, T_READY);
+        if (sched_park(thread)) {
+            thread_enter_state(thread, state);
+            thread_enqueue(sleep_queue, thread, &thread->sleep_attr.node);
+        }
+        thread_unlock(thread);
+        retval = 0;
+    }
     queue_unlock(sleep_queue);
 
-    if (thread == NULL)
-        return 0;
-
-    thread_assert_locked(thread);
-    thread_enter_state(thread, T_READY);
-
-    sched_park(thread);
-    thread_unlock(thread);
-    return woken;
+    return retval;
 }
 
-int sched_wakeall(queue_t *sleep_queue)
+size_t sched_wakeall(queue_t *sleep_queue)
 {
     int err = 0;
-    int count = 0;
+    size_t count = 0;
     thread_t *thread = NULL;
     queue_node_t *next = NULL;
 
     queue_lock(sleep_queue);
     count = queue_count(sleep_queue);
 
-    forlinked(node, sleep_queue->head, next)
-    {
+    forlinked(node, sleep_queue->head, next) {
         next = node->next;
         thread = node->data;
         thread_lock(thread);

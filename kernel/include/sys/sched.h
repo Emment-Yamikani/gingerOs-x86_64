@@ -82,10 +82,7 @@ int sched_sleep(queue_t *sleep_queue, tstate_t state, spinlock_t *lock);
  * @param sleep_queue
  * @return int the number of threads woken
  */
-int sched_wakeall(queue_t *sleep_queue);
-
-int sched_wake1(queue_t *sleep_queue);
-int sched_wakeall(queue_t *sleep_queue);
+size_t sched_wakeall(queue_t *sleep_queue);
 
 /*get a thread from a queue*/
 thread_t *sched_next(void);
