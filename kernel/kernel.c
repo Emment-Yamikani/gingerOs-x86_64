@@ -31,12 +31,16 @@ void core_start(void);
 mutex_t *mtx = MUTEX_NEW();
 
 void func() {
+    mutex_lock(mtx);
     BUILTIN_THREAD_ANOUNCE("OKay");
+    mutex_unlock(mtx);
 }
 BUILTIN_THREAD(func, func, NULL);
 
 void func1() {
+    mutex_lock(mtx);
     BUILTIN_THREAD_ANOUNCE("Road run");
+    mutex_unlock(mtx);
 }
 
 BUILTIN_THREAD(func1, func1, NULL);
@@ -44,8 +48,11 @@ BUILTIN_THREAD(func1, func1, NULL);
 __noreturn void kthread_main(void) {
     printk("Welcome to \e[0;011m'Ginger OS'\e[0m.\n");
 
+    mutex_lock(mtx);
+
     builtin_threads_begin(NULL);
 
+    mutex_unlock(mtx);
     loop() thread_join(0, NULL, NULL);
 }
 

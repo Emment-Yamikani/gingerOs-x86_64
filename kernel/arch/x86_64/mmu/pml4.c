@@ -16,10 +16,10 @@
 extern pte_t __pml4[512] __aligned(0x1000);
 
 spinlock_t kmap_lk = SPINLOCK_INIT();
-pagemap_t kernel_map = (pagemap_t){
+pagemap_t kernel_map = {
     .flags = 0,
-    .lock = {0},
-    .pml4 = (pte_t *)__pml4,
+    .pml4 = __pml4,
+    .lock = SPINLOCK_INIT(),
 };
 
 pte_t *get_mapping(pagemap_t *map, uintptr_t v)
