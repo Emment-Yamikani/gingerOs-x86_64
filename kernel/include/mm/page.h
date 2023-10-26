@@ -6,16 +6,16 @@
 //#include <locks/spinlock.h>
 #include <lib/types.h>
 //#include <lime/assert.h>
-#include <mm/mapping.h>
+#include <mm/page_cache.h>
 #include <mm/page_flags.h>
 
 typedef struct page
 {
-    page_flags_t flags;
-    mapping_t *mapping;
-    atomic_t ref_count;
-    atomic_t map_count;
-    uintptr_t virtual; // virtual addr
+    page_flags_t    flags;
+    page_cache_t    *mapping;
+    atomic_t        ref_count;
+    atomic_t        map_count;
+    uintptr_t       virtual; // virtual addr
 } page_t;
 
 #define page_flags(page) (page->flags)
