@@ -39,6 +39,7 @@
 
 - [x] Physical Memery Management
 - [x] Virtual Memory Management
+- [ ] Page cache
 
 ### Memory allocator(s)
   
@@ -66,7 +67,7 @@
 
 - [x] ginger ramfs
 - [x] tmpfs
-- [ ] devfs
+- [x] devfs
 - [ ] pipefs
 - [ ] sysfs
 - [ ] ext2fs
