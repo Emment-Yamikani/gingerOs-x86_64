@@ -1,6 +1,7 @@
 #pragma once
 
 int tmpfs_init(void);
+int tmpfs_new_inode(itype_t type, inode_t **pip);
 
 int     tmpfs_isync(inode_t *ip);
 int     tmpfs_iclose(inode_t *ip);

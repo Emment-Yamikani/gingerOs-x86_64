@@ -6,6 +6,7 @@
 #include <fs/tmpfs.h>
 #include <sys/_fcntl.h>
 #include <lib/string.h>
+#include <fs/devtmpfs.h>
 
 char *itype_strings[] = {
     [FS_INV] = "INV",
@@ -72,6 +73,9 @@ int vfs_init(void) {
 
     if ((err = tmpfs_init()))
         return err;
+    
+    if ((err = devtmpfs_init()))
+        return err;
 
     if ((err = vfs_mount("ramdisk", "/", "ramfs", 0, NULL)))
         return err;
@@ -88,7 +92,7 @@ int vfs_init(void) {
     if ((err = vfs_mount(NULL, "/tmp/", "tmpfs", 0, NULL)))
         return err;
 
-    if ((err = vfs_mount(NULL, "/dev/", "tmpfs", 0, NULL)))
+    if ((err = vfs_mount(NULL, "/dev/", "devtmpfs", 0, NULL)))
         return err;
 
     if ((err = vfs_mount(NULL, "/mnt/", "tmpfs", 0, NULL)))

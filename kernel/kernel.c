@@ -27,32 +27,35 @@
 #include <ds/hash.h>
 #include <sync/mutex.h>
 
-void core_start(void);
-mutex_t *mtx = MUTEX_NEW();
-
-void func() {
-    mutex_lock(mtx);
-    BUILTIN_THREAD_ANOUNCE("OKay");
-    mutex_unlock(mtx);
-}
-BUILTIN_THREAD(func, func, NULL);
-
-void func1() {
-    mutex_lock(mtx);
-    BUILTIN_THREAD_ANOUNCE("Road run");
-    mutex_unlock(mtx);
-}
-
-BUILTIN_THREAD(func1, func1, NULL);
-
 __noreturn void kthread_main(void) {
+    dentry_t *file = NULL;
     printk("Welcome to \e[0;011m'Ginger OS'\e[0m.\n");
 
-    mutex_lock(mtx);
+    vfs_lookup("/dev/full",     NULL, O_RDWR | O_CREAT, 0660, 0, NULL);
+    vfs_lookup("/dev/cpu",      NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0660, 0, NULL);
+    vfs_lookup("/dev/pts",      NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0660, 0, NULL);
+    vfs_lookup("/dev/zero",     NULL, O_RDWR | O_CREAT, 0660, 0, NULL);
+    vfs_lookup("/dev/vfio",     NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0660, 0, NULL);
+    vfs_lookup("/dev/snd",      NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0660, 0, NULL);
+    vfs_lookup("/dev/random",   NULL, O_RDWR | O_CREAT, 0660, 0, NULL);
+    vfs_lookup("/dev/shm",      NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0660, 0, NULL);
+    vfs_lookup("/dev/urandom",  NULL, O_RDWR | O_CREAT, 0660, 0, NULL);
+    vfs_lookup("/dev/null",     NULL, O_RDWR | O_CREAT, 0660, 0, &file);
+
 
     builtin_threads_begin(NULL);
+    char b[] = "Hello World\n";
 
-    mutex_unlock(mtx);
+    ilock(file->d_inode);
+    iwrite(file->d_inode, 0, b, sizeof b);
+    memset(b, 0, sizeof b);
+    iread(file->d_inode, 1, b, (sizeof b) -1);
+    iunlock(file->d_inode);
+
+    vfs_dirlist("/dev");
+
+    printk(b);
+
     loop() thread_join(0, NULL, NULL);
 }
 

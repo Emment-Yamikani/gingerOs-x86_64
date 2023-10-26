@@ -25,7 +25,7 @@ typedef struct tmpfs_dirent_t {
 
 int tmpfs_init(void);
 static size_t tmpfs_hash(const char *str);
-static int tmpfs_new_inode(itype_t type, inode_t **pip);
+int tmpfs_new_inode(itype_t type, inode_t **pip);
 static int tmpfs_ialloc(itype_t type, tmpfs_inode_t **pip);
 static int tmpfs_hash_verify(const char *fname, tmpfs_dirent_t *dirent);
 
@@ -202,7 +202,6 @@ static int tmpfs_ifree(tmpfs_inode_t *ip) {
                 ip->hlink++;
                 goto error;
             }
-            hash_unlock(htable);
         }
         else if (ip->data)
             kfree(ip->data);
@@ -213,7 +212,7 @@ error:
     return err;
 }
 
-static int tmpfs_new_inode(itype_t type, inode_t **pip) {
+int tmpfs_new_inode(itype_t type, inode_t **pip) {
     int err =  0;
     char *name = NULL;
     inode_t *inode = NULL;
@@ -370,7 +369,7 @@ int tmpfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     if ((err = ialloc(&ip)))
         goto error;
 
-    ip->i_ops       = &tmpfs_iops;
+    ip->i_ops       = dir->i_ops;
     ip->i_priv      = dirent->inode;
     ip->i_ino       = dirent->inode->ino;
     ip->i_type      = dirent->inode->type;
@@ -399,6 +398,9 @@ int tmpfs_itruncate(inode_t *ip) {
     
     if (IISDIR(ip))
         return -EISDIR;
+    
+    if (IISDEV(ip))
+        return -EINVAL;
 
     if ((tino = ip->i_priv) == NULL)
         return -EINVAL;

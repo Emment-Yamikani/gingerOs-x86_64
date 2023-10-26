@@ -21,12 +21,12 @@ typedef struct spinlock
 } spinlock_t;
 
 #define SPINLOCK_INIT() ((spinlock_t){ \
-    .s_line = 0,                       \
     .s_lock = 0,                       \
+    .s_line = 0,                       \
+    .s_cpu = NULL,                     \
     .s_file = NULL,                    \
     .s_thread = NULL,                  \
     .s_retaddr = NULL,                 \
-    .s_cpu = NULL,                     \
 })
 
 #define SPINLOCK_NEW()  (&SPINLOCK_INIT())
