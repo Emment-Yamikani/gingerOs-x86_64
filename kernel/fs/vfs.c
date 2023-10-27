@@ -36,7 +36,7 @@ int vfs_mount_droot(dentry_t *dentry) {
     return 0;
 }
 
-static int vfs_mkpauedo_dir(const char *name, dentry_t *parent) {
+int vfs_mkpauedo_dir(const char *name, dentry_t *parent) {
     int err = 0;
     inode_t *ip = NULL;
     dentry_t *dnt = NULL;
@@ -77,25 +77,25 @@ int vfs_init(void) {
     if ((err = devtmpfs_init()))
         return err;
 
-    if ((err = vfs_mount("ramdisk", "/", "ramfs", 0, NULL)))
+    if ((err = vfs_mount(NULL, "/", "tmpfs", 0, NULL)))
         return err;
 
-    if ((err = vfs_mkpauedo_dir("dev", droot)))
+    if ((err = vfs_lookup("/dev/", NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0755, 0, NULL)))
         return err;
 
-    if ((err = vfs_mkpauedo_dir("tmp", droot)))
-        return err;
-    
-    if ((err = vfs_mkpauedo_dir("mnt", droot)))
+    if ((err = vfs_lookup("/mnt/", NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0755, 0, NULL)))
         return err;
 
-    if ((err = vfs_mount(NULL, "/tmp/", "tmpfs", 0, NULL)))
+    if ((err = vfs_lookup("/tmp/", NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0755, 0, NULL)))
+        return err;
+
+    if ((err = vfs_lookup("/ramfs/", NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0755, 0, NULL)))
+        return err;
+
+    if ((err = vfs_mount("ramdisk", "/ramfs/", "ramfs", 0, NULL)))
         return err;
 
     if ((err = vfs_mount(NULL, "/dev/", "devtmpfs", 0, NULL)))
-        return err;
-
-    if ((err = vfs_mount(NULL, "/mnt/", "tmpfs", 0, NULL)))
         return err;
 
     return 0;

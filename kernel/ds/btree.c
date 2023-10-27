@@ -90,8 +90,7 @@ done:
     return 0;
 }
 
-static void btree_delete_node(btree_t *btree, btree_node_t *node)
-{
+static void btree_delete_node(btree_t *btree, btree_node_t *node) {
     btree_node_t *parent = NULL, *left = NULL, *right = NULL;
 
     if (btree == NULL)
@@ -263,4 +262,24 @@ int btree_traverse(btree_t *btree, queue_t *queue) {
     if (btree == NULL || queue == NULL)
         return -EINVAL;
     return btree_node_traverse(btree->root, queue);
+}
+
+int btree_flush_node(btree_node_t *node) {
+    btree_node_t *right = NULL;
+    if (node) {
+        btree_assert_locked(node->btree);
+        btree_flush_node(node->left);
+        right = node->right;
+        btree_delete_node(node->btree, node);
+        btree_flush_node(right);
+    }
+
+    return 0;
+}
+
+int btree_flush(btree_t *btree) {
+    btree_assert_locked(btree);
+    if (btree == NULL)
+        return -EINVAL;
+    return btree_flush_node(btree->root);
 }

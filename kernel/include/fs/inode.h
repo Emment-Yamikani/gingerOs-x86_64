@@ -6,6 +6,7 @@
 #include <lib/types.h>
 #include <ds/queue.h>
 #include <sys/_stat.h>
+#include <mm/page_cache.h>
 
 struct iops;
 struct uio;
@@ -43,6 +44,7 @@ typedef struct inode {
     struct iops     *i_ops;     // Filesystem specific inode operations. 
     void            *i_priv;    // Filesystem specific private data.
     struct dentry   *i_alias;   // Alias to this inode (can be multiple).
+    page_cache_t    *i_pgcache; // Page cache for this inode.
     spinlock_t      i_lock;     // Spinlock to protect access to this inode.
     /**
      * TODO: May need to add another type of locking mechanism

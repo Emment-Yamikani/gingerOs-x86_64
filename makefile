@@ -72,7 +72,7 @@ run:
 	-chardev stdio,\
 	id=char0,\
 	logfile=serial.log,\
-	signal=off \
+	signal=off 			\
     -serial chardev:char0
 
 _iso_:

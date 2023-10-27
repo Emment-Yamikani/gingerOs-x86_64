@@ -23,9 +23,16 @@ int ialloc(inode_t **pip) {
     ip->i_refcnt = 1;
     ip->i_lock = SPINLOCK_INIT();
     ilock(ip);
-    *pip = ip;
 
+    if ((err = pgcache_alloc(&ip->i_pgcache)))
+        goto error;
+
+    *pip = ip;
     return 0;
+error:
+    if (ip)
+        kfree(ip);
+    return err;
 }
 
 void ifree(inode_t *ip) {
@@ -33,6 +40,7 @@ void ifree(inode_t *ip) {
 
     if (ip->i_refcnt <= 0) {
         iunlink(ip);
+        pgcache_free(ip->i_pgcache);
         kfree(ip);
     }
 }

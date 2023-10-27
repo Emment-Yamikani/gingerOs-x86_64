@@ -13,8 +13,6 @@
 #include <sys/system.h>
 #include <mm/kalloc.h>
 
-extern pte_t __pml4[512] __aligned(0x1000);
-
 spinlock_t kmap_lk = SPINLOCK_INIT();
 pagemap_t kernel_map = {
     .flags = 0,
@@ -22,8 +20,7 @@ pagemap_t kernel_map = {
     .lock = SPINLOCK_INIT(),
 };
 
-pte_t *get_mapping(pagemap_t *map, uintptr_t v)
-{
+pte_t *get_mapping(pagemap_t *map, uintptr_t v) {
     pte_t *pt = NULL;
     pte_t *pdt = NULL;
     pte_t *pdpt = NULL;
@@ -65,8 +62,7 @@ pte_t *get_mapping(pagemap_t *map, uintptr_t v)
     return &pt[PTI(v)];
 }
 
-int map_page_to(pagemap_t *map, uintptr_t v, uintptr_t p, uint32_t flags)
-{
+int map_page_to(pagemap_t *map, uintptr_t v, uintptr_t p, uint32_t flags) {
     int err = 0;
     pte_t *pt = NULL;
     pte_t *pdt = NULL;
@@ -89,8 +85,7 @@ int map_page_to(pagemap_t *map, uintptr_t v, uintptr_t p, uint32_t flags)
 
     // printk("going on to map\n");
 
-    if (!pml4[PML4I(v)].p)
-    {
+    if (!pml4[PML4I(v)].p) {
         // printk("pml4e: not aval\n");
         err = -ENOMEM;
         if (!(page = pmman.alloc()))
@@ -103,8 +98,7 @@ int map_page_to(pagemap_t *map, uintptr_t v, uintptr_t p, uint32_t flags)
 
     pdpt = (pte_t *)VMA2HI(PGROUND(pml4[PML4I(v)].raw));
 
-    if (!pdpt[PDPTI(v)].p)
-    {
+    if (!pdpt[PDPTI(v)].p) {
         // printk("pdpte: not aval\n");
         err = -ENOMEM;
         if (!(page = pmman.alloc()))
@@ -117,8 +111,7 @@ int map_page_to(pagemap_t *map, uintptr_t v, uintptr_t p, uint32_t flags)
 
     pdt = (pte_t *)VMA2HI(PGROUND(pdpt[PDPTI(v)].raw));
 
-    if (is2mb_page(flags))
-    {
+    if (is2mb_page(flags)) {
         assert_msg(!PG2MOFF(p), "%s:%d: error: page: %p, not 2MiB aligned\n", __FILE__, __LINE__, p);
         
         //printk("mapping a 2MiB page\n");
@@ -138,8 +131,7 @@ int map_page_to(pagemap_t *map, uintptr_t v, uintptr_t p, uint32_t flags)
 
     // printk("Not a 2Mib page\n");
 
-    if (!pdt[PDI(v)].p)
-    {
+    if (!pdt[PDI(v)].p) {
         // printk("pde: not aval\n");
         err = -ENOMEM;
         if (!(page = pmman.alloc()))
@@ -190,8 +182,7 @@ error:
     return err;
 }
 
-int map_page_to_n(pagemap_t *map, uintptr_t v, uintptr_t p, size_t sz, uint32_t flags)
-{
+int map_page_to_n(pagemap_t *map, uintptr_t v, uintptr_t p, size_t sz, uint32_t flags) {
     int err = 0;
     size_t np = is2mb_page(flags) ? N2MPAGE(sz) : NPAGE(sz);
 
@@ -200,8 +191,7 @@ int map_page_to_n(pagemap_t *map, uintptr_t v, uintptr_t p, size_t sz, uint32_t 
     if (iskernel_addr(v))
         kmap_assert_locked();
 
-    while (np--)
-    {
+    while (np--) {
         if ((err = map_page_to(map, v, p, flags)))
             goto error;
         v += is2mb_page(flags) ? PGSZ2M : PGSZ;
@@ -213,20 +203,18 @@ error:
     return err;
 }
 
-int map_page(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags)
-{
-    int err = 0;
-    uintptr_t p = 0;
-    flags &= ~VM_PS;
-    size_t np = NPAGE(sz);
+int map_page(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags) {
+    int         err = 0;
+    uintptr_t   p = 0;
+    flags       &= ~VM_PS;
+    size_t      np = NPAGE(sz);
 
     pagemap_assert_locked(map);
 
     if (iskernel_addr(v))
         kmap_assert_locked();
 
-    while (np--)
-    {
+    while (np--) {
         err = -ENOMEM;
         if (!(p = pmman.alloc()))
             goto error;
@@ -277,8 +265,7 @@ int unmap_table_entry(pagemap_t *map, int level, int pml4i, int pdpti, int pdi, 
     if (!pdpt || !pdpt[pdpti].p)
         return -ENOENT;
 
-    if (level == LVL_PDPTE)
-    {
+    if (level == LVL_PDPTE) {
         // printk("LVL_PDPTE\n");
         page = GETPHYS(&pdpt[pdpti]);
         if (page && pdpt[pdpti].alloc)
@@ -296,8 +283,7 @@ int unmap_table_entry(pagemap_t *map, int level, int pml4i, int pdpti, int pdi, 
     if (!pdt || !pdt[pdi].p)
         return -ENOENT;
 
-    if (level == LVL_PDTE)
-    {
+    if (level == LVL_PDTE) {
         if (!pdt[pdi].ps) {
             page = GETPHYS(&pdt[pdi]);
             if (page && pdt[pdi].alloc)
@@ -318,8 +304,7 @@ int unmap_table_entry(pagemap_t *map, int level, int pml4i, int pdpti, int pdi, 
     if (!pt || !pt[pti].p)
         return -ENOENT;
 
-    if (level == LVL_PTE)
-    {
+    if (level == LVL_PTE) {
         page = GETPHYS(&pt[pti]);
         if (page && pt[pti].alloc)
             pmman.free(page);
@@ -333,8 +318,7 @@ int unmap_table_entry(pagemap_t *map, int level, int pml4i, int pdpti, int pdi, 
     return -EINVAL;
 }
 
-int unmap_page(pagemap_t *map, uintptr_t v)
-{
+int unmap_page(pagemap_t *map, uintptr_t v) {
     pte_t *pt = NULL;
     pte_t *pdt = NULL;
     uintptr_t page = 0;
@@ -367,11 +351,10 @@ int unmap_page(pagemap_t *map, uintptr_t v)
     if (!pdt || !pdt[PDI(v)].p)
         return -ENOENT;
 
-    if (is2mb_page(pdt[PDI(v)].raw))
-    {
+    if (is2mb_page(pdt[PDI(v)].raw)) {
         pdt[PDI(v)].raw = 0;
         // printk("unmap 2Mb\n");
-        //printk("%s:%d WARNING: need to send tlb shootdown\n", __FILE__, __LINE__);
+        // printk("%s:%d WARNING: need to send tlb shootdown\n", __FILE__, __LINE__);
         invlpg(v);
         return 0;
     }
@@ -381,21 +364,19 @@ int unmap_page(pagemap_t *map, uintptr_t v)
     if (!pt || !pt[PTI(v)].p)
         return -ENOENT;
 
-    if (pt[PTI(v)].alloc)
-    {
+    if (pt[PTI(v)].alloc) {
         page = GETPHYS(&pt[PTI(v)]);
         pmman.free(page);
     }
 
     pt[PTI(v)].raw = 0;
     // printk("umap 4Kb page\n");
-    //printk("%s:%d WARNING: need to send tlb shootdown\n", __FILE__, __LINE__);
+    // printk("%s:%d WARNING: need to send tlb shootdown\n", __FILE__, __LINE__);
     invlpg(v);
     return 0;
 }
 
-int unmap_page_n(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags)
-{
+int unmap_page_n(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags) {
     int err = 0;
     size_t np = is2mb_page(flags) ? N2MPAGE(sz) : NPAGE(sz);
 
@@ -404,8 +385,7 @@ int unmap_page_n(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags)
     if (iskernel_addr(v))
         kmap_assert_locked();
 
-    while (np--)
-    {
+    while (np--) {
         if ((err = unmap_page(map, v)))
             return err;
         v += is2mb_page(flags) ? PGSZ2M : PGSZ;

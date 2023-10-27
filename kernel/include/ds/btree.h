@@ -105,3 +105,6 @@ int btree_insert(btree_t *btree, btree_key_t key, void *data);
 int btree_node_traverse(btree_node_t *tree, queue_t *queue);
 
 int btree_traverse(btree_t *tree, queue_t *queue);
+
+int btree_flush(btree_t *btree);
+int btree_flush_node(btree_node_t *node);

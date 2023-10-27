@@ -52,7 +52,7 @@ __noreturn void kthread_main(void) {
     iread(file->d_inode, 1, b, (sizeof b) -1);
     iunlock(file->d_inode);
 
-    vfs_dirlist("/dev");
+    vfs_dirlist("/");
 
     printk(b);
 
