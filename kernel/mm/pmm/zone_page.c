@@ -222,7 +222,7 @@ uintptr_t page_mount(uintptr_t paddr) {
         return 0;
 
     pagemap_binary_lock(&kernel_map);
-    err = map_page_to(&kernel_map, vaddr, paddr, VM_KRW);
+    err = x86_64_map_page_to(&kernel_map, vaddr, paddr, VM_KRW);
     pagemap_binary_unlock(&kernel_map);
 
     if (err) {
@@ -235,7 +235,7 @@ uintptr_t page_mount(uintptr_t paddr) {
 
 void page_unmount(uintptr_t vaddr) {
     pagemap_binary_lock(&kernel_map);
-    unmap_page(&kernel_map, vaddr);
+    x86_64_unmap_page(&kernel_map, vaddr);
     pagemap_binary_unlock(&kernel_map);
     vmman.free(vaddr);
 }

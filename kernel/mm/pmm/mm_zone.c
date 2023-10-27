@@ -260,7 +260,7 @@ int physical_memory_init(void) {
 
     pagemap_binary_lock(&kernel_map);
     if ((long)size > 0)
-        map_page_to_n(&kernel_map, VMA2HI((1 * GiB)), (1 * GiB), size, VM_K2MBRW);
+        x86_64_map_page_to_n(&kernel_map, VMA2HI((1 * GiB)), (1 * GiB), size, VM_K2MBRW);
 
     for (size_t i = 0; i < bootinfo.mmapcnt; ++i) {
         addr = PGROUND(map[i].addr);
@@ -268,14 +268,14 @@ int physical_memory_init(void) {
 
         if ((map[i].type != MULTIBOOT_MEMORY_AVAILABLE) && map[i].addr < 0x100000000) {
             uint32_t flags = VM_KRW | VM_PCDWT;
-            map_page_to_n(&kernel_map, addr, addr, size, flags);
-            map_page_to_n(&kernel_map, VMA2HI(addr), addr, size, flags);
+            x86_64_map_page_to_n(&kernel_map, addr, addr, size, flags);
+            x86_64_map_page_to_n(&kernel_map, VMA2HI(addr), addr, size, flags);
         }
     }
 
     // unmap_table_entry(&kernel_map, LVL_PML4E, 0, 0, 0, 0);
     // unmap_table_entry(&kernel_map, LVL_PDPTE, PML4I(VMA2HI(0xC0000000)), PDPTI(0xC0000000), 0, 0);
-    map_page_to_n(&kernel_map, VMA2HI(MEMMDEV), MEMMDEV, (4 * GiB) - MEMMDEV, VM_KRW | VM_PCD);
+    x86_64_map_page_to_n(&kernel_map, VMA2HI(MEMMDEV), MEMMDEV, (4 * GiB) - MEMMDEV, VM_KRW | VM_PCD);
     pagemap_binary_unlock(&kernel_map);
     return 0;
 error:

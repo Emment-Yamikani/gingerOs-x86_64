@@ -541,7 +541,7 @@ uintptr_t mapped_alloc(size_t sz)
         return 0;
 
     pagemap_binary_lock(&kernel_map);
-    if (map_page(&kernel_map, v, sz, VM_KRW))
+    if (x86_64_map_page(&kernel_map, v, sz, VM_KRW))
     {
         pagemap_binary_unlock(&kernel_map);
         vmman.free(v);
@@ -555,7 +555,7 @@ uintptr_t mapped_alloc(size_t sz)
 void mapped_free(uintptr_t v, size_t sz)
 {
     pagemap_binary_lock(&kernel_map);
-    unmap_page_n(&kernel_map, v, sz, 0);
+    x86_64_unmap_page_n(&kernel_map, v, sz, 0);
     pagemap_binary_unlock(&kernel_map);
     vmman.free(v);
 }

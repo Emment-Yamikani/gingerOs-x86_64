@@ -40,7 +40,8 @@ __noreturn void kthread_main(void) {
     vfs_lookup("/dev/random",   NULL, O_RDWR | O_CREAT, 0660, 0, NULL);
     vfs_lookup("/dev/shm",      NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0660, 0, NULL);
     vfs_lookup("/dev/urandom",  NULL, O_RDWR | O_CREAT, 0660, 0, NULL);
-    vfs_lookup("/dev/null",     NULL, O_RDWR | O_CREAT, 0660, 0, &file);
+    vfs_lookup("/dev/null",     NULL, O_RDWR | O_CREAT, 0660, 0, NULL);
+    vfs_lookup("/dev/readme.txt",     NULL, O_RDWR | O_CREAT, 0660, 0, &file);
 
 
     builtin_threads_begin(NULL);
@@ -52,7 +53,7 @@ __noreturn void kthread_main(void) {
     iread(file->d_inode, 1, b, (sizeof b) -1);
     iunlock(file->d_inode);
 
-    vfs_dirlist("/");
+    vfs_dirlist("/ramfs");
 
     printk(b);
 

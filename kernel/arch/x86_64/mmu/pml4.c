@@ -20,7 +20,7 @@ pagemap_t kernel_map = {
     .lock = SPINLOCK_INIT(),
 };
 
-pte_t *get_mapping(pagemap_t *map, uintptr_t v) {
+pte_t *x86_64_get_mapping(pagemap_t *map, uintptr_t v) {
     pte_t *pt = NULL;
     pte_t *pdt = NULL;
     pte_t *pdpt = NULL;
@@ -62,7 +62,7 @@ pte_t *get_mapping(pagemap_t *map, uintptr_t v) {
     return &pt[PTI(v)];
 }
 
-int map_page_to(pagemap_t *map, uintptr_t v, uintptr_t p, uint32_t flags) {
+int x86_64_map_page_to(pagemap_t *map, uintptr_t v, uintptr_t p, uint32_t flags) {
     int err = 0;
     pte_t *pt = NULL;
     pte_t *pdt = NULL;
@@ -182,7 +182,7 @@ error:
     return err;
 }
 
-int map_page_to_n(pagemap_t *map, uintptr_t v, uintptr_t p, size_t sz, uint32_t flags) {
+int x86_64_map_page_to_n(pagemap_t *map, uintptr_t v, uintptr_t p, size_t sz, uint32_t flags) {
     int err = 0;
     size_t np = is2mb_page(flags) ? N2MPAGE(sz) : NPAGE(sz);
 
@@ -192,7 +192,7 @@ int map_page_to_n(pagemap_t *map, uintptr_t v, uintptr_t p, size_t sz, uint32_t 
         kmap_assert_locked();
 
     while (np--) {
-        if ((err = map_page_to(map, v, p, flags)))
+        if ((err = x86_64_map_page_to(map, v, p, flags)))
             goto error;
         v += is2mb_page(flags) ? PGSZ2M : PGSZ;
         p += is2mb_page(flags) ? PGSZ2M : PGSZ;
@@ -203,7 +203,7 @@ error:
     return err;
 }
 
-int map_page(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags) {
+int x86_64_map_page(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags) {
     int         err = 0;
     uintptr_t   p = 0;
     flags       &= ~VM_PS;
@@ -218,7 +218,7 @@ int map_page(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags) {
         err = -ENOMEM;
         if (!(p = pmman.alloc()))
             goto error;
-        if ((err = map_page_to(map, v, p, flags | ALLOC_PAGE)))
+        if ((err = x86_64_map_page_to(map, v, p, flags | ALLOC_PAGE)))
             goto error;
         v += PGSZ;
     }
@@ -228,7 +228,7 @@ error:
     return err;
 }
 
-int unmap_table_entry(pagemap_t *map, int level, int pml4i, int pdpti, int pdi, int pti) {
+int x86_64_unmap_table_entry(pagemap_t *map, int level, int pml4i, int pdpti, int pdi, int pti) {
     pte_t *pt = NULL;
     pte_t *pdt = NULL;
     uintptr_t page = 0;
@@ -318,7 +318,7 @@ int unmap_table_entry(pagemap_t *map, int level, int pml4i, int pdpti, int pdi, 
     return -EINVAL;
 }
 
-int unmap_page(pagemap_t *map, uintptr_t v) {
+int x86_64_unmap_page(pagemap_t *map, uintptr_t v) {
     pte_t *pt = NULL;
     pte_t *pdt = NULL;
     uintptr_t page = 0;
@@ -376,7 +376,7 @@ int unmap_page(pagemap_t *map, uintptr_t v) {
     return 0;
 }
 
-int unmap_page_n(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags) {
+int x86_64_unmap_page_n(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags) {
     int err = 0;
     size_t np = is2mb_page(flags) ? N2MPAGE(sz) : NPAGE(sz);
 
@@ -386,32 +386,32 @@ int unmap_page_n(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags) {
         kmap_assert_locked();
 
     while (np--) {
-        if ((err = unmap_page(map, v)))
+        if ((err = x86_64_unmap_page(map, v)))
             return err;
         v += is2mb_page(flags) ? PGSZ2M : PGSZ;
     }
     return 0;
 }
 
-void pagemap_resolve(void) {
+void x86_64_pagemap_resolve(void) {
     pagemap_t *map = NULL;
-    pagemap_alloc(&map);
+    x86_64_pagemap_alloc(&map);
     pagemap_binary_lock(map);
-    pagemap_switch(map);
+    x86_64_pagemap_switch(map);
     memcpy(&kernel_map, map, sizeof *map);
     pagemap_binary_unlock(map);
 }
 
-void pagemap_clean(pagemap_t *map) {
+void x86_64_pagemap_clean(pagemap_t *map) {
     if (!map)
         return;
     
     pagemap_assert_locked(map);
     for (uintptr_t v = 0; v < USTACK; v += PGSZ)
-        unmap_page(map, v);
+        x86_64_unmap_page(map, v);
 }
 
-void pagemap_free(pagemap_t *map) {
+void x86_64_pagemap_free(pagemap_t *map) {
     if (!map)
         return;
     
@@ -426,7 +426,7 @@ void pagemap_free(pagemap_t *map) {
 
 }
 
-int pagemap_alloc(pagemap_t **ppagemap) {
+int x86_64_pagemap_alloc(pagemap_t **ppagemap) {
     int err = -ENOMEM;
     pte_t *pml4 = NULL;
     pagemap_t *map = NULL;
@@ -459,7 +459,7 @@ error:
     return err;
 }
 
-int pagemap_switch(pagemap_t *map) {
+int x86_64_pagemap_switch(pagemap_t *map) {
     if (!map)
         return -EINVAL;
     pagemap_assert_locked(map);

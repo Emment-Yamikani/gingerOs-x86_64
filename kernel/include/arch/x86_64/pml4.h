@@ -119,14 +119,14 @@ extern spinlock_t kmap_lk; // global kernel address space lock
 
 #define isalloc_page(flags)         ((flags)&ALLOC_PAGE)
 
-void pagemap_resolve(void);
-void pagemap_free(pagemap_t *map);
-int pagemap_switch(pagemap_t *map);
-int pagemap_alloc(pagemap_t **pmap);
-int unmap_page(pagemap_t *map, uintptr_t v);
-pte_t *get_mapping(pagemap_t *map, uintptr_t v);
-int map_page(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags);
-int unmap_page_n(pagemap_t *map, uintptr_t v, size_t size, uint32_t flags);
-int map_page_to(pagemap_t *map, uintptr_t v, uintptr_t paddr, uint32_t flags);
-int map_page_to_n(pagemap_t *map, uintptr_t v, uintptr_t p, size_t sz, uint32_t flags);
-int unmap_table_entry(pagemap_t *map, int level, int pml4i, int pdpti, int pdi, int pti);
+void x86_64_pagemap_resolve(void);
+void x86_64_pagemap_free(pagemap_t *map);
+int x86_64_pagemap_switch(pagemap_t *map);
+int x86_64_pagemap_alloc(pagemap_t **pmap);
+int x86_64_unmap_page(pagemap_t *map, uintptr_t v);
+pte_t *x86_64_get_mapping(pagemap_t *map, uintptr_t v);
+int x86_64_map_page(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags);
+int x86_64_unmap_page_n(pagemap_t *map, uintptr_t v, size_t size, uint32_t flags);
+int x86_64_map_page_to(pagemap_t *map, uintptr_t v, uintptr_t paddr, uint32_t flags);
+int x86_64_map_page_to_n(pagemap_t *map, uintptr_t v, uintptr_t p, size_t sz, uint32_t flags);
+int x86_64_unmap_table_entry(pagemap_t *map, int level, int pml4i, int pdpti, int pdi, int pti);
