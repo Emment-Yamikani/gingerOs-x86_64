@@ -4,7 +4,7 @@ ds_dir=$(kernel_dir)/ds
 dev_dir=$(kernel_dir)/dev
 firmware_dir=$(kernel_dir)/firmware
 fs_dir=$(kernel_dir)/fs
-ginger_dir=$(kernel_dir)/ginger
+lime_dir=$(kernel_dir)/lime
 lib_dir=$(kernel_dir)/lib
 mm_dir=$(kernel_dir)/mm
 modules_dir=$(kernel_dir)/modules
@@ -17,7 +17,7 @@ include $(ds_dir)/makefile
 include $(dev_dir)/makefile
 include $(firmware_dir)/makefile
 include $(fs_dir)/makefile
-include $(ginger_dir)/makefile
+include $(lime_dir)/makefile
 include $(lib_dir)/makefile
 include $(mm_dir)/makefile
 include $(modules_dir)/makefile
@@ -32,7 +32,7 @@ $(ds_objs)\
 $(dev_objs)\
 $(firmware_objs)\
 $(fs_objs)\
-$(ginger_objs)\
+$(lime_objs)\
 $(lib_objs)\
 $(mm_objs)\
 $(modules_objs)\

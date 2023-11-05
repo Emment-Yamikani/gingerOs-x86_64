@@ -1,14 +1,20 @@
 #pragma once
 
+#include <lib/cpuid.h>
 #include <lib/stdint.h>
 
-static inline void hlt() { asm __volatile__ ("hlt"); }
-static inline void cli() { asm __volatile__ ("cli"); }
-static inline void sti() { asm __volatile__ ("sti"); }
-static inline void cpu_pause() { asm __volatile__("pause"); }
+static inline void hlt()        { asm __volatile__ ("hlt"); }
+static inline void cli()        { asm __volatile__ ("cli"); }
+static inline void sti()        { asm __volatile__ ("sti"); }
+static inline void cpu_pause()  { asm __volatile__("pause"); }
 
 extern void disable_caching(void);
-static inline uintptr_t rdrax(void) {uintptr_t ret; asm volatile("":"=a"(ret)); return ret;}
+
+static inline uintptr_t rdrax(void) {
+    uintptr_t ret;
+    asm volatile("":"=a"(ret));
+    return ret;
+}
 
 //uintptr_t rdrax(void);
 extern void wrcr0(uint64_t);
@@ -30,7 +36,10 @@ extern void wrrflags(uintptr_t);
 extern uint64_t cr0test(uint64_t bits);
 extern uint64_t cr4test(uint64_t bits);
 
-extern void cpuid(uint64_t func, uint64_t subfunc, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx);
+static inline void cpuid(uint64_t leaf, uint64_t subleaf, uint32_t *eax,
+                  uint32_t *ebx, uint32_t *ecx, uint32_t *edx) {
+    __get_cpuid_count(leaf, subleaf, eax, ebx, ecx, edx);
+}
 
 extern uint64_t rdxcr(uint32_t i);
 extern void wrxcr(uint32_t i, uint64_t value);
@@ -44,8 +53,7 @@ extern void invlpg(uintptr_t);
 
 #define is_intena() ({ (rdrflags() & 0x200); })
 
-static inline uint8_t inb(uint16_t port)
-{
+static inline uint8_t inb(uint16_t port) {
     uint8_t data;
     __asm__ __volatile__("inb %1, %0"
                          : "=a"(data)
@@ -53,8 +61,7 @@ static inline uint8_t inb(uint16_t port)
     return data;
 }
 
-static inline void outb(uint16_t port, uint8_t data)
-{
+static inline void outb(uint16_t port, uint8_t data) {
     __asm__ __volatile__("outb %1, %0"
                          :
                          : "dN"(port), "a"(data));

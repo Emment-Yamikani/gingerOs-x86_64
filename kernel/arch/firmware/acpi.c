@@ -39,8 +39,7 @@ acpiSDT_t *acpi_parse_rsdt(rsdt_t *rsdt, const char *sign) {
 
     count = (rsdt->hdr.length - sizeof(acpiSDT_t)) / 4;
 
-    for (int i = 0; i < count; ++i)
-    {
+    for (int i = 0; i < count; ++i) {
         sdt = (void *)VMA2HI(rsdt->sdt[i]);
         if (!strncmp(sign, sdt->signature, 4))
             return sdt;
@@ -95,7 +94,6 @@ int acpi_init(void) {
 
     MADT = (acpiMADT_t *)acpi_enumerate("APIC");
     HPET = acpi_enumerate("HPET");
-
     if ((err = enumerate_cpus()))
         return err;
     return 0;

@@ -541,7 +541,7 @@ uintptr_t mapped_alloc(size_t sz)
         return 0;
 
     pagemap_binary_lock(&kernel_map);
-    if (x86_64_map_page(&kernel_map, v, sz, VM_KRW))
+    if (x86_64_map(kernel_map.pdbr, v, sz, VM_KRW))
     {
         pagemap_binary_unlock(&kernel_map);
         vmman.free(v);
@@ -555,7 +555,7 @@ uintptr_t mapped_alloc(size_t sz)
 void mapped_free(uintptr_t v, size_t sz)
 {
     pagemap_binary_lock(&kernel_map);
-    x86_64_unmap_page_n(&kernel_map, v, sz, 0);
+    x86_64_unmap_n(kernel_map.pdbr, v, sz, 0);
     pagemap_binary_unlock(&kernel_map);
     vmman.free(v);
 }
@@ -577,9 +577,9 @@ void memory_usage(void)
 }
 
 struct vmman vmman = {
+    .free = vmm_free,
     .init = vmm_init,
     .alloc = vmm_alloc,
-    .free = vmm_free,
-    .getfreesize = vmm_getfreesize,
     .getinuse = vmm_getinuse,
+    .getfreesize = vmm_getfreesize,
 };

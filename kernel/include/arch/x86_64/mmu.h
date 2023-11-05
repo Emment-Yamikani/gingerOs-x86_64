@@ -4,40 +4,39 @@
 #include <sys/system.h>
 #include <lib/types.h>
 
-#define LF_IF   0x202
+#define LF_IF           0x202
 
-#define DPL_KRN (0)
-#define DPL_USR (3)
+#define DPL_KRN         (0)
+#define DPL_USR         (3)
 
-#define SEG_NULL 0
-#define SEG_KCODE64 1
-#define SEG_KDATA64 2
-#define SEG_UCODE64 3
-#define SEG_UDATA64 4
-#define SEG_KCPU64 5
-#define SEG_TSS64 6
+#define SEG_NULL        0
+#define SEG_KCODE64     1
+#define SEG_KDATA64     2
+#define SEG_UCODE64     3
+#define SEG_UDATA64     4
+#define SEG_TSS64       5
+//#define SEG_KCPU64      5
 
-#define SEG_DATA (0x2)
-#define SEG_CODE (0xA)
-#define TSS_SEG (0x9)
-#define SEG_CODEDATA (BS(0))
-#define SEG_PRESENT (BS(3))
-#define SEG_LONG (BS(5))
-#define SEG_DB (BS(6))
-#define SEG_GRAN (BS(7))
-#define SEG_DPL(dpl) (SHL(dpl, 1))
+#define SEG_DATA        (0x2)
+#define SEG_CODE        (0xA)
+#define TSS_SEG         (0x9)
+#define SEG_CODEDATA    (BS(0))
+#define SEG_PRESENT     (BS(3))
+#define SEG_LONG        (BS(5))
+#define SEG_DB          (BS(6))
+#define SEG_GRAN        (BS(7))
+#define SEG_DPL(dpl)    (SHL(dpl, 1))
 
-#define DATA_SEG(dpl) (SEG_GRAN | SEG_DB | SEG_PRESENT | SEG_DPL(dpl) | SEG_CODEDATA)
+#define DATA_SEG(dpl)   (SEG_GRAN | SEG_DB | SEG_PRESENT | SEG_DPL(dpl) | SEG_CODEDATA)
 
-#define KCODE_SEG (SEG_GRAN | SEG_LONG | SEG_PRESENT | SEG_DPL(DPL_KRN) | SEG_CODEDATA)
-#define KDATA_SEG DATA_SEG(DPL_KRN)
+#define KCODE_SEG       (SEG_GRAN | SEG_LONG | SEG_PRESENT | SEG_DPL(DPL_KRN) | SEG_CODEDATA)
+#define KDATA_SEG       (DATA_SEG(DPL_KRN))
 
-#define UCODE_SEG64 (SEG_GRAN | SEG_LONG | SEG_PRESENT | SEG_DPL(DPL_USR) | SEG_CODEDATA)
-#define UCODE_SEG32 DATA_SEG(DPL_USR)
-#define UDATA_SEG DATA_SEG(DPL_USR)
+#define UCODE_SEG64     (SEG_GRAN | SEG_LONG | SEG_PRESENT | SEG_DPL(DPL_USR) | SEG_CODEDATA)
+#define UCODE_SEG32     DATA_SEG(DPL_USR)
+#define UDATA_SEG       DATA_SEG(DPL_USR)
 
-typedef struct
-{
+typedef struct {
     uint32_t rsvd0;
     uintptr_t rsp0;
     uintptr_t rsp1;
@@ -55,8 +54,7 @@ typedef struct
     uint32_t iomap : 16;
 } __packed tss_t;
 
-typedef struct
-{
+typedef struct {
     uint16_t limit0;
     uint16_t base0;
     uint16_t base1 : 8;
@@ -67,8 +65,7 @@ typedef struct
     uint16_t base2 : 8;
 } __packed segdesc_t;
 
-typedef struct
-{
+typedef struct {
     uint16_t limit0;
     uint16_t base0;
     uint16_t base1 : 8;
@@ -94,20 +91,17 @@ typedef struct
     .rsvd = 0,                                        \
 })
 
-typedef struct
-{
+typedef struct {
     uint16_t limit;
     uintptr_t base;
 } __packed descptr_t;
 
-typedef struct
-{
+typedef struct {
     segdesc_t null;
     segdesc_t kcode64;
     segdesc_t kdata64;
     segdesc_t ucode64;
     segdesc_t udata64;
-    segdesc_t kcpu;
     tssdesc_t tss;
 } __packed gdt_t;
 
@@ -122,8 +116,7 @@ typedef struct
     .base2 = AND(SHR((base), 24), 0xFF),              \
 })
 
-typedef struct
-{
+typedef struct {
     uint32_t base0 : 16;
     uint32_t sel : 16;
     uint32_t _ist : 8;
@@ -135,8 +128,7 @@ typedef struct
 } __packed idt_desc_t;
 
 #define NIDT 256
-typedef struct
-{
+typedef struct {
     idt_desc_t entry[NIDT];
 } __packed idt_t;
 
@@ -154,8 +146,7 @@ typedef struct
 extern void tvinit(void);
 extern void idt_init(void);
 
-extern void gdt_init(cpu_t *c);
-extern uintptr_t readgs_base();
+extern void gdt_init(void);
 extern void loadgs_base(uintptr_t base);
 extern void loadgdt64(descptr_t *, int cs, int gs, int ss);
 

@@ -19,18 +19,15 @@
 bootinfo_t bootinfo = {0};
 
 int multiboot_info_process(multiboot_info_t *info) {
-
     memset(&bootinfo, 0, sizeof bootinfo);
-
     if (BTEST(info->flags, 0)) {
         bootinfo.memlo = info->mem_lower;
         bootinfo.memhigh = info->mem_upper;
     }
 
     if ((BTEST(info->flags, 6))) {
-        multiboot_memory_map_t *mmap = (multiboot_memory_map_t *)((uint64_t)info->mmap_addr);
-        
-        for (int i = 0; mmap < (multiboot_memory_map_t *)((uint64_t)(info->mmap_addr + info->mmap_length)); ++i) {
+        multiboot_memory_map_t *mmap = (multiboot_memory_map_t *)(VMA2HI(info->mmap_addr));
+        for (int i = 0; mmap < (multiboot_memory_map_t *)((VMA2HI(info->mmap_addr) + info->mmap_length)); ++i) {
             bootinfo.mmapcnt++;
             bootinfo.mmap[i].size = mmap->len;
             bootinfo.mmap[i].type = mmap->type;
@@ -41,10 +38,12 @@ int multiboot_info_process(multiboot_info_t *info) {
             mmap = (multiboot_memory_map_t *)((uintptr_t)mmap + mmap->size + sizeof(mmap->size));
         }
         bootinfo.memsize /= 1024;
-    } else return -ENOMEM;
+    }
+    else
+        return -ENOMEM;
 
     if (BTEST(info->flags, 3)) {
-        multiboot_module_t *mod = (multiboot_module_t *)((uint64_t)info->mods_addr);
+        multiboot_module_t *mod = (multiboot_module_t *)(VMA2HI(info->mods_addr));
         for (size_t i = 0; i < info->mods_count; ++i, bootinfo.modcnt++, ++mod) {
             bootinfo.mods[i].addr = VMA2HI(mod->mod_start);
             bootinfo.mods[i].cmdline = (char *)VMA2HI(mod->cmdline);
@@ -63,7 +62,7 @@ int multiboot_info_process(multiboot_info_t *info) {
         bootinfo.fb.framebuffer_height = info->framebuffer_height;
 
         if (info->framebuffer_type == 1) {
-            bootinfo.fb = (typeof (bootinfo.fb)) {
+            bootinfo.fb = (typeof(bootinfo.fb)){
                 .red = {
                     .length = info->framebuffer_red_mask_size,
                     .offset = info->framebuffer_red_field_position,
@@ -75,8 +74,7 @@ int multiboot_info_process(multiboot_info_t *info) {
                 .blue = {
                     .length = info->framebuffer_blue_mask_size,
                     .offset = info->framebuffer_blue_field_position,
-                }
-            };
+                }};
         }
     }
 
@@ -87,12 +85,12 @@ extern __noreturn void kthread_main(void);
 
 int early_init(multiboot_info_t *info) {
     int err = 0;
-    if ((err = multiboot_info_process(info)))
-        panic("Failed to process multiboot info structures, error: %d\n", err);
-    
     if ((err = bsp_init()))
         panic("BSP initialization failed, error: %d\n", err);
-    
+
+    if ((err = multiboot_info_process(info)))
+        panic("Failed to process multiboot info structures, error: %d\n", err);
+
     if ((err = vmman.init()))
         panic("Virtual memory initialization failed, error: %d\n", err);
 

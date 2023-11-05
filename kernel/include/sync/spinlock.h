@@ -58,12 +58,10 @@ typedef struct spinlock
 // acquire spinlock
 #define spin_lock(lk) ({                                                             \
     spin_assert(lk);                                                                 \
-    for (;;)                                                                         \
-    {                                                                                \
+    for (;;) {                                                                       \
         pushcli();                                                                   \
         barrier();                                                                   \
-        while (atomic_test_and_set(&(lk)->s_guard))                                  \
-        {                                                                            \
+        while (atomic_test_and_set(&(lk)->s_guard)) {                                \
             popcli();                                                                \
             cpu_pause();                                                             \
             pushcli();                                                               \
@@ -86,9 +84,9 @@ typedef struct spinlock
             break;                                                                   \
     }                                                                                \
     (lk)->s_lock = 1;                                                                \
+    (lk)->s_cpu = cpu;                                                               \
     (lk)->s_line = __LINE__;                                                         \
     (lk)->s_file = __FILE__;                                                         \
-    (lk)->s_cpu = cpu;                                                               \
     (lk)->s_thread = current;                                                        \
     (lk)->s_retaddr = __retaddr(0);                                                  \
     atomic_clear(&(lk)->s_guard);                                                    \

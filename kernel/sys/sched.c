@@ -10,139 +10,87 @@
 #include <ginger/jiffies.h>
 #include <arch/lapic.h>
 
+static jiffies_t next_time = 0;
+static spinlock_t *next_timelk = &SPINLOCK_INIT();
 queue_t *sched_stopq = QUEUE_NEW(/*"stopped-queue"*/);
 static queue_t *embryo_queue = QUEUE_NEW(/*"embryo-threads-queue"*/);
 static queue_t *zombie_queue = QUEUE_NEW(/*"zombie-threads-queue"*/);
 
-int sched_init(void)
-{
-    int             err = 0;
-    queue_t         *q = NULL;
-    sched_queue_t   *sq = NULL;
-
-    if (!(sq = kmalloc(sizeof *sq)))
-        return -ENOMEM;
-
-    memset(sq, 0, sizeof *sq);
-
-    for (int i = 0; i < NLEVELS; ++i) {
-        if ((err = queue_alloc(&q)))
-            panic("error initailizing scheduler queues, error=%d\n", err);
-
-        sq->level[i].queue = q;
-
-        switch (i) {
-        case 0:
-            sq->level[i].quatum = 10; // 100ms
-            break;
-        case 1:
-            sq->level[i].quatum = 15; // 150ms
-            break;
-        case 2:
-            sq->level[i].quatum = 20; // 200ms
-            break;
-        case 3:
-            sq->level[i].quatum = 25; // 250ms
-            break;
-        case 4:
-            sq->level[i].quatum = 30; // 300ms
-            break;
-        case 5:
-            sq->level[i].quatum = 35; // 350ms
-            break;
-        case 6:
-            sq->level[i].quatum = 40; // 400ms
-            break;
-        case 7:
-            sq->level[i].quatum = 50; // 500ms
-            break;
-        }
-    }
-
-    current = NULL;
-    cpu->ncli = 0;
-    cpu->intena = 0;
-    ready_queue = sq;
-    return 0;
+jiffies_t nexttimer(void) {
+    return next_time;
 }
 
-int sched_park(thread_t *thread)
-{
+void sched_remove_zombies(void) {
+    thread_t *thread = NULL;
+    spin_lock(next_timelk);
+
+    if (time_after(jiffies_get(), next_time)) {
+        
+        queue_lock(zombie_queue);
+        thread = thread_dequeue(zombie_queue);
+        queue_unlock(zombie_queue);
+        if (thread) {
+            if (thread_isdetached(thread) && thread_iszombie(thread))
+                thread_free(thread);
+            else {
+                thread_enqueue(zombie_queue, thread, NULL);
+                thread_unlock(thread);
+            }
+        }
+        
+        next_time = s_TO_jiffies(600) + jiffies_get();
+    }
+    spin_unlock(next_timelk);
+}
+
+int sched_init(void) {
     int err = 0;
-    long priority = 0;
-    long affinity = 0;
-    cpu_t *core = NULL;
-    level_t *level = NULL;
 
-    thread_assert_locked(thread);
+    cpu->ncli = 0;
+    current = NULL;
+    cpu->intena = 0;
+    
+    memset(&ready_queue, 0, sizeof ready_queue);
 
-    if (thread->t_state == T_EMBRYO)
-        return thread_enqueue(embryo_queue, thread, NULL);
-
-    core = thread->t_sched_attr.processor;
-    affinity = thread->t_sched_attr.affinity_type;
-    priority = atomic_read(&thread->t_sched_attr.priority);
-
-    if (core == NULL)
-        core = thread->t_sched_attr.processor = cpu;
-
-    switch (affinity)
-    {
-    case SCHED_SOFT_AFFINITY:
-        level = &core->queueq->level[SCHED_LEVEL(priority)];
-        break;
-    case SCHED_HARD_AFFINITY:
-        level = &core->queueq->level[SCHED_LEVEL(priority)];
-        break;
-    default:
-        panic("Invalid affinity attribute\n");
+    for (size_t i = 0; i < NELEM(ready_queue.level); ++i) {
+        if ((err = queue_alloc(&ready_queue.level[i].queue)))
+            goto error;
+        ready_queue.level[i].quatum = i * 5 + 10;
     }
 
-    atomic_write(&thread->t_sched_attr.timeslice, level->quatum);
-    if ((err = thread_enqueue(level->queue, thread, NULL)))
-        goto error;
     return 0;
 error:
-    printk("\e[0;4mfailed to put on ready queue\e[0m\n");
+    for (size_t i = 0; i < NELEM(ready_queue.level); ++i) {
+        if (ready_queue.level[i].queue) {
+            queue_free(ready_queue.level[i].queue);
+            ready_queue.level->queue = NULL;
+        }
+    }
     return err;
 }
 
-thread_t *sched_next(void)
-{
-    level_t *level = NULL;
-    thread_t *thread = NULL;
+void sched(void) {
+    long ncli = 0, intena = 0;
 
-    queue_lock(embryo_queue);
-    thread = thread_dequeue(embryo_queue);
-    queue_unlock(embryo_queue);
-
-    if (thread == NULL)
-        goto self;
-
-    thread_assert_locked(thread);
-    thread->t_state = T_READY;
-    assert(!sched_park(thread), "failed to park thread");
-    thread_unlock(thread); // release thread
-
-self:
-    thread = NULL;
     pushcli();
-    for (int i = 0; i < NLEVELS; ++i)
-    {
-        level = &ready_queue->level[i];
-        queue_lock(level->queue);
-        if (!(thread = thread_dequeue(level->queue)))
-        {
-            queue_unlock(level->queue);
-            continue;
+    ncli = cpu->ncli;
+    intena = cpu->intena;
+    current_assert_locked();
+
+    if (current_issetpark() && current_isisleep()) {
+        if (current_issetwake()) {
+            current_mask_park_wake();
+            popcli();
+            return;
         }
-        thread->t_state = T_RUNNING;
-        atomic_write(&thread->t_sched_attr.timeslice, level->quatum);
-        queue_unlock(level->queue);
-        break;
     }
+
+    swtch(&current->t_arch.t_ctx0, cpu->ctx);
+
+    current_assert_locked();
+    cpu->intena = intena;
+    cpu->ncli = ncli;
     popcli();
-    return thread;
 }
 
 int sched_zombie(thread_t *thread) {
@@ -211,8 +159,7 @@ int sched_wake1(queue_t *sleep_queue) {
     return retval;
 }
 
-size_t sched_wakeall(queue_t *sleep_queue)
-{
+size_t sched_wakeall(queue_t *sleep_queue) {
     int err = 0;
     size_t count = 0;
     thread_t *thread = NULL;
@@ -234,51 +181,7 @@ size_t sched_wakeall(queue_t *sleep_queue)
     return count;
 }
 
-void sched(void) {
-    pushcli();
-    uint64_t ncli = cpu->ncli;
-    uint64_t intena = cpu->intena;
-
-    current_assert_locked();
-    
-    if (current_issetpark() && current_isisleep()) {
-        if (current_issetwake()) {
-            current_mask_park_wake();
-            popcli();
-            return;
-        }
-    }
-
-    swtch(&current->t_arch.t_ctx0, cpu->ctx);
-    current_assert_locked();
-    cpu->ncli = ncli;
-    cpu->intena = intena;
-    popcli();
-}
-
-int sched_setattr(thread_t *thread, int affinity, int core)
-{
-    thread_assert_locked(thread);
-
-    if ((affinity < SCHED_SOFT_AFFINITY) || (affinity > SCHED_HARD_AFFINITY))
-        return -EINVAL;
-    if ((core < 0) || (core > (cpu_count() - 1)))
-        return -EINVAL;
-    thread->t_sched_attr.affinity_type = affinity;
-    thread->t_sched_attr.processor = cpus[core];
-    return 0;
-}
-
-void sched_set_priority(thread_t *thread, int priority)
-{
-    thread_assert_locked(thread);
-    if (priority < 0 || priority > 255)
-        priority = SCHED_LOWEST_PRIORITY;
-    atomic_write(&thread->t_sched_attr.priority, priority);
-}
-
-void sched_yield(void)
-{
+void sched_yield(void) {
     current_lock();
     current->t_state = T_READY;
     sched();
@@ -313,46 +216,86 @@ void sched_self_destruct(void) {
     current_unlock();
 }
 
-static jiffies_t next_time = 0;
-static spinlock_t *next_timelk = &SPINLOCK_INIT();
+int sched_park(thread_t *thread) {
+    int err = 0;
+    long prio = 0;
+    cpu_t *proc = NULL;
+    level_t *level = NULL;
 
-jiffies_t nexttimer(void) {
-    return next_time;
-}
+    thread_assert_locked(thread);
 
-void sched_remove_zombies(void) {
-    thread_t *thread = NULL;
-    spin_lock(next_timelk);
+    if (thread == NULL)
+        return -EINVAL;
 
-    if (time_after(jiffies_get(), next_time)) {
-        
-        queue_lock(zombie_queue);
-        thread = thread_dequeue(zombie_queue);
-        queue_unlock(zombie_queue);
-        if (thread) {
-            if (thread_isdetached(thread) && thread_iszombie(thread))
-                thread_free(thread);
-            else {
-                thread_enqueue(zombie_queue, thread, NULL);
-                thread_unlock(thread);
-            }
-        }
-        
-        next_time = s_TO_jiffies(600) + jiffies_get();
+    if (thread_isembryo(thread))
+        return thread_enqueue(embryo_queue, thread, NULL);
+
+    proc = thread->t_sched_attr.processor;
+    prio = thread->t_sched_attr.priority;
+    level = &ready_queue.level[SCHED_LEVEL(prio)];
+
+    if (proc == NULL) {
+        proc = cpu;
+        thread->t_sched_attr.processor = proc;
     }
-    spin_unlock(next_timelk);
+
+    if ((err = thread_enqueue(level->queue, thread, NULL)))
+        goto error;
+
+    thread->t_sched_attr.timeslice = level->quatum;
+    return 0;
+error:
+    return err;
 }
 
-void schedule(void) {
+thread_t *sched_next(void) {
+    level_t *level = NULL;
+    thread_t *thread = NULL;
+
+    queue_lock(embryo_queue);
+    thread = thread_dequeue(embryo_queue);
+    queue_unlock(embryo_queue);
+
+    if (thread == NULL)
+        goto self;
+
+    thread_assert_locked(thread);
+    thread->t_state = T_READY;
+    assert(!sched_park(thread), "failed to park thread");
+    thread_unlock(thread); // release thread
+
+self:
+    thread = NULL;
+    pushcli();
+    for (int i = 0; i < NLEVELS; ++i) {
+        level = &ready_queue.level[i];
+        queue_lock(level->queue);
+        if (!(thread = thread_dequeue(level->queue))) {
+            queue_unlock(level->queue);
+            continue;
+        }
+        thread->t_state = T_RUNNING;
+        atomic_write(&thread->t_sched_attr.timeslice, level->quatum);
+        queue_unlock(level->queue);
+        break;
+    }
+    popcli();
+    return thread;
+}
+
+__noreturn void schedule(void) {
+    int err = 0;
     jiffies_t before = 0;
     thread_t *thread = NULL;
 
-    sched_init();
+    if ((err = sched_init()))
+        panic("CPU%d: failed to initialize scheduler queues\n");
+
     lapic_recalibrate(SYS_HZ);
 
     loop() {
-        current = NULL;
         cpu->ncli = 0;
+        current = NULL;
         cpu->intena = 0;
 
         sti();
@@ -363,6 +306,7 @@ void schedule(void) {
         cli();
 
         current = thread;
+        
         current_assert_locked();
 
         if (thread_iskilled(thread) ||
@@ -382,6 +326,7 @@ void schedule(void) {
 
         before = jiffies_get();
         current->t_sched_attr.last_sched = jiffies_TO_s(before);
+
         swtch(&cpu->ctx, current->t_arch.t_ctx0);
         
         pushcli();

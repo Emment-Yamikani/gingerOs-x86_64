@@ -24,15 +24,13 @@ queue_t *mm_zone_sleep_queue[] = {
     QUEUE_NEW(/*"MM_ZONE_HIGH"*/),
 };
 
-static __unused void zone_dump(mm_zone_t *zone)
-{
+static __unused void zone_dump(mm_zone_t *zone) {
     assert_msg(zone, "zerror: No physical memory zone specified\n", __FILE__, __LINE__);
     printk("\nStart: %p\nSize: %ld B\nSize: %d MiB\nfree_pages: %d\nnrpages: %d\nPages: %p\n",
            zone->start, zone->size, zone->size / MiB, zone->free_pages, zone->nrpages, zone->pages);
 }
 
-static int enumerate_zones(void)
-{
+static int enumerate_zones(void) {
     void *pages = NULL;
     uintptr_t start = 0x0;
     size_t size = (16 * MiB);
@@ -123,17 +121,13 @@ done:
     return 0;
 }
 
-mm_zone_t *get_mmzone(uintptr_t addr, size_t size)
-{
-    for (size_t i = 0; i < NELEM(zones); ++i)
-    {
-        if ((addr >= zones[i].start) && ((addr + (size - 1)) < (zones[i].start + zones[i].nrpages * PAGESZ)))
-        {
+mm_zone_t *get_mmzone(uintptr_t addr, size_t size) {
+    for (size_t i = 0; i < NELEM(zones); ++i) {
+        if ((addr >= zones[i].start) && ((addr + (size - 1)) < (zones[i].start + zones[i].nrpages * PAGESZ))) {
             mm_zone_lock(&zones[i]);
             if (mm_zone_isvalid(&zones[i]))
                 return &zones[i];
-            else
-            {
+            else {
                 mm_zone_unlock(&zones[i]);
                 return NULL;
             }
@@ -142,8 +136,7 @@ mm_zone_t *get_mmzone(uintptr_t addr, size_t size)
     return NULL;
 }
 
-mm_zone_t *mm_zone_get(int z)
-{
+mm_zone_t *mm_zone_get(int z) {
     mm_zone_t *zone = NULL;
     if ((z < 0) || (z > (int)NELEM(zones)))
         return NULL;
@@ -158,8 +151,7 @@ mm_zone_t *mm_zone_get(int z)
     return zone;
 }
 
-int mm_zone_contains(int z, uintptr_t addr, size_t size)
-{
+int mm_zone_contains(int z, uintptr_t addr, size_t size) {
     mm_zone_t *zone = NULL;
 
     if ((z < MM_ZONE_DMA) || (z > MM_ZONE_HIGH))
@@ -198,16 +190,13 @@ int physical_memory_init(void) {
 
     /**
      * Mark all memory maps returned by multiboot */
-    for (size_t i = 0; i < bootinfo.mmapcnt; ++i)
-    {
+    for (size_t i = 0; i < bootinfo.mmapcnt; ++i) {
         addr = PGROUND(map[i].addr);
         size = PGROUNDUP(map[i].size);
 
-        if (map[i].type != MULTIBOOT_MEMORY_AVAILABLE)
-        {
+        if (map[i].type != MULTIBOOT_MEMORY_AVAILABLE) {
             zone = get_mmzone(addr, size);
-            if (zone)
-            {
+            if (zone) {
                 index = (addr - zone->start) / PAGESZ;
                 for (size_t j = 0; j < (size_t)NPAGE(size); ++j, ++index)
                 {
@@ -229,8 +218,7 @@ int physical_memory_init(void) {
     assert_msg(((addr + size) < ((zone->size) - (addr + size))), "Kernel is too big");
 
     index = (addr - zone->start) / PAGESZ;
-    for (size_t j = 0; j < (size_t)NPAGE(size); ++j, ++index)
-    {
+    for (size_t j = 0; j < (size_t)NPAGE(size); ++j, ++index) {
         atomic_write(&zone->pages[index].ref_count, 1);
         zone->pages[index].flags.mm_zone = zone - zones;
         zone->pages[index].flags.raw |= VM_KRW;
@@ -240,12 +228,10 @@ int physical_memory_init(void) {
     mm_zone_unlock(zone);
 
     size_t i = 0, j = 0;
-    for (i = 0; i < bootinfo.modcnt; ++i)
-    {
+    for (i = 0; i < bootinfo.modcnt; ++i) {
         size = PGROUNDUP(module[i].size);
         addr = PGROUND(VMA2LO(module[i].addr));
-        for (j = 0; j < (size_t)NPAGE(size); ++j, ++index, addr += PAGESZ)
-        {
+        for (j = 0; j < (size_t)NPAGE(size); ++j, ++index, addr += PAGESZ) {
             zone = get_mmzone(addr, PAGESZ);
             zone->free_pages--;
             index = (addr - zone->start) / PAGESZ;
@@ -257,10 +243,14 @@ int physical_memory_init(void) {
     }
 
     size = zones[MM_ZONE_NORM].size - ((1 * GiB) - (16 * MiB));
+    size = ((2 * GiB)) - PGROUNDUP(zones[MM_ZONE_NORM].size);
 
     pagemap_binary_lock(&kernel_map);
-    if ((long)size > 0)
-        x86_64_map_page_to_n(&kernel_map, VMA2HI((1 * GiB)), (1 * GiB), size, VM_K2MBRW);
+    if ((long)size > 0) {
+        addr = PGROUNDUP(zones[MM_ZONE_NORM].size);
+        if ((err = x86_64_unmap_n(kernel_map.pdbr, VMA2HI(addr), size, 0)))
+            panic("failed to unmap: %lX, err: %d\n", addr, err);
+    }
 
     for (size_t i = 0; i < bootinfo.mmapcnt; ++i) {
         addr = PGROUND(map[i].addr);
@@ -268,14 +258,13 @@ int physical_memory_init(void) {
 
         if ((map[i].type != MULTIBOOT_MEMORY_AVAILABLE) && map[i].addr < 0x100000000) {
             uint32_t flags = VM_KRW | VM_PCDWT;
-            x86_64_map_page_to_n(&kernel_map, addr, addr, size, flags);
-            x86_64_map_page_to_n(&kernel_map, VMA2HI(addr), addr, size, flags);
+            x86_64_map_to_n(kernel_map.pdbr, VMA2HI(addr), addr, size, flags);
         }
     }
 
     // unmap_table_entry(&kernel_map, LVL_PML4E, 0, 0, 0, 0);
     // unmap_table_entry(&kernel_map, LVL_PDPTE, PML4I(VMA2HI(0xC0000000)), PDPTI(0xC0000000), 0, 0);
-    x86_64_map_page_to_n(&kernel_map, VMA2HI(MEMMDEV), MEMMDEV, (4 * GiB) - MEMMDEV, VM_KRW | VM_PCD);
+    x86_64_map_to_n(kernel_map.pdbr, VMA2HI(MEMMDEV), MEMMDEV, (4 * GiB) - MEMMDEV, VM_KRW | VM_PCD);
     pagemap_binary_unlock(&kernel_map);
     return 0;
 error:

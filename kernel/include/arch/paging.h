@@ -3,58 +3,105 @@
 #include <lib/stdint.h>
 #include <arch/x86_64/pml4.h>
 
-extern void paging_invlpg(uintptr_t);
-
 // TLB flush
-void tlb_flush(void);
-
-// unmap page at 'vaddr'
-int paging_unmap(uintptr_t vaddr);
-
-// swtich to kernel's page directory
-void paging_switchkvm(void);
+extern void tlb_flush(void);
 
 /**
- * @brief switch to page directory pgdir.
- * if pgdir == 0, then current page directory is used
- *
- * @param pgdir
- * @return void
- */
-uintptr_t paging_switch(uintptr_t pgdir);
+ * 
+*/
+extern int get_mapping(pagemap_t *map, uintptr_t v, pte_t **ppte);
 
-// map vaddr to paddr
-int paging_map(uintptr_t paddr, uintptr_t vaddr, int flags);
-// map n pages starting at 'vaddr', where n=(sz/PAGESZ)
-int paging_mappages(uintptr_t vaddr, size_t sz, int flags);
+/**
+ * 
+*/
+extern int mount_page();
 
-void paging_proc_unmap(uintptr_t pgd);
+/**
+ * 
+*/
+extern int unmount_page();
 
-uintptr_t paging_mount(uintptr_t paddr);
-void paging_unmount(uintptr_t v);
+/**
+ * 
+*/
+extern int unmappdbr(pagemap_t *map);
 
-int paging_unmap_table(int t);
-int paging_unmap_mapped(uintptr_t p, size_t sz);
+/**
+ * 
+*/
+extern void invlpg_n(uintptr_t v, size_t sz);
 
-// unmap pages
-int paging_unmappages(uintptr_t page, size_t sz);
+/**
+ * 
+*/
+extern int mapt(pagemap_t *map, size_t t);
 
-/// @brief get page mapping if both pagetable and page are mapped in
-/// @param vaddr
-/// @return pte_t * or NULL if pagetable or page isn't mapped in
-pte_t *paging_getmapping(uintptr_t vaddr);
+/**
+ * 
+*/
+extern int unmapt(pagemap_t *map, size_t t);
 
-// map n pages to frames starting at 'vaddr' and 'paddr', where n=(sz/PAGESZ)
-int paging_identity_map(uintptr_t paddr, uint32_t vaddr, size_t sz, int flags);
+/**
+ * 
+*/
+extern int unmap(pagemap_t *map, uintptr_t v);
 
-// int paging_mapvmr(const vmr_t *vmr);
+/**
+ * 
+*/
+extern int unmap_n(pagemap_t *map, uintptr_t v, size_t sz);
 
-uintptr_t paging_alloc(size_t sz);
-void paging_free(uintptr_t addr, size_t sz);
+/**
+ * 
+*/
+extern int mapv_n(pagemap_t *map, uintptr_t v, size_t sz, int flags);
 
-uintptr_t paging_getpgdir(void);
+/**
+ * 
+*/
+extern int mappv(pagemap_t *map, uintptr_t p, uintptr_t v, size_t sz, int flags);
 
-int paging_lazycopy(uintptr_t dst, uintptr_t src);
-int paging_memcpypp(uintptr_t dst, uintptr_t src, size_t size);
-int paging_memcpyvp(uintptr_t p, uintptr_t v, size_t);
-int paging_memcpypv(uintptr_t v, uintptr_t p, size_t);
+/**
+ * 
+*/
+extern int swtchkvm(void);
+
+/**
+ * 
+*/
+extern int swtchvm(pagemap_t *map);
+
+/**
+ * 
+*/
+extern uintptr_t getpdbr(void);
+
+/**
+ * 
+*/
+extern int kvmcpy(pagemap_t *dst);
+
+/**
+ * 
+*/
+extern int lazycpy(pagemap_t *dst, pagemap_t *src);
+
+/**
+ * 
+*/
+extern int memcpypp(uintptr_t pdst, uintptr_t psrc, size_t sz);
+
+/**
+ * 
+*/
+extern int memcpypv(uintptr_t vdst, uintptr_t psrc, size_t sz);
+
+/**
+ * 
+*/
+extern int memcpyvp(uintptr_t pdst, uintptr_t vsrc, size_t sz);
+
+/**
+ * 
+*/
+extern int memcpyvv(uintptr_t vdst, uintptr_t vsrc, size_t sz);

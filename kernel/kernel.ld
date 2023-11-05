@@ -4,7 +4,7 @@ OUTPUT_ARCH(i386:x86-64)
 
 TRAMPOLINE = 0x8000;
 KERNEL_LMA = 0x1000000;
-KERNEL_VMA = 0xFFFF800000000000;
+KERNEL_VMA = 0xFFFFFF8000000000;
 
 
 SECTIONS {
@@ -12,13 +12,13 @@ SECTIONS {
     .trampoline ALIGN (4K) : AT (ADDR (.trampoline)) {
         *(.trampoline)
         *(.multiboot)
+        *(.init32)
     }
 
     . = KERNEL_LMA + KERNEL_VMA;
     _kernel_start = .;
     .text ALIGN (4K) : AT (ADDR (.text) - KERNEL_VMA) {
         *(.text)
-        *(.rodata)
     }
 
     .ksym_table ALIGN (4K) : AT(ADDR(.ksym_table) - KERNEL_VMA) {
@@ -37,6 +37,10 @@ SECTIONS {
         __builtin_thrds = .;
         *(.__builtin_thrds*)
         __builtin_thrds_end = .;
+    }
+
+    .rodata ALIGN (4K) : AT (ADDR (.rodata) - KERNEL_VMA) {
+        *(.rodata)
     }
 
     .data ALIGN (4K) : AT (ADDR (.data) - KERNEL_VMA) {

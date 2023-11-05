@@ -15,7 +15,7 @@ static uint8_t cga_attr = 0;
 static stack_t *cga_chars = STACK_NEW();
 static stack_t *cga_themes = STACK_NEW();
 
-static uint16_t *cga_addr = ((uint16_t *)0xffff8000000b8000);
+static uint16_t *cga_addr = ((uint16_t *)VMA2HI(0xb8000));
 
 void cga_setcolor(int back, int fore) {
     cga_attr = (back << 4) | fore;
@@ -48,11 +48,12 @@ int cga_init(void) {
 
 
 static int cga_putchar(const int c) {
+    if (c == '\e') {
+        cga_esc = 1;
+        return 0;
+    }
+
     if (vmm_active()) {
-        if (c == '\e') {
-            cga_esc = 1;
-            return 0;
-        }
 
         if (cga_esc) {
             long val = 0;
@@ -125,6 +126,12 @@ static int cga_putchar(const int c) {
             }
             return 0;
         }
+    } else {
+        if (cga_esc) {
+            if (c == 'm')
+                cga_esc = 0;
+            return 0;
+        }
     }
 
     if (c == '\n')
@@ -149,10 +156,8 @@ void cga_putc(const int c) {
 }
 
 size_t cga_puts(const char *s) {
-    char *S = NULL;
-    for (S = (char *)s; *S; S++) {
-        if (cga_putchar(*S))
-            break;
-    }
+    char *S = (char *)s;
+    while (S && *S)
+        cga_putchar(*S++);
     return (size_t)(S - s);
 }

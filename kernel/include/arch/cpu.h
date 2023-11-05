@@ -122,7 +122,7 @@ typedef struct cpu {
 
     thread_t        *thread;
     thread_t        *simd_thread;
-    sched_queue_t   *queueq;
+    sched_queue_t    queueq;
 
     uint8_t         phys_addrsz;
     uint8_t         virt_addrsz;
@@ -142,9 +142,9 @@ typedef struct cpu {
 #define MAXNCPU 16 // maximum supported cpus
 extern cpu_t *cpus[MAXNCPU];
 
-#define cpu                 (get_cpu_local())          // get CPU local structure.
+#define cpu                 (cpu_getcls())          // get CPU local structure.
 #define cpu_id              (cpu_local_id())           // local apic.
-#define cpuID               (cpu_id)   
+#define cpuID               (cpu_id)
 #define current             (cpu->thread)              // currently running thread.
 #define simd_thread         (cpu->simd_thread)         // current FPU thread.
 #define simdctx             (cpu->simd_ctx)            // current FPU context.
@@ -163,11 +163,11 @@ extern int                  is64bit(void);
 extern int                  cpu_rsel(void);
 extern int                  cpu_count(void);
 extern int                  bootothers(void);
-extern void                 cpu_init(cpu_t *);
+extern void                 cpu_init(void);
 extern int                  cpu_local_id(void);
 extern cpu_t                *get_cpu_local(void);
 extern int                  enumerate_cpus(void);
 extern void                 set_cpu_local(cpu_t *);
+extern cpu_t                *cpu_getcls(void);
+extern void                 cpu_setcls(cpu_t *c);
 extern void                 cpu_get_features(void);
-extern uintptr_t            readgs_base();
-extern void                 loadgs_base(uintptr_t base);

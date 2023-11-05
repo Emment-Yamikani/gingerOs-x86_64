@@ -21,25 +21,25 @@ ap_trampoline:
     cli
     cld
 
-    mov eax, cr4
-    or eax, 1 << 5
-    mov cr4, eax
+    mov     eax, cr4
+    or      eax, 1 << 5
+    mov     cr4, eax
 
-    mov ecx, 0xC0000080
+    mov     ecx, 0xC0000080
     rdmsr
-    or eax, (1 << 8)
+    or      eax, (1 << 8)
     wrmsr
 
-    mov eax, dword [pdbr]
-    mov cr3, eax
+    mov     eax, dword [pdbr]
+    mov     cr3, eax
 
-    lgdt [gdt64.pointer]
+    lgdt    [gdt64.pointer]
 
-    mov eax, cr0
-    or eax, 0x80000001
-    mov cr0, eax
+    mov     eax, cr0
+    or      eax, 0x80000001
+    mov     cr0, eax
 
-    jmp gdt64.code:long_mode
+    jmp     gdt64.code:long_mode
 
 gdt64:
     .null: equ $ - gdt64
@@ -65,14 +65,14 @@ gdt64:
 [bits 64]
 
 long_mode:
-    mov ax, 0x10
-    mov ds, ax
-    mov es, ax
-    mov fs, ax 
-    mov gs, ax
-    mov ss, ax
-    mov rsp, qword [stack]
-    mov rbp, rsp
+    mov     ax, 0x10
+    mov     ds, ax
+    mov     es, ax
+    mov     fs, ax 
+    mov     gs, ax
+    mov     ss, ax
+    mov     rsp, qword [stack]
+    mov     rbp, rsp
     retq
 
 times 4032 - ($ - $$) db 0

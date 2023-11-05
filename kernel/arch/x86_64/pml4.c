@@ -16,25 +16,21 @@
 spinlock_t kmap_lk = SPINLOCK_INIT();
 pagemap_t kernel_map = {
     .flags = 0,
-    .pml4 = __pml4,
+    .pdbr = (void *)_PML4_,
     .lock = SPINLOCK_INIT(),
 };
 
-pte_t *x86_64_get_mapping(pagemap_t *map, uintptr_t v) {
+pte_t *x86_64_get_mapping(pte_t *pml4, uintptr_t v) {
     pte_t *pt = NULL;
     pte_t *pdt = NULL;
     pte_t *pdpt = NULL;
-    pte_t *pml4 = NULL;
 
-    if (!map || !v)
+    if (!pml4 || !v)
         return NULL;
-
-    pagemap_assert_locked(map);
 
     if (iskernel_addr(v))
         kmap_assert_locked();
 
-    pml4 = map->pml4;
     // printk("pml4: %p\n", pml4);
 
     if (!pml4 || !pml4[PML4I(v)].p)
@@ -62,26 +58,92 @@ pte_t *x86_64_get_mapping(pagemap_t *map, uintptr_t v) {
     return &pt[PTI(v)];
 }
 
-int x86_64_map_page_to(pagemap_t *map, uintptr_t v, uintptr_t p, uint32_t flags) {
+static inline void x86_64_clrtable(pte_t *t) {
+    for (int i = 0; i < NPTE; ++i)
+        t[i].raw = 0;
+}
+
+int x86_64_map_r(uintptr_t frame, int i4, int i3, int i2, int i1, int flags) {
+    int err = -ENOMEM;
+    uintptr_t lv3 = 0, lv2 = 0, lv1 = 0;
+
+    if (iL_INV(i4) || iL_INV(i3) || iL_INV(i2) || iL_INV(i1))
+        return -EINVAL;
+    
+    if (PML4E(i4)->p == 0) {
+        if (isPS(flags))
+            return  -ENOTSUP;
+        
+        if ((lv3 = pmman.alloc()) == 0)
+            goto error;
+        
+        PML4E(i4)->raw = lv3 | PGOFF(flags | VM_KRW | VM_PWT);
+        invlpg((uintptr_t)PDPTE(i4, 0));
+        x86_64_clrtable(PDPTE(i4, 0));
+    }
+
+    if (PDPTE(i4, i3)->p == 0) {
+        if (isPS(flags)) {
+            err = -ENOTSUP;
+            goto error;
+        }
+
+        if ((lv2 = pmman.alloc()) == 0) {
+            err = -ENOMEM;
+            goto error;
+        }
+
+        PDPTE(i4, i3)->raw = lv2 | PGOFF(flags | VM_KRW | VM_KRW);
+        invlpg((uintptr_t)PDTE(i4, i3, 0));
+        x86_64_clrtable(PDTE(i4, i3, 0));
+    }
+
+    if (PDTE(i4, i3, i2)->p == 0) {
+        if (isPS(flags)) {
+            err = -ENOTSUP;
+            goto error;
+        }
+
+        if ((lv1 = pmman.alloc()) == 0) {
+            err = -ENOMEM;
+            goto error;
+        }
+
+        PDTE(i4, i3, i2)->raw = lv1 | PGOFF(flags | VM_KRW | VM_KRW);
+        invlpg((uintptr_t)PTE(i4, i3, i2, 0));
+        x86_64_clrtable(PTE(i4, i3, i2, 0));
+    }
+
+    PTE(i4, i3, i2, i1)->raw = PGROUND(frame) | PGOFF(flags);
+    invlpg(__viraddr(i4, i3, i2, i1));
+    return 0;
+error:
+    if (lv2) {
+        PDPTE(i4, i3)->raw = 0;
+        invlpg((uintptr_t)PDTE(i4, i3, 0));
+        pmman.free(lv2);
+    }
+
+    if (lv3) {
+        PML4E(i4)->raw = 0;
+        invlpg((uintptr_t)PDPTE(i4, 0));
+        pmman.free(lv3);
+    }
+    return err;
+}
+
+int x86_64_map_to(pte_t *pml4, uintptr_t v, uintptr_t p, uint32_t flags) {
     int err = 0;
     pte_t *pt = NULL;
     pte_t *pdt = NULL;
     uintptr_t page = 0;
     pte_t *pdpt = NULL;
-    pte_t *pml4 = NULL;
 
-    if (!map || !v)
+    if (!pml4 || !v)
         return -EINVAL;
-
-    pagemap_assert_locked(map);
 
     if (iskernel_addr(v))
         kmap_assert_locked();
-
-    pml4 = map->pml4;
-
-    if (!pml4)
-        return -EINVAL;
 
     // printk("going on to map\n");
 
@@ -182,17 +244,15 @@ error:
     return err;
 }
 
-int x86_64_map_page_to_n(pagemap_t *map, uintptr_t v, uintptr_t p, size_t sz, uint32_t flags) {
+int x86_64_map_to_n(pte_t *pml4, uintptr_t v, uintptr_t p, size_t sz, uint32_t flags) {
     int err = 0;
     size_t np = is2mb_page(flags) ? N2MPAGE(sz) : NPAGE(sz);
-
-    pagemap_assert_locked(map);
 
     if (iskernel_addr(v))
         kmap_assert_locked();
 
     while (np--) {
-        if ((err = x86_64_map_page_to(map, v, p, flags)))
+        if ((err = x86_64_map_to(pml4, v, p, flags)))
             goto error;
         v += is2mb_page(flags) ? PGSZ2M : PGSZ;
         p += is2mb_page(flags) ? PGSZ2M : PGSZ;
@@ -203,13 +263,11 @@ error:
     return err;
 }
 
-int x86_64_map_page(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags) {
+int x86_64_map(pte_t *pml4, uintptr_t v, size_t sz, uint32_t flags) {
     int         err = 0;
     uintptr_t   p = 0;
     flags       &= ~VM_PS;
     size_t      np = NPAGE(sz);
-
-    pagemap_assert_locked(map);
 
     if (iskernel_addr(v))
         kmap_assert_locked();
@@ -218,7 +276,7 @@ int x86_64_map_page(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags) {
         err = -ENOMEM;
         if (!(p = pmman.alloc()))
             goto error;
-        if ((err = x86_64_map_page_to(map, v, p, flags | ALLOC_PAGE)))
+        if ((err = x86_64_map_to(pml4, v, p, flags | ALLOC_PAGE)))
             goto error;
         v += PGSZ;
     }
@@ -228,39 +286,34 @@ error:
     return err;
 }
 
-int x86_64_unmap_table_entry(pagemap_t *map, int level, int pml4i, int pdpti, int pdi, int pti) {
+int x86_64_unmap_table_entry(pte_t *pml4, int level, int dp, int pdpti, int pdi, int pti) {
     pte_t *pt = NULL;
     pte_t *pdt = NULL;
     uintptr_t page = 0;
     pte_t *pdpt = NULL;
-    pte_t *pml4 = NULL;
 
-    if (!map)
+    if (!pml4)
         return -EINVAL;
 
-    pagemap_assert_locked(map);
-
-    if (pml4i >= PML4I(VMA_BASE))
+    if (dp >= PML4I(VMA_BASE))
         kmap_assert_locked();
 
-    pml4 = map->pml4;
-
-    if (!pml4 || !pml4[pml4i].p)
+    if (!pml4[dp].p)
         return -ENOENT;
 
     if (level == LVL_PML4E) {
-        page = GETPHYS(&pml4[pml4i]);
-        if (page && pml4[pml4i].alloc)
+        page = GETPHYS(&pml4[dp]);
+        if (page && pml4[dp].alloc)
             pmman.free(page);
         
-        pml4[pml4i].raw = 0;
+        pml4[dp].raw = 0;
 
         printk("%s:%d: WARNING: send TLB SHOOTDOWN\n", __FILE__, __LINE__);
-        invlpg(__viraddr(pml4i, pdpti, pdi, pti));
+        invlpg(__viraddr(dp, pdpti, pdi, pti));
         return 0;
     }
 
-    pdpt = (pte_t *)VMA2HI(PGROUND(pml4[pml4i].raw));
+    pdpt = (pte_t *)VMA2HI(PGROUND(pml4[dp].raw));
 
     if (!pdpt || !pdpt[pdpti].p)
         return -ENOENT;
@@ -273,7 +326,7 @@ int x86_64_unmap_table_entry(pagemap_t *map, int level, int pml4i, int pdpti, in
 
         pdpt[pdpti].raw = 0;
 
-        invlpg(__viraddr(pml4i, pdpti, pdi, pti));
+        invlpg(__viraddr(dp, pdpti, pdi, pti));
         printk("%s:%d: WARNING: send TLB SHOOTDOWN\n", __FILE__, __LINE__);
         return 0;
     }
@@ -291,7 +344,7 @@ int x86_64_unmap_table_entry(pagemap_t *map, int level, int pml4i, int pdpti, in
         }
 
         pdt[pdi].raw = 0;
-        invlpg(__viraddr(pml4i, pdpti, pdi, pti));
+        invlpg(__viraddr(dp, pdpti, pdi, pti));
         printk("%s:%d: WARNING: send TLB SHOOTDOWN\n", __FILE__, __LINE__);
         return 0;
     }
@@ -311,34 +364,26 @@ int x86_64_unmap_table_entry(pagemap_t *map, int level, int pml4i, int pdpti, in
 
         pt[pti].raw = 0;
         printk("%s:%d: WARNING: send TLB SHOOTDOWN\n", __FILE__, __LINE__);
-        invlpg(__viraddr(pml4i, pdpti, pdi, pti));
+        invlpg(__viraddr(dp, pdpti, pdi, pti));
         return 0;
     }
 
     return -EINVAL;
 }
 
-int x86_64_unmap_page(pagemap_t *map, uintptr_t v) {
+int x86_64_unmap(pte_t *pml4, uintptr_t v) {
     pte_t *pt = NULL;
     pte_t *pdt = NULL;
     uintptr_t page = 0;
     pte_t *pdpt = NULL;
-    pte_t *pml4 = NULL;
 
-    if (!map)
+    if (!pml4)
         return -EINVAL;
-
-    pagemap_assert_locked(map);
 
     if (iskernel_addr(v))
         kmap_assert_locked();
 
-    pml4 = map->pml4;
-
-    if (!pml4 || !pml4[PML4I(v)].p)
-        return -EINVAL;
-
-    if (v >= VMA2HI(0) && (v <= VMA2HI(2 * GiB)))
+    if (!pml4[PML4I(v)].p)
         return -EINVAL;
 
     pdpt = (pte_t *)VMA2HI(PGROUND(pml4[PML4I(v)].raw));
@@ -376,95 +421,113 @@ int x86_64_unmap_page(pagemap_t *map, uintptr_t v) {
     return 0;
 }
 
-int x86_64_unmap_page_n(pagemap_t *map, uintptr_t v, size_t sz, uint32_t flags) {
+int x86_64_unmap_n(pte_t *pml4, uintptr_t v, size_t sz, uint32_t flags) {
     int err = 0;
     size_t np = is2mb_page(flags) ? N2MPAGE(sz) : NPAGE(sz);
-
-    pagemap_assert_locked(map);
 
     if (iskernel_addr(v))
         kmap_assert_locked();
 
     while (np--) {
-        if ((err = x86_64_unmap_page(map, v)))
+        if ((err = x86_64_unmap(pml4, v)))
             return err;
         v += is2mb_page(flags) ? PGSZ2M : PGSZ;
     }
     return 0;
 }
 
-void x86_64_pagemap_resolve(void) {
-    pagemap_t *map = NULL;
-    x86_64_pagemap_alloc(&map);
-    pagemap_binary_lock(map);
-    x86_64_pagemap_switch(map);
-    memcpy(&kernel_map, map, sizeof *map);
-    pagemap_binary_unlock(map);
-}
-
-void x86_64_pagemap_clean(pagemap_t *map) {
-    if (!map)
-        return;
-    
-    pagemap_assert_locked(map);
-    for (uintptr_t v = 0; v < USTACK; v += PGSZ)
-        x86_64_unmap_page(map, v);
-}
-
-void x86_64_pagemap_free(pagemap_t *map) {
-    if (!map)
-        return;
-    
-    if (map->pml4) {
-
-        for (int i = 0; i < PML4I(VMA_BASE); ++i) {
-
-        }
-        mapped_free((uintptr_t)map->pml4, PGSZ);
-    }
-    kfree(map);
-
-}
-
-int x86_64_pagemap_alloc(pagemap_t **ppagemap) {
-    int err = -ENOMEM;
-    pte_t *pml4 = NULL;
-    pagemap_t *map = NULL;
-
-    if (!(map = kmalloc(sizeof *map)))
-        goto error;
-
-    if (!(pml4 = (pte_t *)mapped_alloc(PGSZ)))
-        goto error;
-
-    memset(pml4, 0, PGSZ);
-    memset(map, 0, sizeof *map);
-
-    pagemap_binary_lock(&kernel_map);
-
-    for (int i = PML4I(VMA_BASE); i < 512; ++i)
-        pml4[i] = kernel_map.pml4[i];
-
-    pagemap_binary_unlock(&kernel_map);
-
-    map->pml4 = pml4;
-    map->flags = BS(0);
-    map->lock = SPINLOCK_INIT();
-
-    *ppagemap = map;
+int x86_64_swtchvm(pte_t *pml4, pte_t **oldpml4) {
+    if (pml4 == NULL)
+        return -EINVAL;
+    if (oldpml4)
+        *oldpml4 = (pte_t *)rdcr3();
+    wrcr3((uintptr_t)pml4);
     return 0;
-error:
-    if (map) kfree(map);
-    if (pml4) mapped_free((uintptr_t)pml4, PGSZ);
+}
+
+void x86_64_tlb_flush(void) {
+    wrcr3(rdcr3());
+}
+
+int x86_64_unmappdbr(pte_t *pml4) {
+    pte_t *pdpt = NULL;
+    pte_t *pdt = NULL;
+    pte_t *pt = NULL;
+
+    if (pml4 == NULL)
+        return -EINVAL;
+    
+    for (int i = 0; i < NPTE; ++i) {
+        pdpt = (pte_t *)VMA2HI(GETPHYS(&pml4[i]));
+        for (int i = 0; i < NPTE; ++i) {
+            pdt = (pte_t *)VMA2HI(GETPHYS(&pdpt[i]));
+            for (int i = 0; i < NPTE; ++i) {
+                pt = (pte_t *)VMA2HI(GETPHYS(&pdt[i]));
+                for (int i = 0; i < NPTE; ++i) {
+                    pdpt = (pte_t *)VMA2HI(GETPHYS(&pt[i]));
+                }
+            }
+        }
+    }
+
+    return -ENOSYS;
+}
+
+int x86_64_mappdpt(int d, int flags) {
+    __unused int err = 0;
+    uintptr_t addr = 0;
+
+    if (d < 0 || d > NPTE)
+        return -EINVAL;
+
+    if ((flags & VM_U))
+        flags &= VM_W;
+    
+    PML4E(d)->raw = PGROUND(addr) | PGOFF(VM_PWT | flags);
+
+    return 0;
+}
+
+int x86_64_mapt(pte_t *pml4 __unused, size_t t __unused) {
+    return -ENOSYS;
+}
+
+int x86_64_unmapt(pte_t *pml4 __unused, size_t t __unused) {
+    __unused int level = LVL_PDPTE;
+    
+    return -ENOSYS;
+}
+
+int x86_64_mapv_n(pte_t *pml4, uintptr_t v, size_t sz, int flags) {
+    return x86_64_map(pml4, v, sz, flags);
+}
+
+int x86_64_mappv(pte_t *pml4, uintptr_t p, uintptr_t v, size_t sz, int flags) {
+    return x86_64_map_to_n(pml4, v, p, sz, flags);
+}
+
+int x86_64_swtchkvm(void) {
+    int err = 0;
+    pagemap_binary_lock(&kernel_map);
+    err = x86_64_swtchvm((void *)kernel_map.pdbr, NULL);
+    pagemap_binary_unlock(&kernel_map);
     return err;
 }
 
-int x86_64_pagemap_switch(pagemap_t *map) {
-    if (!map)
+uintptr_t x86_64_getpdbr(void) {
+    return rdcr3();
+}
+
+int x86_64_kvmcpy(pte_t *dst) {
+    if (dst == NULL)
         return -EINVAL;
-    pagemap_assert_locked(map);
-    if (!GETPHYS(map->pml4))
-        return -ENOENT;
-    wrcr3(GETPHYS(map->pml4));
-    return 0; 
+    pagemap_binary_lock(&kernel_map);
+    for (int i = PML4I(VMA_BASE); i < 512; ++i)
+        dst[i] = ((pte_t *)kernel_map.pdbr)[i];
+    pagemap_binary_lock(&kernel_map);
+    return 0;
+}
+
+int x86_64_lazycpy(pte_t *dst __unused, pagemap_t *src __unused) {
+    return -ENOSYS;
 }

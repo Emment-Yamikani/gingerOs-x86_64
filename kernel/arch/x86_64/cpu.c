@@ -1,23 +1,30 @@
 #include <arch/cpu.h>
+#include <arch/x86_64/msr.h>
+#include <arch/x86_64/mmu.h>
 #include <arch/x86_64/system.h>
-#include <arch/firmware/acpi.h>
-#include <lib/stddef.h>
-#include <mm/kalloc.h>
 #include <bits/errno.h>
-#include <lib/string.h>
-#include <sync/atomic.h>
-#include <lib/printk.h>
-#include <arch/paging.h>
-#include <arch/lapic.h>
+#include <arch/firmware/acpi.h>
+#include <sys/system.h>
 #include <mm/pmm.h>
 #include <sys/thread.h>
+#include <lib/string.h>
+#include <arch/lapic.h>
+#include <mm/kalloc.h>
+#include <dev/cga.h>
 
-cpu_t *cpus [MAXNCPU];
-
-static cpu_t bsp; // local cpu data struct for the bsp
+cpu_t *cpus[MAXNCPU];
 static atomic_t ncpu = 1; // '1' because we are starting with BSP
+static cpu_t bspcls = {0};
 static atomic_t cpus_running = 0;
 
+cpu_t *cpu_getcls(void) {
+    return (cpu_t *)rdmsr(IA32_GS_BASE);
+}
+
+void cpu_setcls(cpu_t *c) {
+    wrmsr(IA32_GS_BASE, (uintptr_t)c);
+    wrmsr(IA32_KERNEL_GS_BASE, (uintptr_t)c);
+}
 
 void cr0mask(uint64_t bits) {
     uint64_t cr0 = rdcr0();
@@ -54,11 +61,11 @@ void cr4set(uint64_t bits) {
 }
 
 void cpu_get_features(void) {
-    uint32_t eax, ebx, ecx, edx;
+    uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 
     cpuid(0, 0, &eax, (uint32_t *)&cpu->vendor[0],
         (uint32_t *)&cpu->vendor[8], (uint32_t *)&cpu->vendor[4]);
-
+    
     cpuid(0x80000008, 0, &eax, &ebx, &ecx, &edx);
     cpu->phys_addrsz = eax & 0xFF;
     cpu->virt_addrsz = (eax >> 8) & 0xFF;
@@ -105,17 +112,19 @@ void cpu_get_features(void) {
     */
 }
 
-void cpu_init(cpu_t *c) {
-    atomic_inc(&cpus_running);
+void cpu_init(void) {
     disable_caching();
+    atomic_inc(&cpus_running);
+    memset(cpu, 0, sizeof *cpu);
+
     idt_init();
-    gdt_init(c);
+    gdt_init();
     cpu_get_features();
     sse_init();
 
-    c->flags |= CPU_ONLINE | CPU_64BIT | CPU_ENABLED;
-    c->flags |= rdmsr(IA32_EFER) & BS(8) ? CPU_64BIT : 0;
-    c->flags |= BTEST(rdmsr(IA32_APIC_BASE), 8) ? CPU_ISBSP : 0;
+    cpu->flags |= CPU_ONLINE | CPU_64BIT | CPU_ENABLED;
+    cpu->flags |= rdmsr(IA32_EFER) & BS(8) ? CPU_64BIT : 0;
+    cpu->flags |= BTEST(rdmsr(IA32_APIC_BASE), 8) ? CPU_ISBSP : 0;
 }
 
 int is64bit(void) {
@@ -123,10 +132,18 @@ int is64bit(void) {
 }
 
 int bsp_init(void) {
+    cpu_setcls(&bspcls);
     tvinit();
-    memset(&bsp, 0, sizeof bsp);
-    cpu_init(&bsp);
+    cpu_init();
     return 0;
+}
+
+void ap_init(void) {
+    cpu_setcls(cpus[lapic_id()]);
+    cpu_init();
+    lapic_init();
+    schedule();
+    loop();
 }
 
 int cpu_count(void) {
@@ -138,27 +155,10 @@ int cpu_rsel(void) {
     return (atomic_inc(&i) % ncpu);
 }
 
-void set_cpu_local(cpu_t *c) {
-    wrmsr(IA32_GS_BASE, (uintptr_t)c);
-    wrmsr(IA32_KERNEL_GS_BASE, (uintptr_t)c);
-}
-
-cpu_t *get_cpu_local(void) { 
-    return (cpu_t*)rdmsr(IA32_GS_BASE);
-}
-
 int cpu_local_id(void) {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     cpuid(0x1, 0, &a, &b, &c, &d);
     return ((b >> 24) & 0xFF);
-}
-
-uintptr_t readgs_base(void) {
-    return rdmsr(IA32_GS_BASE);
-}
-
-void loadgs_base(uintptr_t base) {
-    wrmsr(IA32_GS_BASE, base);
 }
 
 int enumerate_cpus(void) {
@@ -199,16 +199,11 @@ int enumerate_cpus(void) {
     return 0;
 }
 
-void ap_start(void) {
-    cpu_init(cpus[lapic_id()]);
-    lapic_init();
-    schedule();
-    loop();
-}
-
 int bootothers(void) {
     uintptr_t *stack = NULL;
     extern char ap_trampoline[];
+    uintptr_t v = (uintptr_t)ap_trampoline;
+    x86_64_map_r((uintptr_t)ap_trampoline, PML4I(v), PDPTI(v), PDI(v), PTI(v), VM_KRW);
 
     for (int i = 0; i < (int)atomic_read(&ncpu); ++i) {
         if (!cpus[i] || !(cpus[i]->flags & CPU_ENABLED) || cpus[i] == cpu)
@@ -216,9 +211,8 @@ int bootothers(void) {
 
         if (!(stack = (void *)VMA2HI(pmman.get_pages(GFP_NORMAL, 7) + KSTACKSZ)))
             return -ENOMEM;
-
         *--stack = 0;
-        *--stack = (uintptr_t)ap_start;
+        *--stack = (uintptr_t)ap_init;
         *((uintptr_t *)VMA2HI(&ap_trampoline[4032])) = rdcr3();
         *((uintptr_t *)VMA2HI(&ap_trampoline[4040])) = (uintptr_t)stack;
         lapic_startup(cpus[i]->apicID, (uint16_t)((uintptr_t)ap_trampoline));

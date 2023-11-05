@@ -346,22 +346,22 @@ int vfs_dirlist(const char *path) {
     if ((err = vfs_lookup(path, NULL, O_RDONLY, 0, 0, &dfile)))
         return err;
 
-    printk("%-16s %-5s %-9s %-7s\n", "Name", "I-number", "Size", "Type");
+    printk("%-16s %9s %9s %7s\n", "Name", "I-num", "Size", "Type");
 
     ilock(dfile->d_inode);
     while ((0 == ireaddir(dfile->d_inode, off++, &dp, 1))) {
         if (dp.d_type == FS_RGL)
-            printk("\e[0;011m%-16s\e[0m \e[0;03m%5ld\e[0m \e[0;04m%9ld\e[0m \e[0;08m%7s\e[0m\n",
-                   dp.d_name, dp.d_ino,
-                   dp.d_size, itype_strings[dp.d_type]);
+            printk("\e[0;011m%-16s\e[0m \e[0;03m%9ld\e[0m "
+                    "\e[0;04m%9ld\e[0m \e[0;08m%7s\e[0m\n",
+                   dp.d_name, dp.d_ino, dp.d_size, itype_strings[dp.d_type]);
         if (dp.d_type == FS_DIR)
-            printk("\e[0;02m%-16s\e[0m \e[0;03m%5ld\e[0m \e[0;04m%9ld\e[0m \e[0;06m%7s\e[0m\n",
-                   dp.d_name, dp.d_ino,
-                   dp.d_size, itype_strings[dp.d_type]);
+            printk("\e[0;03m%-16s\e[0m \e[0;03m%9ld\e[0m "
+                    "\e[0;04m%9ld\e[0m \e[0;06m%7s\e[0m\n",
+                   dp.d_name, dp.d_ino, dp.d_size, itype_strings[dp.d_type]);
         if (dp.d_type == FS_CHR || dp.d_type == FS_BLK)
-            printk("\e[0;02m%-16s\e[0m \e[0;03m%5ld\e[0m \e[0;04m%9ld\e[0m \e[0;010m%7s\e[0m\n",
-                   dp.d_name, dp.d_ino,
-                   dp.d_size, itype_strings[dp.d_type]);
+            printk("\e[0;02m%-16s\e[0m \e[0;03m%9ld\e[0m "
+                    "\e[0;04m%9ld\e[0m \e[0;010m%7s\e[0m\n",
+                   dp.d_name, dp.d_ino, dp.d_size, itype_strings[dp.d_type]);
     }
     iunlock(dfile->d_inode);
     dclose(dfile);

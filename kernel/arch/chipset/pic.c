@@ -14,21 +14,18 @@
 static uint16_t irqmask = 0xFFFF & ~(1 << IRQ_SLAVE);
 
 static void
-pic_setmask(uint16_t mask)
-{
+pic_setmask(uint16_t mask) {
     irqmask = mask;
     outb(IO_PIC1 + 1, mask);
     outb(IO_PIC2 + 1, mask >> 8);
 }
 
-void pic_enable(int irq)
-{
+void pic_enable(int irq) {
     pic_setmask(irqmask & ~(1 << irq));
 }
 
 // Initialize the 8259A interrupt controllers.
-void pic_init(void)
-{
+void pic_init(void) {
     // mask all interrupts
     outb(IO_PIC1 + 1, 0xFF);
     outb(IO_PIC2 + 1, 0xFF);

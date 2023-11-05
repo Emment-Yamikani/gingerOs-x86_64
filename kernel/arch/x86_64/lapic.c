@@ -161,8 +161,13 @@ void lapic_startup(int id, uint16_t addr) {
 
 void lapic_timerintr(void) {
     atomic_inc(&cpu->timer_ticks);
-    if (current)
-        atomic_dec(&current->t_sched_attr.timeslice);
+    if (current) {
+        panic("current: %lX\n", current);
+        current_lock();
+        loop();
+        current->t_sched_attr.timeslice--;
+        current_unlock();
+    }
 }
 
 void lapic_ipi(int id, int ipi) {

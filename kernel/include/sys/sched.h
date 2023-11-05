@@ -15,9 +15,9 @@ extern int sched_init(void);
 
 typedef struct level
 {
-    atomic_t pull;  // pull flag
-    long quatum;    // quatum
-    queue_t *queue; // queue
+    atomic_t    pull;   // pull flag
+    long        quatum; // quatum
+    queue_t     *queue; // queue
 } level_t;
 
 typedef struct sched_queue

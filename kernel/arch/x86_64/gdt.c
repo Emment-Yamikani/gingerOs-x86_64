@@ -8,26 +8,40 @@
 
 static idt_t idt = {0};
 
-void gdt_init(cpu_t *c) {
-    if (!c)
+void gdt_init(void) {
+    cpu_t *c = cpu;
+
+    if (!cpu) {
         panic("No CPU struct pointer specified\n");
-    memset(&c->gdt, 0, sizeof c->gdt);
-    c->gdt.null = SEG(0, 0, 0, 0);
-    c->gdt.kcode64 = SEG(0, -1, SEG_CODE, KCODE_SEG);
-    c->gdt.kdata64 = SEG(0, -1, SEG_DATA, KDATA_SEG);
-    c->gdt.ucode64 = SEG(0, -1, SEG_CODE, UCODE_SEG64);
-    c->gdt.udata64 = SEG(0, -1, SEG_DATA, UDATA_SEG);
-    c->gdt.kcpu = SEG(0, (sizeof(cpu_t) - 1), SEG_DATA, KDATA_SEG);
-    c->gdt.tss = TSS(((uintptr_t)&c->tss), (sizeof (c->tss) - 1), TSS_SEG, 0x8E);
+    }
+
+    memset(&cpu->gdt, 0, sizeof cpu->gdt);
+
+    cpu->gdt.null = SEG(0, 0, 0, 0);
+    cpu->gdt.kcode64 = SEG(0, -1, SEG_CODE, KCODE_SEG);
+    cpu->gdt.kdata64 = SEG(0, -1, SEG_DATA, KDATA_SEG);
+    cpu->gdt.ucode64 = SEG(0, -1, SEG_CODE, UCODE_SEG64);
+    cpu->gdt.udata64 = SEG(0, -1, SEG_DATA, UDATA_SEG);
+    cpu->gdt.tss = TSS(((uintptr_t)&cpu->tss), (sizeof (cpu->tss) - 1), TSS_SEG, 0x8E);
 
     descptr_t ptr = (descptr_t) {
-        .base = (uintptr_t)&c->gdt,
-        .limit = sizeof c->gdt - 1,
+        .base = (uintptr_t)&cpu->gdt,
+        .limit = sizeof cpu->gdt - 1,
     };
 
-    loadgdt64(&ptr, (SEG_KCODE64 << 3), (SEG_KCPU64 << 3), (SEG_KDATA64 << 3));
-    set_cpu_local(c);
-    loadtr(SEG_TSS64 << 3);
+    ptr.base = (uintptr_t)&cpu->gdt;
+    ptr.limit = sizeof(gdt_t) - 1;
+    asm volatile("lgdt (%%rax)" :: "a"(&ptr) : "memory");
+    asm volatile("ltr %%ax" :: "a"(SEG_TSS64 << 3));
+    asm volatile("swapgs;\
+                mov $0x10, %%ax;\
+                mov %%ax, %%ds;\
+                mov %%ax, %%ss;\
+                mov $0x0, %%ax;\
+                mov %%ax, %%gs;\
+                mov %%ax, %%fs;\
+                " ::: "ax");
+    cpu_setcls(c);
 }
 
 void setgate(int gate, int istrap, void (*base)() , uint16_t sel, uint8_t dpl, uint8_t ist) {

@@ -1,142 +1,159 @@
-[bits 32]
-
-global __pml4
-global start32
-extern cga_init
-extern early_init
-
-PGSZ EQU 0x1000
-VMA  EQU 0xFFFF800000000000
-
-align 4
 section .text
 
+global _PML4_
+global start32
+
+extern cga_init
+extern early_init
+extern x86_64_init
+
+VMA equ 0xFFFFFF8000000000
+PGSZ equ 0x1000
+
+[bits 32]
 start32:
     cli
     cld
 
-    mov esp, (stack.top - VMA)
-    mov ebp, esp
-    push dword 0
-    push dword eax
-    push dword 0
-    push dword ebx
+    mov     esp, (stack.top - VMA)
+    mov     ebp, esp
+    push    dword 0x0
+    push    eax
+    push    dword 0xFFFFFF80
+    push    ebx
 
-    ; Just make sure paging structures are zero'ed,
-    ; Even though the bootloader does that for us,
-    ; You can never be too sure (I have severe trust issues ;) ).
-    xor eax, eax
-    mov edi, (__pml4 - VMA)
-    mov cr3, edi
-    mov ecx, 0xC00
-    rep stosd
+    xor     eax, eax
+    mov     edi, (_PML4_ - VMA)
+    mov     cr3, edi
+    mov     ecx, 0x101000
+    rep     stosd
 
-    mov edi, (__pml4 - VMA)
-    mov eax, edi
-    add eax, PGSZ
+    mov     edi, (_PML4_ - VMA)
+    mov     eax, edi
+    or      eax, 0x3
+    mov     dword [edi + 0xFF0], eax    ; PML4E510 -> _PML4_
 
-    or eax, 3
-
-    mov dword [edi], eax
-    mov dword [edi + 0x800], eax
-
-    add edi, PGSZ
-    add eax, PGSZ
-
-    mov dword [edi], eax
+    mov     eax, (PDPT - VMA)
+    or      eax, 0x3
+    mov     dword [edi], eax            ; PML4E0 -> PDPT0
+    mov     dword [edi + 0xFF8], eax    ; PML4E511 -> PDPT0
     
-    add edi, PGSZ
-    xor eax, eax
-    or eax, 0x83    ; use 2mb pages
-    mov ecx, 512
-.map:
-    mov dword[edi], eax
-    add edi, 8
-    add eax, 0x200000
-    loop .map
+    mov     edi, (PDPT - VMA)
+    mov     eax, (PDT - VMA)
+    or      eax, 0x3
 
-    mov eax, 0x80000000
+    mov     dword [edi], eax
+    add     eax, PGSZ
+    mov     dword [edi + 0x8], eax
+
+    mov     edi, (PDT - VMA)
+    mov     eax, (PT - VMA)
+    or      eax, 0x3
+    mov     ecx, 1024
+    .mapt:
+        mov     dword [edi], eax
+        add     edi, 0x8
+        add     eax, PGSZ
+        loop    .mapt
+
+    mov     edi, (PT - VMA)
+    mov     eax, (0x0 | 0x3)
+    mov     ecx, 0x80000 ; 2GiB worth of pages
+    .map:
+        mov     dword [edi], eax
+        add     edi, 8
+        add     eax, PGSZ
+        loop    .map
+    
+    mov     eax, 0x80000000
     cpuid
-    test eax, 0x80000001 ; Test for extended cpu features.
-    jb .noext
+    test    eax, 0x80000001 ; Test for extended cpu features.
+    jb      .noext
 
-    mov eax, 0x80000001
+    mov     eax, 0x80000001
     cpuid
-    test edx, (1 << 29)
-    jz .no64
+    test    edx, (1 << 29)
+    jz      .no64
 
-    mov eax, cr4
-    or eax, (3 << 4) ; CR4.PAE | CR4.PSE.
-    mov cr4, eax
+    mov     eax, cr4
+    or      eax, (3 << 4) ; CR4.PAE | CR4.PSE.
+    mov     cr4, eax
 
-    mov ecx, 0xC0000080
+    mov     ecx, 0xC0000080
     rdmsr
-    or eax, (1 << 8)    ; EFER.LM = 1.
+    or      eax, (1 << 8) ; EFER.LM = 1.
     wrmsr
 
-    mov eax, cr0
-    and eax, 0x0fffffff ; disable per-cpu caching
-    or eax, 0x80000000  ; enable PML4 paging.
-    mov cr0, eax
+    mov     eax, cr0
+    and     eax, 0x0fffffff ; disable per-cpu caching
+    or      eax, 0x80000000 ; enable PML4 paging.
+    mov     cr0, eax
 
-    mov eax, (gdtbase - VMA)
-    lgdt [eax]
-    jmp 0x8:(start64 - VMA)
+    mov     eax, (gdtbase - VMA)
+    lgdt    [eax]
+    jmp     0x8:(start64 - VMA)
 
 .noext:
-    mov eax, 0xDEADCAFE
-    jmp $
+    mov     eax, 0xDEADCAFE
+    jmp     $
 .no64:
-    mov eax, 0xDEADBEEF
+    mov     eax, 0xDEADBEEF
     hlt
-    jmp $
+    jmp     $
 
 gdt64:
-    .null dq 0
-    .code dq 0xAF9A000000FFFF
-    .data dq 0xCF92000000FFFF
+    .null   dq 0
+    .code   dq 0xAF9A000000FFFF
+    .data   dq 0xCF92000000FFFF
 gdtbase:
-        dw (gdtbase - gdt64) - 1
-        dq gdt64
+        dw  (gdtbase - gdt64) - 1
+        dq  gdt64
 
 [bits 64]
 
 align 16
 start64:
-    mov ax, 0x10
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-    mov ss, ax
+    mov     ax, 0x10
+    mov     ds, ax
+    mov     es, ax
+    mov     fs, ax
+    mov     gs, ax
+    mov     ss, ax
     
-    mov rax, .high64
-    jmp rax
+    mov     rax, .high64
+    jmp     rax
 
 .high64:
-    pop rdi
-    pop rax
-    mov rsp, stack.top
-    mov rbp, rsp
+    mov     rdi, _PML4_
+    mov     qword [rdi], 0 ; Unmap PML4E0
+    invlpg  [0]
+
+    mov     rsp, (stack.top - 0x10)
+    mov     rbp, stack.top
+
+    call    cga_init
+
+    pop     rdi
+    pop     rcx
+
+    call    early_init
     
-    push rdi
-    push rax
-    
-    call cga_init
-    
-    pop rax
-    mov rcx, rax
-    pop rdi
-    
-    call early_init
+    cli
+    hlt
     jmp $
 
 align 16
 section .bss
-stack:
-    resb 0x80000 ; 512 Kib kernel stack per-thread
-.top:
+align PGSZ
+_PML4_:
+    resb PGSZ
+PDPT:
+    resb PGSZ
+PDT:
+    resb PGSZ * 2
+PT:
+    resb PGSZ * 1024
 
-align 0x1000
-__pml4:
-resb PGSZ * 3
+stack:
+    resb 0x80000
+    .top:

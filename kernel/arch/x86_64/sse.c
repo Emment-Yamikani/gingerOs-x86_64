@@ -33,7 +33,7 @@ int sse_init(void) {
         if (cpu_has(CPU_AVX))
             xcr0 |= BS(2);
 
-        uint32_t a, b, c, d;
+        uint32_t a = 0, b = 0, c = 0, d = 0;
 
         cpuid(7, 0, &a, &b, &c, &d);
 

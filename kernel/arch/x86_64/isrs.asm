@@ -4,24 +4,24 @@ section .text
 %macro ISR_ERR 1
 global isr%1
 isr%1:
-    push qword %1
-    jmp stub
+    push    qword %1
+    jmp     stub
 %endmacro
 
 %macro ISR_NOERR 1
 global isr%1
 isr%1:
-    push qword 0
-    push qword %1
-    jmp stub
+    push    qword 0
+    push    qword %1
+    jmp     stub
 %endmacro
 
 %macro IRQ 2
 global irq%1
 irq%1:
-    push qword 0
-    push qword %2
-    jmp stub
+    push    qword 0
+    push    qword %2
+    jmp     stub
 %endmacro
 
 ISR_NOERR 0
@@ -96,45 +96,44 @@ extern trap
 
 stub:
     swapgs
-    push fs
+    push    fs
 
-    push qword rax
-    push qword rbx
-    push qword rcx
-    push qword rdx
-    push qword rdi
-    push qword rsi
-    push qword rbp
-    push qword r8
-    push qword r9
-    push qword r10
-    push qword r11
-    push qword r12
-    push qword r13
-    push qword r14
-    push qword r15
+    push    qword rax
+    push    qword rbx
+    push    qword rcx
+    push    qword rdx
+    push    qword rdi
+    push    qword rsi
+    push    qword rbp
+    push    qword r8
+    push    qword r9
+    push    qword r10
+    push    qword r11
+    push    qword r12
+    push    qword r13
+    push    qword r14
+    push    qword r15
 
-    mov rdi, rsp
-    call trap
+    mov     rdi, rsp
 
 trapret:
-    pop qword r15
-    pop qword r14
-    pop qword r13
-    pop qword r12
-    pop qword r11
-    pop qword r10
-    pop qword r9
-    pop qword r8
-    pop qword rbp
-    pop qword rsi
-    pop qword rdi
-    pop qword rdx
-    pop qword rcx
-    pop qword rbx
-    pop qword rax
+    pop     qword r15
+    pop     qword r14
+    pop     qword r13
+    pop     qword r12
+    pop     qword r11
+    pop     qword r10
+    pop     qword r9
+    pop     qword r8
+    pop     qword rbp
+    pop     qword rsi
+    pop     qword rdi
+    pop     qword rdx
+    pop     qword rcx
+    pop     qword rbx
+    pop     qword rax
 
-    pop fs
+    pop     fs
     swapgs
-    add rsp, 16
+    add     rsp, 16
     iretq

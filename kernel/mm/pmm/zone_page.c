@@ -14,13 +14,13 @@ void mm_free(uintptr_t);
 uintptr_t mm_alloc(void);
 
 struct pmman pmman = {
-    .free = mm_free,
-    .alloc = mm_alloc,
-    .mem_used = mem_used,
-    .mem_free = mem_free,
-    .get_page = __get_free_page,
-    .get_pages = __get_free_pages,
-    .init = physical_memory_init,
+    .free       = mm_free,
+    .alloc      = mm_alloc,
+    .mem_used   = mem_used,
+    .mem_free   = mem_free,
+    .get_page   = __get_free_page,
+    .get_pages  = __get_free_pages,
+    .init       = physical_memory_init,
 };
 
 page_t *alloc_pages(gfp_mask_t gfp, size_t order) {
@@ -222,7 +222,7 @@ uintptr_t page_mount(uintptr_t paddr) {
         return 0;
 
     pagemap_binary_lock(&kernel_map);
-    err = x86_64_map_page_to(&kernel_map, vaddr, paddr, VM_KRW);
+    err = x86_64_map_to(kernel_map.pdbr, vaddr, paddr, VM_KRW);
     pagemap_binary_unlock(&kernel_map);
 
     if (err) {
@@ -235,7 +235,7 @@ uintptr_t page_mount(uintptr_t paddr) {
 
 void page_unmount(uintptr_t vaddr) {
     pagemap_binary_lock(&kernel_map);
-    x86_64_unmap_page(&kernel_map, vaddr);
+    x86_64_unmap(kernel_map.pdbr, vaddr);
     pagemap_binary_unlock(&kernel_map);
     vmman.free(vaddr);
 }
