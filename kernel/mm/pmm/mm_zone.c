@@ -27,15 +27,15 @@ queue_t *mm_zone_sleep_queue[] = {
 static __unused void zone_dump(mm_zone_t *zone) {
     assert_msg(zone, "zerror: No physical memory zone specified\n", __FILE__, __LINE__);
     printk("\nStart: %p\nSize: %ld B\nSize: %d MiB\nfree_pages: %d\nnrpages: %d\nPages: %p\n",
-           zone->start, zone->size, zone->size / MiB, zone->free_pages, zone->nrpages, zone->pages);
+           zone->start, zone->size, zone->size / MiB(1), zone->free_pages, zone->nrpages, zone->pages);
 }
 
 static int enumerate_zones(void) {
     void *pages = NULL;
     uintptr_t start = 0x0;
-    size_t size = (16 * MiB);
+    size_t size = MiB(16);
     size_t zone_structs_size = 0;
-    size_t memsize = bootinfo.memsize * KiB;
+    size_t memsize = KiB(bootinfo.memsize);
     mod_t *last_mod = &bootinfo.mods[bootinfo.modcnt - 1];
     pages = (void *)PGROUNDUP((last_mod->addr + last_mod->size));
     zone_structs_size = NPAGE(size) * sizeof(page_t);
@@ -52,9 +52,9 @@ static int enumerate_zones(void) {
         .size = size,
     };
 
-    start = (16 * MiB);
-    memsize -= (16 * MiB);
-    size = (2 * GiB) - (16 * MiB);
+    start = MiB(16);
+    memsize -= MiB(16);
+    size = GiB(2) - MiB(16);
     size = MIN(memsize, size);
     memsize -= size;
     zone_structs_size = NPAGE(size) * sizeof(page_t);
@@ -77,8 +77,8 @@ static int enumerate_zones(void) {
 
     printk("enumerating HOLE memory zone...\n");
 
-    start = 2 * GiB;
-    size = ((bootinfo.memhigh * KiB) + MiB) - ((2 * GiB));
+    start = GiB(2);
+    size = (KiB(bootinfo.memhigh) + MiB(1)) - GiB(2);
     size = MIN(memsize, size);
     memsize -= size;
     zone_structs_size = NPAGE(size) * sizeof(page_t);
@@ -100,7 +100,7 @@ static int enumerate_zones(void) {
 
     printk("enumerating HIGH memory zone...\n");
 
-    start = 4 * GiB;
+    start = GiB(4);
     size = memsize;
     zone_structs_size = NPAGE(size) * sizeof(page_t);
     pages += NPAGE(size) * sizeof(page_t);
@@ -191,15 +191,14 @@ int physical_memory_init(void) {
     /**
      * Mark all memory maps returned by multiboot */
     for (size_t i = 0; i < bootinfo.mmapcnt; ++i) {
-        addr = PGROUND(map[i].addr);
+        addr = VMA2LO(PGROUND(map[i].addr));
         size = PGROUNDUP(map[i].size);
 
         if (map[i].type != MULTIBOOT_MEMORY_AVAILABLE) {
             zone = get_mmzone(addr, size);
-            if (zone) {
+            if (zone != NULL) {
                 index = (addr - zone->start) / PAGESZ;
-                for (size_t j = 0; j < (size_t)NPAGE(size); ++j, ++index)
-                {
+                for (size_t j = 0; j < (size_t)NPAGE(size); ++j, ++index) {
                     atomic_write(&zone->pages[index].ref_count, 1);
                     zone->pages[index].flags.mm_zone = zone - zones;
                     zone->pages[index].flags.raw |= VM_KRW;
@@ -242,8 +241,7 @@ int physical_memory_init(void) {
         }
     }
 
-    size = zones[MM_ZONE_NORM].size - ((1 * GiB) - (16 * MiB));
-    size = ((2 * GiB)) - PGROUNDUP(zones[MM_ZONE_NORM].size);
+    size = GiB(2) - PGROUNDUP(zones[MM_ZONE_NORM].size);
 
     pagemap_binary_lock(&kernel_map);
     if ((long)size > 0) {
@@ -256,15 +254,17 @@ int physical_memory_init(void) {
         addr = PGROUND(map[i].addr);
         size = PGROUNDUP(map[i].size);
 
-        if ((map[i].type != MULTIBOOT_MEMORY_AVAILABLE) && map[i].addr < 0x100000000) {
+        if ((map[i].type != MULTIBOOT_MEMORY_AVAILABLE) && (VMA2LO(map[i].addr) < GiB(4))) {
             uint32_t flags = VM_KRW | VM_PCDWT;
-            x86_64_map_to_n(kernel_map.pdbr, VMA2HI(addr), addr, size, flags);
+            // x86_64_map_to_n(kernel_map.pdbr, addr, VMA2LO(addr), size, flags);
+            for (size_t n = NPAGE(size); n; --n, addr+=PGSZ) {
+                if ((err = x86_64_map_r(VMA2LO(addr), PML4I(addr), PDPTI(addr), PDI(addr), PTI(addr), flags)))
+                    panic("failure: err: %d\n", err);
+            }
         }
     }
 
-    // unmap_table_entry(&kernel_map, LVL_PML4E, 0, 0, 0, 0);
-    // unmap_table_entry(&kernel_map, LVL_PDPTE, PML4I(VMA2HI(0xC0000000)), PDPTI(0xC0000000), 0, 0);
-    x86_64_map_to_n(kernel_map.pdbr, VMA2HI(MEMMDEV), MEMMDEV, (4 * GiB) - MEMMDEV, VM_KRW | VM_PCD);
+    x86_64_map_to_n(kernel_map.pdbr, VMA2HI(MEMMDEV), MEMMDEV, GiB(4) - MEMMDEV, VM_KRW | VM_PCD);
     pagemap_binary_unlock(&kernel_map);
     return 0;
 error:

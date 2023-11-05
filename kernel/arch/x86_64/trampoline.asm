@@ -30,7 +30,7 @@ ap_trampoline:
     or      eax, (1 << 8)
     wrmsr
 
-    mov     eax, dword [pdbr]
+    mov     eax, dword [PML4]
     mov     cr3, eax
 
     lgdt    [gdt64.pointer]
@@ -76,5 +76,5 @@ long_mode:
     retq
 
 times 4032 - ($ - $$) db 0
-pdbr:  dq 0 ; pdbr
+PML4:  dq 0 ; Level 4 Page Map
 stack: dq 0 ; AP bootstrap stack.

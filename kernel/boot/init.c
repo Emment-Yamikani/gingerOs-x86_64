@@ -19,23 +19,28 @@
 bootinfo_t bootinfo = {0};
 
 int multiboot_info_process(multiboot_info_t *info) {
+    mmap_entry_t *mmap = NULL, *mmap_end = NULL;
+
     memset(&bootinfo, 0, sizeof bootinfo);
+
     if (BTEST(info->flags, 0)) {
         bootinfo.memlo = info->mem_lower;
         bootinfo.memhigh = info->mem_upper;
     }
 
     if ((BTEST(info->flags, 6))) {
-        multiboot_memory_map_t *mmap = (multiboot_memory_map_t *)(VMA2HI(info->mmap_addr));
-        for (int i = 0; mmap < (multiboot_memory_map_t *)((VMA2HI(info->mmap_addr) + info->mmap_length)); ++i) {
-            bootinfo.mmapcnt++;
+        mmap = (mmap_entry_t *)(VMA2HI(info->mmap_addr));
+        mmap_end = (mmap_entry_t *)VMA2HI(info->mmap_addr + info->mmap_length);
+
+        for (int i =0; mmap < mmap_end; ++i, bootinfo.mmapcnt++) {
             bootinfo.mmap[i].size = mmap->len;
             bootinfo.mmap[i].type = mmap->type;
-            bootinfo.mmap[i].addr = mmap->addr;
-            // printk("MMAP(%d): addr: %p, size: %p, type: %d\n", i, mmap->addr, bootinfo.mmap[i].size, mmap->type);
+            bootinfo.mmap[i].addr = VMA2HI(mmap->addr);
             if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE)
-                bootinfo.memsize += mmap->len;
-            mmap = (multiboot_memory_map_t *)((uintptr_t)mmap + mmap->size + sizeof(mmap->size));
+                bootinfo.memsize      += mmap->len;
+            printk("mmap(%d): %p, len: %ld, type: %d, size: %d\n",
+                i, VMA2HI(mmap->addr), mmap->len, mmap->type, mmap->size);
+            mmap = (mmap_entry_t *)(((uintptr_t)mmap) + mmap->size + sizeof (mmap->size));
         }
         bootinfo.memsize /= 1024;
     }
@@ -60,6 +65,8 @@ int multiboot_info_process(multiboot_info_t *info) {
         bootinfo.fb.framebuffer_pitch = info->framebuffer_pitch;
         bootinfo.fb.framebuffer_width = info->framebuffer_width;
         bootinfo.fb.framebuffer_height = info->framebuffer_height;
+        bootinfo.fb.framebuffer_size = info->framebuffer_bpp *
+        info->framebuffer_width * info->framebuffer_height;
 
         if (info->framebuffer_type == 1) {
             bootinfo.fb = (typeof(bootinfo.fb)){

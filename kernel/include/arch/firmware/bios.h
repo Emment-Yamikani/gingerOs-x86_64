@@ -12,7 +12,7 @@
 //bios data area
 #define BDA     0x400
 //extended bios data area
-#define EBDA    ((uintptr_t)*((uint16_t *)(VMA2HI(BDA + 0xe))) << 4)
+#define EBDA    ((uintptr_t)(*((uint16_t *)(VMA2HI(BDA + 0xe)))) << 4)
 //bios rom below 1M
 #define BIOSROM 0xe0000
 

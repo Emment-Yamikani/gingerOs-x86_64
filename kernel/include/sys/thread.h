@@ -409,9 +409,9 @@ extern builtin_thread_t __builtin_thrds_end[];
 
 #define BUILTIN_THREAD_ANOUNCE(name)    ({ printk("\"%s\" thread [tid: %d] running...\n", name, thread_self()); })
 
-#define STACKSZMIN      (16 * KiB)
+#define STACKSZMIN      (KiB(16))
 #define KSTACKSZ        (STACKSZMIN)
-#define STACKSZMAX      (512 * KiB)
+#define STACKSZMAX      (KiB(512))
 #define BADSTACKSZ(sz)  ((sz) < STACKSZMIN || (sz) > STACKSZMAX)
 
 int builtin_threads_begin(size_t *nthreads);

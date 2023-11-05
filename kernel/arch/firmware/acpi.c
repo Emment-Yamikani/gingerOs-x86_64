@@ -19,12 +19,13 @@ int acpi_validate_table(char *addr, size_t size) {
 }
 
 void *acpi_findrsdp(void) {
-    char *bios = NULL;
-    for (bios = (char *)((uintptr_t)VMA2HI(EBDA)); bios < (char *)(VMA2HI(EBDA) + KiB); bios +=4)
+    char *bios = (char *)VMA2HI(EBDA);
+    for (; bios < (char *)(VMA2HI(EBDA) + KiB(1)); bios +=4)
         if (!strncmp("RSD PTR ", bios, 8))
             return bios;
     
-    for (bios = (char *)(VMA2HI(BIOSROM)); bios < (char *)(VMA2HI(BIOSROM) + 0xfffff); bios +=4)
+    bios = (char *)(VMA2HI(BIOSROM));
+    for (; bios < (char *)(VMA2HI(BIOSROM) + 0xfffff); bios +=4)
         if (!strncmp("RSD PTR ", bios, 8))
             return bios;
     return NULL;

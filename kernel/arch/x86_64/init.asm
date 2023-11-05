@@ -125,7 +125,7 @@ start64:
 
 .high64:
     mov     rdi, _PML4_
-    mov     qword [rdi], 0 ; Unmap PML4E0
+    ;mov     qword [rdi], 0 ; Unmap PML4E0
     invlpg  [0]
 
     mov     rsp, (stack.top - 0x10)

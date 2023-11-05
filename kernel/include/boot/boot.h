@@ -1,10 +1,10 @@
 #pragma once
 
+#include <boot/multiboot.h>
+#include <dev/fb.h>
 #include <lib/types.h>
 #include <lib/stddef.h>
 #include <lib/stdint.h>
-#include <boot/multiboot.h>
-#include <dev/fb.h>
 
 #define NMODS   32
 #define NMMAP   32
@@ -34,6 +34,7 @@ typedef struct {
         uint32_t framebuffer_pitch;
         uint32_t framebuffer_width;
         uint32_t framebuffer_height;
+        size_t   framebuffer_size;
         uint32_t framebuffer_bpp;
 
         struct fb_bitfield red;
@@ -47,6 +48,9 @@ typedef struct {
     mmap_t      mmap[NMMAP];
     mod_t       mods[NMODS];
 } bootinfo_t;
+
+typedef multiboot_module_t mod_entry_t;
+typedef multiboot_memory_map_t mmap_entry_t;
 
 extern bootinfo_t bootinfo;
 int multiboot_info_process(multiboot_info_t *info);

@@ -28,10 +28,10 @@ typedef struct node
 } node_t;
 
 //size of Kernel in GiB
-#define KHEAP_SIZE(sz) ((((size_t)sz) * GiB))
+#define KHEAP_SIZE(sz) ((GiB(sz)))
 
 #define KHEAPSZ KHEAP_SIZE(16) // size of kernel heap.
-#define KHEAPBASE (VMA2HI(4 * GiB))    // kernel heap base address.
+#define KHEAPBASE (VMA2HI(GiB(4)))    // kernel heap base address.
 
 #define KHEAP_MAX_NODES (KHEAPSZ / PAGESZ)                 // maximum blocks that can be address.
 #define KHEAP_NODES_ARRAY ((node_t *)KHEAPBASE)                 // array of memory nodes.
@@ -570,10 +570,10 @@ void memory_usage(void)
            "\t\t\t\e[0;015mVirtual Memory\e[0m\n"
            "Free  : \e[0;012m%8.1F MiB\e[0m\n"
            "In use: \e[0;04m%8.1F MiB\e[0m\n\n",
-           (double)pmman.mem_free() / KiB,
-           (double)pmman.mem_used() / KiB,
-           (double)vmman.getfreesize() / KiB,
-           (double)vmman.getinuse() / KiB);
+           (double)pmman.mem_free() / KiB(1),
+           (double)pmman.mem_used() / KiB(1),
+           (double)vmman.getfreesize() / KiB(1),
+           (double)vmman.getinuse() / KiB(1));
 }
 
 struct vmman vmman = {
