@@ -1,5 +1,8 @@
 #pragma once
 
+#include <lib/stdint.h>
+#include <lib/stddef.h>
+
 #define __CAT(a, b) a##b
 
 #define __unused                        __attribute__((unused))
@@ -10,7 +13,7 @@
 #define __aligned_section(s, a)         __attribute__((section(#s), aligned(a)))
 #define __fallthrough                   __attribute__((fallthrough))
 #define __used_section(__section__)     __attribute__((used, section(#__section__)))
-#define barrier()   ({ asm volatile ("":::"memory"); })
+#define barrier()                       ({ asm volatile ("":::"memory"); })
 
 #define loop() for (;;)
 
@@ -31,7 +34,7 @@
 #define __retaddr(l) __builtin_return_address(l)
 
 #define NOT(a)      (~(a))
-#define BS(p)       ((long)1 << (p))
+#define BS(p)       ((size_t)1 << (p))
 #define AND(a, b)   ((a) & (b))
 #define OR(a, b)    ((a) | (b))
 #define XOR(a, b)   ((a) ^ (b))

@@ -96,11 +96,13 @@ typedef union viraddr {
 #define PDT(PDPi, PDi)          ((pte_t *)(0xFFFFFF7F80000000ull + (0x200000ul * ((size_t)PDPi)) + (0x1000ul * ((size_t)PDi)) ))
 #define PT(PDPi, PDi, PTi)      ((pte_t *)(0xFFFFFF0000000000ull + (0x40000000ul * ((size_t)PDPi)) + (0x200000ul * ((size_t)PDi)) + (0x1000ul * ((size_t)PTi))))
 
-#define PML4E(il4)              ({ &PML4[il4]; })
-#define PDPTE(il4, il3)         ({ &PDPT(il4)[il3]; })
-#define PDTE(il4, il3, il2)     ({ &PDT(il4, il3)[il2]; })
-#define PTE(il4, il3, il2, il1) ({ &PT(il4, il3, il2)[il1]; })
+#define PML4E(i4)               ({ &PML4[i4]; })
+#define PDPTE(i4, i3)           ({ &PDPT(i4)[i3]; })
+#define PDTE(i4, i3, i2)        ({ &PDT(i4, i3)[i2]; })
+#define PTE(i4, i3, i2, i1)     ({ &PT(i4, i3, i2)[i1]; })
 
+#define ispresent(flags)        ((flags)&VM_P)
+#define iswritable(flags)       ((flags)&VM_W)
 #define isuser_page(flags)      ((flags)&VM_U)      // is page a user page?
 #define is2mb_page(flags)       ((flags)&VM_PS)     // is a 2mb page?
 #define isPS(flags)             ((flags) & VM_PS)   // is page size flags set?
