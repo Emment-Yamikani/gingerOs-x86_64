@@ -11,15 +11,6 @@
         ((pte_t *)(t))[i].raw = 0; \
 })
 
-int i64_swtchvm(uintptr_t pdbr, uintptr_t *old) {
-    if (pdbr == 0)
-        return -EINVAL;
-    if (old)
-        *old = rdcr3();
-    wrcr3(pdbr);
-    return 0;
-}
-
 static inline int i64_map_pdpt(int i4, int flags) {
     uintptr_t lvl3 = 0;
 
@@ -185,6 +176,15 @@ static inline void i64_unmap_pt(int i4, int i3, int i2) {
         // send_tlbshootdown();
         pmman.free(lvl1);
     }
+}
+
+int i64_swtchvm(uintptr_t pdbr, uintptr_t *old) {
+    if (pdbr == 0)
+        return -EINVAL;
+    if (old)
+        *old = rdcr3();
+    wrcr3(pdbr);
+    return 0;
 }
 
 int i64_map(uintptr_t frame, int i4, int i3, int i2, int i1, int flags) {
@@ -462,7 +462,7 @@ int i64_lazycpy(uintptr_t dst, uintptr_t src) {
                     PTE(i4, i3, i2, i1)->raw = pt[i1].raw;
                     
                     // increase the page count on this page.
-                    if ((err = __page_incr(PGOUND(pt[i1].raw)))) {
+                    if ((err = __page_incr(PGROUND(pt[i1].raw)))) {
                         i64_unmount((uintptr_t)pt);
                         i64_unmount((uintptr_t)pdt);
                         i64_unmount((uintptr_t)pdpt);
