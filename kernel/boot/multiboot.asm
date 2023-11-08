@@ -26,11 +26,11 @@ mboot:
 ; gfx parameters
     LFB_GFX     EQU (0)
     EGA_TXT     EQU (1)
-    GFX_WIDTH   EQU (1024)
-    GFX_HEIGHT  EQU (800)
+    GFX_WIDTH   EQU (800)
+    GFX_HEIGHT  EQU (600)
     GFX_DEPTH   EQU (32)
 
-    dd EGA_TXT
+    dd LFB_GFX
     dd GFX_WIDTH
     dd GFX_HEIGHT
     dd GFX_DEPTH

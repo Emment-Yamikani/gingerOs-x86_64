@@ -11,6 +11,7 @@
 #include <arch/chipset.h>
 #include <sys/_signal.h>
 #include <dev/rtc.h>
+#include <arch/x86_64/ipi.h>
 
 void dump_tf(tf_t *tf, int halt) {
     if (halt)
@@ -65,6 +66,9 @@ void trap(tf_t *tf) {
         break;
     case T_SIMD_XM:
         simd_fp_except();
+        break;
+    case TLB_SHTDWN:
+        tlb_shootdown_handler();
         break;
     case LAPIC_ERROR:
         lapic_eoi();

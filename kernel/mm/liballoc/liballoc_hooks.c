@@ -20,36 +20,33 @@
 # endif
 #endif
 
-static spinlock_t *spinlock = &SPINLOCK_INIT();
 static int page_size = -1;
+static spinlock_t *spinlock = &SPINLOCK_INIT();
 
 
-int liballoc_lock()
-{
+int liballoc_lock() {
 	spin_lock(spinlock);
 	return 0;
 }
 
-int liballoc_unlock()
-{
+int liballoc_unlock() {
 	spin_unlock(spinlock);
 	return 0;
 }
 
-void* liballoc_alloc( int pages )
-{
+void* liballoc_alloc( int pages ) {
 	char *p2 = NULL;
 	if ( page_size < 0 ) page_size = getpagesize();
 	size_t size = pages * page_size;
-	//printk("liballoc_alloc(): pointer: request pages: %d\n", pages);
-	p2 = (char *)mapped_alloc(size);
+	// printk("\nliballoc_alloc(): pointer: request pages: %d\n", pages);
+	if (arch_pagealloc(size, (uintptr_t *)&p2))
+		return NULL;
 	// printk("liballoc_alloc(): pointer: %p request pages: %d\n", p2, pages);
 	return p2;
 }
 
-int liballoc_free( void* ptr, int pages )
-{
+int liballoc_free( void* ptr, int pages ) {
 	// printk("liballoc_free(): release pointer: %p, pages: %d\n", ptr, pages);
-	mapped_free((uintptr_t)ptr, pages * page_size);
+	arch_pagefree((uintptr_t)ptr, pages * page_size);
 	return 0;
 }

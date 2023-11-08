@@ -5,7 +5,7 @@
 #include <lib/printk.h>
 #include <mm/pmm.h>
 #include <boot/boot.h>
-#include <arch/x86_64/pml4.h>
+#include <arch/paging.h>
 #include <lib/string.h>
 
 mm_zone_t zones[NZONE] = {0};
@@ -246,8 +246,7 @@ int physical_memory_init(void) {
     pagemap_binary_lock(&kernel_map);
     if ((long)size > 0) {
         addr = PGROUNDUP(zones[MM_ZONE_NORM].size);
-        if ((err = x86_64_unmap_n(kernel_map.pdbr, VMA2HI(addr), size, 0)))
-            panic("failed to unmap: %lX, err: %d\n", addr, err);
+        arch_unmap_n(VMA2HI(addr), size);
     }
 
     for (size_t i = 0; i < bootinfo.mmapcnt; ++i) {
@@ -256,15 +255,13 @@ int physical_memory_init(void) {
 
         if ((map[i].type != MULTIBOOT_MEMORY_AVAILABLE) && (VMA2LO(map[i].addr) < GiB(4))) {
             uint32_t flags = VM_KRW | VM_PCDWT;
-            // x86_64_map_to_n(kernel_map.pdbr, addr, VMA2LO(addr), size, flags);
-            for (size_t n = NPAGE(size); n; --n, addr+=PGSZ) {
-                if ((err = x86_64_map_r(VMA2LO(addr), PML4I(addr), PDPTI(addr), PDI(addr), PTI(addr), flags)))
-                    panic("failure: err: %d\n", err);
-            }
+            arch_map_i(addr, VMA2LO(addr), size, flags);
         }
     }
 
-    x86_64_map_to_n(kernel_map.pdbr, VMA2HI(MEMMDEV), MEMMDEV, GiB(4) - MEMMDEV, VM_KRW | VM_PCD);
+    arch_map_i(bootinfo.fb.framebuffer_addr, VMA2LO(bootinfo.fb.framebuffer_addr),
+        bootinfo.fb.framebuffer_size, VM_KRW | VM_PCDWT);
+
     pagemap_binary_unlock(&kernel_map);
     return 0;
 error:

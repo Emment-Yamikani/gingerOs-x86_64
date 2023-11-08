@@ -18,4 +18,6 @@
 #define LAPIC_TIMER     IRQ(20)
 #define LAPIC_IPI       IRQ(31)
 
+#define TLB_SHTDWN      IRQ(32)
+
 #define T_LEG_SYSCALL   128

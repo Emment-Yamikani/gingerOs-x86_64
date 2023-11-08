@@ -46,6 +46,9 @@
 #define MIN(a, b)   ((a) < (b) ? (a) : (b))
 #define ABS(a)      (((long)(a) < 0) ? -(long)(a) : (a))
 
+// C('A') == Control-A
+#define CTRL(x) (x - '@')
+
 #define KiB(x)      ((size_t)(1024ul * ((size_t)(x))))
 #define MiB(x)      ((size_t)(KiB(1024) * ((size_t)(x))))
 #define GiB(x)      ((size_t)(MiB(1024) * ((size_t)(x))))

@@ -28,34 +28,18 @@
 #include <sync/mutex.h>
 
 __noreturn void kthread_main(void) {
-    dentry_t *file = NULL;
     printk("Welcome to \e[0;011m'Ginger OS'\e[0m.\n");
 
-    vfs_lookup("/dev/full",     NULL, O_RDWR | O_CREAT, 0660, 0, NULL);
-    vfs_lookup("/dev/cpu",      NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0660, 0, NULL);
-    vfs_lookup("/dev/pts",      NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0660, 0, NULL);
-    vfs_lookup("/dev/zero",     NULL, O_RDWR | O_CREAT, 0660, 0, NULL);
-    vfs_lookup("/dev/vfio",     NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0660, 0, NULL);
-    vfs_lookup("/dev/snd",      NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0660, 0, NULL);
-    vfs_lookup("/dev/random",   NULL, O_RDWR | O_CREAT, 0660, 0, NULL);
-    vfs_lookup("/dev/shm",      NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0660, 0, NULL);
-    vfs_lookup("/dev/urandom",  NULL, O_RDWR | O_CREAT, 0660, 0, NULL);
-    vfs_lookup("/dev/null",     NULL, O_RDWR | O_CREAT, 0660, 0, NULL);
-    vfs_lookup("/dev/readme.txt",     NULL, O_RDWR | O_CREAT, 0660, 0, &file);
-
-
     builtin_threads_begin(NULL);
-    char b[] = "Hello World\n";
 
-    ilock(file->d_inode);
-    iwrite(file->d_inode, 0, b, sizeof b);
-    memset(b, 0, sizeof b);
-    iread(file->d_inode, 1, b, (sizeof b) -1);
-    iunlock(file->d_inode);
+    memory_usage();
+    debugloc();
 
-    vfs_dirlist("/ramfs");
+    memory_usage();
+    debugloc();
 
-    printk(b);
+    memory_usage();
+    debugloc();
 
     loop() thread_join(0, NULL, NULL);
 }

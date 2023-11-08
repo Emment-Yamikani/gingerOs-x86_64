@@ -15,6 +15,10 @@
 #include <sys/thread.h>
 #include <dev/dev.h>
 #include <sync/mutex.h>
+#include <dev/fb.h>
+#include <dev/console.h>
+#include <mm/kalloc.h>
+#include <arch/x86_64/ipi.h>
 
 bootinfo_t bootinfo = {0};
 
@@ -38,8 +42,8 @@ int multiboot_info_process(multiboot_info_t *info) {
             bootinfo.mmap[i].addr = VMA2HI(mmap->addr);
             if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE)
                 bootinfo.memsize      += mmap->len;
-            printk("mmap(%d): %p, len: %ld, type: %d, size: %d\n",
-                i, VMA2HI(mmap->addr), mmap->len, mmap->type, mmap->size);
+            // printk("mmap(%d): %p, len: %ld, type: %d, size: %d\n",
+                // i, VMA2HI(mmap->addr), mmap->len, mmap->type, mmap->size);
             mmap = (mmap_entry_t *)(((uintptr_t)mmap) + mmap->size + sizeof (mmap->size));
         }
         bootinfo.memsize /= 1024;
@@ -60,28 +64,20 @@ int multiboot_info_process(multiboot_info_t *info) {
     // framebuffer
     if (BTEST(info->flags, 12)) {
         bootinfo.fb.framebuffer_bpp = info->framebuffer_bpp;
-        bootinfo.fb.framebuffer_addr = info->framebuffer_addr;
         bootinfo.fb.framebuffer_type = info->framebuffer_type;
         bootinfo.fb.framebuffer_pitch = info->framebuffer_pitch;
         bootinfo.fb.framebuffer_width = info->framebuffer_width;
         bootinfo.fb.framebuffer_height = info->framebuffer_height;
-        bootinfo.fb.framebuffer_size = info->framebuffer_bpp *
-        info->framebuffer_width * info->framebuffer_height;
+        bootinfo.fb.framebuffer_addr = VMA2HI(info->framebuffer_addr);
+        bootinfo.fb.framebuffer_size = info->framebuffer_pitch * info->framebuffer_height;
 
         if (info->framebuffer_type == 1) {
-            bootinfo.fb = (typeof(bootinfo.fb)){
-                .red = {
-                    .length = info->framebuffer_red_mask_size,
-                    .offset = info->framebuffer_red_field_position,
-                },
-                .green = {
-                    .length = info->framebuffer_green_mask_size,
-                    .offset = info->framebuffer_green_field_position,
-                },
-                .blue = {
-                    .length = info->framebuffer_blue_mask_size,
-                    .offset = info->framebuffer_blue_field_position,
-                }};
+            bootinfo.fb.red.length = info->framebuffer_red_mask_size;
+            bootinfo.fb.red.offset = info->framebuffer_red_field_position;
+            bootinfo.fb.green.length = info->framebuffer_green_mask_size;
+            bootinfo.fb.green.offset = info->framebuffer_green_field_position;
+            bootinfo.fb.blue.length = info->framebuffer_blue_mask_size;
+            bootinfo.fb.blue.offset = info->framebuffer_blue_field_position;
         }
     }
 
@@ -90,19 +86,19 @@ int multiboot_info_process(multiboot_info_t *info) {
 
 extern __noreturn void kthread_main(void);
 
-int early_init(multiboot_info_t *info) {
+int early_init(void) {
     int err = 0;
+
     if ((err = bsp_init()))
         panic("BSP initialization failed, error: %d\n", err);
-
-    if ((err = multiboot_info_process(info)))
-        panic("Failed to process multiboot info structures, error: %d\n", err);
 
     if ((err = vmman.init()))
         panic("Virtual memory initialization failed, error: %d\n", err);
 
     if ((err = pmman.init()))
         panic("Physical memory initialization failed, error: %d\n", err);
+
+    earlycons_usefb();
 
     if ((err = acpi_init()))
         panic("Failed to initialize ACPI, error: %d\n", err);
@@ -122,6 +118,7 @@ int early_init(multiboot_info_t *info) {
     thread_create(NULL, NULL, (thread_entry_t)kthread_main, NULL);
 
     bootothers();
+    send_tlb_shootdown(0, 0);
     schedule();
     assert(0, "schedule returned :(");
     loop();

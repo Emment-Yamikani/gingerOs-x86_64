@@ -11,6 +11,7 @@
 #include <arch/lapic.h>
 #include <mm/kalloc.h>
 #include <dev/cga.h>
+#include <arch/paging.h>
 
 cpu_t *cpus[MAXNCPU];
 static atomic_t ncpu = 1; // '1' because we are starting with BSP
@@ -203,7 +204,7 @@ int bootothers(void) {
     uintptr_t *stack = NULL;
     extern char ap_trampoline[];
     uintptr_t v = (uintptr_t)ap_trampoline;
-    x86_64_map_r((uintptr_t)ap_trampoline, PML4I(v), PDPTI(v), PDI(v), PTI(v), VM_KRW);
+    arch_map_i(v, (uintptr_t)ap_trampoline, PGSZ, VM_KRW);
 
     for (int i = 0; i < (int)atomic_read(&ncpu); ++i) {
         if (!cpus[i] || !(cpus[i]->flags & CPU_ENABLED) || cpus[i] == cpu)

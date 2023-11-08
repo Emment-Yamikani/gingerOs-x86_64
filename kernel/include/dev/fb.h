@@ -6,21 +6,18 @@
 #include <lib/stddef.h>
 #include <sync/spinlock.h>
 
-
 #define NFBDEV  8
 
 #define FBIOGET_FIX_INFO  0x0000
 #define FBIOGET_VAR_INFO  0x0001
 
-struct fb_bitfield
-{
+struct fb_bitfield {
     uint8_t offset;    // position in pixel
     uint8_t length;    // length of bitfield
     uint8_t msb_right; // true if most significant byte is right
 };
 
-typedef struct fb_fixinfo
-{
+typedef struct fb_fixinfo {
     char        id[64];     // indentification
     int         accel;      // type of acceleration card in use
     uint32_t    type;       // type of framebuffer
@@ -30,8 +27,7 @@ typedef struct fb_fixinfo
     size_t      line_length;// bytes per line
 } fb_fixinfo_t;
 
-typedef struct fb_varinfo
-{
+typedef struct fb_varinfo {
     size_t bpp;          // bits per pixel
     size_t width;        // pixels per row
     size_t height;       // pixels per column
@@ -48,8 +44,7 @@ typedef struct fb_varinfo
     struct fb_bitfield transp;
 } fb_varinfo_t;
 
-typedef struct framebuffer
-{
+typedef struct framebuffer {
     uint32_t  id;
     void *priv;
     struct dev *  dev;
@@ -59,6 +54,11 @@ typedef struct framebuffer
     void *module;
 } framebuffer_t;
 
+extern fb_fixinfo_t fix_info;
+extern fb_varinfo_t var_info;
+extern int earlycons_use_gfx;
+
 int framebuffer_process_info();
+int framebuffer_gfx_init(void);
 
 #endif //_DEV_FB_H

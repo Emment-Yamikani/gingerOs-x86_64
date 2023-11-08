@@ -4,11 +4,14 @@ global _PML4_
 global start32
 
 extern cga_init
+extern multiboot_info_process
+extern earlycons_init
 extern early_init
 extern x86_64_init
 
-VMA equ 0xFFFFFF8000000000
-PGSZ equ 0x1000
+PGSZ    equ 0x1000
+DEVADDR equ 0xFE000000
+VMA     equ 0xFFFFFF8000000000
 
 [bits 32]
 start32:
@@ -65,6 +68,30 @@ start32:
         add     eax, PGSZ
         loop    .map
     
+    mov edi, (PDPT - VMA)
+    mov eax, (DEVPDT - VMA)
+    or eax, 0x1b
+    mov dword[edi + 0x18], eax
+
+    mov edi, (DEVPDT - VMA)
+    mov eax, (DEVPT - VMA)
+    or eax, 0x1b
+    mov ecx, 16
+    .mapdevpt:
+        mov dword[edi + 0xF80], eax
+        add edi, 8
+        add eax, PGSZ
+        loop .mapdevpt
+    
+    mov edi, (DEVPT - VMA)
+    mov eax, (DEVADDR | 0x1b)
+    mov ecx, 8192 ; dev pages.
+    .mapdevs:
+        mov dword[edi], eax
+        add edi, 8
+        add eax, PGSZ
+        loop .mapdevs
+
     mov     eax, 0x80000000
     cpuid
     test    eax, 0x80000001 ; Test for extended cpu features.
@@ -125,17 +152,16 @@ start64:
 
 .high64:
     mov     rdi, _PML4_
-    ;mov     qword [rdi], 0 ; Unmap PML4E0
+    mov     qword [rdi], 0 ; Unmap PML4E0
     invlpg  [0]
 
     mov     rsp, (stack.top - 0x10)
     mov     rbp, stack.top
-
-    call    cga_init
-
     pop     rdi
     pop     rcx
 
+    call    multiboot_info_process
+    call    earlycons_init
     call    early_init
     
     cli
@@ -153,6 +179,10 @@ PDT:
     resb PGSZ * 2
 PT:
     resb PGSZ * 1024
+DEVPDT:
+    resb PGSZ
+DEVPT:
+    resb PGSZ * 16
 
 stack:
     resb 0x80000

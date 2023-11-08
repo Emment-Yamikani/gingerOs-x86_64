@@ -21,15 +21,15 @@ struct tinyfont {
 	int rows, cols;	/* glyph dimensions */
 };
 
-
+int fontctx_alloc(struct font **ref);
 struct font *font_open(char *path);
 int font_bitmap(struct font *font, void *dst, int c);
 void font_free(struct font *font);
 int font_rows(struct font *font);
 int font_cols(struct font *font);
 
-extern char _binary_font_tf_start[];
-extern char _binary_font_tf_size[];
 extern char _binary_font_tf_end[];
+extern char _binary_font_tf_size[];
+extern char _binary_font_tf_start[];
 
 #endif

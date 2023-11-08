@@ -6,7 +6,7 @@
 #include <lib/string.h>
 #include <sys/thread.h>
 #include <sync/atomic.h>
-#include <arch/x86_64/pml4.h>
+#include <arch/paging.h>
 
 size_t mem_free(void);
 size_t mem_used(void);
@@ -71,7 +71,7 @@ done:
             map:
                 if (current)
                     goto map;
-                vaddr = page_mount(paddr);
+                arch_mount(paddr, (void **)&vaddr);
                 if (vaddr == 0) {
                     if (current)
                         goto map;
@@ -83,7 +83,7 @@ done:
                     }
                 } else {
                     memset((void *)vaddr, 0, PAGESZ);
-                    page_unmount((uintptr_t)vaddr);
+                    arch_unmount((uintptr_t)vaddr);
                 }
             } else {
                 memset((void *)VMA2HI(paddr), 0, PAGESZ);
@@ -212,32 +212,6 @@ void __pages_put(uintptr_t addr, size_t order) {
 
 void __page_put(uintptr_t addr) {
     __pages_put(addr, 0);
-}
-
-uintptr_t page_mount(uintptr_t paddr) {
-    int err = 0;
-    uintptr_t vaddr = 0;
-
-    if ((paddr == 0) || !(vaddr = vmman.alloc(PGSZ)))
-        return 0;
-
-    pagemap_binary_lock(&kernel_map);
-    err = x86_64_map_to(kernel_map.pdbr, vaddr, paddr, VM_KRW);
-    pagemap_binary_unlock(&kernel_map);
-
-    if (err) {
-        vmman.free(vaddr);
-        return 0;
-    }
-
-    return vaddr;
-}
-
-void page_unmount(uintptr_t vaddr) {
-    pagemap_binary_lock(&kernel_map);
-    x86_64_unmap(kernel_map.pdbr, vaddr);
-    pagemap_binary_unlock(&kernel_map);
-    vmman.free(vaddr);
 }
 
 uintptr_t mm_alloc(void) {

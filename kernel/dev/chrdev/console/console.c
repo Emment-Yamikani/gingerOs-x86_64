@@ -5,6 +5,9 @@
 #include <lib/printk.h>
 #include <mm/kalloc.h>
 #include <modules/module.h>
+#include <dev/console.h>
+#include <dev/uart.h>
+#include <dev/limeterm.h>
 
 dev_t consoledev;
 static int use_fb = 0;
@@ -17,6 +20,13 @@ static int console_init(void) {
 
     if (use_fb)
         printk("console will use framebuffer\n");
+    return 0;
+}
+
+int console_putc(int c) {
+    uart_putc(c);
+    if (use_earlycons)
+        return earlycons_putc(c);
     return 0;
 }
 

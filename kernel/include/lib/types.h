@@ -37,6 +37,7 @@ struct devid;
 typedef struct dev dev_t;
 
 typedef struct cpu cpu_t;
+typedef struct ipi_t ipi_t;
 typedef struct thread thread_t;
 typedef struct page page_t;
 typedef struct queue queue_t;

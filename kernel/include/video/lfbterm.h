@@ -10,6 +10,7 @@ extern volatile int use_gfx_cons;
 
 int lfbterm_init(void);
 void lfbterm_putc(int c);
+int lfbterm_sputc(int c);
 int lfb_console_init(void);
 void lfbterm_clrscrn(void);
 void lfbterm_savecolor(void);

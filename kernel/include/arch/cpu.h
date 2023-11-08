@@ -8,6 +8,7 @@
 #include <lib/stddef.h>
 #include <sys/sched.h>
 #include <arch/x86_64/context.h>
+#include <arch/x86_64/ipi.h>
 
 #define CPU_PBE             BS(63)    // Pend. Brk. EN.
 #define CPU_TM              BS(61)    // Therm. Monitor

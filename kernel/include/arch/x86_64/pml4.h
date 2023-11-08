@@ -114,23 +114,82 @@ typedef union viraddr {
 
 #define isalloc_page(flags)     ((flags)&ALLOC_PAGE)
 
-int x86_64_swtchvm(pte_t *pml4, pte_t **oldpml4);
-int x86_64_unmap(pte_t *pml4, uintptr_t v);
-pte_t *x86_64_get_mapping(pte_t *pml4, uintptr_t v);
-int x86_64_map(pte_t *pml4, uintptr_t v, size_t sz, uint32_t flags);
-int x86_64_unmap_n(pte_t *pml4, uintptr_t v, size_t sz, uint32_t flags);
-int x86_64_map_to(pte_t *pml4, uintptr_t v, uintptr_t p, uint32_t flags);
-int x86_64_map_to_n(pte_t *pml4, uintptr_t v, uintptr_t p, size_t sz, uint32_t flags);
-int x86_64_unmap_table_entry(pte_t *pml4, int level, int pml4i, int pdpti, int pdi, int pti);
+/**
+ * 
+*/
+int i64_swtchvm(uintptr_t pdbr, uintptr_t *old);
 
-int x86_64_swtchkvm(void);
-void x86_64_tlb_flush(void);
-int x86_64_kvmcpy(pte_t *dst);
-uintptr_t x86_64_getpdbr(void);
-int x86_64_unmappdbr(pte_t *pml4);
-int x86_64_mapt(pte_t *pml4, size_t t);
-int x86_64_unmapt(pte_t *pml4, size_t t);
-int x86_64_lazycpy(pte_t *dst, pagemap_t *src);
-int x86_64_mapv_n(pte_t *pml4, uintptr_t v, size_t sz, int flags);
-int x86_64_map_r(uintptr_t frame, int dp, int d, int t, int p, int flags);
-int x86_64_mappv(pte_t *pml4, uintptr_t p, uintptr_t v, size_t sz, int flags);
+/**
+ * 
+*/
+int i64_map(uintptr_t frame, int i4, int i3, int i2, int i1, int flags);
+
+/**
+ * 
+*/
+void i64_unmap(int i4, int i3, int i2, int i1);
+
+/**
+ * 
+*/
+void i64_unmap_n(uintptr_t v, size_t sz);
+
+/**
+ * 
+*/
+int i64_map_i(uintptr_t v, uintptr_t p, size_t sz, int flags);
+
+/**
+ * 
+*/
+int i64_map_n(uintptr_t v, size_t sz, int flags);
+
+/**
+ * 
+*/
+int i64_mount(uintptr_t p, void **pvp);
+
+/**
+ * 
+*/
+void i64_unmount(uintptr_t v);
+
+/**
+ * 
+*/
+void i64_unmap_full(void);
+
+/**
+ * 
+*/
+void i64_fullvm_unmap (uintptr_t pml4);
+
+/**
+ * 
+*/
+int i64_lazycpy(uintptr_t dst, uintptr_t src);
+
+/**
+ * 
+*/
+int i64_memcpypp(uintptr_t pdst, uintptr_t psrc, size_t size);
+
+/**
+ * 
+*/
+int i64_memcpyvp(uintptr_t p, uintptr_t v, size_t size);
+
+/**
+ * 
+*/
+int i64_memcpypv(uintptr_t v, uintptr_t p, size_t size);
+
+/**
+ * 
+*/
+int i64_getmapping(uintptr_t addr, pte_t **pte);
+
+/**
+ * 
+*/
+int i64_pml4alloc(uintptr_t *ref);

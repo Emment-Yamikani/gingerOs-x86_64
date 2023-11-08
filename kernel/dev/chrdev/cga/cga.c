@@ -7,15 +7,14 @@
 #include <mm/kalloc.h>
 #include <lib/ctype.h>
 #include <mm/vmm.h>
+#include <boot/boot.h>
 
-int use_cga = 0;
 static int pos = 0;
 static int cga_esc = 0;
 static uint8_t cga_attr = 0;
+static uint16_t *cga_addr = 0;
 static stack_t *cga_chars = STACK_NEW();
 static stack_t *cga_themes = STACK_NEW();
-
-static uint16_t *cga_addr = ((uint16_t *)VMA2HI(0xb8000));
 
 void cga_setcolor(int back, int fore) {
     cga_attr = (back << 4) | fore;
@@ -40,12 +39,14 @@ void cga_clr(void) {
 }
 
 int cga_init(void) {
+    if (bootinfo.fb.framebuffer_type == 2)
+        cga_addr = (uint16_t *)bootinfo.fb.framebuffer_addr;
+    else
+        cga_addr = (uint16_t *)VMA2HI(0xb8000);
     cga_setcolor(CGA_BLACK, CGA_WHITE);
     cga_clr();
-    use_cga = 1;
     return 0;
 }
-
 
 static int cga_putchar(const int c) {
     if (c == '\e') {

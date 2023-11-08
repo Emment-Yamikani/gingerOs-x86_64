@@ -128,10 +128,10 @@ typedef struct {
   void* arg;
 } out_fct_wrap_type;
 
-#include <dev/cga.h>
+#include <dev/console.h>
 
 void _putchar(char character) {
-  cga_putc(character);
+  console_putc(character);
 }
 
 // internal buffer output
