@@ -115,6 +115,7 @@ stub:
     push    qword r15
 
     mov     rdi, rsp
+    call    trap
 
 trapret:
     pop     qword r15

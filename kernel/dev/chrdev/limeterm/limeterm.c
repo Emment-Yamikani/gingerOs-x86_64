@@ -102,7 +102,7 @@ int limeterm_init(void) {
    
     ctx.op = 200;
     ctx.cursor_char = '|';
-    ctx.cursor_timeout = 20;
+    ctx.cursor_timeout = 200;
     ctx.bg_color = RGB_black;
     ctx.fg_color = RGB_white;
     ctx.lock = SPINLOCK_INIT();
@@ -426,25 +426,20 @@ size_t limeterm_puts(const char *s) {
     return S - s;
 }
 
-void ctx_drawcursor(struct limeterm_ctx *ctx) {
-    loop() {
-    debugloc();
-        spin_lock(&ctx->lock);
-        font_putc(ctx->cursor_char, ctx, ctx->cc, ctx->cr);
-        spin_unlock(&ctx->lock);
-        timer_wait(CLK_ANY, ctx->cursor_timeout);
-    debugloc();
-        spin_lock(&ctx->lock);
-        font_putc(' ', ctx, ctx->cc, ctx->cr);
-        spin_unlock(&ctx->lock);
-        timer_wait(CLK_ANY, ctx->cursor_timeout);
-    }
-}
-
 static void limeterm_cursor(void *arg __unused) {
     if (use_limeterm_cons == 0)
         thread_exit(-ENOENT);
-    ctx_drawcursor(&ctx);
+    loop() {
+        jiffies_timed_wait((double)ms_TO_s(ctx.cursor_timeout));
+        spin_lock(&ctx.lock);
+        font_putc(' ', &ctx, ctx.cc, ctx.cr);
+        spin_unlock(&ctx.lock);
+        jiffies_timed_wait((double)ms_TO_s(ctx.cursor_timeout));
+        spin_lock(&ctx.lock);
+        font_putc(ctx.cursor_char, &ctx, ctx.cc, ctx.cr);
+        spin_unlock(&ctx.lock);
+        hlt();
+    }
     loop();
 }
 BUILTIN_THREAD(limeterm_text, limeterm_cursor, NULL);
