@@ -133,8 +133,8 @@ int is64bit(void) {
 }
 
 int bsp_init(void) {
-    cpu_setcls(&bspcls);
     tvinit();
+    cpu_setcls(&bspcls);
     cpu_init();
     return 0;
 }

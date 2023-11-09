@@ -18,33 +18,32 @@
 #include <dev/cga.h>
 #include <lib/ctype.h>
 #include <mm/vmm.h>
+#include <video/color_code.h>
 
-typedef struct lfb_ctx
-{
-    int wallbg;
-    struct font *fontdata;
-    int textlines;
-    int lfb_textcc;
-    int lfb_textcr;
-    uint8_t *wallpaper;
-    int textpointer;
-    uint8_t cursor_char;
-    uint32_t **scanline0;
-    uint32_t **scanline1;
-    char **textscanline;
-    uint8_t cursor_timeout;
-    char *lfb_textbuffer;
-    uint32_t *lfb_backbuffer;
-    uint32_t *lfb_background;
-    uint32_t *lfb_frontbuffer;
-    int op, fg, bg, transp;
-    int cols, rows, cc, cr;
-    spinlock_t lock;
-} lfb_ctx_t;
+typedef struct limeterm_ctx {
+    int         op;             // foreground opacity.
+    int         fg_color;       // foreground color.
+    int         bg_color;       // background color.
+    int         cc;             // character col.
+    int         cr;             // character row.
+    int         cols;           // number of char cols.
+    int         rows;           // number of char rows.
+    int         transp;         // is transparency set.
+    int         wallbg;         // use wallpaper image for background?
+    struct font *font;          // tinyfont data.
+    uint8_t     *wallpaper;     // decoded wallpaper image.
+    uint32_t    **scanline0;    // multi-dimensional array of background pixel pointers.
+    uint32_t    **scanline1;    // multi-dimensional array of framebuffer pixel pointers.
+    uint32_t    *background;    // memory to hold the backgroung image.
+    uint8_t     cursor_char;    // character to use for the cursor.
+    uint32_t    *frontbuffer;   // frontbuffer of framebuffer.
+    int         cursor_timeout; // cursor blink timeout.
+    spinlock_t lock;            // ctx lock.
+} limeterm_ctx_t;
 
-lfb_ctx_t ctx;
-inode_t *lfb = NULL;
-inode_t *lfb_img = NULL;
+limeterm_ctx_t ctx;
+inode_t *limeterm = NULL;
+inode_t *limeterm_img = NULL;
 volatile int use_limeterm_cons = 0;
 volatile int limeterm_esc = 0;
 __unused static int cbufi = 0;
@@ -77,90 +76,83 @@ const char *wallpaper_path[] = {
                                         && ((x) >= 0) && ((y) >= 0))\
                                             int c = __text_peek((buff), (x), (y)); c; })
 
+void limeterm_fill_rect(uint32_t **scanline, int x, int y, int w, int h, int color) {
+    if (x < 0)
+        x = 0;
+    if (y < 0)
+        y = 0;
+    if ((w < 0) || (h < 0))
+        return;
+
+    int xmax = w + x, ymax = h + y;
+    if (xmax > (int)var_info.width)
+        xmax = var_info.width;
+    if (ymax > (int)var_info.height)
+        ymax = var_info.height;
+
+    for (; y < ymax; ++y)
+        for (int cx = x; cx < xmax; ++cx)
+            __put_pixel(scanline, cx, y, color);
+}
+
 int limeterm_init(void) {
     int err = -ENOMEM;
 
     memset(&ctx, 0, sizeof ctx);
-    ctx.lock = SPINLOCK_INIT();
-
-    if (NULL == (ctx.scanline0 = kcalloc(var_info.height, (sizeof *ctx.scanline0))))
-        return err;
-
-    if (NULL == (ctx.scanline1 = kcalloc(var_info.height, (sizeof *ctx.scanline1)))) {
-        kfree(ctx.scanline0);
-        return err;
-    }
-    
-    if (NULL == (ctx.lfb_backbuffer = kcalloc(1, fix_info.memsz))) {
-        kfree(ctx.scanline1);
-        kfree(ctx.scanline0);
-        return err;
-    }
-
-    if (NULL == (ctx.wallpaper = kcalloc(1, var_info.height * fix_info.line_length))) {
-        kfree(ctx.lfb_backbuffer);
-        kfree(ctx.scanline1);
-        kfree(ctx.scanline0);
-        return err;
-    }
-
-    if ((err = fontctx_alloc(&ctx.fontdata))) {
-        kfree(ctx.wallpaper);
-        kfree(ctx.lfb_backbuffer);
-        kfree(ctx.scanline1);
-        kfree(ctx.scanline0);
-        return err;
-    }
-
-    ctx.cols = (var_info.width / ctx.fontdata->cols);
-    ctx.rows = (var_info.height / ctx.fontdata->rows);
-
-    if (NULL == (ctx.lfb_textbuffer = kcalloc(3 * ctx.cols * ctx.rows, sizeof (char)))) {
-        kfree(ctx.fontdata->data);
-        kfree(ctx.fontdata->glyphs);
-        kfree(ctx.fontdata);
-        kfree(ctx.wallpaper);
-        kfree(ctx.lfb_backbuffer);
-        kfree(ctx.scanline1);
-        kfree(ctx.scanline0);
-        return err;
-    }
-
-    if (NULL == (ctx.textscanline = kcalloc(3 * ctx.rows, sizeof (char *)))) {
-        kfree(ctx.lfb_textbuffer);
-        kfree(ctx.fontdata->data);
-        kfree(ctx.fontdata->glyphs);
-        kfree(ctx.fontdata);
-        kfree(ctx.wallpaper);
-        kfree(ctx.lfb_backbuffer);
-        kfree(ctx.scanline1);
-        kfree(ctx.scanline0);
-        return err;
-    }
-
-
-    ctx.lfb_background  = (void *)ctx.wallpaper;
-    for (size_t row = 0; row < var_info.height; ++row)
-        ctx.scanline0[row] = &(ctx.lfb_background)[row * var_info.width];
-    
-    ctx.lfb_frontbuffer = (void *)fix_info.addr;
-    for (size_t row = 0; row < var_info.height; row++)
-        ctx.scanline1[row] = &(ctx.lfb_frontbuffer)[row * var_info.width];
-    
+   
     ctx.op = 200;
-    ctx.bg = RGB_black;
-    ctx.fg = RGB_white;
     ctx.cursor_char = '|';
     ctx.cursor_timeout = 20;
+    ctx.bg_color = RGB_black;
+    ctx.fg_color = RGB_white;
+    ctx.lock = SPINLOCK_INIT();
+
+    if ((err = fontctx_alloc(&ctx.font)))
+        goto error;
+
+    ctx.cols = (var_info.width / ctx.font->cols);
+    ctx.rows = (var_info.height / ctx.font->rows);
+
+    err = -ENOMEM;
+    if (NULL == (ctx.scanline0 = kcalloc(var_info.height, (sizeof *ctx.scanline0))))
+        goto error;
+
+    if (NULL == (ctx.scanline1 = kcalloc(var_info.height, (sizeof *ctx.scanline1))))
+        goto error;
+
+    if (NULL == (ctx.background = kcalloc(1, fix_info.memsz)))
+        goto error;
+
+    for (int row = 0; row < var_info.height; ++row)
+        ctx.scanline0[row] = &(ctx.background)[row * var_info.width];
+    
+    ctx.frontbuffer = (void *)fix_info.addr;
+    for (int row = 0; row < var_info.height; row++)
+        ctx.scanline1[row] = &(ctx.frontbuffer)[row * var_info.width];
 
     use_limeterm_cons = 1;
     limeterm_clrscrn();
 
     printk(cbuf);
     return 0;
+error:
+    if (ctx.background)
+        kfree(ctx.background);
+    
+    if (ctx.scanline1)
+        kfree(ctx.scanline1);
+    
+    if (ctx.scanline0)
+        kfree(ctx.scanline0);
+    
+    if (ctx.font) {
+        kfree(ctx.font->data);
+        kfree(ctx.font->glyphs);
+        kfree(ctx.font);
+    }
+    return err;
 }
 
-#include <video/color_code.h>
 int brew_color(int __color) {
     switch (__color) {
     case CGA_BLACK:
@@ -215,16 +207,16 @@ int brew_color(int __color) {
     return __color;
 }
 
-int font_putc(int c, struct lfb_ctx *ctx, int col, int row) {
-    char glyph[ctx->fontdata->rows * ctx->fontdata->cols];
-    font_bitmap(ctx->fontdata, glyph, c);
-    for (int i = 0; i < ctx->fontdata->rows; ++i) {
-        int cx = col * ctx->fontdata->cols;
-        for (int j = 0; j < ctx->fontdata->cols; ++j) {
-            char v = glyph[i * ctx->fontdata->cols + j];
+int font_putc(int c, struct limeterm_ctx *ctx, int col, int row) {
+    char glyph[ctx->font->rows * ctx->font->cols];
+    font_bitmap(ctx->font, glyph, c);
+    for (int i = 0; i < ctx->font->rows; ++i) {
+        int cx = col * ctx->font->cols;
+        for (int j = 0; j < ctx->font->cols; ++j) {
+            char v = glyph[i * ctx->font->cols + j];
             for (int b = 0; b < 8; ++b) {
-                __put_pixel(ctx->scanline1, cx, (row * ctx->fontdata->rows + i), ((v & (1 << b)) ? ctx->fg
-                    : (ctx->wallbg ? (int)__get_pixel(ctx->scanline0, cx, (row * ctx->fontdata->rows + i + 1)) : ctx->bg)));
+                __put_pixel(ctx->scanline1, cx, (row * ctx->font->rows + i), ((v & (1 << b)) ? ctx->fg_color
+                    : (ctx->wallbg ? (int)__get_pixel(ctx->scanline0, cx, (row * ctx->font->rows + i + 1)) : ctx->bg_color)));
             }
             ++cx;
         }
@@ -232,10 +224,7 @@ int font_putc(int c, struct lfb_ctx *ctx, int col, int row) {
     return 0;
 }
 
-void ctx_putchar(struct lfb_ctx *ctx, int c);
-int cxx = 0;
-
-void ctx_putchar(struct lfb_ctx *ctx, int c) {
+void ctx_putchar(struct limeterm_ctx *ctx, int c) {
     font_putc(' ', ctx, ctx->cc, ctx->cr);
     switch (c) {
     case '\n':
@@ -275,108 +264,46 @@ void ctx_putchar(struct lfb_ctx *ctx, int c) {
         limeterm_scroll();
 }
 
-void ctx_puts(struct lfb_ctx *ctx, char *str) {
+void ctx_puts(struct limeterm_ctx *ctx, char *str) {
     while (*str)
         ctx_putchar(ctx, *str++);
 }
 
-void limeterm_fill_rect(int x, int y, int w, int h, int color) {
-    if (x < 0)
-        x = 0;
-    if (y < 0)
-        y = 0;
-    if ((w < 0) || (h < 0))
-        return;
-
-    int xmax = w + x, ymax = h + y;
-    if (xmax > (int)var_info.width)
-        xmax = var_info.width;
-    if (ymax > (int)var_info.height)
-        ymax = var_info.height;
-
-    for (; y < ymax; ++y)
-        for (int cx = x; cx < xmax; ++cx)
-            __put_pixel(ctx.scanline1, cx, y, color);
-}
-
 void limeterm_clrscrn(void) {
     spin_lock(&ctx.lock);
-    if (!ctx.wallpaper)
-        limeterm_fill_rect(0, 0, var_info.width, var_info.height, ctx.bg);
-    else {
-        memcpy(ctx.lfb_frontbuffer, ctx.lfb_background, var_info.height * fix_info.line_length);
-        ctx.wallbg = 1;
-    }
+    limeterm_fill_rect(ctx.scanline0, 0, 0, var_info.width, var_info.height, ctx.bg_color);
+    memcpy(ctx.frontbuffer, ctx.background, fix_info.memsz);
     ctx.cc = ctx.cr = 0;
-    //limeterm_render();
     spin_unlock(&ctx.lock);
 }
 
 void limeterm_scroll(void) {
-    font_putc(' ', &ctx, ctx.cc, ctx.cr);
-    for (int row = ctx.fontdata->rows; row < (int)var_info.height; ++row)
-        for (int col = 0; col < (int)var_info.width; ++col)
-            __put_pixel((ctx.scanline1), col, (row - ctx.fontdata->rows), __peek_pixel(ctx.scanline0, col, row));
-    for (int row = (int)var_info.height - ctx.fontdata->rows; row < (int)var_info.height; ++row)
-        for (int col = 0; col < (int)var_info.width; ++col)
-            __put_pixel((ctx.scanline1), col, row, (ctx.wallbg ? (int)__get_pixel(ctx.scanline0, col, row) : ctx.bg));
+    for (int row = ctx.font->rows; row < var_info.height; ++row) {
+        for (int col = 0; col < var_info.width; ++col) {
+            __put_pixel(ctx.scanline1, col, row - ctx.font->rows,
+                __peek_pixel(ctx.scanline1, col, row));
+        }
+    }
+
+    for (int row = var_info.height - ctx.font->rows; row < var_info.height; ++row) {
+        for (int col = 0; col < var_info.width; ++col){
+            __put_pixel((ctx.scanline1), col, row, (ctx.wallbg ?
+                (int)__get_pixel(ctx.scanline0, col, row) : ctx.bg_color));
+        }
+    }
+
     ctx.cc = 0;
     ctx.cr = ctx.rows - 1;
 }
 
-void lfbtext_putc(int c) {
-    //__text_putc()
-    //char **buff = &ctx.scanline2[ctx.textpointer];
-    //__text_putc(buff, ctx.lfb_textcc, ctx.lfb_textcr, c);
-
-    switch (c) {
-    case '\n':
-        ctx.lfb_textcc = 0;
-        ctx.lfb_textcr++;
-        break;
-    case '\t':
-        ctx.lfb_textcc = (ctx.lfb_textcc + 4) & ~3;
-        if (ctx.lfb_textcc >= ctx.cols) {
-            ctx.lfb_textcr++;
-            ctx.lfb_textcc = 0;
-        }
-        break;
-    case '\r':
-        ctx.lfb_textcc = 0;
-        break;
-    case '\b':
-        ctx.lfb_textcc--;
-        if (ctx.lfb_textcc < 0) {
-            ctx.lfb_textcr--;
-            if (ctx.lfb_textcr >= 0)
-                ctx.lfb_textcc = ctx.cols - 1;
-            else
-                ctx.lfb_textcr = ctx.lfb_textcc = 0;
-        }
-        font_putc(' ', &ctx, ctx.lfb_textcc, ctx.lfb_textcr);
-        break;
-    default:
-        font_putc(c, &ctx, ctx.lfb_textcc, ctx.lfb_textcr);
-        ctx.lfb_textcc++;
-        if (ctx.lfb_textcc >= ctx.cols) {
-            ctx.lfb_textcr++;
-            ctx.lfb_textcc = 0;
-        }
-    }
-    if (ctx.lfb_textcr >= ctx.rows)
-        limeterm_scroll();
-}
-
-void limeterm_setcolor(int bg, int fg) {
+void limeterm_setcolor(int bg_color, int fg_color) {
     spin_lock(&ctx.lock);
-    ctx.bg = brew_color(bg);
-    ctx.fg = brew_color(fg);
+    ctx.bg_color = brew_color(bg_color);
+    ctx.fg_color = brew_color(fg_color);
     spin_unlock(&ctx.lock);
 }
 
 void limeterm_putc(int c) {
-    cxx = c;
-
     if (c == '\e') {
         limeterm_esc = 1;
         return;
@@ -387,12 +314,12 @@ void limeterm_putc(int c) {
         if (limeterm_esc) {
             size_t val = 0;
             static int open_ = 0;
-            static int16_t fg = 0;
-            static int16_t bg = 0;
+            static int16_t fg_color = 0;
+            static int16_t bg_color = 0;
             if (c == '[') {
                 open_ = 1;
                 spin_lock(&ctx.lock);
-                val = ((size_t)ctx.fg << 32 | ctx.bg);
+                val = ((size_t)ctx.fg_color << 32 | ctx.bg_color);
                 spin_unlock(&ctx.lock);
                 stack_lock(limeterm_themes);
                 stack_push(limeterm_themes, (void *)val);
@@ -408,7 +335,7 @@ void limeterm_putc(int c) {
                         stack_pop(limeterm_chars, (void **)((long *)&c)) == 0; ni++) {
                         for (pw = 1, i = ni; i; --i)
                             pw *= 8;
-                        bg += c * pw;
+                        bg_color += c * pw;
                     }
                     stack_unlock(limeterm_chars);
                     return;
@@ -420,8 +347,8 @@ void limeterm_putc(int c) {
                     stack_pop(limeterm_themes, (void **)&val);
                     stack_unlock(limeterm_themes);
                     limeterm_setcolor(val, val >> 32);
-                    fg = 0;
-                    bg = 0;
+                    fg_color = 0;
+                    bg_color = 0;
                     open_ = 0;
                     limeterm_esc = 0;
                     return;
@@ -441,12 +368,12 @@ void limeterm_putc(int c) {
                     stack_pop(limeterm_chars, (void **)((long *)&c)) == 0; ni++) {
                     for (pw = 1, i = ni; i; --i)
                         pw *= 8;
-                    fg += c * pw;
+                    fg_color += c * pw;
                 }
                 stack_unlock(limeterm_chars);
-                limeterm_setcolor(bg, fg);
-                fg = 0;
-                bg = 0;
+                limeterm_setcolor(bg_color, fg_color);
+                fg_color = 0;
+                bg_color = 0;
                 limeterm_esc = 0;
                 return;
             }
@@ -499,7 +426,7 @@ size_t limeterm_puts(const char *s) {
     return S - s;
 }
 
-void ctx_drawcursor(struct lfb_ctx *ctx) {
+void ctx_drawcursor(struct limeterm_ctx *ctx) {
     loop() {
     debugloc();
         spin_lock(&ctx->lock);
@@ -520,4 +447,4 @@ static void limeterm_cursor(void *arg __unused) {
     ctx_drawcursor(&ctx);
     loop();
 }
-BUILTIN_THREAD(lfb_text, limeterm_cursor, NULL);
+BUILTIN_THREAD(limeterm_text, limeterm_cursor, NULL);

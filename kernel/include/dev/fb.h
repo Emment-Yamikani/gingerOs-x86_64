@@ -28,13 +28,13 @@ typedef struct fb_fixinfo {
 } fb_fixinfo_t;
 
 typedef struct fb_varinfo {
-    size_t bpp;          // bits per pixel
-    size_t width;        // pixels per row
-    size_t height;       // pixels per column
-    uint32_t vmode;      // video mode
-    uint32_t pitch;      // pitch
-    uint32_t grayscale;  // greyscaling
-    uint32_t colorspace; // colorspace (e.g, RBGA, e.t.c)
+    int         bpp;        // bits per pixel
+    int         width;      // pixels per row
+    int         height;     // pixels per column
+    uint32_t    vmode;      // video mode
+    uint32_t    pitch;      // pitch
+    uint32_t    grayscale;  // greyscaling
+    uint32_t    colorspace; // colorspace (e.g, RBGA, e.t.c)
 
     /* bitfield if true color */
 

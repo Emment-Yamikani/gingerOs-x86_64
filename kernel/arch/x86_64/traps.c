@@ -52,6 +52,8 @@ void dump_tf(tf_t *tf, int halt) {
 
 void trap(tf_t *tf) {
     time_t time = 0;
+    debugloc();
+
     switch (tf->trapno) {
     case IRQ(0):
         pit_intr();
