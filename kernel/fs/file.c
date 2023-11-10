@@ -87,9 +87,9 @@ generic:
         fdestroy(file);
         goto done;
     }
-    
-done:
+
     funlock(file);
+done:
     return 0;
 }
 
