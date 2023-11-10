@@ -12,9 +12,8 @@
 dev_t consoledev;
 static int use_fb = 0;
 
-
 static int console_init(void) {
-    printk("initializing console...\n");
+    printk("Initializing \e[0;011m%s\e[0m chardev...\n", "console");
     if (bootinfo.fb.framebuffer_type == 1)
         use_fb = 1;
 

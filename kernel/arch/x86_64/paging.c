@@ -31,7 +31,7 @@ static inline int i64_map_pdpt(int i4, int flags) {
     if (isPS(flags))
         return -ENOTSUP;
 
-    if (PML4E(i4)->p == 0) {
+    if (!ispresent(PML4E(i4)->raw)) {
         if ((lvl3 = pmman.alloc()) == 0)
             return -ENOMEM;
 
@@ -54,7 +54,7 @@ static inline int i64_map_pdt(int i4, int i3, int flags) {
     if (isPS(flags))
         return -ENOTSUP;
 
-    if (PML4E(i4)->p == 0) {
+    if (!ispresent(PML4E(i4)->raw)) {
         if ((lvl3 = pmman.alloc()) == 0)
             goto error;
 
@@ -64,7 +64,7 @@ static inline int i64_map_pdt(int i4, int i3, int flags) {
         I64_CLR(PDPTE(i4, 0));
     }
 
-    if (PDPTE(i4, i3)->p == 0) {
+    if (!ispresent(PDPTE(i4, i3)->raw)) {
         if ((lvl2 = pmman.alloc()) == 0)
             goto error;
 
@@ -95,7 +95,7 @@ static inline int i64_map_pt(int i4, int i3, int i2, int flags) {
     if (isPS(flags))
         return -ENOTSUP;
 
-    if (PML4E(i4)->p == 0) {
+    if (!ispresent(PML4E(i4)->raw)) {
         if ((lvl3 = pmman.alloc()) == 0)
             goto error;
 
@@ -105,7 +105,7 @@ static inline int i64_map_pt(int i4, int i3, int i2, int flags) {
         I64_CLR(PDPTE(i4, 0));
     }
 
-    if (PDPTE(i4, i3)->p == 0) {
+    if (!ispresent(PDPTE(i4, i3)->raw)) {
         if ((lvl2 = pmman.alloc()) == 0)
             goto error;
 
@@ -115,7 +115,7 @@ static inline int i64_map_pt(int i4, int i3, int i2, int flags) {
         I64_CLR(PDTE(i4, i3, 0));
     }
 
-    if (PDTE(i4, i3, i2)->p == 0) {
+    if (!ispresent(PDTE(i4, i3, i2)->raw)) {
         if ((lvl1 = pmman.alloc()) == 0)
             goto error;
 
@@ -217,7 +217,7 @@ int i64_map(uintptr_t p, int i4, int i3, int i2, int i1, int flags) {
     if (isPS(flags))
         return -ENOTSUP;
 
-    if (PML4E(i4)->p == 0) {
+    if (!ispresent(PML4E(i4)->raw)) {
         if ((lvl3 = pmman.alloc()) == 0)
             goto error;
 
@@ -227,7 +227,7 @@ int i64_map(uintptr_t p, int i4, int i3, int i2, int i1, int flags) {
         I64_CLR(PDPTE(i4, 0));
     }
 
-    if (PDPTE(i4, i3)->p == 0) {
+    if (!ispresent(PDPTE(i4, i3)->raw)) {
         if ((lvl2 = pmman.alloc()) == 0)
             goto error;
 
@@ -237,7 +237,7 @@ int i64_map(uintptr_t p, int i4, int i3, int i2, int i1, int flags) {
         I64_CLR(PDTE(i4, i3, 0));
     }
 
-    if (PDTE(i4, i3, i2)->p == 0) {
+    if (!ispresent(PDTE(i4, i3, i2)->raw)) {
         if ((lvl1 = pmman.alloc()) == 0)
             goto error;
 
@@ -247,7 +247,7 @@ int i64_map(uintptr_t p, int i4, int i3, int i2, int i1, int flags) {
         I64_CLR(PTE(i4, i3, i2, 0));
     }
 
-    if (PTE(i4, i3, i2, i1)->p == 0)
+    if (!ispresent(PTE(i4, i3, i2, i1)->raw))
         PTE(i4, i3, i2, i1)->raw = PGROUND(p) | PGOFF(flags);
     send_tlb_shootdown(rdcr3(), vaddr);
     invlpg(vaddr);
@@ -271,7 +271,7 @@ error:
 }
 
 void i64_unmap(int i4, int i3, int i2, int i1) {
-    if (PML4E(i4)->p == 0)
+    if (!ispresent(PML4E(i4)->raw))
         return;
     
     if (!ispresent(PDPTE(i4, i3)->raw))
@@ -532,7 +532,7 @@ int i64_memcpypp(uintptr_t pdst, uintptr_t psrc, size_t size) {
     size_t len = 0;
     uintptr_t vdst = 0, vsrc = 0;
 
-    while (size) {
+    for (; size; size -= len, psrc += len, pdst += len) {
         if ((err = i64_mount(PGROUND(pdst), (void **)&vdst)))
             return err;
 
@@ -544,9 +544,7 @@ int i64_memcpypp(uintptr_t pdst, uintptr_t psrc, size_t size) {
         len = MIN(PAGESZ - MAX(PGOFF(psrc), PGOFF(pdst)), PAGESZ);
         len = MIN(len, size);
         memcpy((void *)(vdst + PGOFF(pdst)), (void *)(vsrc + PGOFF(psrc)), len);
-        size -= len;
-        psrc += len;
-        pdst += len;
+
         i64_unmount(vsrc);
         i64_unmount(vdst);
     }
@@ -559,15 +557,12 @@ int i64_memcpyvp(uintptr_t p, uintptr_t v, size_t size) {
     size_t len = 0;
     uintptr_t vdst = 0;
     
-    while (size) {
+    for (; size; size -= len, p += len, v += len) {
         if ((err = i64_mount(PGROUND(p), (void **)&vdst)))
             return err;
 
         len = MIN(PAGESZ - PGOFF(p), size);
         memcpy((void *)(vdst + PGOFF(p)), (void *)v, len);
-        size -= len;
-        p += len;
-        v += len;
         i64_unmount(vdst);
     }
 
@@ -579,15 +574,12 @@ int i64_memcpypv(uintptr_t v, uintptr_t p, size_t size) {
     size_t len = 0;
     uintptr_t vsrc = 0;
     
-    while (size) {
+    for (; size; size -= len, p += len, v += len) {
         if ((err = i64_mount(PGROUND(p), (void **)&vsrc)))
             return err;
 
         len = MIN(PAGESZ - PGOFF(p), size);
         memcpy((void *)v, (void *)(vsrc + PGOFF(p)), len);
-        size -= len;
-        p += len;
-        v += len;
         i64_unmount(vsrc);
     }
 

@@ -7,13 +7,13 @@
 // The system heartbeat @ 100Hz = 10000000ns
 #define SYS_HZ (100)
 
-#define s_TO_ms(s)          ((double)(s) * 1000)        // convert seconds to ms
-#define s_TO_us(s)          ((double)(s) * 1000000)     // convert seconds to us
-#define s_TO_ns(s)          ((double)(s) * 1000000000)  // convert seconds to ns
+#define s_TO_ms(s)          ((double)(s) * 1000ul)        // convert seconds to ms
+#define s_TO_us(s)          ((double)(s) * 1000000ul)     // convert seconds to us
+#define s_TO_ns(s)          ((double)(s) * 1000000000ul)  // convert seconds to ns
 
-#define ms_TO_s(s)          ((double)(s) / 1000)        // convert ms to seconds
-#define us_TO_s(s)          ((double)(s) / 1000000)     // convert us to seconds
-#define ns_TO_s(s)          ((double)(s) / 1000000000)  // convert ns to seconds
+#define ms_TO_s(s)          ((double)(s) / 1000ul)        // convert ms to seconds
+#define us_TO_s(s)          ((double)(s) / 1000000ul)     // convert us to seconds
+#define ns_TO_s(s)          ((double)(s) / 1000000000ul)  // convert ns to seconds
 
 #define HZ_TO_s(Hz)         ((double)1 / (Hz))          // convert Hz to s
 #define HZ_TO_ms(Hz)        (s_TO_ms(HZ_TO_s(Hz)))      // convert Hz to ms

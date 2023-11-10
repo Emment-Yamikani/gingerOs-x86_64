@@ -29,10 +29,18 @@
 
 __noreturn void kthread_main(void) {
     printk("Welcome to \e[0;011m'Ginger OS'\e[0m.\n");
-
     builtin_threads_begin(NULL);
 
-    memory_usage();
+    char buf[PGSZ];
+    dentry_t *file = NULL;
+
+    vfs_lookup("/ramfs/kernel.ld", NULL, O_RDONLY, 0, 0, &file);
+    ilock(file->d_inode);
+    iread(file->d_inode, 0, buf, sizeof buf);
+    iunlock(file->d_inode);
+    dclose(file);
+
+    printk(buf);
 
     loop() thread_join(0, NULL, NULL);
 }

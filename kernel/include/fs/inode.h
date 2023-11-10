@@ -44,7 +44,7 @@ typedef struct inode {
     struct iops     *i_ops;     // Filesystem specific inode operations. 
     void            *i_priv;    // Filesystem specific private data.
     struct dentry   *i_alias;   // Alias to this inode (can be multiple).
-    page_cache_t    *i_pgcache; // Page cache for this inode.
+    icache_t        *i_cache; // Page cache for this inode.
     spinlock_t      i_lock;     // Spinlock to protect access to this inode.
     /**
      * TODO: May need to add another type of locking mechanism
@@ -64,8 +64,8 @@ typedef struct iops {
     int     (*iclose)(inode_t *ip);
     int     (*iunlink)(inode_t *ip);
     int     (*itruncate)(inode_t *ip);
-    ssize_t (*iread)(inode_t *ip, off_t off, void *buf, size_t nb);
-    ssize_t (*iwrite)(inode_t *ip, off_t off, void *buf, size_t nb);
+    ssize_t (*iread_data)(inode_t *ip, off_t off, void *buf, size_t nb);
+    ssize_t (*iwrite_data)(inode_t *ip, off_t off, void *buf, size_t nb);
     int     (*imknod)(inode_t *dir, struct dentry *dentry, mode_t mode, int devid);
     int     (*ifcntl)(inode_t *ip, int cmd, void *argp);
     int     (*iioctl)(inode_t *ip, int req, void *argp);
@@ -111,6 +111,16 @@ typedef struct iops {
 #define IISFIFO(ip)({ IISTYPE(ip, FS_FIFO); })
 #define IISDEV(ip) ({ IISCHR(ip) || IISBLK(ip); })
 
+#define igetsize(ip) ({ \
+    iassert_locked(ip); \
+    ip->i_size;         \
+})
+
+#define iupdate_size(ip, size) ({ \
+    iassert_locked(ip);           \
+    ip->i_size = (size);          \
+})
+
 int     ialloc(inode_t **pip);
 int     iopen(inode_t *ip);
 void    iputcnt(inode_t *ip);
@@ -132,7 +142,9 @@ int     iioctl(inode_t *ip, int req, void *argp);
 int     ilookup(inode_t *dir, const char *fname, inode_t **pipp);
 int     check_iperm(inode_t *ip, uio_t *uio, int oflags);
 ssize_t iread(inode_t *ip, off_t off, void *buf, size_t nb);
+ssize_t iread_data(inode_t *ip, off_t off, void *buf, size_t nb);
 ssize_t iwrite(inode_t *ip, off_t off, void *buf, size_t nb);
+ssize_t iwrite_data(inode_t *ip, off_t off, void *buf, size_t nb);
 int     ibind(inode_t *dir, struct dentry *dentry, inode_t *ip);
 int     imkdir(inode_t *dir, const char *fname, mode_t mode);
 int     icreate(inode_t *dir, const char *fname, mode_t mode);

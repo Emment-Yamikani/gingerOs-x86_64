@@ -6,77 +6,163 @@
 #include <mm/kalloc.h>
 #include <lib/string.h>
 #include <fs/inode.h>
+#include <lib/stddef.h>
 
-int pgcache_alloc(page_cache_t **ppcp) {
-    page_cache_t *pgcache = NULL;
+int icache_alloc(icache_t **ppcp) {
+    icache_t *icache = NULL;
 
     if (ppcp == NULL)
         return -EINVAL;
 
-    if ((pgcache = kmalloc(sizeof *pgcache)) == NULL)
+    if ((icache = kmalloc(sizeof *icache)) == NULL)
         return -ENOMEM;
     
-    memset(pgcache, 0, sizeof *pgcache);
+    memset(icache, 0, sizeof *icache);
 
-    pgcache->pc_flags = 0;
-    pgcache->pc_refcnt = 1;
-    pgcache->pc_nrpages = 0;
-    pgcache->pc_btree = BTREE_INIT();
-    pgcache->pc_queue = QUEUE_INIT();
-    pgcache->pc_lock = SPINLOCK_INIT();
-    *ppcp = pgcache;
+    icache->pc_flags = 0;
+    icache->pc_refcnt = 1;
+    icache->pc_nrpages = 0;
+    icache->pc_btree = BTREE_INIT();
+    icache->pc_queue = QUEUE_INIT();
+    icache->pc_lock = SPINLOCK_INIT();
+    *ppcp = icache;
 
     return 0;
 }
 
-void pgcache_free(page_cache_t *pgcache) {
+void icache_free(icache_t *icache) {
     int unlock = 0;
     
-    if (pgcache == NULL)
+    if (icache == NULL)
         return;
     
-    if ((unlock = !pgcache_islocked(pgcache)))
-        pgcache_lock(pgcache);
+    if ((unlock = !icache_islocked(icache)))
+        icache_lock(icache);
     
-    --pgcache->pc_refcnt;
+    --icache->pc_refcnt;
 
-    if (pgcache->pc_refcnt <= 0) {
-        pgcache_btree_lock(pgcache);
-        btree_flush(pgcache_btree(pgcache));
-        pgcache_btree_unlock(pgcache);
+    if (icache->pc_refcnt <= 0) {
+        icache_btree_lock(icache);
+        btree_flush(icache_btree(icache));
+        icache_btree_unlock(icache);
 
-        pgcache_queue_lock(pgcache);
-        queue_flush(pgcache_queue(pgcache));
-        pgcache_queue_unlock(pgcache);
+        icache_queue_lock(icache);
+        queue_flush(icache_queue(icache));
+        icache_queue_unlock(icache);
 
-        pgcache_unlock(pgcache);
-        kfree(pgcache);
+        icache_unlock(icache);
+        kfree(icache);
     } else {
         if (unlock != 0)
-            pgcache_unlock(pgcache);
+            icache_unlock(icache);
     }
 }
 
-int pgcache_getpage(page_cache_t *pgcache, off_t pgno __unused, page_t **ppgp) {
+int icache_getpage(icache_t *icache, off_t pgno, page_t **ref) {
     int err = 0;
-    page_t *pg = NULL;
+    ssize_t size = 0;
+    int new_page = 0;
+    page_t *page = NULL;
+    char buff[PGSZ] = {0};
 
-    pgcache_assert_locked(pgcache);
+    if (ref == NULL || icache == NULL)
+        return -EINVAL;    
 
-    if (pgcache == NULL || ppgp == NULL)
-        return -EINVAL;
-
-    if ((pg = alloc_page(GFP_KERNEL)) == NULL)
-        return -ENOMEM;
+    icache_assert_locked(icache);
     
+    icache_btree_lock(icache);
+    if (0 == (err = btree_search(icache_btree(icache), pgno, (void **)&page))) {
+        icache_btree_unlock(icache);
+        if (!page_valid(page))
+            goto update;
+        goto done;
+    }
+    icache_btree_unlock(icache);
+
+    err = -ENOMEM;
+    if ((page = alloc_page(GFP_KERNEL | GFP_ZERO)) == NULL)
+        goto error;
+    
+    new_page = 1;
+
+update:
+    if ((err = (size = iread_data(icache->pc_inode, pgno * PGSZ, buff, PGSZ))) < 0)
+        goto error;
+
+    if ((err = arch_memcpyvp(page_address(page), (uintptr_t)buff, size)))
+        goto error;
     
 
+    page->flags.dirty = 0;
+    page->flags.valid = 1;
 
+    if (new_page) {
+        icache_btree_lock(icache);
+        if ((err = btree_insert(icache_btree(icache), pgno, page))) {
+            icache_btree_unlock(icache);
+            goto error;
+        }
+        icache_btree_unlock(icache);
+    }
+done:
+    *ref = page;
     return 0;
-error: __unused
+error:
+    if (new_page)
+        page_put(page);
     return err;
 }
 
-ssize_t pgcache_read(page_cache_t *pgcache, off_t off, void *buf, size_t nbyte);
+ssize_t icache_read(icache_t *icache, off_t off, void *buff, size_t sz) {
+    ssize_t err = 0;
+    page_t *page = NULL;
+    off_t   pgno        = 0;    /*page number*/
+    ssize_t  total      = 0;    /*total bytes read*/
+    off_t   offset      = off;  /*current offset*/
+    size_t  size        = 0;    /*size to read*/
+    size_t  pagesz      = 0;
 
-ssize_t pgcache_write(page_cache_t *pgcache, off_t off, void *buf, size_t nbyte);
+    icache_assert_locked(icache);
+    for (; sz; sz -= size, total += size, offset += size) {
+        pgno = offset / PGSZ;
+        if ((err = (ssize_t)icache_getpage(icache, pgno, &page)))
+            goto error;
+
+        pagesz = PAGESZ - (offset % PGSZ);
+        size = MIN(pagesz, sz);
+        if ((err = (ssize_t)arch_memcpypv((uintptr_t)buff + total,
+                      page_address(page) + (offset % PGSZ), size)))
+            goto error;
+    }
+
+    return total;
+error:
+    return err;
+}
+
+ssize_t icache_write(icache_t *icache, off_t off, void *buff, size_t sz) {
+    ssize_t err = 0;
+    page_t *page = NULL;
+    off_t   pgno        = 0;    /*page number*/
+    ssize_t  total      = 0;    /*total bytes written*/
+    off_t   offset      = off;  /*current offset*/
+    size_t  size        = 0;    /*size to write*/
+    size_t  pagesz      = 0;
+
+    icache_assert_locked(icache);
+    for (; sz; sz -= size, total += size, offset += size) {
+        pgno = offset / PGSZ;
+        if ((err = (ssize_t)icache_getpage(icache, pgno, &page)))
+            goto error;
+
+        pagesz = PAGESZ - (offset % PGSZ);
+        size = MIN(pagesz, sz);
+        if ((err = (ssize_t)arch_memcpyvp(page_address(page) + (offset % PGSZ),
+                                 (uintptr_t)buff + total, size)))
+            goto error;
+    }
+
+    return total;
+error:
+    return err;
+}

@@ -12,7 +12,7 @@
 typedef struct page
 {
     page_flags_t    flags;
-    page_cache_t    *mapping;
+    icache_t        *mapping;
     atomic_t        ref_count;
     atomic_t        map_count;
     uintptr_t       virtual; // virtual addr

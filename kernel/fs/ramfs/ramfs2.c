@@ -223,7 +223,7 @@ __unused static int ramfs2_open(inode_t *ip __unused, int mode __unused, ...)
     return 0;
 }
 
-static ssize_t ramfs2_read(inode_t *ip, off_t off, void *buf, size_t sz)
+static ssize_t ramfs2_read_data(inode_t *ip, off_t off, void *buf, size_t sz)
 {
     ramfs2_node_t *node = NULL;
     ssize_t retval = 0;
@@ -243,7 +243,7 @@ static ssize_t ramfs2_read(inode_t *ip, off_t off, void *buf, size_t sz)
     return retval;
 }
 
-static ssize_t ramfs2_write(inode_t *ip __unused, off_t off __unused, void *buf __unused, size_t sz __unused)
+static ssize_t ramfs2_write_data(inode_t *ip __unused, off_t off __unused, void *buf __unused, size_t sz __unused)
 {
     return -EROFS;
 }
@@ -273,7 +273,7 @@ __unused static int ramfs2_lseek(inode_t *ip __unused, off_t off __unused, int w
     return -EINVAL;
 }
 
-static ssize_t ramfs2_readdir(inode_t *dir, off_t offset, struct dirent *buff, size_t count) {
+static ssize_t ramfs2_read_datadir(inode_t *dir, off_t offset, struct dirent *buff, size_t count) {
     ramfs2_node_t *node = NULL;
     
     iassert_locked(dir);
@@ -347,10 +347,10 @@ static iops_t ramfs2_iops = {
     .iioctl = ramfs2_ioctl,
     // .ilseek = ramfs2_lseek,
     // .iopen = ramfs2_open,
-    .iread = ramfs2_read,
+    .iread_data = ramfs2_read_data,
     .isync = ramfs2_sync,
-    .iwrite = ramfs2_write,
-    .ireaddir = ramfs2_readdir,
+    .iwrite_data = ramfs2_write_data,
+    .ireaddir = ramfs2_read_datadir,
 };
 
 /*

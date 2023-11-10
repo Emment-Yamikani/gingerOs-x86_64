@@ -24,9 +24,10 @@ int ialloc(inode_t **pip) {
     ip->i_lock = SPINLOCK_INIT();
     ilock(ip);
 
-    if ((err = pgcache_alloc(&ip->i_pgcache)))
+    if ((err = icache_alloc(&ip->i_cache)))
         goto error;
 
+    ip->i_cache->pc_inode = ip;
     *pip = ip;
     return 0;
 error:
@@ -40,7 +41,7 @@ void ifree(inode_t *ip) {
 
     if (ip->i_refcnt <= 0) {
         iunlink(ip);
-        pgcache_free(ip->i_pgcache);
+        icache_free(ip->i_cache);
         kfree(ip);
     }
 }
@@ -220,7 +221,7 @@ int     iclose(inode_t *ip) {
     return ip->i_ops->iclose(ip);
 }
 
-ssize_t iread(inode_t *ip, off_t off, void *buf, size_t nb) {
+ssize_t iread_data(inode_t *ip, off_t off, void *buf, size_t nb) {
     ssize_t err = 0;
 
     iassert_locked(ip);
@@ -228,23 +229,23 @@ ssize_t iread(inode_t *ip, off_t off, void *buf, size_t nb) {
     if (IISDIR(ip))
         return -EISDIR;
 
-    if ((err = icheck_op(ip, iread)))
+    if ((err = icheck_op(ip, iread_data)))
         return err;
     
-    return ip->i_ops->iread(ip, off, buf, nb);
+    return ip->i_ops->iread_data(ip, off, buf, nb);
 }
 
-ssize_t iwrite(inode_t *ip, off_t off, void *buf, size_t nb) {
+ssize_t iwrite_data(inode_t *ip, off_t off, void *buf, size_t nb) {
     ssize_t err = 0;
     iassert_locked(ip);
 
     if (IISDIR(ip))
         return -EISDIR;
 
-    if ((err = icheck_op(ip, iwrite)))
+    if ((err = icheck_op(ip, iwrite_data)))
         return err;
     
-    return ip->i_ops->iwrite(ip, off, buf, nb);
+    return ip->i_ops->iwrite_data(ip, off, buf, nb);
 }
 
 int     imknod(inode_t *dir, struct dentry *dentry, mode_t mode, int devid) {
@@ -487,4 +488,28 @@ exec_perms:
 done:
     // printk("%s(): \e[0;12maccess granted\e[0m\n", __func__);
     return 0;
+}
+
+ssize_t iread(inode_t *ip, off_t off, void *buf, size_t sz) {
+    ssize_t retval = 0;
+    iassert_locked(ip);
+    if (ip->i_cache == NULL)
+        return iread_data(ip, off, buf, sz);
+
+    icache_lock(ip->i_cache);    
+    retval = icache_read(ip->i_cache, off, buf, sz);
+    icache_unlock(ip->i_cache);
+    return retval;
+}
+
+ssize_t iwrite(inode_t *ip, off_t off, void *buf, size_t sz) {
+    ssize_t retval = 0;
+    iassert_locked(ip);
+    if (ip->i_cache == NULL)
+        return iwrite_data(ip, off, buf, sz);
+
+    icache_lock(ip->i_cache);    
+    retval = icache_write(ip->i_cache, off, buf, sz);
+    icache_unlock(ip->i_cache);
+    return retval;
 }

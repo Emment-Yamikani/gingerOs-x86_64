@@ -22,14 +22,14 @@
 
 typedef struct limeterm_ctx {
     int         op;             // foreground opacity.
-    int         fg_color;       // foreground color.
-    int         bg_color;       // background color.
     int         cc;             // character col.
     int         cr;             // character row.
     int         cols;           // number of char cols.
     int         rows;           // number of char rows.
     int         transp;         // is transparency set.
     int         wallbg;         // use wallpaper image for background?
+    int         fg_color;       // foreground color.
+    int         bg_color;       // background color.
     struct font *font;          // tinyfont data.
     uint8_t     *wallpaper;     // decoded wallpaper image.
     uint32_t    **scanline0;    // multi-dimensional array of background pixel pointers.
@@ -58,16 +58,21 @@ const char *wallpaper_path[] = {
 };
 
 #define __peek_pixel(f, x, y) ((f)[(int)(y)][(int)(x)])
+
 #define __set_pixel(f, x, y, c) (__peek_pixel((f), (x), (y)) = (c))
+
 #define __put_pixel(f, x, y, c) ({if (((x) < (int)var_info.width) &&\
                                      ((y) < (int)var_info.height) && ((x) >= 0) && ((y) >= 0))\
                                      __set_pixel((f), (x), (y), (c)); })
+
 #define __get_pixel(f, x, y) ({uint32_t px = 0; if (((x) < (int)var_info.width) &&\
                                      ((y) < (int)var_info.height) && ((x) >= 0) && ((y) >= 0))\
                                      px = __peek_pixel((f), (x), (y)); px; })
 
 #define __text_peek(buff, x, y) ((buff)[(int)(y)][(int)(x)])
+
 #define __text_setc(buff, x, y, c) (__text_peek((buff), (x), (y)) = (c))
+
 #define __text_putc(buff, x, y, c) ({if (((x) < (int)ctx.cols) && ((y) < (int)ctx.rows)\
                                         && ((x) >= 0) && ((y) >= 0))\
                                             __text_setc((buff), (x), (y), (c)); })
@@ -102,7 +107,7 @@ int limeterm_init(void) {
    
     ctx.op = 200;
     ctx.cursor_char = '|';
-    ctx.cursor_timeout = 200;
+    ctx.cursor_timeout = 100;
     ctx.bg_color = RGB_black;
     ctx.fg_color = RGB_white;
     ctx.lock = SPINLOCK_INIT();
@@ -430,16 +435,14 @@ static void limeterm_cursor(void *arg __unused) {
     if (use_limeterm_cons == 0)
         thread_exit(-ENOENT);
     loop() {
-        jiffies_timed_wait((double)ms_TO_s(ctx.cursor_timeout));
-        spin_lock(&ctx.lock);
-        font_putc(' ', &ctx, ctx.cc, ctx.cr);
-        spin_unlock(&ctx.lock);
-        jiffies_timed_wait((double)ms_TO_s(ctx.cursor_timeout));
         spin_lock(&ctx.lock);
         font_putc(ctx.cursor_char, &ctx, ctx.cc, ctx.cr);
         spin_unlock(&ctx.lock);
-        hlt();
+        jiffies_sleep(ms_TO_jiffies(ctx.cursor_timeout));
+        spin_lock(&ctx.lock);
+        font_putc(' ', &ctx, ctx.cc, ctx.cr);
+        spin_unlock(&ctx.lock);
+        jiffies_sleep(ms_TO_jiffies(ctx.cursor_timeout));
     }
-    loop();
 }
 BUILTIN_THREAD(limeterm_text, limeterm_cursor, NULL);

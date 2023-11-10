@@ -48,8 +48,8 @@ static iops_t tmpfs_iops = {
     .ibind      = tmpfs_ibind,
     .isync      = tmpfs_isync,
     .ilink      = tmpfs_ilink,
-    .iread      = tmpfs_iread,
-    .iwrite     = tmpfs_iwrite,
+    .iread_data = tmpfs_iread_data,
+    .iwrite_data= tmpfs_iwrite_data,
     .iclose     = tmpfs_iclose,
     .ifcntl     = tmpfs_ifcntl,
     .iioctl     = tmpfs_iioctl,
@@ -417,7 +417,7 @@ int tmpfs_itruncate(inode_t *ip) {
     return 0;
 }
 
-ssize_t tmpfs_iread(inode_t *ip, off_t off, void *buf, size_t sz) {
+ssize_t tmpfs_iread_data(inode_t *ip, off_t off, void *buf, size_t sz) {
     void *data = NULL;
     tmpfs_inode_t *tino = NULL;
 
@@ -440,7 +440,7 @@ ssize_t tmpfs_iread(inode_t *ip, off_t off, void *buf, size_t sz) {
     return sz;
 }
 
-ssize_t tmpfs_iwrite(inode_t *ip, off_t off, void *buf, size_t sz) {
+ssize_t tmpfs_iwrite_data(inode_t *ip, off_t off, void *buf, size_t sz) {
     void *data = NULL;
     tmpfs_inode_t *tino = NULL;
 
