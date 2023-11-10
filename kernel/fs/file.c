@@ -10,6 +10,7 @@ int     falloc(file_t **pfp) {
     
     file->f_refcnt = 1;
     file->f_lock = SPINLOCK_INIT();
+    flock(file);    
     *pfp = file;
     return 0;
 }

@@ -11,4 +11,5 @@ $(fs_dir)/ramfs/ramfs2.o\
 $(fs_dir)/devtmpfs/devtmpfs.o\
 $(fs_dir)/filesystem.o\
 $(fs_dir)/superblock.o\
+$(fs_dir)/sysfile.o\
 $(fs_dir)/vfs.o

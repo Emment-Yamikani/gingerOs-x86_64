@@ -71,7 +71,7 @@ int     fbind(file_t *dir, struct dentry *dentry, inode_t *file);
 
 typedef struct file_table_t {
     file_t      **ft_file;  // file descriptor table.
-    size_t      ft_fcnt;   // No. of file descriptors in the table.
+    int         ft_fcnt;   // No. of file descriptors in the table.
     spinlock_t  ft_lock;   // spinlock to guard this table.
 } file_table_t;
 
