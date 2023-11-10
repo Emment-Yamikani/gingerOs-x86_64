@@ -6,8 +6,8 @@
 #include <sync/spinlock.h>
 #include <ds/queue.h>
 #include <lib/types.h>
-#include <sys/_fcntl.h>
-#include <sys/_stat.h>
+#include <fs/fcntl.h>
+#include <fs/stat.h>
 
 #define MAXFNAME 255
 
@@ -28,12 +28,12 @@ typedef struct uio {
 } uio_t;
 
 #define UIO_DEFAULT() ((uio_t){ \
-    .u_cwd = "/",               \
+    .u_cwd  = "/",              \
     .u_root = "/",              \
-    .u_uid = 0,                 \
+    .u_uid  = 0,                \
     .u_euid = 0,                \
     .u_egid = 0,                \
-    .u_gid = 0,                 \
+    .u_gid  = 0,                \
     .u_suid = 0,                \
     .u_sgid = 0,                \
 })

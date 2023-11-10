@@ -5,7 +5,7 @@
 #include <sync/spinlock.h>
 #include <lib/types.h>
 #include <ds/queue.h>
-#include <sys/_stat.h>
+#include <fs/stat.h>
 #include <mm/page_cache.h>
 
 struct iops;
@@ -57,7 +57,7 @@ typedef struct inode {
 } inode_t;
 
 typedef struct iops {
-    int     (*ilink)(struct dentry *oldname, inode_t *dir, struct dentry *newname);
+    int     (*ilink)(const char *oldname, inode_t *dir, const char *newname);
     int     (*ibind)(inode_t *dir, struct dentry *dentry, inode_t *ip);
     int     (*irmdir)(inode_t *ip);
     int     (*isync)(inode_t *ip);
@@ -66,13 +66,13 @@ typedef struct iops {
     int     (*itruncate)(inode_t *ip);
     ssize_t (*iread_data)(inode_t *ip, off_t off, void *buf, size_t nb);
     ssize_t (*iwrite_data)(inode_t *ip, off_t off, void *buf, size_t nb);
-    int     (*imknod)(inode_t *dir, struct dentry *dentry, mode_t mode, int devid);
+    int     (*imknod)(inode_t *dir, const char *name, mode_t mode, int devid);
     int     (*ifcntl)(inode_t *ip, int cmd, void *argp);
     int     (*iioctl)(inode_t *ip, int req, void *argp);
     int     (*imkdir)(inode_t *dir, const char *fname, mode_t mode);
     int     (*ilookup)(inode_t *dir, const char *fname, inode_t **pipp);
     int     (*icreate)(inode_t *dir, const char *fname, mode_t mode);
-    int     (*irename)(inode_t *dir, struct dentry *old, inode_t *newdir, struct dentry *new);
+    int     (*irename)(inode_t *dir, const char *old, inode_t *newdir, const char *new);
     ssize_t (*ireaddir)(inode_t *dir, off_t off, struct dirent *buf, size_t count);
     int     (*isymlink)(inode_t *ip, inode_t *atdir, const char *symname);
     int     (*igetattr)(inode_t *ip, void *attr);
@@ -150,6 +150,6 @@ int     imkdir(inode_t *dir, const char *fname, mode_t mode);
 int     icreate(inode_t *dir, const char *fname, mode_t mode);
 ssize_t ireaddir(inode_t *dir, off_t off, void *buf, size_t count);
 int     isymlink(inode_t *ip, inode_t *atdir, const char *symname);
-int     ilink(struct dentry *oldname, inode_t *dir, struct dentry *newname);
-int     imknod(inode_t *dir, struct dentry *dentry, mode_t mode, int devid);
-int     irename(inode_t *dir, struct dentry *old, inode_t *newdir, struct dentry *new);
+int     ilink(const char *oldname, inode_t *dir, const char *newname);
+int     imknod(inode_t *dir, const char *name, mode_t mode, int devid);
+int     irename(inode_t *dir, const char *old, inode_t *newdir, const char *new);

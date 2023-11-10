@@ -5,7 +5,7 @@
 #include <fs/tmpfs.h>
 #include <ds/hash.h>
 #include <ds/stack.h>
-#include <sys/_stat.h>
+#include <fs/stat.h>
 
 typedef struct tmpfs_inode_t {
     uid_t       uid;
@@ -589,14 +589,14 @@ done:
     return err;
 }
 
-int tmpfs_ilink(dentry_t *oldname __unused, inode_t *dir __unused, dentry_t *newname __unused) {
+int tmpfs_ilink(const char *oldname __unused, inode_t *dir __unused, const char *newname __unused) {
     return -ENOTSUP;
 }
 
-int tmpfs_imknod(inode_t *dir __unused, dentry_t *dentry __unused, mode_t mode __unused, int devid __unused) {
+int tmpfs_imknod(inode_t *dir __unused, const char *name __unused, mode_t mode __unused, int devid __unused) {
     return -ENOTSUP;
 }
 
-int tmpfs_irename(inode_t *dir __unused, dentry_t *old __unused, inode_t *newdir __unused, dentry_t *new __unused) {
+int tmpfs_irename(inode_t *dir __unused, const char *old __unused, inode_t *newdir __unused, const char *new __unused) {
     return -ENOTSUP;
 }

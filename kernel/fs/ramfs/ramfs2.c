@@ -1,8 +1,7 @@
 #include <fs/fs.h>
 #include <lib/printk.h>
 #include <dev/dev.h>
-// #include <fs/posix.h>
-#include <sys/_fcntl.h>
+#include <fs/fcntl.h>
 #include <fs/ramfs2.h>
 #include <mm/kalloc.h>
 #include <bits/errno.h>

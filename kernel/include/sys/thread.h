@@ -14,6 +14,7 @@
 #include <sys/_time.h>
 #include <ginger/jiffies.h>
 #include <sys/_signal.h>
+#include <fs/file.h>
 
 typedef enum tstate_t {
     T_EMBRYO,
@@ -67,19 +68,14 @@ typedef struct {
 } sleep_attr_t;
 
 typedef struct {
-    // file_t *table[NFILE];
-    spinlock_t lock;
-} file_table_t;
-
-typedef struct {
     tid_t           tg_tgid;
-    file_table_t    tg_file;
     uint64_t        tg_flags;
     thread_t        *tg_tmain;
     thread_t        *tg_tlast;
     queue_t         *tg_queue;
     queue_t         *tg_stopq;
     size_t          tg_running;
+    file_table_t    tg_file_table;
 
     sigset_t        sig_mask;
     sigaction_t     sig_action[NSIG];

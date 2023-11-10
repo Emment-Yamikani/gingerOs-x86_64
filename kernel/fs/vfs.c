@@ -4,7 +4,6 @@
 #include <mm/kalloc.h>
 #include <bits/errno.h>
 #include <fs/tmpfs.h>
-#include <sys/_fcntl.h>
 #include <lib/string.h>
 #include <fs/devtmpfs.h>
 

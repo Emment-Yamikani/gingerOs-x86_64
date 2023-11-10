@@ -1,5 +1,6 @@
 #ifndef _STAT_H
 #define _STAT_H
+#include <lib/stddef.h>
 #include <lib/stdint.h>
 #include <lib/types.h>
 

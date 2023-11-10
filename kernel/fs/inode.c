@@ -5,8 +5,8 @@
 #include <lib/string.h>
 #include <lib/types.h>
 #include <mm/kalloc.h>
-#include <sys/_fcntl.h>
-#include <sys/_stat.h>
+#include <fs/fcntl.h>
+#include <fs/stat.h>
 
 int ialloc(inode_t **pip) {
     int err = -ENOMEM;
@@ -146,7 +146,7 @@ int iadd_alias(inode_t *inode, dentry_t *dentry) {
         dentry->d_alias_prev = last;
 
         /// Unlock the last alias node.
-        /// Remember we locked this node in to forlink() loop above?,
+        /// Remember we locked this node in to forlinked() loop above?,
         /// Yeah, so do this to prevent deadlock.
         dunlock(last);
     } else inode->i_alias = dentry;
@@ -196,11 +196,9 @@ int     isync(inode_t *ip) {
     return ip->i_ops->isync(ip);
 }
 
-int     ilink(struct dentry *oldname, inode_t *dir, struct dentry *newname) {
+int     ilink(const char *oldname, inode_t *dir, const char *newname) {
     int err = 0;
     iassert_locked(dir);
-    dassert_locked(oldname);
-    dassert_locked(newname);
 
     if (IISDIR(dir) == 0)
         return -ENOTDIR;
@@ -248,10 +246,9 @@ ssize_t iwrite_data(inode_t *ip, off_t off, void *buf, size_t nb) {
     return ip->i_ops->iwrite_data(ip, off, buf, nb);
 }
 
-int     imknod(inode_t *dir, struct dentry *dentry, mode_t mode, int devid) {
+int     imknod(inode_t *dir, const char *name, mode_t mode, int devid) {
     int err = 0;
     iassert_locked(dir);
-    dassert_locked(dentry);
 
     if (IISDIR(dir) == 0)
         return -ENOTDIR;
@@ -259,7 +256,7 @@ int     imknod(inode_t *dir, struct dentry *dentry, mode_t mode, int devid) {
     if ((err = icheck_op(dir, imknod)))
         return err;
     
-    return dir->i_ops->imknod(dir, dentry, mode, devid);
+    return dir->i_ops->imknod(dir, name, mode, devid);
 }
 
 int     ifcntl(inode_t *ip, int cmd, void *argp) {
@@ -341,12 +338,10 @@ int     icreate(inode_t *dir, const char *fname, mode_t mode) {
     return dir->i_ops->icreate(dir, fname, mode);
 }
 
-int     irename(inode_t *dir, struct dentry *old, inode_t *newdir, struct dentry *new) {
+int     irename(inode_t *dir, const char *old, inode_t *newdir, const char *new) {
     int err = 0;
     iassert_locked(dir);
     iassert_locked(newdir);
-    dassert_locked(old);
-    dassert_locked(new);
 
     if ((err = icheck_op(dir, irename)))
         return err;

@@ -39,7 +39,7 @@
 
 - [x] Physical Memery Management
 - [x] Virtual Memory Management
-- [ ] Page cache
+- [x] Page cache
 
 ### Memory allocator(s)
   
@@ -58,10 +58,10 @@
 ## Virtual Filesystem
 
 - [x] Generic inode operations.
+- [x] File address space to allow file sharing.
 - [ ] File locks
 - [ ] File times
 - [ ] Generic file operations.
-- [ ] File address space to allow file sharing.
 
 ## File System
 
