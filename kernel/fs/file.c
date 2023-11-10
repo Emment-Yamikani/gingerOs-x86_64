@@ -32,7 +32,7 @@ int fdup(file_t *file) {
     return 0;
 }
 
-static int fput(file_t *file) {
+int fput(file_t *file) {
     if (file == NULL)
         return -EINVAL;
     fassert_locked(file);

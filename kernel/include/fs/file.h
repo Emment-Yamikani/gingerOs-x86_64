@@ -43,8 +43,11 @@ typedef struct file_t {
 #define fislocked(file)       ({ fassert(file); spin_islocked(&(file)->f_lock); })
 #define fassert_locked(file)  ({ fassert(file); spin_assert_locked(&(file)->f_lock); })
 
-int falloc(file_t **pfp);
-void fdestroy(file_t *file);
+int     falloc(file_t **pfp);
+void    fdestroy(file_t *file);
+int     fdup(file_t *file);
+int     fput(file_t *file);
+
 
 int     feof(file_t *file);
 int     fsync(file_t *file);
@@ -80,3 +83,24 @@ typedef struct file_table_t {
 #define ftunlock(ft)        ({ fassert(ft); spin_unlock(&(ft)->ft_lock); })
 #define ftislocked(ft)      ({ fassert(ft); spin_islocked(&(ft)->ft_lock); })
 #define ftassert_locked(ft) ({ fassert(ft); spin_assert_locked(&(ft)->ft_lock); })
+
+
+int     sync(int fd);
+int     close(int fd);
+int     unlink(int fd);
+int     dup(int fd);
+int     dup2(int fd1, int fd2);
+int     getattr(int fd, void *attr);
+int     setattr(int fd, void *attr);
+int     truncate(int fd, off_t length);
+int     fcntl(int fd, int cmd, void *argp);
+int     ioctl(int fd, int req, void *argp);
+off_t   lseek(int fd, off_t off, int whence);
+ssize_t read(int fd, void *buf, size_t size);
+ssize_t write(int fd, void *buf, size_t size);
+int     open(const char *pathname, int oflags, ...);
+int     create(int fd, const char *pathname, mode_t mode);
+int     mkdirat(int fd, const char *pathname, mode_t mode);
+ssize_t readdir(int fd, off_t off, void *buf, size_t count);
+int     linkat(int fd, const char *oldname, const char *newname);
+int     mknodat(int fd, const char *pathname, mode_t mode, int devid);

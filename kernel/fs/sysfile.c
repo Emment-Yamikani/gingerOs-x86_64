@@ -5,7 +5,7 @@
 #include <dev/dev.h>
 #include <mm/kalloc.h>
 
-int file_get(int fd, file_t **ref) {
+int     file_get(int fd, file_t **ref) {
     file_t *file = NULL;
     file_table_t *ft = NULL;
 
@@ -32,7 +32,7 @@ int file_get(int fd, file_t **ref) {
     return 0;
 }
 
-int file_alloc(int *ref, file_t **fref) {
+int     file_alloc(int *ref, file_t **fref) {
     int fd = 0;
     int err = 0;
     file_t *file = NULL;
@@ -86,6 +86,104 @@ done:
     *ref = fd;
     *fref = file;
     return 0;
+}
+
+int     file_dup(int fd1, int fd2) {
+    int err = 0;
+    file_table_t *ft = NULL;
+    file_t *file = NULL, **tmp = NULL;
+
+    current_lock();
+    tgroup_lock(current_tgroup());
+    ft = &current_tgroup()->tg_file_table;
+    ftlock(ft);
+    tgroup_unlock(current_tgroup());
+    current_unlock();
+
+    if ((ft->ft_file == NULL)) {
+        ftunlock(ft);
+        return -EBADFD;
+    }
+
+    if (((file = ft->ft_file[fd1]) == NULL) || (fd1 < 0) || (fd1 >= ft->ft_fcnt)) {
+        ftunlock(ft);
+        return -EBADFD;
+    }
+
+    if (fd2 < 0)
+        fd2 = ft->ft_fcnt;
+    
+    if (fd1 == fd2) {
+        ftunlock(ft);
+        return fd1;
+    }
+
+    if (fd2 > 0) {
+        if (fd2 >= ft->ft_fcnt) {
+            if ((tmp = krealloc(ft->ft_file, ((fd2 + 1) * sizeof (file_t *)))) == NULL) {
+                ftunlock(ft);
+                return -ENOMEM;
+            }
+            ft->ft_fcnt = fd2 + 1;
+        }
+
+        if (ft->ft_file[fd2]) {
+            flock(ft->ft_file[fd2]);
+            if ((err = fclose(ft->ft_file[fd2]))) {
+                funlock(ft->ft_file[fd2]);
+                ftunlock(ft);
+                return err;
+            }
+            ft->ft_file[fd2] = NULL;
+        }
+    }
+
+    flock(file);
+    if ((err = fdup(file))) {
+        funlock(file);
+        ftunlock(ft);
+        return err;
+    }
+    funlock(file);
+
+    ft->ft_file[fd2] = file;
+    ftunlock(ft);
+
+    return fd2;
+}
+
+int     open(const char *pathname, int oflags, ...) {
+    int fd = 0;
+    int err = 0;
+    mode_t mode = 0;
+    uio_t *uio = NULL;
+    file_t *file = NULL;
+    dentry_t *dentry = NULL;
+
+    if ((err = vfs_lookup(pathname, uio, oflags, mode, 0, &dentry)))
+        return err;
+    
+
+    if ((err = file_alloc(&fd, &file))) {
+        dclose(dentry);
+        return err;
+    }
+
+    file->fops = NULL;
+    file->f_dentry = dentry;
+    file->f_oflags = oflags;
+    
+    funlock(file);
+    dunlock(dentry);
+    return fd;
+}
+
+int     dup(int fd) {
+    return file_dup(fd, -1);
+}
+
+int     dup2(int fd1, int fd2) {
+    return file_dup(fd1, fd2);
 }
 
 int     sync(int fd) {
@@ -183,7 +281,7 @@ off_t   lseek(int fd, off_t off, int whence) {
 }
 
 ssize_t read(int fd, void *buf, size_t size) {
-    int err= 0;
+    ssize_t err= 0;
     file_t *file = NULL;
     if ((err = file_get(fd, &file)))
         return err;
@@ -193,7 +291,7 @@ ssize_t read(int fd, void *buf, size_t size) {
 }
 
 ssize_t write(int fd, void *buf, size_t size) {
-    int err= 0;
+    ssize_t err= 0;
     file_t *file = NULL;
     if ((err = file_get(fd, &file)))
         return err;
@@ -223,7 +321,7 @@ int     mkdirat(int fd, const char *pathname, mode_t mode) {
 }
 
 ssize_t readdir(int fd, off_t off, void *buf, size_t count) {
-    int err= 0;
+    ssize_t err= 0;
     file_t *file = NULL;
     if ((err = file_get(fd, &file)))
         return err;
