@@ -2,6 +2,7 @@
 #include <bits/errno.h>
 #include <sys/thread.h>
 #include <fs/fs.h>
+#include <lib/string.h>
 #include <dev/dev.h>
 #include <mm/kalloc.h>
 
@@ -24,11 +25,35 @@ int     file_get(int fd, file_t **ref) {
         return -EBADFD;
     }
 
-    file = ft->ft_file[fd];
+    if ((file = ft->ft_file[fd]) == NULL) {
+        ftunlock(ft);
+        return -EBADFD;
+    }
+
     flock(file);
     ftunlock(ft);
 
     *ref = file;
+    return 0;
+}
+
+int     file_free(int fd) {
+    file_table_t *ft = NULL;
+
+    current_lock();
+    tgroup_lock(current_tgroup());
+    ft = &current_tgroup()->tg_file_table;
+    ftlock(ft);
+    tgroup_unlock(current_tgroup());
+    current_unlock();
+
+    if ((ft->ft_file == NULL) || (fd < 0) || (fd >= ft->ft_fcnt)) {
+        ftunlock(ft);
+        return -EBADFD;
+    }
+
+    ft->ft_file[fd] = NULL;
+    ftunlock(ft);
     return 0;
 }
 
@@ -124,6 +149,8 @@ int     file_dup(int fd1, int fd2) {
                 ftunlock(ft);
                 return -ENOMEM;
             }
+            memset(&tmp[ft->ft_fcnt], 0, ((fd2 + 1) - ft->ft_fcnt)*sizeof (file_t *));
+            ft->ft_file = tmp;
             ft->ft_fcnt = fd2 + 1;
         }
 
@@ -199,11 +226,12 @@ int     sync(int fd) {
 int     close(int fd) {
     int err = 0;
     file_t *file = NULL;
-
     if((err = file_get(fd, &file)))
         return err;
-    err = fclose(file);
-    funlock(file);
+    if ((err = fclose(file)))
+        funlock(file);
+    else
+        err = file_free(fd);
     return err;    
 }
 
