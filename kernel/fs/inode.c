@@ -406,25 +406,25 @@ int     itruncate(inode_t *ip) {
 }
 
 /* check for file permission */
-int check_iperm(inode_t *ip, uio_t *uio, int oflags)
+int check_iperm(inode_t *ip, cred_t *cred, int oflags)
 {
-    // printk("%s(\e[0;15mip=%p, uio=%p, oflags=%d)\e[0m\n", __func__, ip, uio, oflags);
-    if (!ip || !uio)
+    // printk("%s(\e[0;15mip=%p, cred=%p, oflags=%d)\e[0m\n", __func__, ip, cred, oflags);
+    if (!ip || !cred)
         return -EINVAL;
 
     iassert_locked(ip);
 
-    if (uio->u_uid == 0) /* root */
+    if (cred->c_uid == 0) /* root */
         return 0;
 
     if (((oflags & O_ACCMODE) == O_RDONLY) || (oflags & O_ACCMODE) != O_WRONLY)
     {
-        if (ip->i_uid == uio->u_uid)
+        if (ip->i_uid == cred->c_uid)
         {
             if (ip->i_mode & S_IRUSR)
                 goto write_perms;
         }
-        else if (ip->i_gid == uio->u_gid)
+        else if (ip->i_gid == cred->c_gid)
         {
             if (ip->i_mode & S_IRGRP)
                 goto write_perms;
@@ -441,12 +441,12 @@ int check_iperm(inode_t *ip, uio_t *uio, int oflags)
 write_perms:
     if (((oflags & O_ACCMODE) == O_WRONLY) || (oflags & O_ACCMODE) == O_RDWR)
     {
-        if (ip->i_uid == uio->u_uid)
+        if (ip->i_uid == cred->c_uid)
         {
             if (ip->i_mode & S_IWUSR)
                 goto exec_perms;
         }
-        else if (ip->i_gid == uio->u_gid)
+        else if (ip->i_gid == cred->c_gid)
         {
             if (ip->i_mode & S_IWGRP)
                 goto exec_perms;
@@ -463,12 +463,12 @@ write_perms:
 exec_perms:
     if ((oflags & O_EXCL))
     {
-        if (ip->i_uid == uio->u_uid)
+        if (ip->i_uid == cred->c_uid)
         {
             if (ip->i_mode & S_IXUSR)
                 goto done;
         }
-        else if (ip->i_gid == uio->u_gid)
+        else if (ip->i_gid == cred->c_gid)
         {
             if (ip->i_mode & S_IXGRP)
                 goto done;

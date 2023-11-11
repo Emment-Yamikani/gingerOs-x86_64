@@ -46,9 +46,9 @@ int fontctx_alloc(struct font **ref) {
 struct font *font_open(char *path __unused) {
     __unused struct font *font;
     __unused struct tinyfont head = {0};
-    __unused uio_t uio = {0};
+    __unused cred_t cred = {0};
     __unused inode_t *file = NULL;
-    //vfs_open(path, &uio, O_RDONLY, 0, &file);
+    //vfs_open(path, &cred, O_RDONLY, 0, &file);
     
     if ((size_t)iread(file, 0, &head, sizeof(head)) != sizeof(head)) {
         iclose(file);

@@ -183,11 +183,11 @@ int     open(const char *pathname, int oflags, ...) {
     int fd = 0;
     int err = 0;
     mode_t mode = 0;
-    uio_t *uio = NULL;
+    cred_t *cred = NULL;
     file_t *file = NULL;
     dentry_t *dentry = NULL;
 
-    if ((err = vfs_lookup(pathname, uio, oflags, mode, 0, &dentry)))
+    if ((err = vfs_lookup(pathname, cred, oflags, mode, 0, &dentry)))
         return err;
     
 

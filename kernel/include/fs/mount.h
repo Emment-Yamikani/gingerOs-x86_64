@@ -27,13 +27,13 @@
 
 typedef struct fs_mount
 {
-    struct superblock *mnt_sb;
-    int mnt_flags;
-    char *mnt_path;
-    void *mnt_priv;
-    dentry_t *mnt_root;
-    struct fs_mount *mnt_parent;
-    spinlock_t mnt_lock;
+    struct superblock   *mnt_sb;
+    int                 mnt_flags;
+    char                *mnt_path;
+    void                *mnt_priv;
+    dentry_t            *mnt_root;
+    struct fs_mount     *mnt_parent;
+    spinlock_t          mnt_lock;
 } fs_mount_t;
 
 #define mnt_assert(mnt)         ({assert(mnt, "No mnt ptr"); })

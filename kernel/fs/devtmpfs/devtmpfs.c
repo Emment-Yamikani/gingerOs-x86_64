@@ -50,12 +50,12 @@ static int devtmpfs_fill_sb(filesystem_t *fs __unused, const char *target,
     sb->sb_blocksize = -1;
     strncpy(sb->sb_magic0, "devtmpfs", 10);
     sb->sb_size = -1;
-    sb->sb_uio = (uio_t){
-        .u_cwd = "/",
-        .u_root = "/",
-        .u_gid = 0,
-        .u_uid = 0,
-        .u_umask = 0555,
+    sb->sb_uio = (cred_t){
+        .c_cwd = "/",
+        .c_root = "/",
+        .c_gid = 0,
+        .c_uid = 0,
+        .c_umask = 0555,
     };
     sb->sb_root = droot;
 

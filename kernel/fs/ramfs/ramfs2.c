@@ -105,12 +105,12 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
     strncpy(sb->sb_magic0, ramfs2_super->header.magic,
             strlen(ramfs2_super->header.magic));
     sb->sb_size = ramfs2_super->header.file_size;
-    sb->sb_uio  = (uio_t) {
-        .u_cwd = "/",
-        .u_root = "/",
-        .u_gid = 0,
-        .u_uid = 0,
-        .u_umask = 0555,
+    sb->sb_uio  = (cred_t) {
+        .c_cwd = "/",
+        .c_root = "/",
+        .c_gid = 0,
+        .c_uid = 0,
+        .c_umask = 0555,
     };
     sb->sb_root = droot;
     ramfs2_sb = sb;
@@ -118,8 +118,8 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
     node->offset = 0;
     node->mode = 0555;
     node->type = RAMFS2_DIR;
-    node->gid = sb->sb_uio.u_gid;
-    node->uid = sb->sb_uio.u_uid;
+    node->gid = sb->sb_uio.c_gid;
+    node->uid = sb->sb_uio.c_uid;
 
     iroot->i_mode = node->mode;
     iroot->i_uid = node->uid;

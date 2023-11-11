@@ -19,13 +19,11 @@ int queue_alloc(queue_t **pqp) {
     return 0;
 }
 
-void queue_flush(queue_t *q)
-{
+void queue_flush(queue_t *q) {
     queue_node_t *next = NULL, *prev = NULL;
     queue_assert_locked(q);
 
-    forlinked(node, q->head, next)
-    {
+    forlinked(node, q->head, next) {
         next = node->next;
         prev = node->prev;
         if (prev)
@@ -43,8 +41,7 @@ void queue_flush(queue_t *q)
     }
 }
 
-void queue_free(queue_t *q)
-{
+void queue_free(queue_t *q) {
     if (!queue_islocked(q))
         queue_lock(q);
     queue_flush(q);
@@ -52,8 +49,7 @@ void queue_free(queue_t *q)
     kfree(q);
 }
 
-size_t queue_count(queue_t *q)
-{
+size_t queue_count(queue_t *q) {
     queue_assert_locked(q);
     return q->q_count;
 }
@@ -81,8 +77,7 @@ int queue_contains(queue_t *q, void *data, queue_node_t **pnp) {
     if (q == NULL)
         return -EINVAL;
 
-    forlinked(node, q->head, next)
-    {
+    forlinked(node, q->head, next) {
         next = node->next;
         if (node->data == data)
         {
@@ -117,8 +112,7 @@ int enqueue(queue_t *q, void *data, int unique, queue_node_t **pnp) {
 
     if (q->head == NULL)
         q->head = node;
-    else
-    {
+    else {
         q->tail->next = node;
         node->prev = q->tail;
     }
@@ -176,8 +170,7 @@ int dequeue(queue_t *q, void **pdp) {
         return -EINVAL;
 
     node = q->head;
-    if (node)
-    {
+    if (node) {
         *pdp = node->data;
         prev = node->prev;
         next = node->next;
@@ -202,8 +195,7 @@ int dequeue(queue_t *q, void **pdp) {
     return -ENOENT;
 }
 
-int queue_remove_node(queue_t *q, queue_node_t *__node)
-{
+int queue_remove_node(queue_t *q, queue_node_t *__node) {
     queue_node_t *next = NULL, *prev = NULL;
     queue_assert_locked(q);
     if (q == NULL || __node == NULL)
@@ -234,20 +226,17 @@ int queue_remove_node(queue_t *q, queue_node_t *__node)
     return -ENOENT;
 }
 
-int queue_remove(queue_t *q, void *data)
-{
+int queue_remove(queue_t *q, void *data) {
     queue_node_t *next = NULL, *prev = NULL;
     queue_assert_locked(q);
 
     if (q == NULL)
         return -EINVAL;
 
-    forlinked(node, q->head, next)
-    {
+    forlinked(node, q->head, next) {
         next = node->next;
         prev = node->prev;
-        if (node->data == data)
-        {
+        if (node->data == data) {
             if (prev)
                 prev->next = next;
             if (next)

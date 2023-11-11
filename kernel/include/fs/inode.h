@@ -7,10 +7,10 @@
 #include <ds/queue.h>
 #include <fs/stat.h>
 #include <mm/page_cache.h>
+#include <sync/cond.h>
+#include <fs/cred.h>
 
 struct iops;
-struct uio;
-typedef struct uio uio_t;
 struct dentry;
 struct superblock;
 typedef struct superblock superblock_t;
@@ -44,7 +44,7 @@ typedef struct inode {
     struct iops     *i_ops;     // Filesystem specific inode operations. 
     void            *i_priv;    // Filesystem specific private data.
     struct dentry   *i_alias;   // Alias to this inode (can be multiple).
-    icache_t        *i_cache; // Page cache for this inode.
+    icache_t        *i_cache;   // Page cache for this inode.
     spinlock_t      i_lock;     // Spinlock to protect access to this inode.
     /**
      * TODO: May need to add another type of locking mechanism
@@ -131,6 +131,8 @@ void    irelease(inode_t *ip);
 int     idel_alias(inode_t *ip, struct dentry *dentry);
 int     iadd_alias(inode_t *ip, struct dentry *dentry);
 
+int     check_iperm(inode_t *ip, cred_t *cred, int oflags);
+
 int     isync(inode_t *ip);
 int     iclose(inode_t *ip);
 int     iunlink(inode_t *ip);
@@ -140,7 +142,6 @@ int     isetattr(inode_t *ip, void *attr);
 int     ifcntl(inode_t *ip, int cmd, void *argp);
 int     iioctl(inode_t *ip, int req, void *argp);
 int     ilookup(inode_t *dir, const char *fname, inode_t **pipp);
-int     check_iperm(inode_t *ip, uio_t *uio, int oflags);
 ssize_t iread(inode_t *ip, off_t off, void *buf, size_t nb);
 ssize_t iread_data(inode_t *ip, off_t off, void *buf, size_t nb);
 ssize_t iwrite(inode_t *ip, off_t off, void *buf, size_t nb);

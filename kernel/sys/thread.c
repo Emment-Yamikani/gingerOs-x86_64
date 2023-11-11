@@ -55,7 +55,6 @@ int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, 
     int         err         = 0;
     uintptr_t   kstack      = 0;
     thread_attr_t t_attr    = {0};
-    cond_t      *wait       = NULL;
     queue_t     *queue      = NULL;
     thread_t    *thread     = NULL;
     size_t      kstacksz    = KSTACKSZ;
@@ -96,9 +95,6 @@ int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, 
     if ((err = queue_alloc(&queue)))
         goto error;
 
-    if ((err = cond_new("thread", &wait)))
-        goto error;
-
     memset(thread, 0, sizeof *thread);
 
     thread->t_arch = (x86_64_thread_t) {
@@ -115,7 +111,7 @@ int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, 
     if (attr->detachstate)
         thread_setdetached(thread);
 
-    thread->t_wait = wait;
+    thread->t_wait = COND_INIT();
     thread->t_queues = queue;
 
     thread->t_sched_attr.ctime = jiffies_get();
@@ -129,8 +125,6 @@ int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, 
     *ref = thread;
     return 0;
 error:
-    if (wait)
-        cond_free(wait);
     if (queue)
         queue_free(queue);
     thread_free_kstack(kstack, kstacksz);
@@ -171,8 +165,6 @@ void thread_free(thread_t *thread) {
 
     assert(thread->t_arch.t_kstack, "??? No kernel stack ???");
 
-    if (thread->t_wait)
-        cond_free(thread->t_wait);
     thread_unlock(thread);
     thread_free_kstack(thread->t_arch.t_kstack, thread->t_arch.t_kstacksz);
 }
@@ -280,7 +272,7 @@ int thread_reap(thread_t *thread, int reap, thread_info_t *info, void **retval) 
         if (current_iskilled())
             return -EINTR;
         thread_unlock(thread);
-        err = cond_wait(thread->t_wait);
+        err = cond_wait(&thread->t_wait);
         thread_lock(thread);
         if (err) return err;
     }

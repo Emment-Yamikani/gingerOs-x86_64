@@ -1,6 +1,7 @@
 #include <fs/file.h>
 #include <mm/kalloc.h>
 #include <bits/errno.h>
+#include <sys/thread.h>
 
 int     falloc(file_t **pfp) {
     file_t *file = NULL;
@@ -46,7 +47,7 @@ int     feof(file_t *file) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fclose == NULL)
+    if (file->fops == NULL || file->fops->feof == NULL)
         goto generic;
 
     return file->fops->feof(file);
@@ -101,7 +102,7 @@ int     fsync(file_t *file) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fclose == NULL)
+    if (file->fops == NULL || file->fops->fsync == NULL)
         goto generic;
 
     return file->fops->fsync(file);
@@ -131,7 +132,7 @@ int     funlink(file_t *file) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fclose == NULL)
+    if (file->fops == NULL || file->fops->funlink == NULL)
         goto generic;
 
     return file->fops->funlink(file);
@@ -162,7 +163,7 @@ int     fgetattr(file_t *file, void *attr) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fclose == NULL)
+    if (file->fops == NULL || file->fops->fgetattr == NULL)
         goto generic;
 
     return file->fops->fgetattr(file, attr);
@@ -193,7 +194,7 @@ int     fsetattr(file_t *file, void *attr) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fclose == NULL)
+    if (file->fops == NULL || file->fops->fsetattr == NULL)
         goto generic;
 
     return file->fops->fsetattr(file, attr);
@@ -224,7 +225,7 @@ int     ftruncate(file_t *file, off_t length __unused) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fclose == NULL)
+    if (file->fops == NULL || file->fops->ftruncate == NULL)
         goto generic;
 
     return file->fops->ftruncate(file, length);
@@ -256,7 +257,7 @@ int     ffcntl(file_t *file, int cmd, void *argp) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fclose == NULL)
+    if (file->fops == NULL || file->fops->ffcntl == NULL)
         goto generic;
 
     return file->fops->ffcntl(file, cmd, argp);
@@ -287,7 +288,7 @@ int     fioctl(file_t *file, int req, void *argp) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fclose == NULL)
+    if (file->fops == NULL || file->fops->fioctl == NULL)
         goto generic;
 
     return file->fops->fioctl(file, req, argp);
@@ -317,7 +318,7 @@ off_t   flseek(file_t *file, off_t off, int whence) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fclose == NULL)
+    if (file->fops == NULL || file->fops->flseek == NULL)
         goto generic;
 
     return file->fops->flseek(file, off, whence);
@@ -360,7 +361,7 @@ ssize_t fread(file_t *file, void *buf, size_t size) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fclose == NULL)
+    if (file->fops == NULL || file->fops->fread == NULL)
         goto generic;
 
     return file->fops->fread(file, buf, size);
@@ -410,7 +411,7 @@ ssize_t fwrite(file_t *file, void *buf, size_t size) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fclose == NULL)
+    if (file->fops == NULL || file->fops->fwrite == NULL)
         goto generic;
 
     return file->fops->fwrite(file, buf, size);
@@ -476,7 +477,7 @@ int     fcreate(file_t *dir, const char *pathname, mode_t mode) {
 
     fassert_locked(dir);
 
-    if (dir->fops == NULL || dir->fops->fclose == NULL)
+    if (dir->fops == NULL || dir->fops->fcreate == NULL)
         goto generic;
 
     return dir->fops->fcreate(dir, pathname, mode);
@@ -507,7 +508,7 @@ int     fmkdirat(file_t *dir, const char *pathname, mode_t mode) {
 
     fassert_locked(dir);
 
-    if (dir->fops == NULL || dir->fops->fclose == NULL)
+    if (dir->fops == NULL || dir->fops->fmkdirat == NULL)
         goto generic;
 
     return dir->fops->fmkdirat(dir, pathname, mode);
@@ -538,7 +539,7 @@ ssize_t freaddir(file_t *dir, off_t off, void *buf, size_t count) {
 
     fassert_locked(dir);
 
-    if (dir->fops == NULL || dir->fops->fclose == NULL)
+    if (dir->fops == NULL || dir->fops->freaddir == NULL)
         goto generic;
 
     return dir->fops->freaddir(dir, off, buf, count);
@@ -569,7 +570,7 @@ int     flinkat(file_t *dir, const char *oldname, const char *newname) {
 
     fassert_locked(dir);
 
-    if (dir->fops == NULL || dir->fops->fclose == NULL)
+    if (dir->fops == NULL || dir->fops->flinkat == NULL)
         goto generic;
 
     return dir->fops->flinkat(dir, oldname, newname);
@@ -600,7 +601,7 @@ int     fmknodat(file_t *dir, const char *pathname, mode_t mode, int devid) {
 
     fassert_locked(dir);
 
-    if (dir->fops == NULL || dir->fops->fclose == NULL)
+    if (dir->fops == NULL || dir->fops->fmknodat == NULL)
         goto generic;
 
     return dir->fops->fmknodat(dir, pathname, mode, devid);

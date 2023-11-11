@@ -229,7 +229,7 @@ typedef struct thread {
     tgroup_t        *t_group;           // thread group.
     queue_t         *t_queues;          // queues on which this thread resides.
 
-    cond_t          *t_wait;            // thread conditional wait variable.
+    cond_t          t_wait;            // thread conditional wait variable.
     x86_64_thread_t t_arch;             // architecture thread struct.
 
     spinlock_t      t_lock;             // lock to synchronize access to this struct.

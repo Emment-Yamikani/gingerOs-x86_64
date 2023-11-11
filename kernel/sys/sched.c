@@ -106,7 +106,7 @@ int sched_zombie(thread_t *thread) {
     if ((err = thread_enqueue(zombie_queue, thread, NULL)))
         return err;
 
-    cond_broadcast(thread->t_wait);
+    cond_broadcast(&thread->t_wait);
     return 0;
 }
 

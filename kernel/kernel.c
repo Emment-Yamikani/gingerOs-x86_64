@@ -12,8 +12,10 @@ __noreturn void kthread_main(void) {
     fd2 = dup2(fd, 3);
     close(fd);
 
-    read(fd, buf, sizeof buf);
-    printk(buf);
+    read(fd2, buf, sizeof buf);
+    close(fd2);
+    
+    printk("\e[0;02m%s\e[0m\n", buf);
 
     loop() thread_join(0, NULL, NULL);
 }

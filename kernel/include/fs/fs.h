@@ -8,6 +8,7 @@
 #include <lib/types.h>
 #include <fs/fcntl.h>
 #include <fs/stat.h>
+#include <fs/cred.h>
 
 #define MAXFNAME 255
 
@@ -19,24 +20,6 @@ struct dirent {
     size_t d_size;
     char   d_name[MAXFNAME];
 };
-
-typedef struct uio {
-    char    *u_cwd, *u_root;
-    uid_t   u_uid, u_euid, u_suid;
-    gid_t   u_gid, u_egid, u_sgid;
-    mode_t  u_umask;
-} uio_t;
-
-#define UIO_DEFAULT() ((uio_t){ \
-    .u_cwd  = "/",              \
-    .u_root = "/",              \
-    .u_uid  = 0,                \
-    .u_euid = 0,                \
-    .u_egid = 0,                \
-    .u_gid  = 0,                \
-    .u_suid = 0,                \
-    .u_sgid = 0,                \
-})
 
 struct filesystem;
 struct devid;
@@ -52,7 +35,7 @@ typedef struct {
 
 typedef struct superblock {
     long                sb_id;
-    uio_t               sb_uio;
+    cred_t              sb_uio;
     sb_ops_t            sb_ops;
     iops_t              *sb_iops;
     long                sb_count;
@@ -121,7 +104,7 @@ int vfs_mount_droot(dentry_t *dentry);
 int vfs_register_fs(filesystem_t *fs);
 int vfs_unregister_fs(filesystem_t *fs);
 int  vfs_getfs(const char *type, filesystem_t **pfs);
-int vfs_lookup(const char *fn, uio_t *uio,
+int vfs_lookup(const char *fn, cred_t *cred,
                int oflags, mode_t mode,
                int flags, dentry_t **pdp);
 int vfs_dirlist(const char *path);

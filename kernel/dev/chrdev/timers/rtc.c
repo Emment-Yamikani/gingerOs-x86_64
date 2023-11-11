@@ -64,8 +64,8 @@ static dev_t rtcdev;
 static size_t rtc_secs = 0;
 static size_t rtc_ticks = 0;
 static uint16_t RTC_CENT = 0;
-static cond_t *rtc_event = NULL;
 static rtc_time_t rtc_tm = {0};
+static cond_t *rtc_event = COND_NEW();
 static spinlock_t *rtclk = SPINLOCK_NEW();
 
 static int rtc_updating(void) {
@@ -266,12 +266,7 @@ void rtc_intr(void) {
 }
 
 int rtc_init(void) {
-    int err = 0;
     printk("Initializing Real Time Clock (RTC) timer...\n");
-
-    if ((err = cond_init(NULL, "rtc-wait", &rtc_event)))
-        return err;
-
     return kdev_register(&rtcdev, DEV_RTC0, FS_CHR);
 }
 

@@ -4,7 +4,9 @@
 #include <sync/spinlock.h>
 #include <sync/assert.h>
 #include <fs/stat.h>
-#include <fs/fcntl.h> 
+#include <fs/fcntl.h>
+#include <fs/inode.h>
+#include <fs/cred.h>
 
 typedef struct file_t file_t;
 
@@ -48,7 +50,6 @@ void    fdestroy(file_t *file);
 int     fdup(file_t *file);
 int     fput(file_t *file);
 
-
 int     feof(file_t *file);
 int     fsync(file_t *file);
 int     fclose(file_t *file);
@@ -67,12 +68,11 @@ ssize_t freaddir(file_t *dir, off_t off, void *buf, size_t count);
 int     flinkat(file_t *dir, const char *oldname, const char *newname);
 int     fmknodat(file_t *dir, const char *pathname, mode_t mode, int devid);
 
-
 int     fsymlink(file_t *file, file_t *atdir, const char *symname);
 int     fbind(file_t *dir, struct dentry *dentry, inode_t *file);
 
-
 typedef struct file_table_t {
+    cred_t      cred;
     file_t      **ft_file;  // file descriptor table.
     int         ft_fcnt;   // No. of file descriptors in the table.
     spinlock_t  ft_lock;   // spinlock to guard this table.

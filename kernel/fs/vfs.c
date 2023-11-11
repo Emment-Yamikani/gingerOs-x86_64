@@ -135,21 +135,21 @@ int vfs_alloc_vnode(const char *name, itype_t type, inode_t **pip, dentry_t **pd
     return 0;
 }
 
-int vfs_lookup(const char *fn, uio_t *__uio, int oflags, mode_t mode, int flags, dentry_t **pdp) {
-    size_t tok_i = 0;
-    char *cwd = NULL;
-    inode_t *ip = NULL;
-    int err = 0, isdir = 0;
-    dentry_t *dir = NULL, *dp = NULL;
-    uio_t uio = __uio ? *__uio : UIO_DEFAULT();
-    char *path = NULL, *last_tok = NULL, **toks = NULL;
+int vfs_lookup(const char *fn, cred_t *__cred, int oflags, mode_t mode, int flags, dentry_t **pdp) {
+    size_t      tok_i = 0;
+    char        *cwd = NULL;
+    inode_t     *ip = NULL;
+    int         err = 0, isdir = 0;
+    dentry_t    *dir = NULL, *dp = NULL;
+    cred_t      cred = __cred ? *__cred : UIO_DEFAULT();
+    char        *path = NULL, *last_tok = NULL, **toks = NULL;
 
     (void)flags;
 
     if ((dir = vfs_getdroot()) == NULL)
         return -ENOENT;
 
-    if (uio.u_cwd)
+    if (cred.c_cwd)
         cwd = "/";
     else
         cwd = "/";
@@ -170,7 +170,7 @@ int vfs_lookup(const char *fn, uio_t *__uio, int oflags, mode_t mode, int flags,
         switch ((err = dlookup(dir, tok, &dp))) {
         case 0:
             ilock(dp->d_inode);
-            if ((err = check_iperm(dp->d_inode, &uio, oflags))) {
+            if ((err = check_iperm(dp->d_inode, &cred, oflags))) {
                 iunlock(dp->d_inode);
                 dclose(dp);
                 goto error;
@@ -240,7 +240,7 @@ delegate:
         }
         iunlock(dir->d_inode);
 
-        if ((err = check_iperm(ip, &uio, oflags))) {
+        if ((err = check_iperm(ip, &cred, oflags))) {
             irelease(ip);
             dclose(dir);
             goto error;
