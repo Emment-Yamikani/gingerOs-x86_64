@@ -384,7 +384,7 @@ block_signal:
         current->t_arch.t_sig_kstacksz = STACKSZMIN;
         current->t_arch.t_sig_kstack = (uintptr_t)stack;
 
-        sig_stack = (uintptr_t *)ALIGN16(((uintptr_t)sig_stack + STACKSZMIN));
+        sig_stack = (uintptr_t *)ALIGN4K(((uintptr_t)sig_stack + STACKSZMIN));
 
         if (act.sa_flags & SA_SIGINFO) {
             sig_info = (siginfo_t *)((uintptr_t)sig_stack - sizeof *sig_info);

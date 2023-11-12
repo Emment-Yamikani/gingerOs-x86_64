@@ -107,7 +107,12 @@ int  vfs_getfs(const char *type, filesystem_t **pfs);
 int vfs_lookup(const char *fn, cred_t *cred,
                int oflags, mode_t mode,
                int flags, dentry_t **pdp);
+
+int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred,
+                 int oflags, mode_t mode, int flags, dentry_t **pdp);
+
 int vfs_dirlist(const char *path);
+
 /**
  * VFS mount helpers
 */

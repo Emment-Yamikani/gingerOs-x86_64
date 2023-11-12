@@ -2,7 +2,7 @@
 
 #include <lib/stddef.h>
 #include <arch/x86_64/context.h>
-
+#include <lib/types.h>
 
 typedef struct {
     tf_t        *t_tf;      // thread's arch specific trapframe.
@@ -13,6 +13,7 @@ typedef struct {
     size_t      t_kstacksz; // size of kernel stack.
     uintptr_t   t_sig_kstack;   // kernel stack for this thread.
     size_t      t_sig_kstacksz; // size of kernel stack.
+    thread_t    *t_thread;  // pointer to the thread control block.
     void        *t_priv;    // thread private data.
 } x86_64_thread_t;
 

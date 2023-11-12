@@ -2,6 +2,7 @@
 #include <mm/kalloc.h>
 #include <bits/errno.h>
 #include <sys/thread.h>
+#include <fs/fs.h>
 
 int     falloc(file_t **pfp) {
     file_t *file = NULL;
@@ -25,7 +26,7 @@ void    fdestroy(file_t *file) {
     kfree(file);
 }
 
-int fdup(file_t *file) {
+int     fdup(file_t *file) {
     if (file == NULL)
         return -EINVAL;
     fassert_locked(file);
@@ -33,7 +34,7 @@ int fdup(file_t *file) {
     return 0;
 }
 
-int fput(file_t *file) {
+int     fput(file_t *file) {
     if (file == NULL)
         return -EINVAL;
     fassert_locked(file);
@@ -505,13 +506,17 @@ generic:
 int     fmkdirat(file_t *dir, const char *pathname, mode_t mode) {
     int err = 0;
     inode_t *inode = NULL;
-
+    __unused char *path = NULL, *filename = NULL;
+    
     fassert_locked(dir);
+    
+    if ((err = path_get_lasttoken(pathname, &filename)))
+        return err;
 
     if (dir->fops == NULL || dir->fops->fmkdirat == NULL)
         goto generic;
 
-    return dir->fops->fmkdirat(dir, pathname, mode);
+    return dir->fops->fmkdirat(dir, filename, mode);
 
 generic:
     if (dir->f_dentry == NULL)
@@ -527,7 +532,7 @@ generic:
     if (inode == NULL)
         return -ENOENT;
     
-    err = imkdir(inode, pathname, mode);
+    err = imkdir(inode, filename, mode);
     iputcnt(inode);
     iunlock(inode);
     return err;
@@ -598,13 +603,16 @@ generic:
 int     fmknodat(file_t *dir, const char *pathname, mode_t mode, int devid) {
     int err = 0;
     inode_t *inode = NULL;
+    __unused char *path = NULL, *filename = NULL;
+    if ((err = path_get_lasttoken(pathname, &filename)))
+        return err;
 
     fassert_locked(dir);
 
     if (dir->fops == NULL || dir->fops->fmknodat == NULL)
         goto generic;
 
-    return dir->fops->fmknodat(dir, pathname, mode, devid);
+    return dir->fops->fmknodat(dir, filename, mode, devid);
 
 generic:
     if (dir->f_dentry == NULL)
@@ -620,7 +628,7 @@ generic:
     if (inode == NULL)
         return -ENOENT;
     
-    err = imknod(inode, pathname, mode, devid);
+    err = imknod(inode, filename, mode, devid);
     iputcnt(inode);
     iunlock(inode);
     return err;

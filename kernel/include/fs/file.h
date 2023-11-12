@@ -23,11 +23,11 @@ typedef struct fops_t {
     off_t   (*flseek)(file_t *file, off_t off, int whence);
     ssize_t (*fread)(file_t *file, void *buf, size_t size);
     ssize_t (*fwrite)(file_t *file, void *buf, size_t size);
-    int     (*fcreate)(file_t *dir, const char *pathname, mode_t mode);
-    int     (*fmkdirat)(file_t *dir, const char *pathname, mode_t mode);
+    int     (*fcreate)(file_t *dir, const char *filename, mode_t mode);
+    int     (*fmkdirat)(file_t *dir, const char *filename, mode_t mode);
     ssize_t (*freaddir)(file_t *dir, off_t off, void *buf, size_t count);
     int     (*flinkat)(file_t *dir, const char *oldname, const char *newname);
-    int     (*fmknodat)(file_t *dir, const char *pathname, mode_t mode, int devid);
+    int     (*fmknodat)(file_t *dir, const char *filename, mode_t mode, int devid);
 } fops_t;
 
 typedef struct file_t {
@@ -62,11 +62,11 @@ int     fioctl(file_t *file, int req, void *argp);
 off_t   flseek(file_t *file, off_t off, int whence);
 ssize_t fread(file_t *file, void *buf, size_t size);
 ssize_t fwrite(file_t *file, void *buf, size_t size);
-int     fcreate(file_t *dir, const char *pathname, mode_t mode);
-int     fmkdirat(file_t *dir, const char *pathname, mode_t mode);
+int     fcreate(file_t *dir, const char *filename, mode_t mode);
+int     fmkdirat(file_t *dir, const char *filename, mode_t mode);
 ssize_t freaddir(file_t *dir, off_t off, void *buf, size_t count);
 int     flinkat(file_t *dir, const char *oldname, const char *newname);
-int     fmknodat(file_t *dir, const char *pathname, mode_t mode, int devid);
+int     fmknodat(file_t *dir, const char *filename, mode_t mode, int devid);
 
 int     fsymlink(file_t *file, file_t *atdir, const char *symname);
 int     fbind(file_t *dir, struct dentry *dentry, inode_t *file);
@@ -95,12 +95,20 @@ int     setattr(int fd, void *attr);
 int     truncate(int fd, off_t length);
 int     fcntl(int fd, int cmd, void *argp);
 int     ioctl(int fd, int req, void *argp);
+
+/* SEEK_SET */
+#define SEEK_SET 0
+/* SEEK_CUR */
+#define SEEK_CUR 1
+/* SEEK_END */
+#define SEEK_END 2
+
 off_t   lseek(int fd, off_t off, int whence);
 ssize_t read(int fd, void *buf, size_t size);
 ssize_t write(int fd, void *buf, size_t size);
 int     open(const char *pathname, int oflags, ...);
-int     create(int fd, const char *pathname, mode_t mode);
-int     mkdirat(int fd, const char *pathname, mode_t mode);
+int     create(int fd, const char *filename, mode_t mode);
+int     mkdirat(int fd, const char *filename, mode_t mode);
 ssize_t readdir(int fd, off_t off, void *buf, size_t count);
 int     linkat(int fd, const char *oldname, const char *newname);
-int     mknodat(int fd, const char *pathname, mode_t mode, int devid);
+int     mknodat(int fd, const char *filename, mode_t mode, int devid);

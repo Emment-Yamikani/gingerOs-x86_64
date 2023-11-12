@@ -100,6 +100,7 @@ int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, 
     thread->t_arch = (x86_64_thread_t) {
         .t_kstack = kstack,
         .t_kstacksz = kstacksz,
+        .t_thread = thread,
     };
 
     thread->t_attr = t_attr;

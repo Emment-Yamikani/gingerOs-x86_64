@@ -35,14 +35,14 @@ int arch_thread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg)
     if (!thread)
         return -EINVAL;
 
-    stack = (uintptr_t *)ALIGN16((thread->t_kstack + thread->t_kstacksz) - sizeof (thread_t));
-
+    stack = (uintptr_t *)ALIGN4K((thread->t_kstack + thread->t_kstacksz) - sizeof (thread_t));
+    
     *--stack = (uintptr_t)arch_thread_stop;
+    
     tf = (tf_t *)((uintptr_t)stack - sizeof *tf);
     
     tf->ss = SEG_KDATA64 << 3;
-    tf->rsp = (uintptr_t)stack;
-    tf->rbp = tf->rsp;
+    tf->rbp = tf->rsp = (uintptr_t)stack;
     tf->rflags = LF_IF;
     tf->cs = SEG_KCODE64 << 3;
     tf->rip = (uintptr_t)entry;

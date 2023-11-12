@@ -6,6 +6,7 @@
 #include <mm/kalloc.h>
 #include <bits/errno.h>
 #include <lib/string.h>
+#include <sys/thread.h>
 
 static iops_t ramfs2_iops;
 static inode_t *iroot = NULL;
@@ -272,7 +273,7 @@ __unused static int ramfs2_lseek(inode_t *ip __unused, off_t off __unused, int w
     return -EINVAL;
 }
 
-static ssize_t ramfs2_read_datadir(inode_t *dir, off_t offset, struct dirent *buff, size_t count) {
+static ssize_t ramfs2_readdir(inode_t *dir, off_t offset, struct dirent *buff, size_t count) {
     ramfs2_node_t *node = NULL;
     
     iassert_locked(dir);
@@ -317,6 +318,7 @@ static ssize_t ramfs2_read_datadir(inode_t *dir, off_t offset, struct dirent *bu
         strncpy(buff[indx].d_name, ramfs2_super->nodes[offset].name,
             strlen(ramfs2_super->nodes[offset].name));
     }
+
     return 0;
 }
 
@@ -349,7 +351,7 @@ static iops_t ramfs2_iops = {
     .iread_data = ramfs2_read_data,
     .isync = ramfs2_sync,
     .iwrite_data = ramfs2_write_data,
-    .ireaddir = ramfs2_read_datadir,
+    .ireaddir = ramfs2_readdir,
 };
 
 /*

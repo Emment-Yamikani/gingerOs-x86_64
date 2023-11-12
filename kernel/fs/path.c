@@ -37,7 +37,7 @@ error:
 
 /**
  * @brief Parse the pathname of a file and return an absolute path.
- * __abspath must be a valid address while __abspath_tokens and __last_token may be NULL.
+ * __abspath, __abspath_tokens and __last_token may be NULL.
  * The returned __abspath, __abspath_tokens and __last_token should be kfree-ed after use.
  * 
  * @param path is the path to be parsed.
@@ -52,8 +52,8 @@ error:
 int parse_path(const char *path, const char *__cwd,
                char **__abspath, char ***__abspath_tokens,
                char **__last_token, int *pisdir) {
-    int err = -ENOTNAM;
     int is_dir = 0;
+    int err = -ENOTNAM;
     size_t tmp_cwdlen = 0, tmp_pathlen = 0;
     size_t tmp_abslen = 0, ntoken = 0, tok_i = 0;
     char *tmp_path = NULL, *last_token = NULL, **token_buffer = NULL;
