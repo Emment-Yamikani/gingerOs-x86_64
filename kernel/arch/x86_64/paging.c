@@ -15,10 +15,7 @@ pagemap_t kernel_map = {
     .pdbr = (void *)VMA2LO(_PML4_),
 };
 
-#define I64_CLR(t) ({              \
-    for (int i = 0; i < NPTE; ++i) \
-        ((pte_t *)(t))[i].raw = 0; \
-})
+#define I64_CLR(t) ({ for (int i = 0; i < NPTE; ++i) ((pte_t *)(t))[i].raw = 0; })
 
 spinlock_t *kvmhigh_lock = SPINLOCK_NEW();
 
@@ -187,7 +184,8 @@ static inline void i64_unmap_pt(int i4, int i3, int i2) {
     
     if (!ispresent(PDPTE(i4, i3)->raw))
         return;
-    
+
+    // printk("[%s:%d] i4: %d, i3: %d i2: %d\n", __FILE__, __LINE__, i4, i3, i2);
     if (ispresent(PDTE(i4, i3, i2)->raw)) {
         lvl1 = PGROUND(PDTE(i4, i3, i2)->raw);
         PDTE(i4, i3, i2)->raw = 0;
@@ -361,9 +359,17 @@ void i64_unmount(uintptr_t v) {
 void i64_unmap_full(void) {
     size_t i4 = 0, i3 = 0, i2 = 0, i1 = 0;
     for (i4 = 0; i4 < PML4I(USTACK); ++i4) {
+        if (!ispresent(PML4E(i4)->raw))
+            continue;
         for (i3 = 0; i3 < NPTE; ++i3) {
+            if (!ispresent(PDPTE(i4, i3)->raw))
+                continue;
             for (i2 = 0; i2 < NPTE; ++i2) {
+                if (!ispresent(PDTE(i4, i3, i2)->raw))
+                    continue;
                 for (i1 = 0; i1 < NPTE; ++i1) {
+                    if (!ispresent(PTE(i4, i3, i2, i1)->raw))
+                        continue;
                     i64_unmap(i4, i3, i2, i1);
                 }
                 i64_unmap_pt(i4, i3, i2);

@@ -2,6 +2,7 @@
 
 #include <sync/atomic.h>
 #include <lib/stdint.h>
+#include <lib/stddef.h>
 #include <lib/types.h>
 
 extern void sched(void);
@@ -57,7 +58,9 @@ void sched_yield(void);
  * @param thread
  * @return int
  */
-int sched_zombie(thread_t *thread);
+int sched_putzombie(thread_t *thread);
+thread_t *sched_getzombie(void);
+void sched_remove_zombies(void);
 
 /**
  * @brief wake one 'thread' from 'sleep_queue'.
@@ -87,14 +90,8 @@ size_t sched_wakeall(queue_t *sleep_queue);
 /*get a thread from a queue*/
 thread_t *sched_next(void);
 
-int sched_setattr(thread_t *thread, int affinity, int core);
-
-void sched_set_priority(thread_t *thread, int priority);
-
-int sched_init(void);
-int init_sched_queues(void);
-
-void sched_remove_zombies(void);
+thread_t *sched_getembryo(void);
+int sched_putembryo(thread_t *thread);
 
 /*context switch back to the scheduler*/
 extern void sched(void);

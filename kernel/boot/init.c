@@ -103,8 +103,7 @@ int early_init(void) {
     if ((err = acpi_init()))
         panic("Failed to initialize ACPI, error: %d\n", err);
 
-    if ((err = lapic_init()))
-        panic("Failed to init LAPIC, error: %d\n", err);
+    bootothers();
 
     pic_init();
     ioapic_init();
@@ -117,10 +116,7 @@ int early_init(void) {
 
     thread_create(NULL, NULL, (thread_entry_t)kthread_main, NULL);
 
-    bootothers();
-
     schedule();
-    loop();
     assert(0, "schedule returned :(");
     loop();
     return 0;

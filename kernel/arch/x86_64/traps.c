@@ -52,7 +52,6 @@ void dump_tf(tf_t *tf, int halt) {
 
 void trap(tf_t *tf) {
     time_t time = 0;
-
     switch (tf->trapno) {
     case IRQ(0):
         pit_intr();
@@ -70,6 +69,7 @@ void trap(tf_t *tf) {
         break;
     case TLB_SHTDWN:
         tlb_shootdown_handler();
+        lapic_eoi();
         break;
     case LAPIC_ERROR:
         lapic_eoi();
@@ -85,10 +85,6 @@ void trap(tf_t *tf) {
         break;
     case LAPIC_TIMER:
         lapic_timerintr();
-        lapic_eoi();
-        break;
-    case LAPIC_IPI:
-        printk("cpu%d: ipi test\n", cpu_id);
         lapic_eoi();
         break;
     case T_PGFAULT:
@@ -113,7 +109,7 @@ void trap(tf_t *tf) {
     signal_handle(tf);
 
     current_lock();
-    time = current->t_sched_attr.timeslice;
+    time = current->t_sched.ts_timeslice;
     if (current_testflags(THREAD_STOP))
         thread_stop(current, sched_stopq);
     current_unlock();

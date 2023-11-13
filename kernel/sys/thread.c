@@ -115,8 +115,10 @@ int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, 
     thread->t_wait = COND_INIT();
     thread->t_queues = queue;
 
-    thread->t_sched_attr.ctime = jiffies_get();
-    thread->t_sched_attr.priority = SCHED_LOWEST_PRIORITY;
+    thread->t_sched.ts_ctime = jiffies_get();
+    thread->t_sched.ts_cpu_affinity_set = -1;
+    thread->t_sched.ts_priority = SCHED_LOWEST_PRIORITY;
+    thread->t_sched.ts_affinity_type = SCHED_SOFT_AFFINITY;
 
     thread_enter_state(thread, T_EMBRYO);
 
@@ -285,7 +287,7 @@ int thread_reap(thread_t *thread, int reap, thread_info_t *info, void **retval) 
         info->ti_flags  = thread->t_flags;
         info->ti_errno  = thread->t_errno;
         info->ti_state  = thread->t_state;
-        info->ti_sched  = thread->t_sched_attr;
+        info->ti_sched  = thread->t_sched;
     }
 
     if (retval)

@@ -22,7 +22,7 @@ ap_trampoline:
     cld
 
     mov     eax, cr4
-    or      eax, 1 << 5
+    or      eax, (1 << 5)
     mov     cr4, eax
 
     mov     ecx, 0xC0000080
@@ -36,6 +36,7 @@ ap_trampoline:
     lgdt    [gdt64.pointer]
 
     mov     eax, cr0
+    and     eax, 0x0fffffff ; disable per-cpu caching
     or      eax, 0x80000001
     mov     cr0, eax
 
@@ -73,8 +74,15 @@ long_mode:
     mov     ss, ax
     mov     rsp, qword [stack]
     mov     rbp, rsp
-    retq
+    mov     rax, qword[entry]
 
-times 4032 - ($ - $$) db 0
+    call    rax ; AP entry
+    
+    cli
+    hlt
+    jmp     $
+
+times 4024 - ($ - $$) db 0
 PML4:  dq 0 ; Level 4 Page Map
 stack: dq 0 ; AP bootstrap stack.
+entry: dq 0 ; AP entry point

@@ -10,7 +10,7 @@
 #include <dev/hpet.h>
 #include <dev/clocks.h>
 
-static volatile uint32_t *LAPIC_BASE = 0;
+#define LAPIC_BASE    ((volatile uint32_t *)VMA2HI(PGROUND(rdmsr(IA32_APIC_BASE))))
 
 #define ID              LAPIC_BASE[0x20 / 4]          // ID register.
 #define VER             LAPIC_BASE[0x30 / 4]          // Version register.
@@ -88,10 +88,6 @@ void lapic_enable(void) {
     SIVR = ENABLED | LAPIC_SPURIOUS;
 }
 
-void lapic_setaddr(uintptr_t addr) {
-    LAPIC_BASE = (void *)addr;
-}
-
 int lapic_init(void) {
     SIVR = ENABLED | LAPIC_SPURIOUS;
 
@@ -106,7 +102,6 @@ int lapic_init(void) {
 
     ESR = 0;
     ESR = 0;
-    lapic_eoi();
 
     ICR1 = 0;
     ICR0 = INIT | LEVEL | BCAST;
@@ -114,7 +109,8 @@ int lapic_init(void) {
         ;
 
     TPR = 0;
-    // lapic_recalibrate(100);
+    lapic_recalibrate(SYS_HZ);
+    lapic_eoi();
     return 0;
 }
 
@@ -136,13 +132,13 @@ void lapic_recalibrate(long hz) {
     LVT_TMR = timer;
 }
 
-void lapic_startup(int id, uint16_t addr) {
-    ICR1 = (id << 24);
+void lapic_startup(int dst, uint16_t addr) {
+    ICR1 = (dst << 24);
     ICR0 = INIT | ASSERT;
     while (ICR0 & DELIVS)
         ;
 
-    ICR1 = (id << 24);
+    ICR1 = (dst << 24);
     ICR0 = ICR0 = INIT | LEVEL;
     while (ICR0 & DELIVS)
         ;
@@ -151,7 +147,7 @@ void lapic_startup(int id, uint16_t addr) {
 
     for (int i = 0; i < 2; ++i)
     {
-        ICR1 = (id << 24);
+        ICR1 = (dst << 24);
         ICR0 = SIPI | (addr >> 12);
         while (ICR0 & DELIVS)
             ;
@@ -163,23 +159,30 @@ void lapic_timerintr(void) {
     atomic_inc(&cpu->timer_ticks);
     if (current) {
         current_lock();
-        current->t_sched_attr.timeslice--;
+        current->t_sched.ts_timeslice--;
         current_unlock();
     }
 }
 
-void lapic_ipi(int id, int ipi) {
+void lapic_send_ipi(int ipi, int dst) {
     if (!LAPIC_BASE)
         return;
-    ICR1 = (id << 24);
-    if (id == -1) // send to self.
+    switch (dst) {
+    case IPI_SELF: // send to self.
         ICR0 = ASSERT | LEVEL | SELF | (ipi & 0xff);
-    else if (id == -2) // broadcast to all.
+        break;
+    case IPI_ALL: // broadcast to all.
         ICR0 = ASSERT | LEVEL | BCAST | (ipi & 0xff);
-    else if (id == -3) // broadcast to all except self.
+        break;
+    case IPI_ALLXSELF: // broadcast to all except self.
         ICR0 = ASSERT | LEVEL | BCAST_XSELF | (ipi & 0xff);
-    else // send to specific lapic.
+        break;
+    default: // send to specific lapic.
+        if (dst < 0 || dst >= cpu_online())
+            return;
+        ICR1 = (dst << 24);
         ICR0 = ASSERT | LEVEL | (ipi & 0xff);
+    }
     while (ICR0 & DELIVS)
         ;
 }

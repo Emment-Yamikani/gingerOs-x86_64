@@ -41,19 +41,19 @@ typedef struct
 } thread_attr_t;
 
 typedef struct {
-    time_t      ctime;              // Thread ceation time.
-    time_t      cpu_time;           // CPU time in jiffies(n seconds = (jiffy * (HZ_TO_ns(SYS_HZ) / seconds_TO_ns(1))) ).
-    time_t      timeslice;          // Quantum of CPU time for which this thread is allowed to run.
-    time_t      total_time;         // Total time this thread has run.
-    time_t      last_sched;         // Last time this thread was scheduled to run.
+    time_t      ts_ctime;              // Thread ceation time.
+    time_t      ts_cpu_time;           // CPU time in jiffies(n seconds = (jiffy * (HZ_TO_ns(SYS_HZ) / seconds_TO_ns(1))) ).
+    time_t      ts_timeslice;          // Quantum of CPU time for which this thread is allowed to run.
+    time_t      ts_total_time;         // Total time this thread has run.
+    time_t      ts_last_sched;         // Last time this thread was scheduled to run.
 
-    cpu_t       *processor;         // Current Processor for which this thread has affinity.
-    uint8_t     affinity_type;      // Type of affinity (SOFT or HARD).
-    flags32_t   cpu_affinity_set;   // cpu set for which thread can have affinity for.
-    atomic_t    priority;           // Thread scheduling Priority.
-} sched_attr_t;
+    cpu_t       *ts_processor;         // Current Processor for which this thread has affinity.
+    uint8_t     ts_affinity_type;      // Type of affinity (SOFT or HARD).
+    flags32_t   ts_cpu_affinity_set;   // cpu set for which thread can have affinity for.
+    atomic_t    ts_priority;           // Thread scheduling Priority.
+} thread_sched_t;
 
-#define SCHED_ATTR_DEFAULT() (sched_attr_t){0}
+#define sched_DEFAULT() (thread_sched_t){0}
 
 /*soft affinity for the cpu*/
 #define SCHED_SOFT_AFFINITY 0
@@ -224,12 +224,12 @@ typedef struct thread {
     void            *t_simd_ctx;        // thread's Single Instruction Multiple Data (SIMD) context.
     pagemap_t       *t_map;             // thread's process virtual address space.
     sleep_attr_t    sleep_attr;         // struct describing sleep attributes for this thread.
-    sched_attr_t    t_sched_attr;       // struct describing scheduler attributes for this thread.
+    thread_sched_t  t_sched;            // struct describing scheduler attributes for this thread.
 
     tgroup_t        *t_group;           // thread group.
     queue_t         *t_queues;          // queues on which this thread resides.
 
-    cond_t          t_wait;            // thread conditional wait variable.
+    cond_t          t_wait;             // thread conditional wait variable.
     x86_64_thread_t t_arch;             // architecture thread struct.
 
     spinlock_t      t_lock;             // lock to synchronize access to this struct.
@@ -239,7 +239,7 @@ typedef struct {
     tid_t           ti_tid;
     tid_t           ti_ktid;
     tstate_t        ti_state;
-    sched_attr_t    ti_sched;
+    thread_sched_t  ti_sched;
     uintptr_t       ti_errno;
     uintptr_t       ti_exit;
     atomic_t        ti_flags;

@@ -8,8 +8,6 @@
 static xsdt_t  *XSDT = NULL;
 static rsdt_t  *RSDT = NULL;
 static rsdp20_t  *RSDP = NULL;
-static acpiSDT_t  *HPET = NULL;
-static acpiMADT_t  *MADT = NULL;
 
 int acpi_validate_table(char *addr, size_t size) {
     uint8_t sum = 0;
@@ -77,7 +75,6 @@ acpiSDT_t *acpi_enumerate(const char *sign) {
 }
 
 int acpi_init(void) {
-    int err = 0;
     size_t size = 0;
 
     if (!(RSDP = acpi_findrsdp()))
@@ -92,10 +89,5 @@ int acpi_init(void) {
         RSDT = (rsdt_t *)VMA2HI(RSDP->rsdp.rsdtaddr);
     else
         XSDT = (xsdt_t *)VMA2HI(RSDP->xsdtaddr);
-
-    MADT = (acpiMADT_t *)acpi_enumerate("APIC");
-    HPET = acpi_enumerate("HPET");
-    if ((err = enumerate_cpus()))
-        return err;
     return 0;
 }

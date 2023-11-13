@@ -1,7 +1,7 @@
 #pragma once
 
-#define IRQ_OFFSET  32
-#define IRQ(i)  ((i) + IRQ_OFFSET)
+#define IRQ_OFFSET      32
+#define IRQ(i)          ((i) + IRQ_OFFSET)
 
 
 #define PS2_KBD         1
@@ -16,8 +16,8 @@
 #define LAPIC_ERROR     IRQ(18)
 #define LAPIC_SPURIOUS  IRQ(19)
 #define LAPIC_TIMER     IRQ(20)
-#define LAPIC_IPI       IRQ(31)
+#define TLB_SHTDWN      IRQ(31)
 
-#define TLB_SHTDWN      IRQ(32)
+#define LAPIC_IPI       IRQ(32)
 
 #define T_LEG_SYSCALL   128

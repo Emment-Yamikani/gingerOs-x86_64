@@ -137,6 +137,7 @@ typedef struct cpu {
 #define CPU_ISBSP           BS(1)   // cpu is a bootstrap processor. 
 #define CPU_ONLINE          BS(2)   // cpu is online.
 #define CPU_64BIT           BS(3)   // cpu running in 64bit.
+#define CPU_USE_LAPIC       BS(4)   // cpu will use the Local APIC.
 
 #define CPU_PANICED         BS(31)  // cpu has paniced.
 
@@ -161,14 +162,17 @@ extern void                 simd_fp_except(void);
 extern void                 coprocessor_except(void);
 
 extern int                  is64bit(void);
+extern void                 cpu_init(void);
 extern int                  cpu_rsel(void);
 extern int                  cpu_count(void);
+extern int                  cpu_online(void);
+extern void                 cpu_incr_online(void);
+
 extern int                  bootothers(void);
-extern void                 cpu_init(void);
-extern int                  cpu_local_id(void);
-extern cpu_t                *get_cpu_local(void);
-extern int                  enumerate_cpus(void);
-extern void                 set_cpu_local(cpu_t *);
+
 extern cpu_t                *cpu_getcls(void);
 extern void                 cpu_setcls(cpu_t *c);
+
+extern int                  cpu_local_id(void);
+extern int                  enumerate_cpus(void);
 extern void                 cpu_get_features(void);

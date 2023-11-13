@@ -6,16 +6,16 @@
 #include <ginger/jiffies.h>
 #include <lib/string.h>
 #include <mm/kalloc.h>
+#include <arch/traps.h>
 
 void tlb_shootdown_handler(void) {
-    printk("%s", __func__);
     wrcr3(rdcr3());
 }
 
 int tlb_shootdown(uintptr_t pml4, uintptr_t viraddr) {
     (void)pml4;
     (void)viraddr;
-    lapic_ipi(IPI_ALLXSELF, IPI_TLBSHTDWN);
+    lapic_send_ipi(TLB_SHTDWN, IPI_ALLXSELF);
     return 0;
 }
 

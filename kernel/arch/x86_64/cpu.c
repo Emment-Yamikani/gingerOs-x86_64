@@ -12,6 +12,7 @@
 #include <mm/kalloc.h>
 #include <dev/cga.h>
 #include <arch/paging.h>
+#include <mm/vmm.h>
 
 cpu_t *cpus[MAXNCPU];
 static atomic_t ncpu = 1; // '1' because we are starting with BSP
@@ -114,8 +115,7 @@ void cpu_get_features(void) {
 }
 
 void cpu_init(void) {
-    disable_caching();
-    atomic_inc(&cpus_running);
+    cpu_incr_online();
     memset(cpu, 0, sizeof *cpu);
 
     idt_init();
@@ -126,6 +126,9 @@ void cpu_init(void) {
     cpu->flags |= CPU_ONLINE | CPU_64BIT | CPU_ENABLED;
     cpu->flags |= rdmsr(IA32_EFER) & BS(8) ? CPU_64BIT : 0;
     cpu->flags |= BTEST(rdmsr(IA32_APIC_BASE), 8) ? CPU_ISBSP : 0;
+    cpu->flags |= (rdmsr(IA32_APIC_BASE) & ~BS(8)) ? CPU_USE_LAPIC : 0;
+    
+    lapic_init();
 }
 
 int is64bit(void) {
@@ -142,13 +145,20 @@ int bsp_init(void) {
 void ap_init(void) {
     cpu_setcls(cpus[lapic_id()]);
     cpu_init();
-    lapic_init();
     schedule();
     loop();
 }
 
 int cpu_count(void) {
     return (int)atomic_read(&ncpu);
+}
+
+int cpu_online(void) {
+    return atomic_read(&cpus_running);
+}
+
+void cpu_incr_online(void) {
+    atomic_inc(&cpus_running);
 }
 
 int cpu_rsel(void) {
@@ -181,7 +191,7 @@ int enumerate_cpus(void) {
         return -ENOENT;
 
     entry = (void *)MADT->apics;
-    lapic_setaddr(VMA2HI(MADT->lapic_addr));
+    // lapic_setaddr(VMA2HI(MADT->lapic_addr));
 
     for (; entry && entry < (((char *)MADT) + MADT->madt.length); entry += entry[1]) {
         if (*entry == 0) {
@@ -205,23 +215,28 @@ int bootothers(void) {
     uintptr_t *stack = NULL;
     extern char ap_trampoline[];
     uintptr_t v = (uintptr_t)ap_trampoline;
-    if ((arch_map_i(v, (uintptr_t)ap_trampoline, PGSZ, VM_KRW)))
+
+    if ((err = enumerate_cpus()))
+        return err;
+
+    if ((err = arch_map_i(v, (uintptr_t)ap_trampoline, PGSZ, VM_KRW)))
         return err;
 
     for (int i = 0; i < (int)atomic_read(&ncpu); ++i) {
         if (!cpus[i] || !(cpus[i]->flags & CPU_ENABLED) || cpus[i] == cpu)
             continue;
 
-        if (!(stack = (void *)VMA2HI(pmman.get_pages(GFP_NORMAL, 7) + KSTACKSZ)))
-            return -ENOMEM;
-        *--stack = 0;
-        *--stack = (uintptr_t)ap_init;
-        *((uintptr_t *)VMA2HI(&ap_trampoline[4032])) = rdcr3();
-        *((uintptr_t *)VMA2HI(&ap_trampoline[4040])) = (uintptr_t)stack;
+        if ((err = arch_pagealloc(KSTACKSZ, (uintptr_t *)&stack)))
+            return err;
+
+        stack = (uintptr_t *)(((uintptr_t)stack) + KSTACKSZ);
+        *((uintptr_t *)VMA2HI(&ap_trampoline[4024])) = rdcr3();
+        *((uintptr_t *)VMA2HI(&ap_trampoline[4032])) = (uintptr_t)stack;
+        *((uintptr_t *)VMA2HI(&ap_trampoline[4040])) = (uintptr_t)ap_init;
         lapic_startup(cpus[i]->apicID, (uint16_t)((uintptr_t)ap_trampoline));
         while (!(atomic_read(&cpus[i]->flags) & CPU_ONLINE));
     }
 
-    arch_unmap_n((uintptr_t)ap_trampoline, PGSZ);
+    arch_unmap_full(); // unmap lower half of virtual memory address.
     return 0;
 }

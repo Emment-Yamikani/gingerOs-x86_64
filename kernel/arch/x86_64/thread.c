@@ -18,7 +18,6 @@ void arch_thread_exit(uintptr_t exit_code) {
 
 /// @brief all threads start here
 static void arch_thread_start(void) {
-    debugloc();
     current_unlock();
 }
 
@@ -44,7 +43,7 @@ int arch_thread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg)
     
     tf->ss = SEG_KDATA64 << 3;
     tf->rbp = tf->rsp = (uintptr_t)stack;
-    tf->rflags = 0;//LF_IF;
+    tf->rflags = LF_IF;
     tf->cs = SEG_KCODE64 << 3;
     tf->rip = (uintptr_t)entry;
     tf->rdi = (uintptr_t)arg;
