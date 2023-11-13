@@ -118,8 +118,9 @@ int early_init(void) {
     thread_create(NULL, NULL, (thread_entry_t)kthread_main, NULL);
 
     bootothers();
-    send_tlb_shootdown(0, 0);
+
     schedule();
+    loop();
     assert(0, "schedule returned :(");
     loop();
     return 0;

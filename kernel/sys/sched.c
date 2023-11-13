@@ -288,21 +288,21 @@ __noreturn void schedule(void) {
     jiffies_t before = 0;
     thread_t *thread = NULL;
 
+    lapic_recalibrate(SYS_HZ);
     if ((err = sched_init()))
         panic("CPU%d: failed to initialize scheduler queues\n");
 
-    lapic_recalibrate(SYS_HZ);
 
     loop() {
-        cpu->ncli = 0;
         current = NULL;
+        cpu->ncli = 0;
         cpu->intena = 0;
 
         sti();
 
         if (!(thread = sched_next()))
             continue;
-
+        
         cli();
 
         current = thread;

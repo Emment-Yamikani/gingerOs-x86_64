@@ -65,8 +65,8 @@ $(iso_dir)/boot/lime.elf: $(kernel_dir)/kernel.ld $(linked_objs)
 
 run:
 	qemu-system-x86_64	\
-	-smp 1	 			\
-	-m size=1G			\
+	-smp 4	 			\
+	-m size=512M			\
 	-cdrom	ginger.iso	\
 	-no-reboot			\
 	-no-shutdown		\

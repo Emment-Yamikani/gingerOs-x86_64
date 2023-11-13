@@ -15,7 +15,7 @@
 
 void dump_tf(tf_t *tf, int halt) {
     if (halt)
-        panic("\e[0;014mTRAP(%d)\e[0m CPU(%d) TID(%d): ERR(%X) rflags=%16p cs=%X fs=%X ss=%X\n"
+        panic("\n\e[0;014mTRAP:%d\e[0m CPU%d TID:%d: ERR:%X rflags=%8X cs=%X ds=%X fs=%X ss=%X\n"
               "\e[0;015mrax\e[0m=\e[0;016m%16p\e[0m \e[0;015mrbx\e[0m=\e[0;12m%16p\e[0m \e[0;015mrcx\e[0m=\e[0;12m%16p\n\e[0m"
               "\e[0;015mrdx\e[0m=%16p \e[0;015mrdi\e[0m=%16p \e[0;015mrsi\e[0m=%16p\n"
               "\e[0;03mrbp\e[0m=\e[0;03m%16p\e[0m \e[0;03mrsp\e[0m=\e[0;03m%16p\e[0m \e[0;015mr8\e[0m =\e[0;12m%16p\n\e[0m"
@@ -23,7 +23,7 @@ void dump_tf(tf_t *tf, int halt) {
               "\e[0;015mr12\e[0m=\e[0;012m%16p\e[0m \e[0;015mr13\e[0m=\e[0;12m%16p\e[0m \e[0;015mr14\e[0m=\e[0;12m%16p\n\e[0m"
               "\e[0;015mr15\e[0m=%16p \e[0;015mrip\e[0m=\e[0;016m%16p\e[0m \e[0;015mcr0\e[0m=%16p\n"
               "\e[0;015mcr2\e[0m=\e[0;016m%16p\e[0m \e[0;015mcr3\e[0m=\e[0;12m%16p\e[0m \e[0;015mcr4\e[0m=\e[0;12m%16p\n\e[0m",
-              tf->trapno, cpu_id, thread_self(), tf->errno, tf->rflags, tf->cs, tf->fs, tf->ss, 
+              tf->trapno, cpu_id, thread_self(), tf->errno, tf->rflags, tf->cs, tf->ds, tf->fs, tf->ss, 
               tf->rax, tf->rbx, tf->rcx,
               tf->rdx, tf->rdi, tf->rsi,
               tf->rbp, tf->rsp, tf->r8,
@@ -32,7 +32,7 @@ void dump_tf(tf_t *tf, int halt) {
               tf->r15, tf->rip, rdcr0(),
               rdcr2(), rdcr3(), rdcr4());
     else
-        printk("\e[0;014mTRAP(%d)\e[0m CPU(%d) TID(%d): ERR(%X) rflags=%16p cs=%X fs=%X ss=%X\n"
+        printk("\n\e[0;014mTRAP:%d\e[0m CPU%d TID:%d: ERR:%X rflags=%8X cs=%X ds=%X fs=%X ss=%X\n"
                "\e[0;015mrax\e[0m=\e[0;012m%16p\e[0m rbx=\e[0;12m%16p\e[0m rcx=\e[0;12m%16p\n\e[0m"
                "\e[0;015mrdx\e[0m=%16p \e[0;015mrdi\e[0m=%16p \e[0;015mrsi\e[0m=%16p\n"
                "\e[0;015mrbp\e[0m=\e[0;012m%16p\e[0m rsp=\e[0;12m%16p\e[0m r8 =\e[0;12m%16p\n\e[0m"
@@ -40,7 +40,7 @@ void dump_tf(tf_t *tf, int halt) {
                "\e[0;015mr12\e[0m=\e[0;012m%16p\e[0m r13=\e[0;12m%16p\e[0m r14=\e[0;12m%16p\n\e[0m"
                "\e[0;015mr15\e[0m=%16p \e[0;015mrip\e[0m=%16p \e[0;015mcr0\e[0m=%16p\n"
                "\e[0;015mcr2\e[0m=\e[0;012m%16p\e[0m cr3=\e[0;12m%16p\e[0m cr4=\e[0;12m%16p\n\e[0m",
-               tf->trapno, cpu_id, thread_self(), tf->errno, tf->rflags, tf->cs, tf->fs, tf->ss,
+               tf->trapno, cpu_id, thread_self(), tf->errno, tf->rflags, tf->cs, tf->ds, tf->fs, tf->ss,
                tf->rax, tf->rbx, tf->rcx,
                tf->rdx, tf->rdi, tf->rsi,
                tf->rbp, tf->rsp, tf->r8,

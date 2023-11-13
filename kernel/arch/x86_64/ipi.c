@@ -8,6 +8,7 @@
 #include <mm/kalloc.h>
 
 void tlb_shootdown_handler(void) {
+    printk("%s", __func__);
     wrcr3(rdcr3());
 }
 

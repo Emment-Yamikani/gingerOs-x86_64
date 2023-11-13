@@ -94,10 +94,7 @@ IRQ 31, 63
 global trapret
 extern trap
 
-stub:
-    swapgs
-    push    fs
-
+%macro save_context 0
     push    qword rax
     push    qword rbx
     push    qword rcx
@@ -113,11 +110,17 @@ stub:
     push    qword r13
     push    qword r14
     push    qword r15
+    
+    mov     rax, ds
+    push    rax
+    push    fs
+%endmacro
 
-    mov     rdi, rsp
-    call    trap
+%macro restore_context 0
+    pop     fs
+    pop     rax 
+    mov     ds, ax 
 
-trapret:
     pop     qword r15
     pop     qword r14
     pop     qword r13
@@ -133,8 +136,16 @@ trapret:
     pop     qword rcx
     pop     qword rbx
     pop     qword rax
+%endmacro
 
-    pop     fs
+stub:
+    swapgs
+    save_context
+
+    mov     rdi, rsp
+    call    trap
+trapret:
+    restore_context
     swapgs
     add     rsp, 16
     iretq

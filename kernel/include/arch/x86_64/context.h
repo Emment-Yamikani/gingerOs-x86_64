@@ -3,6 +3,9 @@
 #include <lib/stdint.h>
 
 typedef struct {
+    uintptr_t fs;
+    uintptr_t ds;
+
     uintptr_t r15;
     uintptr_t r14;
     uintptr_t r13;
@@ -19,8 +22,6 @@ typedef struct {
     uintptr_t rcx;
     uintptr_t rbx;
     uintptr_t rax;
-
-    uintptr_t fs;
 
     uintptr_t trapno;
     uintptr_t errno;

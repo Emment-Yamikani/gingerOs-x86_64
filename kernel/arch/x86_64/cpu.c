@@ -201,10 +201,12 @@ int enumerate_cpus(void) {
 }
 
 int bootothers(void) {
+    int err = 0;
     uintptr_t *stack = NULL;
     extern char ap_trampoline[];
     uintptr_t v = (uintptr_t)ap_trampoline;
-    arch_map_i(v, (uintptr_t)ap_trampoline, PGSZ, VM_KRW);
+    if ((arch_map_i(v, (uintptr_t)ap_trampoline, PGSZ, VM_KRW)))
+        return err;
 
     for (int i = 0; i < (int)atomic_read(&ncpu); ++i) {
         if (!cpus[i] || !(cpus[i]->flags & CPU_ENABLED) || cpus[i] == cpu)
@@ -220,5 +222,6 @@ int bootothers(void) {
         while (!(atomic_read(&cpus[i]->flags) & CPU_ONLINE));
     }
 
+    arch_unmap_n((uintptr_t)ap_trampoline, PGSZ);
     return 0;
 }

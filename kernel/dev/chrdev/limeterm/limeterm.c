@@ -107,7 +107,7 @@ int limeterm_init(void) {
    
     ctx.op = 200;
     ctx.cursor_char = '|';
-    ctx.cursor_timeout = 100;
+    ctx.cursor_timeout = 50;
     ctx.bg_color = RGB_black;
     ctx.fg_color = RGB_white;
     ctx.lock = SPINLOCK_INIT();
