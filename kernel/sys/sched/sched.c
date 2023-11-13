@@ -196,6 +196,7 @@ __noreturn void schedule(void) {
 
         if (NULL == (thread = sched_next())) {
             hlt();
+            cpu_pause();
             continue;
         }
 

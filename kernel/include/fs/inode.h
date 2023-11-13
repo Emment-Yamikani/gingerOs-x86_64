@@ -45,6 +45,10 @@ typedef struct inode {
     void            *i_priv;    // Filesystem specific private data.
     struct dentry   *i_alias;   // Alias to this inode (can be multiple).
     icache_t        *i_cache;   // Page cache for this inode.
+
+    cond_t          *i_writers; // writers condition variable.
+    cond_t          *i_readers; // readers condition variable.
+
     spinlock_t      i_lock;     // Spinlock to protect access to this inode.
     /**
      * TODO: May need to add another type of locking mechanism
@@ -121,7 +125,7 @@ typedef struct iops {
     ip->i_size = (size);          \
 })
 
-int     ialloc(inode_t **pip);
+int     ialloc(itype_t type, inode_t **pip);
 int     iopen(inode_t *ip);
 void    iputcnt(inode_t *ip);
 void    idupcnt(inode_t *ip);

@@ -111,7 +111,7 @@ int vfs_alloc_vnode(const char *name, itype_t type, inode_t **pip, dentry_t **pd
     if (pip == NULL || pdp == NULL)
         return -EINVAL;
 
-    if ((err = ialloc(&ip)))
+    if ((err = ialloc(type, &ip)))
         return err;
 
     if ((err = dalloc(name, &dp)))

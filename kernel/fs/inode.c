@@ -8,7 +8,21 @@
 #include <fs/fcntl.h>
 #include <fs/stat.h>
 
-int ialloc(inode_t **pip) {
+void ifree(inode_t *ip) {
+    iassert_locked(ip);
+
+    if (ip->i_refcnt <= 0) {
+        iunlink(ip);
+        icache_free(ip->i_cache);
+        iunlock(ip);
+        kfree(ip);
+        return;
+    }
+
+    iunlock(ip);
+}
+
+static int inew(inode_t **pip) {
     int err = -ENOMEM;
     inode_t *ip = NULL;
 
@@ -24,26 +38,53 @@ int ialloc(inode_t **pip) {
     ip->i_lock = SPINLOCK_INIT();
     ilock(ip);
 
-    if ((err = icache_alloc(&ip->i_cache)))
+    *pip = ip;
+    return 0;
+}
+
+int     ialloc(itype_t type,  inode_t **pip) {
+    int         err = 0;
+    inode_t     *ip = NULL;
+    icache_t    *icache = NULL;
+    cond_t      *reader = NULL;
+    cond_t      *writer = NULL;
+
+    if (pip == NULL)
+        return -EINVAL;
+
+    if ((err = inew(&ip)))
+        return err;
+
+    ip->i_type = type;
+
+    if (IISDEV(ip) == 0) {
+        if ((err = icache_alloc(&icache)))
+            goto error;
+    }
+
+    if ((err - cond_new(&reader)))
+        goto error;
+    
+    if ((err = cond_new(&writer)))
         goto error;
 
-    ip->i_cache->pc_inode = ip;
+    ip->i_cache = icache;
+    icache->pc_inode = ip;
+    ip->i_writers = writer;
+    ip->i_readers = reader;
+
     *pip = ip;
     return 0;
 error:
     if (ip)
-        kfree(ip);
+        ifree(ip);
+    if (icache)
+        icache_free(icache);
+    if (reader)
+        cond_free(reader);
+    if (writer)
+        cond_free(writer);
     return err;
-}
-
-void ifree(inode_t *ip) {
-    iassert_locked(ip);
-
-    if (ip->i_refcnt <= 0) {
-        iunlink(ip);
-        icache_free(ip->i_cache);
-        kfree(ip);
-    }
 }
 
 void idupcnt(inode_t *ip) {

@@ -78,7 +78,7 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
     if ((err = ramfs2_validate(ramfs2_super)))
         return err;
 
-    if ((err = ialloc(&iroot)))
+    if ((err = ialloc(FS_DIR, &iroot)))
         return err;
 
     if ((err = dalloc(target, &droot))) {
@@ -184,6 +184,7 @@ int ramfs2_find(ramfs2_super_t *super, const char *fn, ramfs2_node_t **pnode)
 
 static int ramfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     int err = 0;
+    itype_t type = 0;
     inode_t *ip = NULL;
     ramfs2_node_t *node = NULL;
     iassert_locked(dir);
@@ -197,7 +198,13 @@ static int ramfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     if ((err = ramfs2_find(ramfs2_super, fname, &node)))
         return err;
 
-    if ((err = ialloc(&ip)))
+    type = (int[]){
+        [RAMFS2_INV] = FS_INV,
+        [RAMFS2_REG] = FS_RGL,
+        [RAMFS2_DIR] = FS_DIR,
+    }[node->type];
+
+    if ((err = ialloc(type, &ip)))
         return err;
 
     ip->i_sb = ramfs2_sb;
@@ -207,11 +214,7 @@ static int ramfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     ip->i_uid = node->uid;
     ip->i_mode = node->mode;
     ip->i_size = node->size;
-    ip->i_type = (int[]) {
-        [RAMFS2_INV] = FS_INV,
-        [RAMFS2_REG] = FS_RGL,
-        [RAMFS2_DIR] = FS_DIR,
-    }[node->type];
+    ip->i_type = type;
     ip->i_ino = node - ramfs2_super->nodes;
 
     *pipp = ip;
