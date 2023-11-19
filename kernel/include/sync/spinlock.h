@@ -5,6 +5,7 @@
 #include <sync/preempt.h>
 #include <lib/printk.h>
 #include <lib/types.h>
+#include <lib/stdint.h>
 
 struct thread;
 extern tid_t thread_self(void);

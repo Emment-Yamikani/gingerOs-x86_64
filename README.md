@@ -2,9 +2,7 @@
 
 
 ![Issues Tracking Badge](https://img.shields.io/badge/issue_track-github-blue?style=flat&label=Issue%20Tracking) 
- [![Contributors](https://img.shields.io/github/contributors/Emment-yamikani/gingerOs-x86_64)](https://github.com/emment-yamikani/gingerOs-x86_64/graphs/contributors) 
- [![GitHub Build Badge](https://github.com/Emment-Yamikani/gingerOs-x86_64/workflows/Build/badge.svg)](https://github.com/Emment-Yamikani/gingerOs-x86_64/actions/workflows/build.yml) 
- ![Documentation Badge](https://github.com/Emment-Yamikani/gingerOs-x86_64/workflows/Build%20Documentation/badge.svg)
+ [![Contributors](https://img.shields.io/github/contributors/Emment-yamikani/gingerOs-x86_64)](https://github.com/emment-yamikani/gingerOs-x86_64/graphs/contributors)
 
 
 Ginger Operating System (Ginger OS) is a simple OS intended to be fully POSIX-compliant and to some extent, though not fully, Linux compatible as much as possible.

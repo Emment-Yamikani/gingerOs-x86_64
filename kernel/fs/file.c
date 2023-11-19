@@ -1,4 +1,5 @@
 #include <fs/file.h>
+#include <fs/dentry.h>
 #include <mm/kalloc.h>
 #include <bits/errno.h>
 #include <sys/thread.h>
