@@ -36,3 +36,18 @@ Please see next section [Road Map](roadmap.md) for more info.
 ## Road Map
 
 Please read the [Road Map](roadmap.md) to know more about the current and future progress of the Operating System.
+
+## Build requirements
+  - GNU's gcc cross compiler specifically version 10.2.1.
+  - GNU's make version 4.4.1 or later.
+  - Must have mtools, binutils version 2.36.1 or later.
+  - Xorriso must have already been installed (needed to build a grub bootable image).
+  - Qemu
+
+## How to build
+
+> make
+
+## How to run with Qemu
+
+> make run
