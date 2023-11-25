@@ -87,8 +87,8 @@ int mmap_alloc(mmap_t **ref) {
     uintptr_t pgdir = 0;
     mmap_t *mmap = NULL;
 
-    if ((pgdir = paging_getpgdir()) == 0)
-        return -ENOMEM;
+    if ((err = arch_getpgdir(&pgdir)) == 0)
+        return err;
     
     if ((mmap = kmalloc(sizeof *mmap)) == NULL) {
         pmman.free(pgdir);
@@ -104,7 +104,12 @@ int mmap_alloc(mmap_t **ref) {
     mmap->limit = __mmap_limit;
 
     mmap_lock(mmap);
-    err = mmap_init(mmap);
+    if ((err = mmap_init(mmap))) {
+        mmap_unlock(mmap);
+        kfree(mmap);
+        arch_putpgdir(pgdir);
+        return err;
+    }
     mmap_unlock(mmap);
     
     *ref = mmap;
@@ -279,7 +284,7 @@ int mmap_remove(mmap_t *mmap, vmr_t *r) {
     r->mmap = NULL;
     mmap->refs--;
 
-    paging_unmap_mapped(r->start, __vmr_size(r));
+    arch_unmap_n(r->start, __vmr_size(r));
     vmr_free(r);
     return 0;
 }
@@ -907,14 +912,14 @@ int mmap_clean(mmap_t *mmap) {
     if ((err = mmap_unmap(mmap, 0, (mmap->limit) + 1)))
         return err;
 
-    paging_proc_unmap(mmap->pgdir);
+    arch_fullvm_unmap(mmap->pgdir);
     pgdir = mmap->pgdir;
 
     mmap->refs = 0;
     mmap->used_space = 0;
     
+    mmap->brk = 0;
     mmap->arg = NULL;
-    mmap->brk = NULL;
     mmap->env = NULL;
     mmap->heap = NULL;
     mmap->priv = NULL;
@@ -982,7 +987,7 @@ int mmap_copy(mmap_t *dst, mmap_t *src) {
     dst->env = src->env ? mmap_find(dst, src->env->start) : NULL;
     dst->heap = src->heap ? mmap_find(dst, src->heap->start) : NULL;
 
-    if ((err = paging_lazycopy(dst->pgdir, src->pgdir)))
+    if ((err = arch_lazycpy(dst->pgdir, src->pgdir)))
         return err;
 
     return 0;

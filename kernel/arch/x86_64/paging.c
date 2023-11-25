@@ -270,19 +270,20 @@ error:
 
 void i64_unmap(int i4, int i3, int i2, int i1) {
     if (!ispresent(PML4E(i4)->raw))
-        return;
+        goto done;
     
     if (!ispresent(PDPTE(i4, i3)->raw))
-        return;
+        goto done;
     
     if (!ispresent(PDTE(i4, i3, i2)->raw))
-        return;
+        goto done;
     
     if (!ispresent(PTE(i4, i3, i2, i1)->raw))
-        return;
+        goto done;
     
     PTE(i4, i3, i2, i1)->raw = 0;
     send_tlb_shootdown(rdcr3(), __viraddr(i4, i3, i2, i1));
+done:
     invlpg(__viraddr(i4, i3, i2, i1));
 }
 
@@ -635,4 +636,9 @@ int i64_pml4alloc(uintptr_t *ref) {
 error:
     pmman.free(pml4);
     return err;
+}
+
+void i64_pml4free(uintptr_t pgdir) {
+    if (pgdir)
+        pmman.free(pgdir);
 }

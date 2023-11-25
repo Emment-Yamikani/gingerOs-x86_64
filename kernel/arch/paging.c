@@ -99,6 +99,12 @@ int arch_getpgdir(uintptr_t *ref) {
 #endif
 }
 
+void arch_putpgdir(uintptr_t pgdir) {
+#if defined (__x86_64__)
+    i64_pml4free(pgdir);
+#endif
+}
+
 int arch_pagealloc(size_t sz, uintptr_t *addr) {
     int err = 0;
     uintptr_t v = 0;

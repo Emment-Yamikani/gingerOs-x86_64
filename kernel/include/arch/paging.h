@@ -7,6 +7,8 @@
 extern void arch_unmap_full(void);
 extern void arch_unmount(uintptr_t v);
 extern int arch_getpgdir(uintptr_t *ref);
+extern void arch_putpgdir(uintptr_t pgidr);
+extern int arch_lazycpy(uintptr_t dst, uintptr_t src);
 extern void arch_fullvm_unmap(uintptr_t pml4);
 extern int arch_mount(uintptr_t p, void **pvp);
 extern void arch_unmap_n(uintptr_t v, size_t sz);

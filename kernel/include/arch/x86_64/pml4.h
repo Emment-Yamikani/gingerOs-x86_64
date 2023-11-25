@@ -194,3 +194,4 @@ int i64_getmapping(uintptr_t addr, pte_t **pte);
  * 
 */
 int i64_pml4alloc(uintptr_t *ref);
+void i64_pml4free(uintptr_t pgdir);
