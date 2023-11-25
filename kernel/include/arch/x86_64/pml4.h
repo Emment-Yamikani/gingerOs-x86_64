@@ -15,6 +15,7 @@
 #define VM_D        (BS(6))             // page is dirty.
 #define VM_PS       (BS(7))             // page size.
 #define VM_G        (BS(8))             // page is global.
+#define VM_X        (VM_P /*| BS(64)*/)     // page is executable?
 #define VM_PCDWT    (VM_PCD | VM_PWT)   // page level caching disabled and write through enabled.
 
 #define VM_R        (VM_P)

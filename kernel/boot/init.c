@@ -117,7 +117,7 @@ int early_init(void) {
     thread_create(NULL, NULL, (thread_entry_t)kthread_main, NULL);
 
     schedule();
-    assert(0, "schedule returned :(");
+    assert(0, "scheduler returned :(");
     loop();
     return 0;
 }

@@ -93,7 +93,7 @@ int arch_getmapping(uintptr_t addr, pte_t **pte) {
 #endif
 }
 
-int arch_pdiralloc(uintptr_t *ref) {
+int arch_getpgdir(uintptr_t *ref) {
 #if defined (__x86_64__)
     return i64_pml4alloc(ref);
 #endif
