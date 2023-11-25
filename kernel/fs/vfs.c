@@ -227,9 +227,9 @@ int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred,
     dentry_t    *dp = NULL;
     inode_t     *ip = NULL;
     char        *cwd = NULL;
+    path_t      *path = NULL;
     int         err = 0, isdir = 0;
     cred_t      cred = __cred ? *__cred : UIO_DEFAULT();
-    char        *abspath = NULL, *last_tok = NULL, **toks = NULL;
 
     (void)flags;
 
@@ -243,20 +243,17 @@ int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred,
     else
         cwd = "/";
 
-    if ((err = verify_path(pathname)))
-        return err;
-    
-    if ((err = parse_path(pathname, cwd, &abspath, &toks, &last_tok, NULL)))
+    if ((err = parse_path(pathname, cwd, 0, &path)))
         return err;
 
-    if (!compare_strings(abspath, "/")) {
+    if (!compare_strings(path->absolute, "/")) {
         dp = dir;
         goto found;
     }
 
-    foreach(tok, toks) {
+    foreach(token, path->tokenized) {
         dp = NULL;
-        switch ((err = dlookup(dir, tok, &dp))) {
+        switch ((err = dlookup(dir, token, &dp))) {
         case 0:
             ilock(dp->d_inode);
             if ((err = check_iperm(dp->d_inode, &cred, oflags))) {
@@ -275,7 +272,7 @@ int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred,
 
     next:
         dclose(dir);
-        if (!compare_strings(tok, last_tok)) {
+        if (!compare_strings(token, path->lasttoken)) {
             if (isdir && dp->d_inode) {
                 ilock(dp->d_inode);
                 if (IISDIR(dp->d_inode) == 0) {
@@ -294,25 +291,25 @@ int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred,
 
 delegate:
     dp = NULL;
-    foreach(tok, &toks[tok_i]) {
+    foreach(token, &path->tokenized[tok_i]) {
         ilock(dir->d_inode);
     try_lookup:
-        // printk("delegate looking up '\e[0;013m%s\e[0m' in '\e[0;013m%s\e[0m'\n", tok, dir->d_name);
-        switch ((err = ilookup(dir->d_inode, tok, &ip))) {
+        // printk("delegate looking up '\e[0;013m%s\e[0m' in '\e[0;013m%s\e[0m'\n", token, dir->d_name);
+        switch ((err = ilookup(dir->d_inode, token, &ip))) {
         case 0:
-            // printk("file(\e[0;013m%s\e[0m) found.\n", tok);
+            // printk("file(\e[0;013m%s\e[0m) found.\n", token);
             break;
         case -ENOENT:
-            // printk("file(\e[0;013m%s\e[0m) not found.\n", tok);
+            // printk("file(\e[0;013m%s\e[0m) not found.\n", token);
             // Did user specify O_CREAT flag?
             if ((oflags & O_CREAT)) {
                 if (oflags & O_DIRECTORY) {
-                    if ((err = imkdir(dir->d_inode, tok, mode))) {
+                    if ((err = imkdir(dir->d_inode, token, mode))) {
                         iunlock(dir->d_inode);
                         dclose(dir);
                         goto error;
                     }
-                } else if ((err = icreate(dir->d_inode, tok, mode))) {
+                } else if ((err = icreate(dir->d_inode, token, mode))) {
                 // create a regular file.
                     iunlock(dir->d_inode);
                     dclose(dir);
@@ -335,7 +332,7 @@ delegate:
             goto error;
         }
 
-        if ((err = dalloc(tok, &dp))) {
+        if ((err = dalloc(token, &dp))) {
             irelease(ip);
             dclose(dir);
             goto delegate_err;
@@ -365,30 +362,18 @@ found:
     else
         dclose(dp);
     
-    if (abspath)
-        kfree(abspath);
-    if (toks)
-        tokens_free(toks);
-    if (last_tok)
-        kfree(last_tok);
+    if (path)
+        path_free(path);
     return 0;
 
 error:
-    if (abspath)
-        kfree(abspath);
-    if (toks)
-        tokens_free(toks);
-    if (last_tok)
-        kfree(last_tok);
+    if (path)
+        path_free(path);
     return err;
 
 delegate_err:
-    if (abspath)
-        kfree(abspath);
-    if (toks)
-        tokens_free(toks);
-    if (last_tok)
-        kfree(last_tok);
+    if (path)
+        path_free(path);
     return err;
 }
 

@@ -9,6 +9,7 @@
 #include <fs/fcntl.h>
 #include <fs/stat.h>
 #include <fs/cred.h>
+#include <fs/path.h>
 
 #define MAXFNAME 255
 
@@ -90,11 +91,6 @@ int fs_create(const char *name, iops_t *iops, filesystem_t **pfs);
 int fs_add_superblock(filesystem_t *fs, superblock_t *sb);
 int fs_del_superblock(filesystem_t *fs, superblock_t *sb);
 
-int verify_path(const char *path);
-int parse_path(const char *path, const char *cwd,
-               char **abspath, char ***abspath_tokens,
-               char **last_token, int *isdir);
-int path_get_lasttoken(const char *path, char **ltok);
 
 int vfs_init(void);
 int ramfs_init(void);

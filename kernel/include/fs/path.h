@@ -17,11 +17,10 @@ typedef struct {
 #define PATH_NOLAST_TOK    0x08 //do not return last token of path.
 #define PATH_ISDIR         0x10 //is a directory implied by the pathname?
 
-int path_process(const char *path, const char *cwd,
+
+void path_free(path_t *path);
+int verify_path(const char *__path);
+int parse_path(const char *path, const char *cwd,
                  int flags, path_t **pref);
 
-int verify_path(const char *__path);
-
-int parse_path(const char *path, const char *__cwd,
-               char **__abspath, char ***__abspath_tokens,
-               char **__last_token, int *pisdir);
+int path_get_lasttoken(const char *path, char **ltok);
