@@ -386,6 +386,8 @@ generic:
         if ((retval = iread(inode, file->f_off, buf, size)) > 0) {
             file->f_off += retval;
             // wake up writers.
+            if (inode->i_writers)
+                cond_broadcast(inode->i_writers);
             break;
         } else if ((file->f_off >= igetsize(inode))) { // has reached end-of-file
             retval = 0;
@@ -398,7 +400,9 @@ generic:
             break;
         }
         else {
-            // sleep on reads queue waiting for for writers.
+            // sleep on readers' queue waiting for for writers.
+            if (inode->i_readers)
+                cond_wait(inode->i_readers);
         }
     }    
 
@@ -437,7 +441,9 @@ generic:
             if (((file->f_off + size) < igetsize(inode))) { // can write.
                 if ((retval = iwrite(inode, file->f_off, buf, size)) >= 0) {
                     file->f_off += retval;
-                    // wake up readers.
+                    // wake up any waiting readers.
+                    if (inode->i_readers)
+                        cond_broadcast(inode->i_readers);
                 } else if (retval < 0)
                     break;
             } else {
@@ -457,13 +463,19 @@ generic:
                 if ((size == 0) || (file->f_off >= igetsize(inode)))
                     break;
                 
-                // wakeup readers.
+                // wakeup any readers.
+                if (inode->i_readers)
+                    cond_broadcast(inode->i_readers);
                 // sleep on writters queue.
+                if (inode->i_writers)
+                    cond_wait(inode->i_writers);
             }
 
             retval -= size;
             file->f_off += retval;
-            // wakeup readers.
+            // wakeup any readers.
+            if (inode->i_readers)
+                cond_broadcast(inode->i_readers);
             break;
         }
 

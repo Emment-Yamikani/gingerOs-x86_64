@@ -85,5 +85,6 @@
         "valarray": "c",
         "variant": "c",
         "version": "c"
-    }
+    },
+    "C_Cpp.vcFormat.space.beforeEmptySquareBrackets": false
 }
