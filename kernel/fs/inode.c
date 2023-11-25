@@ -36,6 +36,7 @@ static int inew(inode_t **pip) {
 
     ip->i_refcnt = 1;
     ip->i_lock = SPINLOCK_INIT();
+    ip->i_datalock = SPINLOCK_INIT();
     ilock(ip);
 
     *pip = ip;
@@ -268,10 +269,10 @@ ssize_t iread_data(inode_t *ip, off_t off, void *buf, size_t nb) {
     if (IISDIR(ip))
         return -EISDIR;
 
-    if ((err = icheck_op(ip, iread_data)))
+    if ((err = icheck_op(ip, iread)))
         return err;
     
-    return ip->i_ops->iread_data(ip, off, buf, nb);
+    return ip->i_ops->iread(ip, off, buf, nb);
 }
 
 ssize_t iwrite_data(inode_t *ip, off_t off, void *buf, size_t nb) {
@@ -281,10 +282,10 @@ ssize_t iwrite_data(inode_t *ip, off_t off, void *buf, size_t nb) {
     if (IISDIR(ip))
         return -EISDIR;
 
-    if ((err = icheck_op(ip, iwrite_data)))
+    if ((err = icheck_op(ip, iwrite)))
         return err;
     
-    return ip->i_ops->iwrite_data(ip, off, buf, nb);
+    return ip->i_ops->iwrite(ip, off, buf, nb);
 }
 
 int     imknod(inode_t *dir, const char *name, mode_t mode, int devid) {

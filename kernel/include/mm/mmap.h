@@ -46,19 +46,18 @@ typedef struct vmr_ops
     int (*fault)(struct vmr *vmr, vm_fault_t *fault);
 }vmr_ops_t;
 
-typedef struct vmr
-{
-    int refs;
-    int flags;
-    int vflags;
-    void *priv;
-    inode_t *file;
-    size_t filesz;
-    long file_pos;
-    struct mmap *mmap;
-    struct vmr_ops *vmops;
-    uintptr_t paddr, start, end;
-    struct vmr *prev, *next;
+typedef struct vmr {
+    int         refs;
+    int         flags;
+    int         vflags;
+    void        *priv;
+    inode_t     *file;
+    size_t      filesz;
+    long        file_pos;
+    struct      mmap *mmap;
+    struct      vmr_ops *vmops;
+    uintptr_t   paddr, start, end;
+    struct      vmr *prev, *next;
 }vmr_t;
 
 #define MMAP_USER 1

@@ -17,7 +17,7 @@ static ssize_t full_write(struct devid *dd, off_t off, void *buf, size_t sz);
 static DEV_INIT(full, FS_CHR, DEV_FULL, 7);
 
 static int full_init(void) {
-    printk("Initializing \e[0;011m%s\e[0m chardev...\n", fulldev.devname);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", fulldev.devname);
     return kdev_register(&fulldev, DEV_FULL, FS_CHR);
 }
 

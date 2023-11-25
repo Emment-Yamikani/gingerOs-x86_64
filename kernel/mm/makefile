@@ -9,5 +9,4 @@ include $(liballoc_dir)/makefile
 
 mm_objs +=\
 $(pmm_objs)\
-$(vmm_objs)\
-$(mm_dir)/page_cache.o
+$(vmm_objs)

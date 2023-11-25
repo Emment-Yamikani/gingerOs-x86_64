@@ -17,7 +17,7 @@ static ssize_t zero_write(struct devid *dd, off_t off, void *buf, size_t sz);
 static DEV_INIT(zero, FS_CHR, DEV_ZERO, 5);
 
 static int zero_init(void) {
-    printk("Initializing \e[0;011m%s\e[0m chardev...\n", zerodev.devname);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", zerodev.devname);
     return kdev_register(&zerodev, DEV_ZERO, FS_CHR);
 }
 

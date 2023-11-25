@@ -180,7 +180,7 @@ int rtc_probe(void) {
 
     rtc_gettime(&rtc_tm);
 
-    printk("Time: \e[0;02m%d:%d:%d\e[0m Date: \e[0;03m%d/%d/%d\e[0m\n",
+    printk("Time: \e[025453;02m%d:%d:%d\e[0m Date: \e[025453;03m%d/%d/%d\e[0m\n",
            rtc_tm.rtc_hrs, rtc_tm.rtc_min, rtc_tm.rtc_sec,
            rtc_tm.rtc_day, rtc_tm.rtc_mon, rtc_tm.rtc_year);
     return 0;

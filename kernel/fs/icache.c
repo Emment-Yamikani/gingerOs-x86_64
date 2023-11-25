@@ -1,5 +1,5 @@
 #include <mm/mm_zone.h>
-#include <mm/page_cache.h>
+#include <fs/icache.h>
 #include <mm/page.h>
 #include <arch/paging.h>
 #include <bits/errno.h>

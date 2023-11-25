@@ -507,13 +507,13 @@ int vmm_active(void) {
 }
 
 void memory_usage(void) {
-    printk("\n\t\t\t\e[0;06mMEMORY USAGE INFO\e[0m\n"
-           "\t\t\t\e[0;015mPhysical Memory\e[0m\n"
-           "Free  : \e[0;012m%8.1F MiB\e[0m\n"
-           "In use: \e[0;04m%8.1F MiB\e[0m\n\n"
-           "\t\t\t\e[0;015mVirtual Memory\e[0m\n"
-           "Free  : \e[0;012m%8.1F MiB\e[0m\n"
-           "In use: \e[0;04m%8.1F MiB\e[0m\n\n",
+    printk("\n\t\t\t\e[025453;06mMEMORY USAGE INFO\e[0m\n"
+           "\t\t\t\e[025453;015mPhysical Memory\e[0m\n"
+           "Free  : \e[025453;012m%8.1F MiB\e[0m\n"
+           "In use: \e[025453;04m%8.1F MiB\e[0m\n\n"
+           "\t\t\t\e[025453;015mVirtual Memory\e[0m\n"
+           "Free  : \e[025453;012m%8.1F MiB\e[0m\n"
+           "In use: \e[025453;04m%8.1F MiB\e[0m\n\n",
            (double)pmman.mem_free() / KiB(1),
            (double)pmman.mem_used() / KiB(1),
            (double)vmman.getfreesize() / KiB(1),

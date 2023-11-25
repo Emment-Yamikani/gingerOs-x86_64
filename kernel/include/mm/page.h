@@ -3,14 +3,12 @@
 //#include <ds/btree.h>
 #include <lib/stdint.h>
 #include <lib/stddef.h>
-//#include <locks/spinlock.h>
 #include <lib/types.h>
 //#include <lime/assert.h>
-#include <mm/page_cache.h>
+#include <fs/icache.h>
 #include <mm/page_flags.h>
 
-typedef struct page
-{
+typedef struct page {
     page_flags_t    flags;
     icache_t        *mapping;
     atomic_t        ref_count;

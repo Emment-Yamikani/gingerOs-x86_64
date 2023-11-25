@@ -17,7 +17,7 @@ static ssize_t random_write(struct devid *dd, off_t off, void *buf, size_t sz);
 static DEV_INIT(random, FS_CHR, DEV_RANDOM, 8);
 
 static int random_init(void) {
-    printk("Initializing \e[0;011m%s\e[0m chardev...\n", randomdev.devname);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", randomdev.devname);
     return kdev_register(&randomdev, DEV_RANDOM, FS_CHR);
 }
 

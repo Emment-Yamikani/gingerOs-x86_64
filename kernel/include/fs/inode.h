@@ -6,7 +6,7 @@
 #include <lib/types.h>
 #include <ds/queue.h>
 #include <fs/stat.h>
-#include <mm/page_cache.h>
+#include <fs/icache.h>
 #include <sync/cond.h>
 #include <fs/cred.h>
 
@@ -49,7 +49,8 @@ typedef struct inode {
     cond_t          *i_writers; // writers condition variable.
     cond_t          *i_readers; // readers condition variable.
 
-    spinlock_t      i_lock;     // Spinlock to protect access to this inode.
+    spinlock_t      i_lock;     // Spinlock to protect access to inode's metadata.
+    spinlock_t      i_datalock; // Spinlock to protect access to inode's data
     /**
      * TODO: May need to add another type of locking mechanism
      * specifically for data manipulation in this file.
@@ -61,26 +62,26 @@ typedef struct inode {
 } inode_t;
 
 typedef struct iops {
-    int     (*ilink)(const char *oldname, inode_t *dir, const char *newname);
-    int     (*ibind)(inode_t *dir, struct dentry *dentry, inode_t *ip);
     int     (*irmdir)(inode_t *ip);
     int     (*isync)(inode_t *ip);
     int     (*iclose)(inode_t *ip);
     int     (*iunlink)(inode_t *ip);
     int     (*itruncate)(inode_t *ip);
-    ssize_t (*iread_data)(inode_t *ip, off_t off, void *buf, size_t nb);
-    ssize_t (*iwrite_data)(inode_t *ip, off_t off, void *buf, size_t nb);
-    int     (*imknod)(inode_t *dir, const char *name, mode_t mode, int devid);
-    int     (*ifcntl)(inode_t *ip, int cmd, void *argp);
-    int     (*iioctl)(inode_t *ip, int req, void *argp);
-    int     (*imkdir)(inode_t *dir, const char *fname, mode_t mode);
-    int     (*ilookup)(inode_t *dir, const char *fname, inode_t **pipp);
-    int     (*icreate)(inode_t *dir, const char *fname, mode_t mode);
-    int     (*irename)(inode_t *dir, const char *old, inode_t *newdir, const char *new);
-    ssize_t (*ireaddir)(inode_t *dir, off_t off, struct dirent *buf, size_t count);
-    int     (*isymlink)(inode_t *ip, inode_t *atdir, const char *symname);
     int     (*igetattr)(inode_t *ip, void *attr);
     int     (*isetattr)(inode_t *ip, void *attr);
+    int     (*ifcntl)(inode_t *ip, int cmd, void *argp);
+    int     (*iioctl)(inode_t *ip, int req, void *argp);
+    ssize_t (*iread)(inode_t *ip, off_t off, void *buf, size_t nb);
+    ssize_t (*iwrite)(inode_t *ip, off_t off, void *buf, size_t nb);
+    int     (*imkdir)(inode_t *dir, const char *fname, mode_t mode);
+    int     (*icreate)(inode_t *dir, const char *fname, mode_t mode);
+    int     (*ibind)(inode_t *dir, struct dentry *dentry, inode_t *ip);
+    int     (*ilookup)(inode_t *dir, const char *fname, inode_t **pipp);
+    int     (*isymlink)(inode_t *ip, inode_t *atdir, const char *symname);
+    int     (*ilink)(const char *oldname, inode_t *dir, const char *newname);
+    int     (*imknod)(inode_t *dir, const char *name, mode_t mode, int devid);
+    ssize_t (*ireaddir)(inode_t *dir, off_t off, struct dirent *buf, size_t count);
+    int     (*irename)(inode_t *dir, const char *old, inode_t *newdir, const char *new);
 } iops_t;
 
 #define iassert(ip)         ({ assert((ip), "No inode"); })

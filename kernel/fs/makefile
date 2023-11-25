@@ -2,6 +2,7 @@ fs_objs+=\
 $(fs_dir)/dentry.o\
 $(fs_dir)/file.o\
 $(fs_dir)/path.o\
+$(fs_dir)/icache.o\
 $(fs_dir)/inode.o\
 $(fs_dir)/mount.o\
 $(fs_dir)/path.o\
