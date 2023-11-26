@@ -256,7 +256,7 @@ int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred,
         switch ((err = dlookup(dir, token, &dp))) {
         case 0:
             ilock(dp->d_inode);
-            if ((err = check_iperm(dp->d_inode, &cred, oflags))) {
+            if ((err = icheck_perm(dp->d_inode, &cred, oflags))) {
                 iunlock(dp->d_inode);
                 dclose(dp);
                 goto error;
@@ -326,7 +326,7 @@ delegate:
         }
         iunlock(dir->d_inode);
 
-        if ((err = check_iperm(ip, &cred, oflags))) {
+        if ((err = icheck_perm(ip, &cred, oflags))) {
             irelease(ip);
             dclose(dir);
             goto error;

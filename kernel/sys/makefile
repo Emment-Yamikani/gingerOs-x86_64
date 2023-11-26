@@ -1,4 +1,6 @@
 sys_objs+=\
+$(sys_dir)/proc.o\
+$(sys_dir)/session.o\
 $(sys_dir)/sched/queues.o\
 $(sys_dir)/sched/sched.o\
 $(sys_dir)/sleep.o\

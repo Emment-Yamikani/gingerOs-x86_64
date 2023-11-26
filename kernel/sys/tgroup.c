@@ -12,7 +12,8 @@ int tgroup_destroy(tgroup_t *tgroup) {
     if ((tgroup == NULL) || (current_tgroup() == tgroup))
         return -EINVAL;
 
-    tgroup_assert_locked(tgroup);
+    if (!tgroup_islocked(tgroup))
+        tgroup_lock(tgroup);
 
     if ((err = tgroup_kill_thread(tgroup, -1, 1))) {
         tgroup_unlock(tgroup);

@@ -31,6 +31,7 @@ extern const char *t_states[];
 extern char *tget_state(const tstate_t st);
 
 typedef void *(*thread_entry_t)(void *);
+typedef struct proc proc_t;
 
 typedef struct
 {
@@ -86,7 +87,7 @@ typedef struct {
 #define tgroup_assert(tg)               ({ assert(tg, "No thread group"); })
 #define tgroup_lock(tg)                 ({ tgroup_assert(tg); spin_lock(&(tg)->tg_lock); })
 #define tgroup_unlock(tg)               ({ tgroup_assert(tg); spin_unlock(&(tg)->tg_lock); })
-#define tgroup_locked(tg)               ({ tgroup_assert(tg); spin_locked(&(tg)->tg_lock); })
+#define tgroup_islocked(tg)             ({ tgroup_assert(tg); spin_islocked(&(tg)->tg_lock); })
 #define tgroup_assert_locked(tg)        ({ tgroup_assert(tg); spin_assert_locked(&(tg)->tg_lock); })
 
 #define tgroup_queue_assert(tg)         ({ tgroup_assert_locked(tg); queue_assert((tg)->tg_queue); })
@@ -215,6 +216,7 @@ typedef struct thread {
     atomic_t        t_flags;            // thread's flags.
     atomic_t        t_spinlocks;
     uintptr_t       t_errno;            // thread's errno.
+    proc_t          *t_owner;           // thread's owner process.
     
     thread_attr_t   t_attr;             // thread' attributes.
 

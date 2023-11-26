@@ -10,7 +10,7 @@ void vmr_dump(vmr_t *r, int i) {
            r->start, r->end, __vmr_size(r) / 1024,
            __isstack(r) ? "stack" : __vmr_exec(r) ? ".text"
                                 : __vmr_rw(r)     ? ".data"
-                                : __vmr_read(r)   ? "rodat"
+                                : __vmr_read(r)   ? "rodata"
                                                   : "inval",
            __vmr_read(r) ? "r" : "_",
            __vmr_write(r) ? "w" : "_", __vmr_exec(r) ? "x" : "_",
@@ -87,7 +87,10 @@ int mmap_alloc(mmap_t **ref) {
     uintptr_t pgdir = 0;
     mmap_t *mmap = NULL;
 
-    if ((err = arch_getpgdir(&pgdir)) == 0)
+    if (ref == NULL)
+        return -EINVAL;
+
+    if ((err = arch_getpgdir(&pgdir)))
         return err;
     
     if ((mmap = kmalloc(sizeof *mmap)) == NULL) {
@@ -110,7 +113,6 @@ int mmap_alloc(mmap_t **ref) {
         arch_putpgdir(pgdir);
         return err;
     }
-    mmap_unlock(mmap);
     
     *ref = mmap;
     return 0;
@@ -142,7 +144,7 @@ int mmap_mapin(mmap_t *mmap, vmr_t *r) {
         mmap_holesize(mmap, addr, &holesz);
         addr += holesz;
         if (holesz == 0)
-            printk("%s:%d: endless loop\n", __FILE__, __LINE__);
+            panic("%s:%d: endless loop\n", __FILE__, __LINE__);
     }
 
     r->next = NULL;
@@ -816,9 +818,9 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
     if (__isstack(r))
         return -EACCES;
 
-    forge_prot |= __vmr_read(r) ? PROT_READ : 0;
-    forge_prot |= __vmr_write(r) ? PROT_WRITE : 0;
-    forge_prot |= __vmr_exec(r) ? PROT_EXEC : 0;
+    forge_prot |= __vmr_read(r)     ? PROT_READ     : 0;
+    forge_prot |= __vmr_write(r)    ? PROT_WRITE    : 0;
+    forge_prot |= __vmr_exec(r)     ? PROT_EXEC     : 0;
 
     if (forge_prot == prot)
         return 0;

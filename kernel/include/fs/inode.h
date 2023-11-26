@@ -136,7 +136,7 @@ void    irelease(inode_t *ip);
 int     idel_alias(inode_t *ip, struct dentry *dentry);
 int     iadd_alias(inode_t *ip, struct dentry *dentry);
 
-int     check_iperm(inode_t *ip, cred_t *cred, int oflags);
+int     icheck_perm(inode_t *ip, cred_t *cred, int oflags);
 
 int     isync(inode_t *ip);
 int     iclose(inode_t *ip);

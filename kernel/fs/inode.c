@@ -448,7 +448,7 @@ int     itruncate(inode_t *ip) {
 }
 
 /* check for file permission */
-int check_iperm(inode_t *ip, cred_t *cred, int oflags)
+int icheck_perm(inode_t *ip, cred_t *cred, int oflags)
 {
     // printk("%s(\e[0;15mip=%p, cred=%p, oflags=%d)\e[0m\n", __func__, ip, cred, oflags);
     if (!ip || !cred)

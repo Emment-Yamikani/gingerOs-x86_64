@@ -8,6 +8,7 @@
 #include <lib/types.h>
 #include <mm/page.h>
 #include <sync/spinlock.h>
+#include <sys/system.h>
 
 #ifndef foreach
 #define foreach(elem, list) \
@@ -71,7 +72,7 @@ typedef struct vmr {
 #endif
 
 /*Address Space limit (last valid address)*/
-#define __mmap_limit                (0xBFFFFFFF)
+#define __mmap_limit                (USTACK - 1)
 
 /*Returns the value smaller between 'a' and 'b'*/
 #define __min(a, b)                 ((a < b ? a : b))
@@ -134,7 +135,7 @@ int mmap_init(mmap_t *mmap);
 void mmap_dump_list(mmap_t);
 
 /**
- * @brief Allocate a new Address Space.
+ * @brief Allocate a new locked Address Space.
  * @param &mmap_t*
  * @returns 0 on success and -ENOMEM is there are not enough resources
 */
