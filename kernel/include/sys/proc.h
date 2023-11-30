@@ -40,4 +40,4 @@ typedef struct proc {
 
 extern int  proc_init(proc_t *proc);
 extern void proc_free(proc_t *proc);
-extern int  proc_alloc(const char *path, proc_t **pref);
+extern int  proc_alloc(const char *name, proc_t **pref);

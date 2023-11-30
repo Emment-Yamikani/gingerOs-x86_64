@@ -3,13 +3,13 @@
 #include <sys/proc.h>
 #include <sys/session.h>
 
-int proc_alloc(const char *path, proc_t **pref) {
+int proc_alloc(const char *name, proc_t **pref) {
     int         err     = 0;
     proc_t     *proc    = NULL;
     mmap_t     *mmap    = NULL;
     tgroup_t   *tgroup  = NULL;
 
-    if (path == NULL || pref == NULL)
+    if (name == NULL || pref == NULL)
         return -EINVAL;
 
     if (NULL == (proc = kmalloc(sizeof *proc)))
@@ -22,6 +22,10 @@ int proc_alloc(const char *path, proc_t **pref) {
         goto error;
 
     memset(proc, 0, sizeof *proc);
+
+    err = -ENOMEM;
+    if (NULL == (proc->name = strdup(name)))
+        goto error;
 
     proc->mmap = mmap;
     proc->tgroup = tgroup;
