@@ -9,12 +9,6 @@
 #include <ginger/jiffies.h>
 #include <arch/x86_64/thread.h>
 
-/** 
- * For process ID alocation.
- * to be moved to sys/proc.c
-*/
-__unused static atomic_t pids = {0};
-
 const char *t_states[] = {
     [T_EMBRYO]      = "EMBRYO",
     [T_READY]       = "READY",

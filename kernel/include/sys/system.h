@@ -63,19 +63,41 @@
 #define PGALIGN(x)  (ALIGN4K(x))
 
 #define MEMMDEV     ((uintptr_t)0xFE000000ul)
-#define USTACK      ((uintptr_t)0x800000000000ul)
-#define VMA_BASE    ((uintptr_t)0xFFFFFF8000000000ul)
+
+#if defined __i386__
+    #define USTACK      ((uintptr_t)0xC0000000)
+#elif defined __x86_64__
+    #define USTACK      ((uintptr_t)0x800000000000ul)
+#endif
+
+#if defined __i386__
+    #define VMA_BASE    ((uintptr_t)0xC0000000)
+#elif defined __x86_64__
+    #define VMA_BASE    ((uintptr_t)0xFFFFFF8000000000ul)
+#endif
+
 #define VMA(x)      (VMA_BASE + (uintptr_t)(x))
+
 #define VMA2HI(p)   (VMA_BASE + (uintptr_t)(p))
+
 #define VMA2LO(x)   ((uintptr_t)(x) - VMA_BASE)
+
 #define iskernel_addr(x) ((uintptr_t)(x) >= VMA_BASE)
+
 #define PGOFF(p)    (AND((uintptr_t)(p), PGMASK))
+
 #define PG2MOFF(p)  (AND((uintptr_t)(p), PGSZ2MASK))
+
 #define PGROUND(p)  ((uintptr_t)AND(((uintptr_t)(p)), ~PGMASK))
+
 #define PG2MROUND(p)((uintptr_t)AND(((uintptr_t)(p)), ~PGSZ2MASK))
+
 #define NPAGE(p)    (((size_t)(p) / PGSZ) + (PGOFF(p) ? 1 : 0))
+
 #define N2MPAGE(p)  (((size_t)(p) / PGSZ2M) + (PG2MOFF(p) ? 1 : 0))
+
 #define PGROUNDUP(p)(PGOFF(p) ? (PGROUND(((uintptr_t)p) + PAGESZ) ) : (uintptr_t)(p))
+
 #define PG2MROUNDUP(p) (PG2MOFF(p) ? (PGROUND(((uintptr_t)p) + PGSZ2M)) : (uintptr_t)(p))
 
 #define NELEM(x)    (sizeof ((x)) / sizeof ((x)[0]))

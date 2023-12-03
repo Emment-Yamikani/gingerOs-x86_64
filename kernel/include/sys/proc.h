@@ -18,17 +18,19 @@ typedef struct proc {
     char            *name;      // process' name.
     pid_t            pid;       // process' ID.
     uintptr_t        entry;     // process' entry point.
+    long             refcnt;    // process' reference count.
     long             exit;      // process' exit status.
     mmap_t          *mmap;      // process' memory map(virtual address space).
     cond_t           wait;      // process' wait condition.
     tgroup_t        *tgroup;    // process' thread group.
-    queue_t         *children;  // process' children queue.
+    queue_t         children;   // process' children queue.
     struct pgroup   *pgroup;    // process' group
     struct session  *session;   // process' session
 
     spinlock_t      lock;       // lock to protect this structure.
 } proc_t;
 
+#define NPROC                   (32786)
 #define curproc                 ({ current ? current->t_owner : NULL; })                //
 
 #define proc_assert(p)          ({ assert(p, "No proc"); })
