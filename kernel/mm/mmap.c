@@ -1022,6 +1022,20 @@ int mmap_clone(mmap_t *mmap, mmap_t **pclone) {
     return 0;
 }
 
+int mmap_focus(mmap_t *mmap, uintptr_t *ref) {
+    if (mmap == NULL || ref == NULL)
+        return -EINVAL;
+    mmap_assert_locked(mmap);
+    return arch_swtchvm(mmap->pgdir, ref);
+}
+
+/**
+ * *******************************************************************
+ * @brief           Virtual memory region Helpers.                   *
+ * *******************************************************************
+ */
+
+
 void vmr_free(vmr_t *r) {
     if (r == NULL)
         return;
@@ -1113,3 +1127,4 @@ int vmr_clone(vmr_t *src, vmr_t **pclone) {
     *pclone = clone;
     return 0;
 }
+

@@ -5,56 +5,38 @@
 #include <mm/kalloc.h>
 #include <sys/thread.h>
 
-int tgroup_destroy(tgroup_t *tgroup) {
-    int err = 0;
-    // __unused thread_t *thread = NULL;
+void tgroup_destroy(tgroup_t *tg) {
+    long ref = 0;
+    if (tg == NULL)
+        panic("No tgroup to destry.");
+    
+    if (current_tgroup() == tg)
+        panic("Thread not allowed to "
+            "destroy a tgroup it resides in.\n");
 
-    if ((tgroup == NULL) || (current_tgroup() == tgroup))
-        return -EINVAL;
+    if (!tgroup_islocked(tg))
+        tgroup_lock(tg);
 
-    if (!tgroup_islocked(tgroup))
-        tgroup_lock(tgroup);
+    // TODO: kill all threads.
 
-    if ((err = tgroup_kill_thread(tgroup, -1, 1))) {
-        tgroup_unlock(tgroup);
-        goto error;
-    }
+    tgroup_putref(tg);
 
-    assert(!tgroup_thread_count(tgroup), "There is still some thread(s).");
+    if ((ref = tgroup_getref(tg)) > 0)
+        panic("Cannot destroy tgroup struct "
+            "[in use by (%ld) other context(s)].\n", ref);
+    
+    if (tgroup_running(tg))
+        panic("Still some threads running"
+            " in [tgroup %d].\n", tgroup_getid(tg));
 
-    queue_free(tgroup->tg_queue);
-    queue_free(tgroup->tg_stopq);
+    tgroup_queue_lock(tg);
+    queue_flush(tgroup_queue(tg));
+    tgroup_queue_unlock(tg);
 
-    tgroup_unlock(tgroup);
+    assert(tgroup_getthread_count(tg) == 0, "No thread must be in tgroup.");
 
-    kfree(tgroup);
-
-    return 0;
-error:
-    return err;
-}
-
-size_t tgroup_inc_running(tgroup_t *tgroup) {
-    tgroup_assert_locked(tgroup);
-    return ++tgroup->tg_running;
-}
-
-size_t tgroup_dec_running(tgroup_t *tgroup) {
-    tgroup_assert_locked(tgroup);
-    return --tgroup->tg_running;
-}
-
-size_t tgroup_thread_count(tgroup_t *tgroup) {
-    size_t count = 0;
-    tgroup_queue_lock(tgroup);
-    count = queue_count(tgroup->tg_queue);
-    tgroup_queue_unlock(tgroup);
-    return count;
-}
-
-size_t tgroup_running_threads(tgroup_t *tgroup) {
-    tgroup_assert_locked(tgroup);
-    return tgroup->tg_running;
+    tgroup_unlock(tg);
+    kfree(tg);
 }
 
 int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait) {
@@ -67,7 +49,7 @@ int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait) {
 
     if (tid == -1) {
         tgroup_queue_lock(tgroup);
-        forlinked(node, tgroup->tg_queue->head, next) {
+        forlinked(node, tgroup_queue(tgroup)->head, next) {
             next = node->next;
             thread = node->data;
             if (thread == current)
@@ -88,6 +70,13 @@ int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait) {
             tgroup_queue_lock(tgroup);
         }
         tgroup_queue_unlock(tgroup);
+
+        /**
+         * @brief 'cuurent' becomes the main thread,
+         * if it belongs to 'tgroup'.
+         */
+        if (current->t_group == tgroup)
+            tgroup->tg_tmain = current;
     } else {
         if ((err = tgroup_get_thread(tgroup, tid, 0, &thread)))
             goto error;
@@ -113,41 +102,24 @@ error:
 }
 
 int tgroup_create(tgroup_t **ptgroup) {
-    int err = 0;
-    tgroup_t *tgroup = NULL;
-    queue_t *stopq = NULL, *queue = NULL;
+    tgroup_t *tg = NULL;
 
-    if (!ptgroup)
+    if (ptgroup == NULL)
         return -EINVAL;
-    
-    if (!(tgroup = kmalloc(sizeof *tgroup)))
+
+    if (NULL == (tg = (tgroup_t *)kmalloc(sizeof *tg)))
         return -ENOMEM;
 
+    memset(tg, 0, sizeof *tg);
 
-    if ((err = queue_alloc(&stopq)))
-        goto error;
-    
-    if ((err = queue_alloc(&queue)))
-        goto error;
+    tg->tg_refcnt = 1;
+    tg->tg_thread = QUEUE_INIT();
+    tg->tg_lock = SPINLOCK_INIT();
 
-    memset(tgroup, 0, sizeof *tgroup);
+    tgroup_lock(tg);
 
-    tgroup->tg_queue = queue;
-    tgroup->tg_stopq = stopq;
-    tgroup->tg_lock = SPINLOCK_INIT();
-
-    tgroup_lock(tgroup);
-    *ptgroup = tgroup;
-
+    *ptgroup = tg;
     return 0;
-error:
-    if (queue)
-        queue_free(queue);
-    if (stopq)
-        queue_free(stopq);
-    if (tgroup)
-        kfree(tgroup);
-    return err;
 }
 
 int tgroup_add_thread(tgroup_t *tgroup, thread_t *thread) {
@@ -158,7 +130,7 @@ int tgroup_add_thread(tgroup_t *tgroup, thread_t *thread) {
     if (!thread)
         return -EINVAL;
     
-    if ((err = thread_enqueue(tgroup->tg_queue, thread, NULL)))
+    if ((err = thread_enqueue(tgroup_queue(tgroup), thread, NULL)))
         return err;
     
     thread->t_group = tgroup;
@@ -181,7 +153,7 @@ int tgroup_remove_thread(tgroup_t *tgroup, thread_t *thread) {
     tgroup_queue_lock(tgroup);
     thread_lock(thread);
 
-    if ((err = thread_remove_queue(thread, tgroup->tg_queue))) {
+    if ((err = thread_remove_queue(thread, tgroup_queue(tgroup)))) {
         thread_unlock(thread);
         tgroup_queue_unlock(tgroup);
         return err;
@@ -203,7 +175,7 @@ int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pt
 
     tgroup_queue_lock(tgroup);
 
-    forlinked(node, tgroup->tg_queue->head, next) {
+    forlinked(node, tgroup_queue(tgroup)->head, next) {
         next = node->next;
         thread = node->data;
 
@@ -229,7 +201,7 @@ int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pt
     return -ESRCH;
 }
 
-int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry, void *arg, int flags, int sched, thread_t **pthread) {
+int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry, void *arg, int flags, thread_t **pthread) {
     int err = 0;
     thread_t *thread = NULL;
     
@@ -245,7 +217,9 @@ int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry, void *arg, int 
 
     *pthread = thread;
 
-    if (sched)
+    /**
+     * @brief acknowledge schedule operation after creation.*/
+    if (flags & THREAD_CREATE_SCHED)
         thread_schedule(thread);
     
     return 0;
@@ -262,7 +236,7 @@ int tgroup_spawn(thread_entry_t entry, void *arg, int flags, tgroup_t **ptgroup)
     if ((err = tgroup_create(&tgroup)))
         return err;
     
-    if ((err = tgroup_thread_create(tgroup, entry, arg, flags, 0, &thread)))
+    if ((err = tgroup_thread_create(tgroup, entry, arg, flags, &thread)))
         goto error;
     
     *ptgroup = tgroup;
@@ -298,7 +272,7 @@ int tgroup_continue(tgroup_t *tgroup) {
     tgroup_assert_locked(tgroup);
 
     tgroup_queue_lock(tgroup);
-    forlinked(node, tgroup->tg_queue->head, next) {
+    forlinked(node, tgroup_queue(tgroup)->head, next) {
         next = node->next;
         thread = node->data;
         thread_lock(thread);
@@ -324,7 +298,7 @@ int tgroup_sigqueue(tgroup_t *tgroup, int signo) {
     case 0:
         tgroup->sig_queues[signo - 1]++;
         tgroup_queue_lock(tgroup);
-        forlinked (node, tgroup->tg_queue->head, next) {
+        forlinked (node, tgroup_queue(tgroup)->head, next) {
             err = -EINVAL;
             next = node->next;
             thread = node->data;
@@ -395,7 +369,7 @@ int tgroup_stop(tgroup_t *tgroup) {
     tgroup_assert_locked(tgroup);
 
     tgroup_queue_lock(tgroup);
-    forlinked(node, tgroup->tg_queue->head, next) {
+    forlinked(node, tgroup_queue(tgroup)->head, next) {
         next = node->next;
         thread = node->data;
         thread_lock(thread);
@@ -404,5 +378,14 @@ int tgroup_stop(tgroup_t *tgroup) {
         thread_unlock(thread);
     }
     tgroup_queue_unlock(tgroup);
+    return 0;
+}
+
+int tgroup_getmainthread(tgroup_t *tgroup, thread_t **ptp) {
+    if (tgroup == NULL || ptp == NULL)
+        return -EINVAL;
+    tgroup_assert_locked(tgroup);
+    *ptp = tgroup->tg_tmain;
+    thread_lock(*ptp);
     return 0;
 }

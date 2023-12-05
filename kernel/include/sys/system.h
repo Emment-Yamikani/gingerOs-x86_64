@@ -100,7 +100,7 @@
 
 #define PG2MROUNDUP(p) (PG2MOFF(p) ? (PGROUND(((uintptr_t)p) + PGSZ2M)) : (uintptr_t)(p))
 
-#define NELEM(x)    (sizeof ((x)) / sizeof ((x)[0]))
+#define NELEM(x)    ((size_t)(sizeof ((x)) / sizeof ((x)[0])))
 
 extern void _kernel_end();
 extern void _kernel_start();

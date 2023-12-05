@@ -45,13 +45,14 @@ void thread_free_kstack(uintptr_t addr, size_t size __unused) {
     kfree((void *)addr);
 }
 
+
 int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, thread_t **ref) {
-    int         err         = 0;
-    uintptr_t   kstack      = 0;
-    thread_attr_t t_attr    = {0};
-    queue_t     *queue      = NULL;
-    thread_t    *thread     = NULL;
-    size_t      kstacksz    = KSTACKSZ;
+    int             err         = 0;
+    uintptr_t       kstack      = 0;
+    thread_attr_t   t_attr      = {0};
+    queue_t         *queue      = NULL;
+    thread_t        *thread     = NULL;
+    size_t          kstacksz    = KSTACKSZ;
 
     if (attr == NULL) {
         if (!(kstack = thread_alloc_kstack(kstacksz)))

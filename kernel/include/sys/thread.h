@@ -15,6 +15,7 @@
 #include <ginger/jiffies.h>
 #include <sys/_signal.h>
 #include <fs/file.h>
+#include <sys/tgroup.h>
 
 typedef enum tstate_t {
     T_EMBRYO,
@@ -30,7 +31,6 @@ typedef enum tstate_t {
 extern const char *t_states[];
 extern char *tget_state(const tstate_t st);
 
-typedef void *(*thread_entry_t)(void *);
 typedef struct proc proc_t;
 
 typedef struct
@@ -68,150 +68,17 @@ typedef struct {
     spinlock_t      *guard; // non-null if sleep queue is associated with a guard lock.
 } sleep_attr_t;
 
-typedef struct {
-    tid_t           tg_tgid;
-    uint64_t        tg_flags;
-    thread_t        *tg_tmain;
-    thread_t        *tg_tlast;
-    queue_t         *tg_queue;
-    queue_t         *tg_stopq;
-    size_t          tg_running;
-    file_table_t    tg_file_table;
-
-    sigset_t        sig_mask;
-    sigaction_t     sig_action[NSIG];
-    uint8_t         sig_queues[NSIG];
-    spinlock_t      tg_lock;
-} tgroup_t;
-
-#define tgroup_assert(tg)               ({ assert(tg, "No thread group"); })
-#define tgroup_lock(tg)                 ({ tgroup_assert(tg); spin_lock(&(tg)->tg_lock); })
-#define tgroup_unlock(tg)               ({ tgroup_assert(tg); spin_unlock(&(tg)->tg_lock); })
-#define tgroup_islocked(tg)             ({ tgroup_assert(tg); spin_islocked(&(tg)->tg_lock); })
-#define tgroup_assert_locked(tg)        ({ tgroup_assert(tg); spin_assert_locked(&(tg)->tg_lock); })
-
-#define tgroup_queue_assert(tg)         ({ tgroup_assert_locked(tg); queue_assert((tg)->tg_queue); })
-#define tgroup_queue_lock(tg)           ({ tgroup_queue_assert(tg); queue_lock((tg)->tg_queue); })
-#define tgroup_queue_unlock(tg)         ({ tgroup_queue_assert(tg); queue_unlock((tg)->tg_queue); })
-#define tgroup_queue_locked(tg)         ({ tgroup_queue_assert(tg); queue_locked((tg)->tg_queue); })
-#define tgroup_queue_assert_locked(tg)  ({ tgroup_queue_assert(tg); queue_assert_locked((tg)->tg_queue); })
-
-/**
- * \brief Destroy this tgroup. But only after all threads are killed.
- * \param tgroup thread group.
- * \returns (int)0, on success and err on failure.
- **/
-int tgroup_destroy(tgroup_t *tgroup);
-
-/**
- * \brief No. of threads in this tgroup.
- * \brief Callers must hold tgroup->lock before calling into this function.
- * \param tgroup thread group.
- * \returns (int)0, on success and err on failure.
- **/
-size_t tgroup_thread_count(tgroup_t *tgroup);
-
-/**
- * \brief No. of threads running in this tgroup.
- * \brief Callers must hold tgroup->lock before calling into this function.
- * \param tgroup thread group.
- * \returns (int)0, on success and err on failure.
- **/
-size_t tgroup_running_threads(tgroup_t *tgroup);
-
-/**
- * \brief Increase running thread count in this tgroup.
- * \brief Callers must hold tgroup->lock before calling into this function.
- **/
-size_t tgroup_inc_running(tgroup_t *tgroup);
-
-/**
- * \brief Decrease running thread count in this tgroup.
- * \brief Callers must hold tgroup->lock before calling into this function.
- **/
-size_t tgroup_dec_running(tgroup_t *tgroup);
-
-/**
- * \brief Kill a thread in this tgroup.
- * \brief Callers must hold tgroup->lock before calling into this function.
- * \param tgroup thread group.
- * \param tid
- *  Is the absolute threadID of thread to kill, if tid == -1, then kills all threads.
- * However, if 'current' is in this group and tid == -1, then all thread except 'current' will be killed.
- * \param wait wait for thread to die?
- * \returns (int)0, on success and err on failure.
- **/
-int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait);
-
-/**
- * \brief Create a new thread tgroup.
- * \param ptgroup thread group reference pointer.
- * \returns (int)0, on success and err on failure.
- **/
-int tgroup_create(tgroup_t **ptgroup);
-
-/**
- * \brief Add a thread to this tgroup.
- * \brief Callers must hold tgroup->lock and thread->t_lock before calling into this function.
- * \param tgroup thread group.
- * \param thread thread to be added thread group.
- * \returns (int)0, on success and err on failure.
- **/
-int tgroup_add_thread(tgroup_t *tgroup, thread_t *thread);
-
-/**
- * \brief Remove a thread to this tgroup.
- * \brief Callers must hold tgroup->lock and thread->t_lock before calling into this function.
- * \param tgroup thread group.
- * \param thread thread to be removed thread group.
- * \returns (int)0, on success and err on failure.
- **/
-int tgroup_remove_thread(tgroup_t *tgroup, thread_t *thread);
-
-/**
- * \brief Get a thread belonging to this tgroup.
- * \brief Callers must hold tgroup->lock before calling into this function.
- * \param tgroup thread group.
- * \param tid absolute threadID of thread to return.
- * \param state if tid == 0, return any thread matching 'state'.
- * if tid == -1 then return any thread.
- * \param pthread reference pointer to returned thread.
- * \returns (int)0, on success and err on failure.
- **/
-int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pthread);
-
-/// @brief 
-/// @param tgroup 
-/// @param signo 
-/// @return 
-int tgroup_sigqueue(tgroup_t *tgroup, int signo);
-
-
-/// @brief 
-/// @param tgroup 
-/// @param how 
-/// @param set 
-/// @param oset 
-/// @return 
-int tgroup_sigprocmask(tgroup_t *tgroup, int how, const sigset_t *restrict set, sigset_t *restrict oset);
-
-int tgroup_stop(tgroup_t *tgroup);
-int tgroup_continue(tgroup_t *tgroup);
-
-int tgroup_terminate(tgroup_t *tgroup, spinlock_t *lock);
-
-int tgroup_spawn(thread_entry_t entry, void *arg, int flags, tgroup_t **ptgroup);
-
-int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry, void *arg, int flags, int sched, thread_t **pthread);
-
 typedef struct thread {
     tid_t           t_tid;              // thread ID.
     tid_t           t_ktid;             // killer thread ID for thread that killed this thread.
     uintptr_t       t_entry;            // thread entry point.
     tstate_t        t_state;            // thread's execution state.
+    
+    // Misc.
     tid_t           t_statetid;
     char            *t_statefile;
     long            t_stateline;
+    
     uintptr_t       t_exit;             // thread exit code.
     atomic_t        t_flags;            // thread's flags.
     atomic_t        t_spinlocks;
@@ -414,14 +281,20 @@ extern builtin_thread_t __builtin_thrds_end[];
 
 int builtin_threads_begin(size_t *nthreads);
 
-#define thread_debugloc() ({                                                                                                       \
-    printk("%s:%d in %s(), current[%d] ste: %s:%s @%s:%d by thread[%d], signal: %s, return[%p]\n",                                                     \
-           __FILE__, __LINE__, __func__, current ? current->t_tid : 0, current ? current_killed() ? "killed" : "n/a" : "n/a",      \
-           current ? t_states[current->t_state] : "n/a", current ? current->t_statefile ? current->t_statefile : "no-file" : "no-file",\
-           current ? current->t_stateline : -1, \
-           current ? current->t_statetid : 0,\
-           current ? current_ishandling() "handling" : "n/a" : "n/a", __retaddr(0)); \
+#define thread_debugloc() ({                                                                    \
+    printk("%s:%d in %s(), current[%d] ste: %s:%s @%s:%d "                                      \
+           "by thread[%d], signal: %s, return[%p]\n",                                           \
+           __FILE__, __LINE__, __func__,                                                        \
+           current ? current->t_tid : 0, current ? current_killed() ? "killed" : "n/a" : "n/a", \
+           current ? t_states[current->t_state] : "n/a",                                        \
+           current ? current->t_statefile ? current->t_statefile : "no-file" : "no-file",       \
+           current ? current->t_stateline : -1,                                                 \
+           current ? current->t_statetid : 0,                                                   \
+           current ? current_ishandling() "handling" : "n/a" : "n/a", __retaddr(0));            \
 })
+
+#define THREAD_CREATE_USER      1 // create a user thread.
+#define THREAD_CREATE_SCHED     2 // create and schedule a thread.
 
 int thread_sigdequeue(thread_t *thread);
 int thread_sigqueue(thread_t *thread, int signo);

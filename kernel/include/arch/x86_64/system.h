@@ -3,10 +3,33 @@
 #include <lib/cpuid.h>
 #include <lib/stdint.h>
 
-static inline void hlt()        { asm __volatile__ ("hlt"); }
-static inline void cli()        { asm __volatile__ ("cli"); }
-static inline void sti()        { asm __volatile__ ("sti"); }
-static inline void cpu_pause()  { asm __volatile__("pause"); }
+// halt the current processor core.
+static inline void hlt(void) {
+#if defined __i386__ || __x86_64__
+    asm __volatile__ ("hlt");
+#endif
+}
+
+// clear interrupts on the current processor core.
+static inline void cli(void) {
+#if defined __i386__ || __x86_64__
+    asm __volatile__ ("cli");
+#endif
+}
+
+// start interrupts on the current processor core.
+static inline void sti(void) {
+#if defined __i386__ || __x86_64__
+    asm __volatile__ ("sti");
+#endif
+}
+
+// momentarily pause the current processor core.
+static inline void cpu_pause(void) {
+#if defined __i386__ || __x86_64__
+    asm __volatile__("pause");
+#endif
+}
 
 extern void disable_caching(void);
 
@@ -55,14 +78,18 @@ extern void invlpg(uintptr_t);
 
 static inline uint8_t inb(uint16_t port) {
     uint8_t data;
+#if defined __i386__ || __x86_64__    
     __asm__ __volatile__("inb %1, %0"
                          : "=a"(data)
                          : "dN"(port));
+#endif
     return data;
 }
 
 static inline void outb(uint16_t port, uint8_t data) {
+#if defined __i386__ || __x86_64__    
     __asm__ __volatile__("outb %1, %0"
                          :
                          : "dN"(port), "a"(data));
+#endif
 }

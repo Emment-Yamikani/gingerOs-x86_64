@@ -82,10 +82,14 @@ typedef struct vmr {
 #define __mmap_limit                (USTACK - 1)
 
 /*Returns the value smaller between 'a' and 'b'*/
-#define __min(a, b)                 ((a < b ? a : b))
+#if defined MIN
+    #define __min(a, b)             MIN(a, b)
+#else
+    #define __min(a, b)            (((a) < (b) ? (a) : (b)))
+#endif
 
 /*Is the address Page aligned?*/
-#define __isaligned(p)              ((p & PAGEMASK) == 0)
+#define __isaligned(p)              (((p) & PAGEMASK) == 0)
 
 /*Size of a memory mapping*/
 #define __vmr_size(r)               ((r->end - r->start) + 1)
@@ -207,6 +211,12 @@ int mmap_copy(mmap_t *dst, mmap_t *src);
 /// @param pclone 
 /// @return 
 int mmap_clone(mmap_t *mmap, mmap_t **pclone);
+
+/**
+ * @brief 
+ * 
+ */
+int mmap_focus(mmap_t *mmap, uintptr_t *ref);
 
 /*Is the 'addr' in a hole?*/
 #define __ishole(mm, addr)          (mmap_find(mm, addr) == NULL)

@@ -1,4 +1,5 @@
 sys_objs+=\
+$(sys_dir)/binfmt/elf.o\
 $(sys_dir)/proc.o\
 $(sys_dir)/session.o\
 $(sys_dir)/sched/queues.o\
