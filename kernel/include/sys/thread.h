@@ -474,7 +474,7 @@ int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode);
  * \param pthread pointer to a pointer to the newly created kernel thread is passed through pthread.
  * \return (int)0 on success or error on faliure.
  */
-int kthread_create(thread_entry_t entry, void *arg, tid_t *__tid, thread_t **pthread);
+int kthread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t **pthread);
 
 /**
  * \brief Create a thread.

@@ -8,6 +8,7 @@
 #include <lib/string.h>
 #include <ginger/jiffies.h>
 #include <arch/x86_64/thread.h>
+#include <sys/proc.h>
 
 const char *t_states[] = {
     [T_EMBRYO]      = "EMBRYO",
@@ -45,7 +46,176 @@ void thread_free_kstack(uintptr_t addr, size_t size __unused) {
     kfree((void *)addr);
 }
 
+static int thread_alloc(uintptr_t kstacksz, int flags, thread_t **ref) {
+    int         err         = 0;
+    uintptr_t   kstack      = 0;
+    thread_t    *thread     = NULL;
 
+    if (ref == NULL)
+        return -EINVAL;
+    
+    if (BADSTACKSZ(kstacksz))
+        return -EINVAL;
+
+    if ((kstack = thread_alloc_kstack(kstacksz)) == 0)
+        return -ENOMEM;
+    
+    thread = (thread_t *)ALIGN16((kstack + kstacksz) - sizeof *thread);
+
+    memset(thread, 0, sizeof *thread);
+
+    if ((err = queue_alloc(&thread->t_queues)))
+        goto error;
+
+    thread->t_lock  = SPINLOCK_INIT();
+    thread_lock(thread);
+    
+    thread_enter_state(thread, T_EMBRYO);
+    thread_setflags(thread, THREAD_DETACHED);
+    thread_setflags(thread, BTEST(flags, 0) ? THREAD_USER : 0);
+
+    thread->t_arch  = (x86_64_thread_t){
+        .t_thread   = thread,
+        .t_kstack   = kstack,
+        .t_kstacksz = kstacksz,
+    };
+
+    thread->t_refcnt                    = 1;
+    thread->t_sched.ts_cpu_affinity_set = -1;
+    thread->t_tid                       = tid_alloc();
+    thread->t_wait                      = COND_INIT();
+    thread->t_sched.ts_ctime            = jiffies_get();
+    thread->t_sched.ts_affinity_type    = SCHED_SOFT_AFFINITY;
+    thread->t_sched.ts_priority         = SCHED_LOWEST_PRIORITY;
+
+    *ref = thread;
+    return 0;
+error:
+    if (kstack) thread_free_kstack(kstack, KSTACKSZ);
+    return err;
+}
+
+int kthread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t **ptp) {
+    int err = 0;
+    thread_t *thread = NULL;
+    tgroup_t *tgroup = NULL;
+
+    thread_attr_t t_attr =
+    attr ? *attr : (thread_attr_t) {
+        .detachstate    = 0,
+        .guardsz        = 0,
+        .stackaddr      = 0,
+        .stacksz        = USTACKSZ,
+    };
+
+    t_attr.stackaddr    = 0;
+    if ((err = thread_alloc(t_attr.stacksz, 0, &thread)))
+        return err;
+    
+    if ((err = arch_thread_init(&thread->t_arch, entry, arg)))
+        goto error;
+
+    if (current_tgroup()) {
+        current_tgroup_lock();
+        if ((err = tgroup_add_thread(current_tgroup(), thread))) {
+            current_tgroup_unlock();
+            goto error;
+        }
+        current_tgroup_unlock();
+    } else {
+        if ((err = tgroup_create(&tgroup)))
+            goto error;
+
+        if ((err = tgroup_add_thread(tgroup, thread))) {
+            tgroup_unlock(tgroup);
+            goto error;
+        }
+        tgroup_unlock(tgroup);
+    }
+
+    if ((err = thread_schedule(thread)))
+        goto error;
+
+    if (ptp)
+        *ptp = thread;
+    else
+        thread_unlock(thread);
+
+    return 0;
+error:
+    if (tgroup)
+        tgroup_destroy(tgroup);
+    if (thread)
+        thread_free(thread);
+    return err;
+}
+
+int thread_new_uthread(proc_t *proc, thread_attr_t *attr, thread_t **ptp) {
+    int err = 0;
+    vmr_t *ustack = NULL;
+    thread_t *thread = NULL;
+    thread_attr_t t_attr = {0};
+
+    if (proc == NULL || ptp == NULL)
+        return -EINVAL;
+
+    t_attr = attr ? *attr : (thread_attr_t){
+        .detachstate    = 0,
+        .guardsz        = 0,
+        .stackaddr      = 0,
+        .stacksz        = USTACKSZ,
+    };
+
+    if ((t_attr.stackaddr >= USTACK)||
+        BADSTACKSZ(t_attr.stacksz)  ||
+        (t_attr.stackaddr == 0))
+        return -EINVAL;
+
+    if ((err = thread_alloc(KSTACKSZ, THREAD_CREATE_USER, &thread)))
+        return err;
+
+    proc_assert_locked(proc);
+
+    proc_mmap_lock(proc);
+
+    if (t_attr.stackaddr == 0) {
+        if ((err = mmap_alloc_stack(proc_mmap(proc), t_attr.stacksz, &ustack))) {
+            proc_mmap_unlock(proc);
+            goto error;
+        }
+    } else {
+        err = -EINVAL;
+        if (NULL == (ustack = mmap_find(proc_mmap(proc), t_attr.stackaddr))) {
+            proc_mmap_unlock(proc);
+            goto error;
+        }
+
+        if (__isstack(ustack) == 0) {
+            proc_mmap_unlock(proc);
+            goto error;
+        }
+    }
+
+    proc_mmap_unlock(proc);
+
+    /// TODO: optmize size of ustack according to attr;
+    /// TODO: maybe perform a split? But then this will mean,
+    /// free() and unmap() calls to reverse malloc() and mmap() respectively
+    /// for this region may fail. ???
+    thread->t_arch.t_ustack = ustack;
+    
+    if (t_attr.detachstate)
+        thread_setflags(thread, THREAD_DETACHED);
+
+    *ptp  = thread;
+    return 0;
+error:
+    if (thread)
+        thread_free(thread);
+    return err;
+}
+
+/// TODO: remove this!!!
 int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, thread_t **ref) {
     int             err         = 0;
     uintptr_t       kstack      = 0;
