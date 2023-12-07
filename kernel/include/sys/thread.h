@@ -33,8 +33,7 @@ extern char *tget_state(const tstate_t st);
 
 typedef struct proc proc_t;
 
-typedef struct
-{
+typedef struct {
     int         detachstate;
     size_t      guardsz;
     uintptr_t   stackaddr;
@@ -73,7 +72,7 @@ typedef struct thread {
     tid_t           t_ktid;             // killer thread ID for thread that killed this thread.
     uintptr_t       t_entry;            // thread entry point.
     tstate_t        t_state;            // thread's execution state.
-    
+    long            t_refcnt;           // thread's reference count.
     // Misc.
     tid_t           t_statetid;
     char            *t_statefile;
@@ -84,8 +83,6 @@ typedef struct thread {
     atomic_t        t_spinlocks;
     uintptr_t       t_errno;            // thread's errno.
     proc_t          *t_owner;           // thread's owner process.
-    
-    thread_attr_t   t_attr;             // thread' attributes.
 
     sigset_t        t_sigmask;          // thread's masked signal set.
     uint8_t         t_sigqueue[NSIG];   // thread's queue of pending signals.
@@ -114,7 +111,7 @@ typedef struct {
     atomic_t        ti_flags;
 } thread_info_t;
 
-#define THREAD_USER                   BS(0)   // thread is a user thread.
+#define THREAD_USER                     BS(0)   // thread is a user thread.
 #define THREAD_KILLED                   BS(1)   // thread was killed by another thread.
 #define THREAD_PARK                     BS(2)   // thread has the park flag set.
 #define THREAD_WAKE                     BS(3)   // thread has the wakeup flag set.
@@ -158,11 +155,11 @@ typedef struct {
     err;                                          \
 })
 
-#define thread_iskilled(t) ({                            \
+#define thread_iskilled(t) ({                          \
     int locked = thread_locked(t);                     \
     if (!locked)                                       \
         thread_lock(t);                                \
-    int killed = thread_testflags((t), THREAD_KILLED  ); \
+    int killed = thread_testflags((t), THREAD_KILLED); \
     if (!locked)                                       \
         thread_unlock(t);                              \
     killed;                                            \
@@ -210,7 +207,7 @@ typedef struct {
 #define current_locked()                ({ thread_locked(current); })
 #define current_assert_locked()         ({ thread_assert_locked(current); })
 
-#define current_tgroup()                ({ thread_tgroup(current); })
+#define current_tgroup()                ({ current ? thread_tgroup(current) : NULL; })
 #define current_tgroup_lock()           ({ thread_tgroup_lock(current); })
 #define current_tgroup_unlock()         ({ thread_tgroup_unlock(current); })
 #define current_tgroup_locked()         ({ thread_tgroup_locked(current); })
@@ -264,18 +261,19 @@ typedef struct {
 extern builtin_thread_t __builtin_thrds[];
 extern builtin_thread_t __builtin_thrds_end[];
 
-#define BUILTIN_THREAD(name, entry, arg)              \
-    builtin_thread_t __used_section(.__builtin_thrds) \
-        __thread_##name = {                           \
-            .thread_name = #name,                     \
-            .thread_arg = arg,                        \
-            .thread_entry = entry,                    \
-    }
+#define BUILTIN_THREAD(name, entry, arg)          \
+builtin_thread_t __used_section(.__builtin_thrds) \
+    __thread_##name = {                           \
+        .thread_name = #name,                     \
+        .thread_arg = arg,                        \
+        .thread_entry = entry,                    \
+}
 
 #define BUILTIN_THREAD_ANOUNCE(name)    ({ printk("\"%s\" thread [tid: %d] running...\n", name, thread_self()); })
 
 #define STACKSZMIN      (KiB(32))
 #define KSTACKSZ        (STACKSZMIN)
+#define USTACKSZ        (STACKSZMIN)
 #define STACKSZMAX      (KiB(512))
 #define BADSTACKSZ(sz)  ((sz) < STACKSZMIN || (sz) > STACKSZMAX)
 

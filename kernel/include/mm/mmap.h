@@ -110,7 +110,7 @@ typedef struct vmr {
 
 typedef struct mmap {
     int         flags;      // memory map flags.
-    int         refs;       // reference count.
+    long        refs;       // reference count.
     void       *priv;       // private data.
     vmr_t      *arg;        // region designated for argument vector.
     vmr_t      *env;        // region designated for environment varaibles.
@@ -123,7 +123,7 @@ typedef struct mmap {
     vmr_t      *vmr_head;   // head of list of virtual memory mapping.
     vmr_t      *vmr_tail;   // tail of list of virtual memory mapping.
     spinlock_t  lock;
-}mmap_t;
+} mmap_t;
 
 #define mmap_assert(mmap)           ({assert(mmap, "No Memory Map");})
 #define mmap_islocked(mmap)         ({mmap_assert(mmap); spin_islocked(&(mmap)->lock);})

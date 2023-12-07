@@ -98,7 +98,7 @@ int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, 
         .t_thread = thread,
     };
 
-    thread->t_attr = t_attr;
+    // thread->t_attr = t_attr;
     thread->t_tid = tid_alloc();
     thread->t_lock = SPINLOCK_INIT();
 

@@ -5,38 +5,41 @@
 #include <mm/kalloc.h>
 #include <sys/thread.h>
 
-void tgroup_destroy(tgroup_t *tg) {
+void tgroup_destroy(tgroup_t *tgroup) {
+    int err = 0;
     long ref = 0;
-    if (tg == NULL)
+
+    if (tgroup == NULL)
         panic("No tgroup to destry.");
     
-    if (current_tgroup() == tg)
+    if (current_tgroup() == tgroup)
         panic("Thread not allowed to "
             "destroy a tgroup it resides in.\n");
 
-    if (!tgroup_islocked(tg))
-        tgroup_lock(tg);
+    if (!tgroup_islocked(tgroup))
+        tgroup_lock(tgroup);
 
-    // TODO: kill all threads.
+    if ((tgroup_kill_thread(tgroup, -1, 1)))
+        panic("Failed to kill all threads, error: %d\n", err);
 
-    tgroup_putref(tg);
+    tgroup_putref(tgroup);
 
-    if ((ref = tgroup_getref(tg)) > 0)
+    if ((ref = tgroup_getref(tgroup)) > 0)
         panic("Cannot destroy tgroup struct "
             "[in use by (%ld) other context(s)].\n", ref);
     
-    if (tgroup_running(tg))
+    if (tgroup_running(tgroup))
         panic("Still some threads running"
-            " in [tgroup %d].\n", tgroup_getid(tg));
+            " in [tgroup %d].\n", tgroup_getid(tgroup));
 
-    tgroup_queue_lock(tg);
-    queue_flush(tgroup_queue(tg));
-    tgroup_queue_unlock(tg);
+    tgroup_queue_lock(tgroup);
+    queue_flush(tgroup_queue(tgroup));
+    tgroup_queue_unlock(tgroup);
 
-    assert(tgroup_getthread_count(tg) == 0, "No thread must be in tgroup.");
+    assert(tgroup_getthread_count(tgroup) == 0, "No thread must be in tgroup.");
 
-    tgroup_unlock(tg);
-    kfree(tg);
+    tgroup_unlock(tgroup);
+    kfree(tgroup);
 }
 
 int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait) {
@@ -102,23 +105,23 @@ error:
 }
 
 int tgroup_create(tgroup_t **ptgroup) {
-    tgroup_t *tg = NULL;
+    tgroup_t *tgroup = NULL;
 
     if (ptgroup == NULL)
         return -EINVAL;
 
-    if (NULL == (tg = (tgroup_t *)kmalloc(sizeof *tg)))
+    if (NULL == (tgroup = (tgroup_t *)kmalloc(sizeof *tgroup)))
         return -ENOMEM;
 
-    memset(tg, 0, sizeof *tg);
+    memset(tgroup, 0, sizeof *tgroup);
 
-    tg->tg_refcnt = 1;
-    tg->tg_thread = QUEUE_INIT();
-    tg->tg_lock = SPINLOCK_INIT();
+    tgroup->tg_refcnt = 1;
+    tgroup->tg_thread = QUEUE_INIT();
+    tgroup->tg_lock = SPINLOCK_INIT();
 
-    tgroup_lock(tg);
+    tgroup_lock(tgroup);
 
-    *ptgroup = tg;
+    *ptgroup = tgroup;
     return 0;
 }
 
@@ -139,7 +142,7 @@ int tgroup_add_thread(tgroup_t *tgroup, thread_t *thread) {
         tgroup->tg_tlast = thread;
         tgroup->tg_tgid = thread->t_tid;
     }
-    
+
     return 0;
 }
 
