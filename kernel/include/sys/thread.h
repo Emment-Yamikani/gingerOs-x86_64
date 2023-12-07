@@ -486,7 +486,7 @@ int kthread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_
  * \param arg argument to be passed to the new kernel thread.
  * \return (int)0 on success or error on faliure.
  */
-int thread_create(thread_t **pthread, thread_attr_t *attr, thread_entry_t entry, void *arg);
+int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t **pthread);
 
 int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset);
 

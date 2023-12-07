@@ -15,8 +15,8 @@ const char *t_states[] = {
     [T_READY]       = "READY",
     [T_RUNNING]     = "RUNNING",
     [T_ISLEEP]      = "ISLEEP",
-    [T_STOPPED]     = "STOPPED",
     [T_USLEEP]      = "USLEEP",
+    [T_STOPPED]     = "STOPPED",
     [T_TERMINATED]  = "TERMINATED",
     [T_ZOMBIE]      = "ZOMBIE",
 };
@@ -150,13 +150,12 @@ error:
     return err;
 }
 
-int thread_new_uthread(proc_t *proc, thread_attr_t *attr, thread_t **ptp) {
-    int err = 0;
-    vmr_t *ustack = NULL;
-    thread_t *thread = NULL;
-    thread_attr_t t_attr = {0};
+int thread_alloc_stack(thread_t *thread, thread_attr_t *attr, mmap_t *mmap) {
+    int             err = 0;
+    vmr_t           *ustack = NULL;
+    thread_attr_t   t_attr = {0};
 
-    if (proc == NULL || ptp == NULL)
+    if (thread == NULL || mmap == NULL)
         return -EINVAL;
 
     t_attr = attr ? *attr : (thread_attr_t){
@@ -166,136 +165,28 @@ int thread_new_uthread(proc_t *proc, thread_attr_t *attr, thread_t **ptp) {
         .stacksz        = USTACKSZ,
     };
 
-    if ((t_attr.stackaddr >= USTACK)||
-        BADSTACKSZ(t_attr.stacksz)  ||
-        (t_attr.stackaddr == 0))
-        return -EINVAL;
-
-    if ((err = thread_alloc(KSTACKSZ, THREAD_CREATE_USER, &thread)))
-        return err;
-
-    proc_assert_locked(proc);
-
-    proc_mmap_lock(proc);
+    mmap_assert_locked(mmap);
 
     if (t_attr.stackaddr == 0) {
-        if ((err = mmap_alloc_stack(proc_mmap(proc), t_attr.stacksz, &ustack))) {
-            proc_mmap_unlock(proc);
+        if ((err = mmap_alloc_stack(mmap, t_attr.stacksz, &ustack)))
             goto error;
-        }
     } else {
         err = -EINVAL;
-        if (NULL == (ustack = mmap_find(proc_mmap(proc), t_attr.stackaddr))) {
-            proc_mmap_unlock(proc);
+        if (NULL == (ustack = mmap_find(mmap, t_attr.stackaddr)))
             goto error;
-        }
 
-        if (__isstack(ustack) == 0) {
-            proc_mmap_unlock(proc);
+        if (__isstack(ustack) == 0)
             goto error;
-        }
     }
 
-    proc_mmap_unlock(proc);
-
-    /// TODO: optmize size of ustack according to attr;
-    /// TODO: maybe perform a split? But then this will mean,
+    /// TODO: Optmize size of ustack according to attr;
+    /// TODO: maybe perform a split? But then this will mean
     /// free() and unmap() calls to reverse malloc() and mmap() respectively
     /// for this region may fail. ???
     thread->t_arch.t_ustack = ustack;
-    
-    if (t_attr.detachstate)
-        thread_setflags(thread, THREAD_DETACHED);
 
-    *ptp  = thread;
     return 0;
 error:
-    if (thread)
-        thread_free(thread);
-    return err;
-}
-
-/// TODO: remove this!!!
-int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, thread_t **ref) {
-    int             err         = 0;
-    uintptr_t       kstack      = 0;
-    thread_attr_t   t_attr      = {0};
-    queue_t         *queue      = NULL;
-    thread_t        *thread     = NULL;
-    size_t          kstacksz    = KSTACKSZ;
-
-    if (attr == NULL) {
-        if (!(kstack = thread_alloc_kstack(kstacksz)))
-            return -ENOMEM;
-        
-        t_attr = (thread_attr_t) {
-            .detachstate   = 0,
-            .guardsz        = 0,
-            .stackaddr      = kstack,
-            .stacksz        = kstacksz,
-        };
-        attr = &t_attr;
-    } else {
-        if (BADSTACKSZ(attr->stacksz))
-            return -EINVAL;
-
-        if (!BTEST(flags, 0)) {
-            if (attr->stackaddr == 0)
-                if (!(attr->stackaddr = thread_alloc_kstack(attr->stacksz)))
-                    return -ENOMEM;
-            kstack = attr->stackaddr;
-            kstacksz = attr->stacksz;
-        } else {
-            if (attr->stackaddr == 0)
-                return -EINVAL;
-            if (!(kstack = thread_alloc_kstack(kstacksz)))
-                return -ENOMEM;
-        }
-
-        t_attr = *attr;
-    }
-
-    thread = (thread_t *)ALIGN16((kstack + kstacksz) - (sizeof *thread));
-
-    if ((err = queue_alloc(&queue)))
-        goto error;
-
-    memset(thread, 0, sizeof *thread);
-
-    thread->t_arch = (x86_64_thread_t) {
-        .t_kstack = kstack,
-        .t_kstacksz = kstacksz,
-        .t_thread = thread,
-    };
-
-    // thread->t_attr = t_attr;
-    thread->t_tid = tid_alloc();
-    thread->t_lock = SPINLOCK_INIT();
-
-    thread_lock(thread);
-
-    if (attr->detachstate)
-        thread_setdetached(thread);
-
-    thread->t_wait = COND_INIT();
-    thread->t_queues = queue;
-
-    thread->t_sched.ts_ctime = jiffies_get();
-    thread->t_sched.ts_cpu_affinity_set = -1;
-    thread->t_sched.ts_priority = SCHED_LOWEST_PRIORITY;
-    thread->t_sched.ts_affinity_type = SCHED_SOFT_AFFINITY;
-
-    thread_enter_state(thread, T_EMBRYO);
-
-    if ((err = arch_thread_init(&thread->t_arch, entry, arg)))
-        goto error;
-
-    *ref = thread;
-    return 0;
-error:
-    if (queue)
-        queue_free(queue);
-    thread_free_kstack(kstack, kstacksz);
     return err;
 }
 
@@ -699,9 +590,9 @@ int builtin_threads_begin(size_t *nthreads) {
     size_t nr = __builtin_thrds_end - __builtin_thrds;
 
     for (size_t i = 0; i < nr; ++i, thrd++) {
-        if ((err = thread_create(NULL, NULL,
+        if ((err = kthread_create(NULL,
             (thread_entry_t)thrd->thread_entry,
-            thrd->thread_arg)))
+            thrd->thread_arg, NULL)))
             return err;
     }
 
@@ -710,61 +601,18 @@ int builtin_threads_begin(size_t *nthreads) {
     return 0;
 }
 
-int thread_create(thread_t **pthread, thread_attr_t *attr, thread_entry_t entry, void *arg) {
+int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t **pthread) {
     int err = 0;
-    int user = 0;
-    int newgroup = 0;
-    thread_t *thread = NULL;
-    tgroup_t *tgroup = current ? current_tgroup() : NULL;
+    __unused int user = 0;
+    __unused thread_t *thread = NULL;
+    __unused tgroup_t *tgroup = current_tgroup();
 
-    newgroup = !tgroup;
-
-    if (!entry)
-        return -EINVAL;
-
-    if (current) {
-        current_lock();
-        user = current_isuser();
-        current_unlock();
-    }
-
-    if (tgroup)
-        tgroup_lock(tgroup);
-    else if ((err = tgroup_create(&tgroup)))
-        goto error;
-
-    if ((err = thread_new(attr, entry, arg, user, &thread))) {
-        tgroup_unlock(tgroup);
-        goto error;
-    }
-
-    if ((err = tgroup_add_thread(tgroup, thread))) {
-        tgroup_unlock(tgroup);
-        goto error;
-    }
-
-    if ((err = thread_schedule(thread))) {
-        tgroup_unlock(tgroup);
-        goto error;
-    }
+    (void)arg;
+    (void)attr;
+    (void)pthread;
+    (void)entry;
     
-    if (pthread)
-        *pthread = thread;
-    else
-        thread_unlock(thread);
-
-    tgroup_unlock(tgroup);
-
     return 0;
-error:
-    if (newgroup && tgroup) {
-        tgroup_lock(tgroup);
-        tgroup_destroy(tgroup);
-    }
-    
-    if (thread)
-        thread_free(thread);
-    
     return err;
 }
 

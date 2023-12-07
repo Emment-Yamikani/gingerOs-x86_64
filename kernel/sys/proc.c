@@ -268,11 +268,12 @@ int proc_init(const char *initpath) {
         goto error;
     }
 
+    proc_mmap_unlock(proc);
+
     proc_tgroup_lock(proc);
     
     proc_tgroup_unlock(proc);
 
-    proc_mmap_unlock(proc);
 
     initproc = proc;
     return 0;

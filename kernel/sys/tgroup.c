@@ -75,7 +75,7 @@ int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait) {
         tgroup_queue_unlock(tgroup);
 
         /**
-         * @brief 'cuurent' becomes the main thread,
+         * @brief 'current' becomes the main thread,
          * if it belongs to 'tgroup'.
          */
         if (current->t_group == tgroup)
@@ -117,7 +117,7 @@ int tgroup_create(tgroup_t **ptgroup) {
 
     tgroup->tg_refcnt = 1;
     tgroup->tg_thread = QUEUE_INIT();
-    tgroup->tg_lock = SPINLOCK_INIT();
+    tgroup->tg_lock   = SPINLOCK_INIT();
 
     tgroup_lock(tgroup);
 
@@ -207,13 +207,17 @@ int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pt
 int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry, void *arg, int flags, thread_t **pthread) {
     int err = 0;
     thread_t *thread = NULL;
+    (void)entry, (void)arg, (void)flags, (void)pthread;
     
     if (!pthread)
         return -EINVAL;
 
     tgroup_assert_locked(tgroup);
-    if ((err = thread_new(NULL, entry, arg, flags, &thread)))
-        goto error;
+
+    /// TODO: remove thread_new() and add appropriate call.
+    return -ENOSYS;
+    // if ((err = thread_new(NULL, entry, arg, flags, &thread)))
+        // goto error;
 
     if ((tgroup_add_thread(tgroup, thread)))
         goto error;
