@@ -251,12 +251,16 @@ error:
 }
 
 int proc_init(const char *initpath) {
-    int err = 0;
-    uintptr_t pdbr = 0;
-    proc_t *proc = NULL;
-    __unused thread_t *thread = NULL;
-    __unused const char *argp[] = { initpath, NULL, };
-    __unused const char *envp[] = { "PATH=/mnt/ramfs/", NULL, };
+    int                 err     = 0;
+    uintptr_t           pdbr    = 0;
+    int                 argc    = 0;
+    char                **argp = NULL;
+    char                **envp = NULL;
+    proc_t              *proc   = NULL;
+    vmr_t               *ustack = NULL;
+    thread_t            *thread = NULL;
+    const char *srcargp[] = { initpath, NULL, };
+    const char *srcenvp[] = { "PATH=/mnt/ramfs/", NULL, };
 
     if ((err = proc_load(initpath, NULL, &proc)))
         goto error;
@@ -268,16 +272,51 @@ int proc_init(const char *initpath) {
         goto error;
     }
 
-    proc_mmap_unlock(proc);
+    if ((err = mmap_argenvcpy(proc_mmap(proc), srcargp, srcenvp, &argp, &argc, &envp))) {
+        proc_mmap_unlock(proc);
+        goto error;
+    }
+
+    if ((err = mmap_alloc_stack(proc_mmap(proc), USTACKSZ, &ustack))) {
+        proc_mmap_unlock(proc);
+        goto error;
+    }
+
+    if ((err = thread_alloc(KSTACKSZ, THREAD_USER, &thread))) {
+        mmap_remove(proc_mmap(proc), ustack);
+        proc_mmap_unlock(proc);
+        goto error;
+    }
+
+    thread->t_arch.t_ustack = ustack;
+
+    if ((err = arch_thread_execve(&thread->t_arch, proc->entry, argc, (const char **)argp, (const char **)envp))) {
+        mmap_remove(proc_mmap(proc), ustack);
+        proc_mmap_unlock(proc);
+        goto error;
+    }
 
     proc_tgroup_lock(proc);
     
-    proc_tgroup_unlock(proc);
+    if ((err = tgroup_add_thread(proc_tgroup(proc), thread))) {
+        mmap_remove(proc_mmap(proc), ustack);
+        proc_tgroup_unlock(proc);
+        proc_mmap_unlock(proc);
+        goto error;
+    }
 
+    proc_tgroup_unlock(proc);
+    proc_mmap_unlock(proc);
+
+    thread->t_owner = proc;
+    proc_getref(proc);
 
     initproc = proc;
     return 0;
 error:
+    if (thread)
+        thread_free(thread);
+
     if (proc)
         proc_free(proc);
     return err;

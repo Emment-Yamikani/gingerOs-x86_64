@@ -1029,6 +1029,158 @@ int mmap_focus(mmap_t *mmap, uintptr_t *ref) {
     return arch_swtchvm(mmap->pgdir, ref);
 }
 
+int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
+    const char *src_envp[], char **pargv[], int *pargc, char **penvv[]) {
+    int err = 0, index = 0;
+    int argc = 0, envc = 0;
+    size_t argslen = 0, envslen = 0;
+    char **argp = NULL, **envp = NULL;
+    vmr_t *argvmr = NULL, *envvmr = NULL;
+    char *arglist = NULL, *envlist = NULL;
+
+    if (mmap == NULL)
+        return -EINVAL;
+
+    if ((src_argp && pargv == NULL) ||
+        (src_envp && penvv == NULL))
+        return -EINVAL;
+
+    mmap_assert_locked(mmap);
+
+    if (pargc)
+        *pargc = 0;
+
+    if (src_argp) {
+        /**Count the command-line arguments.
+         * Also keep the size memory region
+         * needed to hold the argumments.
+         */
+        foreach (arg, src_argp)
+        {
+            argc++;
+            argslen += strlen(arg) + 1 + sizeof(char *);
+        }
+    }
+
+    // align the size to PAGE alignment
+    argslen = PGROUNDUP(argslen);
+
+    // If region ength is 0 then jump to setting 'arg_array'
+    if (argslen == 0)
+        goto arg_array;
+
+    argc++;
+
+    // allocate space for the arg_array and args
+    if ((err = mmap_alloc_vmr(mmap, argslen, PROT_RW, MAP_PRIVATE | MAP_DONTEXPAND, &argvmr)))
+        goto error;
+
+    // Page the region in
+    if ((err = arch_map_n(argvmr->start, argslen, argvmr->vflags)))
+        goto error;
+
+    mmap->arg = argvmr;
+    arglist = (char *)argvmr->start;
+
+    // allocate temoporal array to hold pointers to args
+    if ((argp = kcalloc(argc, sizeof(char *))) == NULL) {
+        err = -ENOMEM;
+        goto error;
+    }
+
+    if (src_argp) {
+        // Do actual copyout of args
+        foreach (arg, src_argp) {
+            ssize_t arglen = strlen(arg) + 1;
+            safestrncpy(arglist, arg, arglen);
+            argp[index++] = arglist;
+            arglist += arglen;
+        }
+    }
+
+    // copyout the array of arg pointers
+    memcpy(arglist, argp, argc * sizeof(char *));
+    // free temporal memory
+    kfree(argp);
+
+arg_array:
+    if (pargv)
+        *pargv = (char **)arglist;
+
+    if (src_envp) {
+        /**Count the Environments.
+         * Also keep the size memory region
+         * needed to hold the Environments.
+         */
+        foreach (env, src_envp)
+        {
+            envc++;
+            envslen += strlen(env) + 1 + sizeof(char *);
+        }
+    }
+
+    // align the size to PAGE alignment
+    envslen = PGROUNDUP(envslen);
+
+    // If region ength is 0 then jump to setting 'env_array'
+    if (envslen == 0)
+        goto env_array;
+
+    envc++;
+
+    // allocate space for the env_array and envs
+    if ((err = mmap_alloc_vmr(mmap, envslen, PROT_RW, MAP_PRIVATE | MAP_DONTEXPAND, &envvmr)))
+        goto error;
+
+    // Page the region in
+    if ((err = arch_map_n(envvmr->start, envslen, envvmr->vflags)))
+        goto error;
+
+    mmap->env = envvmr;
+    envlist = (char *)envvmr->start;
+
+    // allocate temoporal array to hold pointers to envs
+    index = 0;
+    if ((envp = kcalloc(envc, sizeof(char *))) == NULL) {
+        err = -ENOMEM;
+        goto error;
+    }
+
+    if (src_envp) {
+        //  Do actual copyout of envs
+        foreach (env, src_envp) {
+            ssize_t envlen = strlen(env) + 1;
+            safestrncpy(envlist, env, envlen);
+            envp[index++] = envlist;
+            envlist += envlen;
+        }
+    }
+
+    // copyout the array of env pointers
+    memcpy(envlist, envp, envc * sizeof(char *));
+    // free temporal memory
+    kfree(envp);
+
+env_array:
+    if (penvv)
+        *penvv = (char **)envlist;
+
+    if (pargc)
+        *pargc = --argc;
+
+    return 0;
+error:
+    if (envp)
+        kfree(envp);
+    if (envvmr)
+        mmap_remove(mmap, envvmr);
+    if (argp)
+        kfree(argp);
+    if (argvmr)
+        mmap_remove(mmap, argvmr);
+    return err;
+}
+
 /**
  * *******************************************************************
  * @brief           Virtual memory region Helpers.                   *
@@ -1127,4 +1279,3 @@ int vmr_clone(vmr_t *src, vmr_t **pclone) {
     *pclone = clone;
     return 0;
 }
-

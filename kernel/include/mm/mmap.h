@@ -218,6 +218,20 @@ int mmap_clone(mmap_t *mmap, mmap_t **pclone);
  */
 int mmap_focus(mmap_t *mmap, uintptr_t *ref);
 
+/**
+ * @brief 
+ * 
+ * @param mmap 
+ * @param src_argp 
+ * @param src_envp 
+ * @param argv 
+ * @param pargc 
+ * @param envv 
+ * @return int 
+ */
+int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
+                   const char *src_envp[], char **pargv[], int *pargc, char **penvv[]);
+
 /*Is the 'addr' in a hole?*/
 #define __ishole(mm, addr)          (mmap_find(mm, addr) == NULL)
 

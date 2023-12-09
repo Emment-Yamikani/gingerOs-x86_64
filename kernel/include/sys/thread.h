@@ -421,15 +421,14 @@ int thread_reap(thread_t *thread, int reap, thread_info_t *info, void **retval);
 int thread_join(tid_t tid, thread_info_t *info, void **retval);
 
 /**
- * \brief Allocate a new thread structure.
- * \param attr attributes used to specify how to create the new thread.
- * \param entry entry point of kernel thread.
- * \param arg argument to be passed to the new kernel thread
- * \param flags additional specs for thread creation.
- * \param pthread return the newly allocated thread through a pointer to the thread.
- * \return (int)0 on success or error on faliure.
+ * @brief allocate a new thread structure.
+ * 
+ * @param kstacksz size of the new thread's kernel stack.
+ * @param flags flags used in thread creation, e.g THREAD_USER(if a user thread is intended).
+ * @param ref the new structure is passed by reference through a pointer to a thread pointer.
+ * @return int 0 on success otherwise an error code is passed.
  */
-int thread_new(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags,  thread_t **pthread);
+int thread_alloc(uintptr_t kstacksz, int flags, thread_t **ref);
 
 /**
  * \brief Get a thread from a thread queue.

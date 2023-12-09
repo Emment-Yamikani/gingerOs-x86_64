@@ -118,80 +118,80 @@ typedef union viraddr {
 /**
  * 
 */
-int i64_swtchvm(uintptr_t pdbr, uintptr_t *old);
+int x86_64_swtchvm(uintptr_t pdbr, uintptr_t *old);
 
 /**
  * 
 */
-int i64_map(uintptr_t frame, int i4, int i3, int i2, int i1, int flags);
+int x86_64_map(uintptr_t frame, int i4, int i3, int i2, int i1, int flags);
 
 /**
  * 
 */
-void i64_unmap(int i4, int i3, int i2, int i1);
+void x86_64_unmap(int i4, int i3, int i2, int i1);
 
 /**
  * 
 */
-void i64_unmap_n(uintptr_t v, size_t sz);
+void x86_64_unmap_n(uintptr_t v, size_t sz);
 
 /**
  * 
 */
-int i64_map_i(uintptr_t v, uintptr_t p, size_t sz, int flags);
+int x86_64_map_i(uintptr_t v, uintptr_t p, size_t sz, int flags);
 
 /**
  * 
 */
-int i64_map_n(uintptr_t v, size_t sz, int flags);
+int x86_64_map_n(uintptr_t v, size_t sz, int flags);
 
 /**
  * 
 */
-int i64_mount(uintptr_t p, void **pvp);
+int x86_64_mount(uintptr_t p, void **pvp);
 
 /**
  * 
 */
-void i64_unmount(uintptr_t v);
+void x86_64_unmount(uintptr_t v);
 
 /**
  * 
 */
-void i64_unmap_full(void);
+void x86_64_unmap_full(void);
 
 /**
  * 
 */
-void i64_fullvm_unmap (uintptr_t pml4);
+void x86_64_fullvm_unmap (uintptr_t pml4);
 
 /**
  * 
 */
-int i64_lazycpy(uintptr_t dst, uintptr_t src);
+int x86_64_lazycpy(uintptr_t dst, uintptr_t src);
 
 /**
  * 
 */
-int i64_memcpypp(uintptr_t pdst, uintptr_t psrc, size_t size);
+int x86_64_memcpypp(uintptr_t pdst, uintptr_t psrc, size_t size);
 
 /**
  * 
 */
-int i64_memcpyvp(uintptr_t p, uintptr_t v, size_t size);
+int x86_64_memcpyvp(uintptr_t p, uintptr_t v, size_t size);
 
 /**
  * 
 */
-int i64_memcpypv(uintptr_t v, uintptr_t p, size_t size);
+int x86_64_memcpypv(uintptr_t v, uintptr_t p, size_t size);
 
 /**
  * 
 */
-int i64_getmapping(uintptr_t addr, pte_t **pte);
+int x86_64_getmapping(uintptr_t addr, pte_t **pte);
 
 /**
  * 
 */
-int i64_pml4alloc(uintptr_t *ref);
-void i64_pml4free(uintptr_t pgdir);
+int x86_64_pml4alloc(uintptr_t *ref);
+void x86_64_pml4free(uintptr_t pgdir);

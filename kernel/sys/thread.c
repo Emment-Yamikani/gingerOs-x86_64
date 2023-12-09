@@ -46,7 +46,7 @@ void thread_free_kstack(uintptr_t addr, size_t size __unused) {
     kfree((void *)addr);
 }
 
-static int thread_alloc(uintptr_t kstacksz, int flags, thread_t **ref) {
+int thread_alloc(uintptr_t kstacksz, int flags, thread_t **ref) {
     int         err         = 0;
     uintptr_t   kstack      = 0;
     thread_t    *thread     = NULL;
@@ -155,7 +155,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
     vmr_t *ustack = NULL;
     thread_t *thread = NULL;
     thread_attr_t   t_attr = {0};
-    __unused tgroup_t *tgroup = current_tgroup();
+    tgroup_t *tgroup = current_tgroup();
     
     t_attr = attr ? *attr : (thread_attr_t){
         .detachstate    = 0,
@@ -164,7 +164,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
         .stacksz        = USTACKSZ,
     };
 
-    if (curproc == NULL)
+    if (tgroup == NULL || curproc == NULL)
         return -EINVAL;
 
     if ((err = thread_alloc(KSTACKSZ, THREAD_USER, &thread)))
@@ -204,6 +204,9 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
     thread->t_arch.t_ustack = ustack;
 
     if ((err = arch_uthread_init(&thread->t_arch, entry, arg)))
+        goto error;
+
+    if ((err = tgroup_add_thread(tgroup, thread)))
         goto error;
 
     if (pthread)

@@ -17,7 +17,7 @@ struct pgroup;
 typedef struct proc {
     char            *name;      // process' name.
     pid_t            pid;       // process' ID.
-    uintptr_t        entry;     // process' entry point.
+    thread_entry_t   entry;     // process' entry point.
     long             refcnt;    // process' reference count.
     long             exit;      // process' exit status.
     mmap_t          *mmap;      // process' memory map(virtual address space).

@@ -11,8 +11,8 @@ typedef struct arch_thread_t {
     context_t   *t_ctx0;        // thread's context.
     context_t   *t_ctx1;        // thread's saved context
     tf_t        t_savedtf;      // saved trapframe.
-    void        *t_priv;        // thread private data.
 #endif
+    void        *t_priv;        // thread private data.
     uintptr_t   t_kstack;       // kernel stack for this thread.
     size_t      t_kstacksz;     // size of kernel stack.
     uintptr_t   t_sig_kstack;   // kernel stack for this thread.
@@ -38,3 +38,8 @@ void arch_thread_exit(uintptr_t exit_code);
  * \return 0 if successful and errno on failure.
  */
 int arch_kthread_init(arch_thread_t *arch_thread, thread_entry_t entry, void *arg);
+
+void arch_exec_free_copy(char ***arg_env);
+char ***arch_execve_copy(char *_argp[], char *_envp[]);
+
+int arch_thread_execve(arch_thread_t *thread, thread_entry_t entry, int argc, const char *argp[], const char *envp[]);
