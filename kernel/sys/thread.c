@@ -7,7 +7,7 @@
 #include <sys/system.h>
 #include <lib/string.h>
 #include <ginger/jiffies.h>
-#include <arch/x86_64/thread.h>
+#include <arch/thread.h>
 #include <sys/proc.h>
 
 const char *t_states[] = {
@@ -74,7 +74,7 @@ static int thread_alloc(uintptr_t kstacksz, int flags, thread_t **ref) {
     thread_setflags(thread, THREAD_DETACHED);
     thread_setflags(thread, BTEST(flags, 0) ? THREAD_USER : 0);
 
-    thread->t_arch  = (x86_64_thread_t){
+    thread->t_arch  = (arch_thread_t){
         .t_thread   = thread,
         .t_kstack   = kstack,
         .t_kstacksz = kstacksz,
@@ -112,7 +112,7 @@ int kthread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_
     if ((err = thread_alloc(t_attr.stacksz, 0, &thread)))
         return err;
     
-    if ((err = arch_thread_init(&thread->t_arch, entry, arg)))
+    if ((err = arch_kthread_init(&thread->t_arch, entry, arg)))
         goto error;
 
     if (current_tgroup()) {
@@ -147,6 +147,72 @@ error:
         tgroup_destroy(tgroup);
     if (thread)
         thread_free(thread);
+    return err;
+}
+
+int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t **pthread) {
+    int err = 0;
+    vmr_t *ustack = NULL;
+    thread_t *thread = NULL;
+    thread_attr_t   t_attr = {0};
+    __unused tgroup_t *tgroup = current_tgroup();
+    
+    t_attr = attr ? *attr : (thread_attr_t){
+        .detachstate    = 0,
+        .guardsz        = 0,
+        .stackaddr      = 0,
+        .stacksz        = USTACKSZ,
+    };
+
+    if (curproc == NULL)
+        return -EINVAL;
+
+    if ((err = thread_alloc(KSTACKSZ, THREAD_USER, &thread)))
+        return err;
+
+    proc_lock(curproc);
+    proc_mmap_lock(curproc);
+
+    if (t_attr.stackaddr == 0) {
+        if ((err = mmap_alloc_stack(proc_mmap(curproc), t_attr.stacksz, &ustack))) {
+            proc_mmap_unlock(curproc);
+            proc_unlock(curproc);
+            goto error;
+        }
+    } else {
+        err = -EINVAL;
+        if (NULL == (ustack = mmap_find(proc_mmap(curproc), t_attr.stackaddr))) {
+            proc_mmap_unlock(curproc);
+            proc_unlock(curproc);
+            goto error;
+        }
+
+        if (__isstack(ustack) == 0) {
+            proc_mmap_unlock(curproc);
+            proc_unlock(curproc);
+            goto error;
+        }
+    }
+
+    proc_mmap_unlock(curproc);
+    proc_unlock(curproc);
+
+    /// TODO: Optmize size of ustack according to attr;
+    /// TODO: maybe perform a split? But then this will mean
+    /// free() and unmap() calls to reverse malloc() and mmap() respectively
+    /// for this region may fail. ???
+    thread->t_arch.t_ustack = ustack;
+
+    if ((err = arch_uthread_init(&thread->t_arch, entry, arg)))
+        goto error;
+
+    if (pthread)
+        *pthread = thread;
+    else
+        thread_unlock(thread);
+    return 0;
+error:
+    if (thread) thread_free(thread);
     return err;
 }
 
@@ -599,21 +665,6 @@ int builtin_threads_begin(size_t *nthreads) {
     if (nthreads)
         *nthreads = nr;
     return 0;
-}
-
-int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t **pthread) {
-    int err = 0;
-    __unused int user = 0;
-    __unused thread_t *thread = NULL;
-    __unused tgroup_t *tgroup = current_tgroup();
-
-    (void)arg;
-    (void)attr;
-    (void)pthread;
-    (void)entry;
-    
-    return 0;
-    return err;
 }
 
 int thread_schedule(thread_t *thread) {

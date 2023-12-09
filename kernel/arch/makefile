@@ -8,6 +8,7 @@ include $(x86_64_dir)/makefile
 
 arch_objs+=\
 $(arch_dir)/paging.o\
+$(arch_dir)/thread.o\
 $(chipset_objs)\
 $(firmware_objs)\
 $(x86_64_objs)

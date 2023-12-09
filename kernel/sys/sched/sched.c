@@ -181,7 +181,7 @@ __noreturn void schedule(void) {
     int err = 0;
     jiffies_t before = 0;
     thread_t *thread = NULL;
-    x86_64_thread_t *arch = NULL;
+    arch_thread_t *arch = NULL;
     thread_sched_t *tsched = NULL;
 
     if ((err = sched_init()))

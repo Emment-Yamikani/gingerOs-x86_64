@@ -1,6 +1,6 @@
 #include <arch/x86_64/mmu.h>
 #include <arch/x86_64/system.h>
-#include <arch/x86_64/thread.h>
+#include <arch/thread.h>
 #include <bits/errno.h>
 #include <lib/stddef.h>
 #include <lib/string.h>
@@ -27,7 +27,7 @@ static void arch_thread_stop(void) {
     arch_thread_exit(rax);
 }
 
-int arch_thread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg) {
+int i64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) {
     tf_t *tf = NULL;
     context_t *ctx = NULL;
     uintptr_t *stack = NULL;
@@ -49,6 +49,42 @@ int arch_thread_init(x86_64_thread_t *thread, void *(*entry)(void *), void *arg)
     tf->rdi = (uintptr_t)arg;
     tf->fs = SEG_KDATA64 << 3;
     tf->ds = SEG_KDATA64 << 3;
+    tf->rax = 0;
+
+    stack = (uintptr_t *)tf;
+    *--stack = (uintptr_t)trapret;
+    ctx = (context_t *)((uintptr_t)stack - sizeof *ctx);
+    ctx->rip = (uintptr_t)arch_thread_start;
+    ctx->rbp = tf->rsp;
+
+    thread->t_tf = tf;
+    thread->t_ctx0 = ctx;
+
+    return 0;
+}
+
+int i64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) {
+    tf_t *tf = NULL;
+    context_t *ctx = NULL;
+    uintptr_t *stack = NULL;
+
+    if (!thread)
+        return -EINVAL;
+
+    stack = (uintptr_t *)ALIGN4K((thread->t_kstack + thread->t_kstacksz) - sizeof(thread_t));
+
+    *--stack = (uintptr_t)arch_thread_stop;
+
+    tf = (tf_t *)((uintptr_t)stack - sizeof *tf);
+
+    tf->ss = SEG_UDATA64 << 3;
+    tf->rbp = tf->rsp = (uintptr_t)stack;
+    tf->rflags = LF_IF;
+    tf->cs = SEG_KCODE64 << 3;
+    tf->rip = (uintptr_t)entry;
+    tf->rdi = (uintptr_t)arg;
+    tf->fs = SEG_UDATA64 << 3;
+    tf->ds = SEG_UDATA64 << 3;
     tf->rax = 0;
 
     stack = (uintptr_t *)tf;

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <arch/x86_64/pml4.h>
-#include <arch/x86_64/thread.h>
+#include <arch/paging.h>
+#include <arch/thread.h>
 #include <lib/stddef.h>
 #include <lib/stdint.h>
 #include <lib/types.h>
@@ -96,7 +96,7 @@ typedef struct thread {
     queue_t         *t_queues;          // queues on which this thread resides.
 
     cond_t          t_wait;             // thread conditional wait variable.
-    x86_64_thread_t t_arch;             // architecture thread struct.
+    arch_thread_t   t_arch;             // architecture-specific thread struct.
 
     spinlock_t      t_lock;             // lock to synchronize access to this struct.
 } __aligned(16) thread_t;
