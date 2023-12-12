@@ -312,6 +312,13 @@ int proc_init(const char *initpath) {
     proc_getref(proc);
 
     initproc = proc;
+
+    if ((err = thread_schedule(thread)))
+        goto error;
+    
+    thread_unlock(thread);
+    proc_unlock(proc);
+
     return 0;
 error:
     if (thread)

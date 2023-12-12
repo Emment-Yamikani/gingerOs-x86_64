@@ -97,4 +97,4 @@ clean:
 
 usr_dir=usr
 
-#include $(usr_dir)/usr.mk
+include $(usr_dir)/makefile

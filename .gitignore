@@ -4,6 +4,10 @@
 serial.log
 lime.asm
 serial
+/usr
+/usr/*/*.o
+/usr/*/*.d
+/usr/*/*.a
 *.iso
 *.a
 *.d

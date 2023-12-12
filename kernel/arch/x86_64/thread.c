@@ -27,6 +27,12 @@ static void arch_thread_stop(void) {
     arch_thread_exit(rax);
 }
 
+
+/***********************************************************************************
+ *                      x86_64 specific thread library functions.                  *
+ * *********************************************************************************/
+#if defined __x86_64__
+
 int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) {
     tf_t *tf = NULL;
     context_t *ctx = NULL;
@@ -147,3 +153,5 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
 
     return 0;
 }
+
+#endif // __x86_64__

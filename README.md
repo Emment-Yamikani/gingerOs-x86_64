@@ -51,3 +51,11 @@ Please read the [Road Map](roadmap.md) to know more about the current and future
 ## How to run with Qemu
 
 > make run
+
+# Resources
+
+  [OsDev wiki](wiki.osdev.org).
+
+  [Guilds](https://tldp.org/guides.html).
+
+  
