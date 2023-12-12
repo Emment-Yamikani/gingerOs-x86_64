@@ -54,7 +54,7 @@ Please read the [Road Map](roadmap.md) to know more about the current and future
 
 # Resources
 
-  [OsDev wiki](wiki.osdev.org).
+  [OsDev wiki](https://wiki.osdev.org).
 
   [Guilds](https://tldp.org/guides.html).
 
