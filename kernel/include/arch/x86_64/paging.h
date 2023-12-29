@@ -6,31 +6,31 @@
 #include <arch/pagemap.h>
 #include <sync/spinlock.h>
 
-#define VM_P        (BS(0))             // page is present.
-#define VM_W        (BS(1))             // page is writtable.
-#define VM_U        (BS(2))             // page is user accesible.
-#define VM_PWT      (BS(3))             // page write through.
-#define VM_PCD      (BS(4))             // page cache disabled.
-#define VM_A        (BS(5))             // page is accessed.
-#define VM_D        (BS(6))             // page is dirty.
-#define VM_PS       (BS(7))             // page size.
-#define VM_G        (BS(8))             // page is global.
-#define VM_X        (VM_P /*| BS(64)*/)     // page is executable?
-#define VM_PCDWT    (VM_PCD | VM_PWT)   // page level caching disabled and write through enabled.
+#define PTE_P        (BS(0))             // page is present.
+#define PTE_W        (BS(1))             // page is writtable.
+#define PTE_U        (BS(2))             // page is user accesible.
+#define PTE_PWT      (BS(3))             // page write through.
+#define PTE_PCD      (BS(4))             // page cache disabled.
+#define PTE_A        (BS(5))             // page is accessed.
+#define PTE_D        (BS(6))             // page is dirty.
+#define PTE_PS       (BS(7))             // page size.
+#define PTE_G        (BS(8))             // page is global.
+#define PTE_X        (PTE_P /*| BS(64)*/)// page is executable?
+#define PTE_PCDWT    (PTE_PCD | PTE_PWT) // page level caching disabled and write through enabled.
 
-#define VM_R        (VM_P)
-#define VM_KR       (VM_R)
-#define VM_KW       (VM_KR | VM_W)
-#define VM_KRW      (VM_KR | VM_KW)
-#define VM_UR       (VM_U  | VM_R)
-#define VM_URW      (VM_UR | VM_W)
+#define PTE_R        (PTE_P)
+#define PTE_KR       (PTE_R)
+#define PTE_KW       (PTE_KR | PTE_W)
+#define PTE_KRW      (PTE_KR | PTE_KW)
+#define PTE_UR       (PTE_U  | PTE_R)
+#define PTE_URW      (PTE_UR | PTE_W)
 
-#define VM_2MB      (VM_PS)
-#define VM_K2MBR    (VM_KR  | VM_2MB)
-#define VM_K2MBRW   (VM_KRW | VM_2MB)
+#define PTE_2MB      (PTE_PS)
+#define PTE_K2MBR    (PTE_KR  | PTE_2MB)
+#define PTE_K2MBRW   (PTE_KRW | PTE_2MB)
 
-#define VM_U2MBR    (VM_UR  | VM_2MB)
-#define VM_U2MBRW   (VM_URW | VM_2MB)
+#define PTE_U2MBR    (PTE_UR  | PTE_2MB)
+#define PTE_U2MBRW   (PTE_URW | PTE_2MB)
 
 typedef union pte {
     struct {
@@ -77,19 +77,19 @@ typedef union viraddr {
 #define PDPTI(v)                ((viraddr_t){.raw = (uintptr_t)(v)}.pdpti)
 #define PML4I(v)                ((viraddr_t){.raw = (uintptr_t)(v)}.pml4i)
 
-#define LVL_PTE                 1
-#define LVL_PDTE                2
-#define LVL_PDPTE               3
-#define LVL_PML4E               4
+#define LVL_PTE                 (1)
+#define LVL_PDTE                (2)
+#define LVL_PDPTE               (3)
+#define LVL_PML4E               (4)
 
 #define NPTE                    (512)
 #define iL_INV(i)               (((i) < 0) || ((i) >= NPTE))
 
 /**
- * PML4 -> 0xFFFFFF7FBFDFE000
- * PDPT -> 0xFFFFFF7FBFC00000
- * PDT  -> 0xFFFFFF7F80000000
- * PT   -> 0xFFFFFF0000000000
+ * PML4 -> (0xFFFFFF7FBFDFE000)
+ * PDPT -> (0xFFFFFF7FBFC00000)
+ * PDT  -> (0xFFFFFF7F80000000)
+ * PT   -> (0xFFFFFF0000000000)
  */
 
 #define PML4                    ((pte_t *)(0xFFFFFF7FBFDFE000ull))
@@ -102,18 +102,29 @@ typedef union viraddr {
 #define PDTE(i4, i3, i2)        ({ &PDT(i4, i3)[i2]; })
 #define PTE(i4, i3, i2, i1)     ({ &PT(i4, i3, i2)[i1]; })
 
-#define ispresent(flags)        ((flags)&VM_P)
-#define iswritable(flags)       ((flags)&VM_W)
-#define isuser_page(flags)      ((flags)&VM_U)      // is page a user page?
-#define is2mb_page(flags)       ((flags)&VM_PS)     // is a 2mb page?
-#define isPS(flags)             ((flags) & VM_PS)   // is page size flags set?
+#define PTE_ALLOC_PAGE          0x800   // page was allocated.
+#define PTE_REMAPPG             0x1000  // remap page.
+
+#define _ispresent(flags)       ((flags) & PTE_P)
+#define _iswritable(flags)      ((flags) & PTE_W)
+#define _isuser_page(flags)     ((flags) & PTE_U)    // is page a user page?
+#define _is2mb_page(flags)      ((flags) & PTE_PS)   // is a 2mb page?
+#define _isPS(flags)            ((flags) & PTE_PS)   // is page size flags set?
+#define _isalloc_page(flags)    ((flags) & PTE_ALLOC_PAGE) // page frame was allocated?.
+#define _isremap(flags)         ((flags) & PTE_REMAPPG) // page remap(force remap) requested?.
+
+#define pte_ispresent(pte)      (_ispresent((pte)->raw))
+#define pte_iswritable(pte)     (_iswritable((pte)->raw))
+#define pte_isuser_page(pte)    (_isuser_page((pte)->raw))    // is page a user page?
+#define pte_is2mb_page(pte)     (_is2mb_page((pte)->raw))     // is a 2mb page?
+#define pte_isPS(pte)           (_isPS((pte)->raw))           // is page size flags set?
+#define pte_isalloc_page(pte)   (_isalloc_page((pte)->raw))
+
+// extract flags used to map a page.
+#define extract_vmflags(flags)  ({(PGOFF(flags) & ~PTE_REMAPPG); })
 
 #define GETPHYS(entry)          ((uintptr_t)((entry) ? PGROUND((entry)->raw) : 0))
 
-#define ALLOC_PAGE              0x800   // page was allocated.
-#define REMAPPG                 0x1000  // remap page
-
-#define isalloc_page(flags)     ((flags)&ALLOC_PAGE)
 
 /**
  * 
@@ -194,4 +205,5 @@ int x86_64_getmapping(uintptr_t addr, pte_t **pte);
  * 
 */
 int x86_64_pml4alloc(uintptr_t *ref);
+
 void x86_64_pml4free(uintptr_t pgdir);

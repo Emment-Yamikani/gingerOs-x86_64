@@ -12,6 +12,7 @@
 #include <sys/_signal.h>
 #include <dev/rtc.h>
 #include <arch/x86_64/ipi.h>
+#include <arch/paging.h>
 
 void dump_tf(tf_t *tf, int halt) {
     if (halt)
@@ -23,7 +24,7 @@ void dump_tf(tf_t *tf, int halt) {
               "\e[0;015mr12\e[0m=\e[0;012m%16p\e[0m \e[0;015mr13\e[0m=\e[0;12m%16p\e[0m \e[0;015mr14\e[0m=\e[0;12m%16p\n\e[0m"
               "\e[0;015mr15\e[0m=%16p \e[0;015mrip\e[0m=\e[0;016m%16p\e[0m \e[0;015mcr0\e[0m=%16p\n"
               "\e[0;015mcr2\e[0m=\e[0;016m%16p\e[0m \e[0;015mcr3\e[0m=\e[0;12m%16p\e[0m \e[0;015mcr4\e[0m=\e[0;12m%16p\n\e[0m",
-              tf->trapno, cpu_id, thread_self(), tf->errno, tf->rflags, tf->cs, tf->ds, tf->fs, tf->ss, 
+              tf->trapno, cpu_id, thread_self(), tf->err_code, tf->rflags, tf->cs, tf->ds, tf->fs, tf->ss, 
               tf->rax, tf->rbx, tf->rcx,
               tf->rdx, tf->rdi, tf->rsi,
               tf->rbp, tf->rsp, tf->r8,
@@ -40,7 +41,7 @@ void dump_tf(tf_t *tf, int halt) {
                "\e[0;015mr12\e[0m=\e[0;012m%16p\e[0m r13=\e[0;12m%16p\e[0m r14=\e[0;12m%16p\n\e[0m"
                "\e[0;015mr15\e[0m=%16p \e[0;015mrip\e[0m=%16p \e[0;015mcr0\e[0m=%16p\n"
                "\e[0;015mcr2\e[0m=\e[0;012m%16p\e[0m cr3=\e[0;12m%16p\e[0m cr4=\e[0;12m%16p\n\e[0m",
-               tf->trapno, cpu_id, thread_self(), tf->errno, tf->rflags, tf->cs, tf->ds, tf->fs, tf->ss,
+               tf->trapno, cpu_id, thread_self(), tf->err_code, tf->rflags, tf->cs, tf->ds, tf->fs, tf->ss,
                tf->rax, tf->rbx, tf->rcx,
                tf->rdx, tf->rdi, tf->rsi,
                tf->rbp, tf->rsp, tf->r8,
@@ -88,6 +89,9 @@ void trap(tf_t *tf) {
         lapic_eoi();
         break;
     case T_PGFAULT:
+        arch_do_page_fault(tf);
+        lapic_eoi();
+        break;
     default:
         dump_tf(tf, 1);
         break;

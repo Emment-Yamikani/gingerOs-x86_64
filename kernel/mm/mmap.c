@@ -663,9 +663,6 @@ int mmap_map_region(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flag
     if (__flags_stack(flags) && !__prot_rw(prot))
         return -EINVAL;
 
-    if (__prot_write(prot) && __prot_exec(prot))
-        return -EACCES;
-
     len = __flags_stack(flags) ? len + mmap->guard_len : len;
     whence = __flags_stack(flags) ? __whence_end : __whence_start;
 
@@ -680,19 +677,19 @@ int mmap_map_region(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flag
     r->start = addr;
     r->end = addr + len - 1;
 
-    r->flags |= __prot_exec(prot) ? VM_EXEC : 0;
-    r->flags |= __prot_read(prot) ? VM_READ : 0;
-    r->flags |= __prot_write(prot) ? VM_WRITE : 0;
+    r->flags |= __prot_exec(prot)           ? VM_EXEC : 0;
+    r->flags |= __prot_read(prot)           ? VM_READ : 0;
+    r->flags |= __prot_write(prot)          ? VM_WRITE: 0;
     
-    r->flags |= __flags_zero(flags) ? VM_ZERO : 0;
-    r->flags |= __flags_shared(flags) ? VM_SHARED : 0;
-    r->flags |= __flags_stack(flags) ? VM_GROWSDOWN : 0;
-    r->flags |= __flags_dontexpand(flags) ? VM_DONTEXPAND : 0;
+    r->flags |= __flags_zero(flags)         ? VM_ZERO : 0;
+    r->flags |= __flags_shared(flags)       ? VM_SHARED : 0;
+    r->flags |= __flags_stack(flags)        ? VM_GROWSDOWN : 0;
+    r->flags |= __flags_dontexpand(flags)   ? VM_DONTEXPAND : 0;
 
-    r->vflags |= __vmr_read(r) ? VM_R : 0;
-    r->vflags |= __vmr_write(r) ? VM_W : 0;
-    r->vflags |= __vmr_exec(r) ? VM_X : 0;
-    r->vflags |= mmap->flags & MMAP_USER ? VM_U : 0;
+    r->vflags |= __vmr_read(r)              ? PTE_R : 0;
+    r->vflags |= __vmr_write(r)             ? PTE_W : 0;
+    r->vflags |= __vmr_exec(r)              ? PTE_X : 0;
+    r->vflags |= (mmap->flags & MMAP_USER)  ? PTE_U : 0;
 
     if (__flags_fixed(flags)) {
         if ((err = mmap_forced_mapin(mmap, r))) {
@@ -895,9 +892,9 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
 
     __vmr_mask_rwx(r);
 
-    r->flags |= __prot_read(prot) ? VM_READ : 0;
-    r->flags |= __prot_exec(prot) ? VM_EXEC : 0;
-    r->flags |= __prot_write(prot) ? VM_WRITE : 0;
+    r->flags |= __prot_read(prot)   ? VM_READ : 0;
+    r->flags |= __prot_exec(prot)   ? VM_EXEC : 0;
+    r->flags |= __prot_write(prot)  ? VM_WRITE : 0;
 
     return 0;
 }
@@ -917,21 +914,21 @@ int mmap_clean(mmap_t *mmap) {
     arch_fullvm_unmap(mmap->pgdir);
     pgdir = mmap->pgdir;
 
-    mmap->refs = 0;
-    mmap->used_space = 0;
+    mmap->refs          = 0;
+    mmap->used_space    = 0;
     
-    mmap->brk = 0;
-    mmap->arg = NULL;
-    mmap->env = NULL;
-    mmap->heap = NULL;
-    mmap->priv = NULL;
-    mmap->vmr_head = NULL;
-    mmap->vmr_tail = NULL;
+    mmap->brk           = 0;
+    mmap->arg           = NULL;
+    mmap->env           = NULL;
+    mmap->heap          = NULL;
+    mmap->priv          = NULL;
+    mmap->vmr_head      = NULL;
+    mmap->vmr_tail      = NULL;
 
-    mmap->pgdir = pgdir;
-    mmap->flags = MMAP_USER;
-    mmap->guard_len = PAGESZ;
-    mmap->limit = __mmap_limit;
+    mmap->pgdir         = pgdir;
+    mmap->flags         = MMAP_USER;
+    mmap->guard_len     = PAGESZ;
+    mmap->limit         = __mmap_limit;
 
     return 0;
 }
@@ -965,15 +962,15 @@ int mmap_copy(mmap_t *dst, mmap_t *src) {
     mmap_assert_locked(src);
     mmap_assert_locked(dst);
 
-    dst->flags = src->flags;
-    dst->guard_len = src->guard_len;
-    dst->limit = src->limit;
+    dst->flags          = src->flags;
+    dst->limit          = src->limit;
+    dst->guard_len      = src->guard_len;
     
-    dst->refs = 0;
-    dst->priv = NULL;
-    dst->used_space = 0;
-    dst->vmr_head = dst->vmr_tail = NULL;
-    dst->heap = dst->arg = dst->env = NULL;
+    dst->refs           = 0;
+    dst->used_space     = 0;
+    dst->priv           = NULL;
+    dst->vmr_head       = dst->vmr_tail = NULL;
+    dst->heap           = dst->arg = dst->env = NULL;
 
     forlinked(tmp, src->vmr_head, tmp->next) {
         if ((err = vmr_clone(tmp, &vmr)))
@@ -985,9 +982,9 @@ int mmap_copy(mmap_t *dst, mmap_t *src) {
         vmr = NULL;
     }
 
-    dst->arg = src->arg ? mmap_find(dst, src->arg->start) : NULL;
-    dst->env = src->env ? mmap_find(dst, src->env->start) : NULL;
-    dst->heap = src->heap ? mmap_find(dst, src->heap->start) : NULL;
+    dst->arg    = src->arg  ? mmap_find(dst, src->arg->start) : NULL;
+    dst->env    = src->env  ? mmap_find(dst, src->env->start) : NULL;
+    dst->heap   = src->heap ? mmap_find(dst, src->heap->start) : NULL;
 
     if ((err = arch_lazycpy(dst->pgdir, src->pgdir)))
         return err;
@@ -1016,7 +1013,7 @@ int mmap_clone(mmap_t *mmap, mmap_t **pclone) {
         return err;
     }
 
-    *pclone = clone;
+    *pclone             = clone;
     mmap_unlock(clone);
 
     return 0;
@@ -1031,12 +1028,12 @@ int mmap_focus(mmap_t *mmap, uintptr_t *ref) {
 
 int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
     const char *src_envp[], char **pargv[], int *pargc, char **penvv[]) {
-    int err = 0, index = 0;
-    int argc = 0, envc = 0;
-    size_t argslen = 0, envslen = 0;
-    char **argp = NULL, **envp = NULL;
-    vmr_t *argvmr = NULL, *envvmr = NULL;
-    char *arglist = NULL, *envlist = NULL;
+    int argc        = 0, envc = 0;
+    int err         = 0, index = 0;
+    size_t argslen  = 0, envslen = 0;
+    char **argp     = NULL, **envp = NULL;
+    vmr_t *argvmr   = NULL, *envvmr = NULL;
+    char *arglist   = NULL, *envlist = NULL;
 
     if (mmap == NULL)
         return -EINVAL;
@@ -1049,14 +1046,14 @@ int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
 
     if (pargc)
         *pargc = 0;
-
+    
+    
     if (src_argp) {
         /**Count the command-line arguments.
          * Also keep the size memory region
          * needed to hold the argumments.
          */
-        foreach (arg, src_argp)
-        {
+        foreach (arg, src_argp) {
             argc++;
             argslen += strlen(arg) + 1 + sizeof(char *);
         }
@@ -1112,8 +1109,7 @@ arg_array:
          * Also keep the size memory region
          * needed to hold the Environments.
          */
-        foreach (env, src_envp)
-        {
+        foreach (env, src_envp) {
             envc++;
             envslen += strlen(env) + 1 + sizeof(char *);
         }
@@ -1223,16 +1219,16 @@ int vmr_split(vmr_t *r, uintptr_t addr, vmr_t **pvmr) {
     if ((err = vmr_alloc(&new)))
         return err;
 
-    new->end = r->end;
-    new->start = addr;
-    new->file = r->file;
-    new->flags = r->flags;
-    new->vflags = r->vflags;
+    new->end        = r->end;
+    new->start      = addr;
+    new->file       = r->file;
+    new->flags      = r->flags;
+    new->vflags     = r->vflags;
 
     if (new->file)
         new->file_pos += addr - r->start;
 
-    r->end = addr - 1;
+    r->end          = addr - 1;
 
     if ((err = mmap_mapin(r->mmap, new))) {
         vmr_free(new);
@@ -1251,11 +1247,11 @@ int vmr_copy(vmr_t *rdst, vmr_t *rsrc) {
     if (rdst->mmap && rdst->mmap == rsrc->mmap)
         return -EINVAL;
     
-    *rdst = *rsrc;
-    rdst->refs = 0;
-    rdst->mmap = NULL;
-    rdst->priv = NULL;
-    rdst->next = rdst->prev = NULL;
+    *rdst           = *rsrc;
+    rdst->refs      = 0;
+    rdst->mmap      = NULL;
+    rdst->priv      = NULL;
+    rdst->next      = rdst->prev = NULL;
     return 0;
 }
 

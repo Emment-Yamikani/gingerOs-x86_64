@@ -19,7 +19,7 @@ typedef struct {
     uintptr_t   addr;
     size_t      size;
     int         type;
-} mmap_t;
+} multiboot_mmap_t;
 
 typedef struct {
     size_t      modcnt;
@@ -45,7 +45,7 @@ typedef struct {
 
     uintptr_t   phyaddr_start;
 
-    mmap_t      mmap[NMMAP];
+    multiboot_mmap_t      mmap[NMMAP];
     mod_t       mods[NMODS];
 } bootinfo_t;
 

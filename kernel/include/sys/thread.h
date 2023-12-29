@@ -16,6 +16,7 @@
 #include <sys/_signal.h>
 #include <fs/file.h>
 #include <sys/tgroup.h>
+#include <mm/mmap.h>
 
 typedef enum tstate_t {
     T_EMBRYO,
@@ -88,7 +89,7 @@ typedef struct thread {
     uint8_t         t_sigqueue[NSIG];   // thread's queue of pending signals.
 
     void            *t_simd_ctx;        // thread's Single Instruction Multiple Data (SIMD) context.
-    pagemap_t       *t_map;             // thread's process virtual address space.
+    mmap_t          *t_mmap;            // thread's process virtual address space.
     sleep_attr_t    sleep_attr;         // struct describing sleep attributes for this thread.
     thread_sched_t  t_sched;            // struct describing scheduler attributes for this thread.
 
@@ -242,6 +243,7 @@ typedef struct {
 #define current_isterminated()          ({ thread_isterminated(current); })
 #define current_enter_state(state)      ({ thread_enter_state(current, (state)); })
 #define current_getstate()              ({ thread_getstate(current); })
+#define current_ismain()                ({ current_tgroup() ? current_tgroup()->tg_tmain == current : 0; })
 
 #define current_setflags(flags)         ({ thread_setflags(current, (flags)); })
 #define current_testflags(flags)        ({ thread_testflags(current, (flags)); })

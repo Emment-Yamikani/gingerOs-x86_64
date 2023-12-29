@@ -33,11 +33,12 @@
 struct vmr;
 struct mmap;
 
-typedef struct vm_fault {
-    int         flags;
+typedef struct vm_fault_t {
+    uintptr_t   addr;
     pte_t       *COW;
     pte_t       *page;
-    uintptr_t   addr;
+    uint8_t     user : 1;
+    uintptr_t    err_code;
 }vm_fault_t;
 
 typedef struct vmr_ops {
@@ -284,7 +285,7 @@ int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
 #define __prot_write(prot)          ((prot) & PROT_WRITE)
 #define __prot_rx(prot)             (__prot_read(prot) && __prot_exec(prot))
 #define __prot_rw(prot)             (__prot_read(prot) && __prot_write(prot))
-#define __prot_rwx(prot)            (__prot_rw(prot) && __prot_exec(prot))
+#define __prot_rwx(prot)            (__prot_rw(prot)   && __prot_exec(prot))
 
 #define VM_EXEC                     0x0001
 #define VM_WRITE                    0x0002
@@ -322,7 +323,7 @@ int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
 #define __vm_rw(flags)              (__vm_read(flags) && __vm_write(flags))
 
 /*Readable, Writable or Executable*/
-#define __vm_rwx(flags)             (__vm_rw(flags) && __vm_exec(flags))
+#define __vm_rwx(flags)             (__vm_rw(flags)   && __vm_exec(flags))
 
 #define __vm_zero(flags)            ((flags) & VM_ZERO)
 

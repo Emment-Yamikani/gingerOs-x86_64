@@ -219,7 +219,7 @@ int bootothers(void) {
     if ((err = enumerate_cpus()))
         return err;
 
-    if ((err = arch_map_i(v, (uintptr_t)ap_trampoline, PGSZ, VM_KRW)))
+    if ((err = arch_map_i(v, (uintptr_t)ap_trampoline, PGSZ, PTE_KRW)))
         return err;
 
     for (int i = 0; i < (int)atomic_read(&ncpu); ++i) {

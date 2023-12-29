@@ -19,14 +19,14 @@ int icache_alloc(icache_t **ppcp) {
     
     memset(icache, 0, sizeof *icache);
 
-    icache->pc_flags = 0;
-    icache->pc_refcnt = 1;
-    icache->pc_nrpages = 0;
-    icache->pc_btree = BTREE_INIT();
-    icache->pc_queue = QUEUE_INIT();
-    icache->pc_lock = SPINLOCK_INIT();
-    *ppcp = icache;
+    icache->pc_flags    = 0;
+    icache->pc_refcnt   = 1;
+    icache->pc_nrpages  = 0;
+    icache->pc_btree    = BTREE_INIT();
+    icache->pc_queue    = QUEUE_INIT();
+    icache->pc_lock     = SPINLOCK_INIT();
 
+    *ppcp               = icache;
     return 0;
 }
 
@@ -59,11 +59,11 @@ void icache_free(icache_t *icache) {
 }
 
 int icache_getpage(icache_t *icache, off_t pgno, page_t **ref) {
-    int err = 0;
-    ssize_t size = 0;
-    int new_page = 0;
-    page_t *page = NULL;
-    char buff[PGSZ] = {0};
+    int     err         = 0;
+    ssize_t size        = 0;
+    int     new_page    = 0;
+    page_t *page        = NULL;
+    char    buff[PGSZ]  = {0};
 
     if (ref == NULL || icache == NULL)
         return -EINVAL;    
@@ -73,7 +73,7 @@ int icache_getpage(icache_t *icache, off_t pgno, page_t **ref) {
     icache_btree_lock(icache);
     if (0 == (err = btree_search(icache_btree(icache), pgno, (void **)&page))) {
         icache_btree_unlock(icache);
-        if (!page_valid(page))
+        if (!page_isvalid(page))
             goto update;
         goto done;
     }
@@ -92,9 +92,8 @@ update:
     if ((err = arch_memcpyvp(page_address(page), (uintptr_t)buff, size)))
         goto error;
     
-
-    page->flags.dirty = 0;
-    page->flags.valid = 1;
+    page_setvalid(page);
+    page_maskdirty(page);
 
     if (new_page) {
         icache_btree_lock(icache);
@@ -114,13 +113,13 @@ error:
 }
 
 ssize_t icache_read(icache_t *icache, off_t off, void *buff, size_t sz) {
-    ssize_t err = 0;
-    page_t *page = NULL;
+    ssize_t err         = 0;
     off_t   pgno        = 0;    /*page number*/
-    ssize_t  total      = 0;    /*total bytes read*/
-    off_t   offset      = off;  /*current offset*/
     size_t  size        = 0;    /*size to read*/
+    ssize_t  total      = 0;    /*total bytes read*/
     size_t  pagesz      = 0;
+    off_t   offset      = off;  /*current offset*/
+    page_t *page        = NULL;
 
     icache_assert_locked(icache);
     for (; sz; sz -= size, total += size, offset += size) {
@@ -141,13 +140,13 @@ error:
 }
 
 ssize_t icache_write(icache_t *icache, off_t off, void *buff, size_t sz) {
-    ssize_t err = 0;
-    page_t *page = NULL;
-    off_t   pgno        = 0;    /*page number*/
-    ssize_t  total      = 0;    /*total bytes written*/
-    off_t   offset      = off;  /*current offset*/
-    size_t  size        = 0;    /*size to write*/
-    size_t  pagesz      = 0;
+    ssize_t     err     = 0;
+    off_t       pgno    = 0;    /*page number*/
+    ssize_t     total   = 0;    /*total bytes written*/
+    size_t      size    = 0;    /*size to write*/
+    size_t      pagesz  = 0;
+    off_t       offset  = off;  /*current offset*/
+    page_t      *page   = NULL;
 
     icache_assert_locked(icache);
     for (; sz; sz -= size, total += size, offset += size) {
@@ -160,6 +159,8 @@ ssize_t icache_write(icache_t *icache, off_t off, void *buff, size_t sz) {
         if ((err = (ssize_t)arch_memcpyvp(page_address(page) + (offset % PGSZ),
                                  (uintptr_t)buff + total, size)))
             goto error;
+
+        page_setdirty(page);
     }
 
     return total;

@@ -55,13 +55,13 @@ int mm_zone_intersects(int zone0, uintptr_t addr, size_t size);
 int mm_zone_contains(int z, uintptr_t addr, size_t size);
 
 // increase the reference count of the page
-int page_incr(page_t *page);
+size_t page_incr(page_t *page);
 // same as page_incr(), except, it takes a physical address to the page as a parameter. 
-int __page_incr(uintptr_t addr);
+size_t __page_incr(uintptr_t addr);
 // returns the reference count of the page
-int page_count(page_t *page);
+size_t page_count(page_t *page);
 // same as page_count(), except, it takes a physical address to the page as a parameter.
-int __page_count(uintptr_t addr);
+size_t __page_count(uintptr_t addr);
 
 // allocate a single page.
 page_t *alloc_page(gfp_mask_t gfp);

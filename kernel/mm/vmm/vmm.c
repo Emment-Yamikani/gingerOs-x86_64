@@ -9,16 +9,16 @@
 #include <sys/system.h>
 #include <sync/spinlock.h>
 
-#define KVM_DEBUG 0
+#define KVM_DEBUG               0
 
-static atomic_t vmm_online = 0;
+static atomic_t vmm_online      = 0;
 static size_t used_virtual_mmsz = 0;
 static spinlock_t *vmm_spinlock = SPINLOCK_NEW();
 
 /// @brief get page size
 /// @param  void
 /// @return int
-int getpagesize(void) { return PAGESZ; }
+int getpagesize(void)           { return PAGESZ; }
 
 typedef struct node {
     uintptr_t base;     // start of region (zero if free)
@@ -28,35 +28,23 @@ typedef struct node {
 } node_t;
 
 //size of Kernel in GiB
-#define KHEAP_SIZE(sz) ((GiB(sz)))
+#define KHEAP_SIZE(sz)          ((GiB(sz)))
 
-#define KHEAPSZ KHEAP_SIZE(4) // size of kernel heap.
-#define KHEAPBASE (VMA2HI(GiB(4)))    // kernel heap base address.
+#define KHEAPSZ                 KHEAP_SIZE(4) // size of kernel heap.
+#define KHEAPBASE               (VMA2HI(GiB(4)))    // kernel heap base address.
 
-#define KHEAP_MAX_NODES (KHEAPSZ / PAGESZ)                 // maximum blocks that can be address.
-#define KHEAP_NODES_ARRAY ((node_t *)KHEAPBASE)                 // array of memory nodes.
-#define KHEAP_NODES_ARRAY_SZ (KHEAP_MAX_NODES * sizeof(node_t)) // sizeof node array
+#define KHEAP_MAX_NODES         (KHEAPSZ / PAGESZ)                 // maximum blocks that can be address.
+#define KHEAP_NODES_ARRAY       ((node_t *)KHEAPBASE)                 // array of memory nodes.
+#define KHEAP_NODES_ARRAY_SZ    (KHEAP_MAX_NODES * sizeof(node_t)) // sizeof node array
 
-struct vmrx {
-    int v_refs;        // refresnce count
-    int v_flags;       // flags associated with this region of virtual memory
-    size_t v_size;     // size of memory region
-    uintptr_t v_base;  // virtual base address
-    uintptr_t v_paddr; // physical address
-} kheap_vmrs[] = {
-    [0] = {.v_base = VMA2HI(0x1000000), .v_size = 0, .v_refs = 1},
-    [1] = {.v_base = KHEAPBASE, .v_size = KHEAP_NODES_ARRAY_SZ, .v_paddr = 0, .v_flags = (VM_PWT | VM_KRW | VM_PCD), .v_refs = 1},
-    [2] = {.v_base = MEMMDEV, .v_refs = 1, .v_flags = (VM_PWT | VM_KRW | VM_PCD), .v_paddr = MEMMDEV},
-};
+static node_t *usedvmr_head     = NULL;
+static node_t *usedvmr_tail     = NULL;
 
-static node_t *usedvmr_head = NULL;
-static node_t *usedvmr_tail = NULL;
+static node_t *freevmr_head     = NULL;
+static node_t *freevmr_tail     = NULL;
 
-static node_t *freevmr_head = NULL;
-static node_t *freevmr_tail = NULL;
-
-static node_t *freenodes_head = NULL;
-static node_t *freenodes_tail = NULL;
+static node_t *freenodes_head   = NULL;
+static node_t *freenodes_tail   = NULL;
 
 static node_t nodes[KHEAP_MAX_NODES] = {0};
 

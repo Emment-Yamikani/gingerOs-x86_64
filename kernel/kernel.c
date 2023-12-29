@@ -10,6 +10,11 @@ __noreturn void kthread_main(void) {
     builtin_threads_begin(NULL);
 
     memory_usage();
+
+    printk("Starting 'init'\n");
+
+    proc_init("/ramfs/test");
+
     loop() thread_join(0, NULL, NULL);
 }
 

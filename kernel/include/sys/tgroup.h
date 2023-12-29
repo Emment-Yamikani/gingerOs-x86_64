@@ -35,7 +35,7 @@ typedef struct {
 
 #define tgroup_getid(tgroup)                ({ tgroup_assert_locked(tgroup); (tgroup)->tg_tgid; })
 
-#define tgroup_getmain(tgroup)              ({ tgroup_assert_locked(tgroup); (tgroup)->tg_main; })
+#define tgroup_getmain(tgroup)              ({ tgroup_assert_locked(tgroup); (tgroup)->tg_tmain; })
 
 /**
  * \brief No. of threads running in this tgroup.

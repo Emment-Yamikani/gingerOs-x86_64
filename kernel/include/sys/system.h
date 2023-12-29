@@ -64,6 +64,8 @@
 
 #define MEMMDEV     ((uintptr_t)0xFE000000ul)
 
+#define ismmio_addr(x) ((((uintptr_t)(x)) >= MEMMDEV) && (((uintptr_t)(x)) < GiB(4)))
+
 #if defined __i386__
     #define USTACK      ((uintptr_t)0xC0000000)
 #elif defined __x86_64__

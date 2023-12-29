@@ -275,16 +275,17 @@ void signal_dispatch(void) {
 }
 
 int signal_handle(tf_t *tf __unused) {
-    void *arg = NULL;
-    tf_t *sig_tf = NULL;
-    sigaction_t act = {0};
-    int err = 0, signo = 0;
-    sigfunc_t handler = NULL;
-    context_t *sig_ctx = NULL;
-    uintptr_t default_act = 0;
-    siginfo_t *sig_info = NULL, info = {0};
-    sigset_t set = {0}, oset = {0}, tset = {0};
-    uintptr_t *sig_stack = NULL, *stack = NULL;
+    int         err         = 0;
+    int         signo       = 0;
+    void        *arg        = NULL;
+    tf_t        *sig_tf     = NULL;
+    sigaction_t act         = {0};
+    sigfunc_t   handler     = NULL;
+    context_t   *sig_ctx    = NULL;
+    uintptr_t   default_act = 0;
+    siginfo_t   *sig_info   = NULL, info = {0};
+    uintptr_t   *sig_stack  = NULL, *stack = NULL;
+    sigset_t    set         = {0}, oset = {0}, tset = {0};
 
     current_tgroup_lock();
     current_lock();
@@ -328,8 +329,8 @@ block_signal:
     thread_sigmask(current, SIG_BLOCK, &set, &tset);
     tgroup_sigprocmask(current_tgroup(), SIG_BLOCK, &set, &oset);
 
-    arg = (void *)(uintptr_t)signo--;
-    act = current_tgroup()->sig_action[signo];
+    arg     = (void *)(uintptr_t)signo--;
+    act     = current_tgroup()->sig_action[signo];
     handler = (act.sa_flags & SA_SIGINFO ? (sigfunc_t)act.sa_sigaction : (sigfunc_t)act.sa_handler);
 
     if (handler == SIG_DFL)
@@ -381,35 +382,35 @@ block_signal:
             return -ENOMEM;
         }
 
-        current->t_arch.t_sig_kstacksz = STACKSZMIN;
-        current->t_arch.t_sig_kstack = (uintptr_t)stack;
+        current->t_arch.t_sig_kstacksz  = STACKSZMIN;
+        current->t_arch.t_sig_kstack    = (uintptr_t)stack;
 
         sig_stack = (uintptr_t *)ALIGN4K(((uintptr_t)sig_stack + STACKSZMIN));
 
         if (act.sa_flags & SA_SIGINFO) {
-            sig_info = (siginfo_t *)((uintptr_t)sig_stack - sizeof *sig_info);
-            arg = sig_info;
-            sig_stack = (uintptr_t *)sig_info;
-            *sig_info = info;
+            sig_info    = (siginfo_t *)((uintptr_t)sig_stack - sizeof *sig_info);
+            arg         = sig_info;
+            sig_stack   = (uintptr_t *)sig_info;
+            *sig_info   = info;
         }
 
-        *--sig_stack = (uintptr_t)signal_return;
-        sig_tf = (tf_t *)((uintptr_t)sig_stack - sizeof *sig_tf);
+        *--sig_stack    = (uintptr_t)signal_return;
+        sig_tf          = (tf_t *)((uintptr_t)sig_stack - sizeof *sig_tf);
 
-        sig_tf->ss = SEG_KDATA64 << 3;
-        sig_tf->rsp = (uintptr_t)sig_stack;
-        sig_tf->rbp = sig_tf->rsp;
-        sig_tf->rflags = LF_IF;
-        sig_tf->cs = SEG_KCODE64 << 3;
-        sig_tf->rip = (uintptr_t)handler;
-        sig_tf->rdi = (uintptr_t)arg;
-        sig_tf->fs = SEG_KDATA64 << 3;
+        sig_tf->ss      = SEG_KDATA64 << 3;
+        sig_tf->rsp     = (uintptr_t)sig_stack;
+        sig_tf->rbp     = sig_tf->rsp;
+        sig_tf->rflags  = LF_IF;
+        sig_tf->cs      = SEG_KCODE64 << 3;
+        sig_tf->rip     = (uintptr_t)handler;
+        sig_tf->rdi     = (uintptr_t)arg;
+        sig_tf->fs      = SEG_KDATA64 << 3;
 
-        sig_stack = (uintptr_t *)sig_tf;
-        *--sig_stack = (uintptr_t)trapret;
-        sig_ctx = (context_t *)((uintptr_t)sig_stack - sizeof *sig_ctx);
-        sig_ctx->rip = (uintptr_t)signal_dispatch;
-        sig_ctx->rbp = sig_tf->rsp;
+        sig_stack       = (uintptr_t *)sig_tf;
+        *--sig_stack    = (uintptr_t)trapret;
+        sig_ctx         = (context_t *)((uintptr_t)sig_stack - sizeof *sig_ctx);
+        sig_ctx->rip    = (uintptr_t)signal_dispatch;
+        sig_ctx->rbp    = sig_tf->rsp;
 
         current->t_arch.t_ctx0 = sig_ctx;
     }

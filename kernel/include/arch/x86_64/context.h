@@ -24,7 +24,7 @@ typedef struct {
     uintptr_t rax;
 
     uintptr_t trapno;
-    uintptr_t errno;
+    uintptr_t err_code;
     
     uintptr_t rip;
     uintptr_t cs;
@@ -32,6 +32,8 @@ typedef struct {
     uintptr_t rsp;
     uintptr_t ss;
 }tf_t;
+
+#define x86_64_tf_isuser(tf)    ({((tf)->err_code & 0x4) ? 1 : 0; })
 
 typedef struct {
     uintptr_t r15;

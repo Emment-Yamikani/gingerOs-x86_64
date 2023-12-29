@@ -2,7 +2,7 @@
 #include <arch/x86_64/msr.h>
 #include <sys/system.h>
 #include <lib/printk.h>
-#include <arch/x86_64/pml4.h>
+#include <arch/x86_64/paging.h>
 #include <bits/errno.h>
 #include <arch/traps.h>
 #include <sys/thread.h>

@@ -40,13 +40,13 @@ page_t *alloc_pages(gfp_mask_t gfp, size_t order) {
     // printk("getting ppage frame...\n");
     loop() {
         for (start = index = 0; index < zone->nrpages; ++index) {
-            if (zone->pages[index].ref_count) {
+            if (atomic_read(&zone->pages[index].pg_refcnt)) {
                 alloced = 0;
                 start = index + 1;
                 continue;
             }
 
-            // printk("%s index: %d, count: %d, needed: %d\n", str_zone[zone - zones], index, zone->pages[index].ref_count, npages);
+            // printk("%s index: %d, count: %d, needed: %d\n", str_zone[zone - zones], index, zone->pages[index].pg_refcnt, npages);
             if ((++alloced) == npages)
                 goto done;
         }
@@ -57,8 +57,8 @@ page_t *alloc_pages(gfp_mask_t gfp, size_t order) {
 done:
     page = &zone->pages[start];
     for (size_t count = 0; count < npages; ++count) {
-        page[count].flags.mm_zone = zone - zones;
-        page[count].ref_count++;
+        page_setmmzone(&page[count], zone - zones);
+        atomic_inc(&page[count].pg_refcnt);
         zone->free_pages--;
     }
 
@@ -109,7 +109,7 @@ uintptr_t page_address(page_t *page) {
     if (!page)
         return 0;
 
-    if (!(zone = mm_zone_get(page->flags.mm_zone)))
+    if (!(zone = mm_zone_get(page_getmmzone(page))))
         return 0;
 
     index = page - zone->pages;
@@ -124,37 +124,37 @@ uintptr_t page_address(page_t *page) {
     return addr;
 }
 
-int __page_incr(uintptr_t addr) {
-    size_t refcnt = 0;
+size_t __page_incr(uintptr_t addr) {
+    size_t pg_refcnt = 0;
     mm_zone_t *zone = NULL;
 
     if (!addr)
         panic("%s(%p)???\n", __func__, addr);
     if (!(zone = get_mmzone(addr, PAGESZ)))
         return -EADDRNOTAVAIL;
-    refcnt = atomic_inc(&zone->pages[(addr - zone->start) / PAGESZ].ref_count);
+    pg_refcnt = atomic_inc(&zone->pages[(addr - zone->start) / PAGESZ].pg_refcnt);
     mm_zone_unlock(zone);
-    return refcnt;
+    return pg_refcnt;
 }
 
-int page_incr(page_t *page) {
+size_t page_incr(page_t *page) {
     return __page_incr(page_address(page));
 }
 
-int __page_count(uintptr_t addr) {
-    size_t refcnt = 0;
+size_t __page_count(uintptr_t addr) {
+    size_t pg_refcnt = 0;
     mm_zone_t *zone = NULL;
 
     if (!addr)
         panic("%s(%p)???\n", __func__, addr);
     if (!(zone = get_mmzone(addr, PAGESZ)))
         return -EADDRNOTAVAIL;
-    refcnt = atomic_read(&zone->pages[(addr - zone->start) / PAGESZ].ref_count);
+    pg_refcnt = atomic_read(&zone->pages[(addr - zone->start) / PAGESZ].pg_refcnt);
     mm_zone_unlock(zone);
-    return refcnt;
+    return pg_refcnt;
 }
 
-int page_count(page_t *page) {
+size_t page_count(page_t *page) {
     return __page_count(-page_address(page));
 }
 
@@ -187,23 +187,15 @@ void __pages_put(uintptr_t addr, size_t order) {
     
     page = &zone->pages[(addr - zone->start) / PAGESZ];
     for (size_t pages = 0; pages < npages; ++pages, ++page) {
-        if (atomic_read(&page->ref_count) == 0)
+        if (atomic_read(&page->pg_refcnt) == 0)
             continue;
-        atomic_dec(&page->ref_count);
-        if (atomic_read(&page->ref_count) == 0) {
-            page->mapping = NULL;
-            page->ref_count = 0;
-            page->virtual = 0;
-            page->flags.read = 0;
-            page->flags.can_swap = 1;
-            page->flags.dirty = 0;
-            page->flags.exec = 0;
-            page->flags.shared = 0;
-            page->flags.swapped = 0;
-            page->flags.user = 0;
-            page->flags.valid = 0;
-            page->flags.write = 0;
-            page->flags.writeback =0;
+        atomic_dec(&page->pg_refcnt);
+        if (atomic_read(&page->pg_refcnt) == 0) {
+            page->pg_virtual = 0;
+            page_resetflags(page);
+            page_setswappable(page);
+            page->pg_mapping = NULL;
+            atomic_write(&page->pg_refcnt, 0);
             zone->free_pages++;
         }
     }

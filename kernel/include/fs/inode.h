@@ -87,7 +87,7 @@ typedef struct iops {
 #define iassert(ip)         ({ assert((ip), "No inode"); })
 #define ilock(ip)           ({ iassert(ip); spin_lock(&(ip)->i_lock); })
 #define iunlock(ip)         ({ iassert(ip); spin_unlock(&(ip)->i_lock); })
-#define iislocked(ip)         ({ iassert(ip); spin_islocked(&(ip)->i_lock); })
+#define iislocked(ip)       ({ iassert(ip); spin_islocked(&(ip)->i_lock); })
 #define iassert_locked(ip)  ({ iassert(ip); spin_assert_locked(&(ip)->i_lock); })
 
 #define icheck_op(ip, func) ({          \

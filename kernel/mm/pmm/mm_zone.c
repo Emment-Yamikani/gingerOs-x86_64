@@ -62,7 +62,7 @@ static int enumerate_zones(void) {
 
     printk("enumerating NORM memory zone...\n");
 
-    zones[MM_ZONE_NORM] = (mm_zone_t){
+    zones[MM_ZONE_NORM] = (mm_zone_t) {
         .pages = pages,
         .nrpages = size / PGSZ,
         .flags = MM_ZONE_VALID,
@@ -105,7 +105,7 @@ static int enumerate_zones(void) {
     zone_structs_size = NPAGE(size) * sizeof(page_t);
     pages += NPAGE(size) * sizeof(page_t);
 
-    zones[MM_ZONE_HIGH] = (mm_zone_t){
+    zones[MM_ZONE_HIGH] = (mm_zone_t) {
         .pages = pages,
         .nrpages = size / PGSZ,
         .flags = MM_ZONE_VALID,
@@ -176,6 +176,7 @@ int physical_memory_init(void) {
     size_t size = 0;
     uintptr_t addr = 0;
     mm_zone_t *zone = NULL;
+    page_t      *page = NULL;
     typeof(*bootinfo.mmap) *map = bootinfo.mmap;
     typeof(*bootinfo.mods) *module = bootinfo.mods;
 
@@ -199,9 +200,10 @@ int physical_memory_init(void) {
             if (zone != NULL) {
                 index = (addr - zone->start) / PAGESZ;
                 for (size_t j = 0; j < (size_t)NPAGE(size); ++j, ++index) {
-                    atomic_write(&zone->pages[index].ref_count, 1);
-                    zone->pages[index].flags.mm_zone = zone - zones;
-                    zone->pages[index].flags.raw |= VM_KRW;
+                    page = &zone->pages[index];
+                    atomic_write(&page->pg_refcnt, 1);
+                    page_setmmzone(page, zone - zones);
+                    page_setrwx(page);
                 }
 
                 zone->free_pages -= NPAGE(size);
@@ -218,9 +220,10 @@ int physical_memory_init(void) {
 
     index = (addr - zone->start) / PAGESZ;
     for (size_t j = 0; j < (size_t)NPAGE(size); ++j, ++index) {
-        atomic_write(&zone->pages[index].ref_count, 1);
-        zone->pages[index].flags.mm_zone = zone - zones;
-        zone->pages[index].flags.raw |= VM_KRW;
+        page = &zone->pages[index];
+        atomic_write(&page->pg_refcnt, 1);
+        page_setmmzone(page, zone - zones);
+        page_setrwx(page);
     }
 
     zone->free_pages -= NPAGE(size);
@@ -234,9 +237,10 @@ int physical_memory_init(void) {
             zone = get_mmzone(addr, PAGESZ);
             zone->free_pages--;
             index = (addr - zone->start) / PAGESZ;
-            zone->pages[index].ref_count = 1;
-            zone->pages[index].flags.mm_zone = zone - zones;
-            zone->pages[index].flags.raw |= VM_KRW;
+            page = &zone->pages[index];
+            atomic_write(&page->pg_refcnt, 1);
+            page_setmmzone(page, zone - zones);
+            page_setrwx(page);
             mm_zone_unlock(zone);
         }
     }
@@ -254,13 +258,13 @@ int physical_memory_init(void) {
         size = PGROUNDUP(map[i].size);
 
         if ((map[i].type != MULTIBOOT_MEMORY_AVAILABLE) && (VMA2LO(map[i].addr) < GiB(4))) {
-            uint32_t flags = VM_KRW | VM_PCDWT;
+            uint32_t flags = PTE_KRW | PTE_PCDWT;
             arch_map_i(addr, VMA2LO(addr), size, flags);
         }
     }
 
     arch_map_i(bootinfo.fb.framebuffer_addr, VMA2LO(bootinfo.fb.framebuffer_addr),
-        bootinfo.fb.framebuffer_size, VM_KRW | VM_PCDWT);
+        bootinfo.fb.framebuffer_size, PTE_KRW | PTE_PCDWT);
 
     pagemap_binary_unlock(&kernel_map);
     return 0;

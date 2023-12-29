@@ -8,9 +8,9 @@
 
 __unused static struct binfmt {
     int (*check)(inode_t *binary);
-    int (*load)(inode_t *binary);
+    int (*load)(inode_t *binary, proc_t *proc);
 } binfmt[] = {
-
+    {.check = binfmt_elf_check, binfmt_elf_load}
 };
 
 proc_t *initproc = NULL;
@@ -157,9 +157,12 @@ int proc_load(const char *pathname, proc_t *proc, proc_t **ref) {
     if (proc == NULL && ref == NULL)
         return -EINVAL;
     
+    printk("openning \'%s\'\n", pathname);
+    
     if ((err = vfs_lookup(pathname, NULL, O_EXEC | O_RDONLY, 0, 0, &dentry)))
         goto error;
     
+    printk("Opened binary\n");
     binary = dentry->d_inode;
 
     err = -ENOENT;
@@ -187,7 +190,10 @@ int proc_load(const char *pathname, proc_t *proc, proc_t **ref) {
     }
     iunlock(binary);
 
+    printk("is an executable\n");
+
     if (newproc) {
+        printk("this is a new process image\n");
         if ((err = proc_alloc(pathname, &proc)))
             goto error;
         
@@ -202,6 +208,7 @@ int proc_load(const char *pathname, proc_t *proc, proc_t **ref) {
         proc_mmap_assert_locked(proc);
     }
 
+    printk("attempt program image loading\n");
     ilock(binary);
     for (size_t i = 0; i <= NELEM(binfmt); ++i) {
         /// check the binary image to make sure it is a valid program file.
@@ -211,7 +218,7 @@ int proc_load(const char *pathname, proc_t *proc, proc_t **ref) {
         }
         
         /// load the binary image into memory in readiness for execution.
-        if ((err = binfmt[i].load(binary)) == 0)
+        if ((err = binfmt[i].load(binary, proc)) == 0)
             goto commit;
     }
 
@@ -267,6 +274,8 @@ int proc_init(const char *initpath) {
 
     proc_mmap_lock(proc);
 
+    printk("done loading file\n");
+
     if ((err = mmap_focus(proc_mmap(proc), &pdbr))) {
         proc_mmap_unlock(proc);
         goto error;
@@ -276,6 +285,8 @@ int proc_init(const char *initpath) {
         proc_mmap_unlock(proc);
         goto error;
     }
+
+    printk("done copying args\n");
 
     if ((err = mmap_alloc_stack(proc_mmap(proc), USTACKSZ, &ustack))) {
         proc_mmap_unlock(proc);
@@ -290,6 +301,7 @@ int proc_init(const char *initpath) {
 
     thread->t_arch.t_ustack = ustack;
 
+    printk("doing thread execve\n");
     if ((err = arch_thread_execve(&thread->t_arch, proc->entry, argc, (const char **)argp, (const char **)envp))) {
         mmap_remove(proc_mmap(proc), ustack);
         proc_mmap_unlock(proc);
@@ -313,6 +325,7 @@ int proc_init(const char *initpath) {
 
     initproc = proc;
 
+    printk("scheduling thread\n");
     if ((err = thread_schedule(thread)))
         goto error;
     
