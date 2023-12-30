@@ -1022,8 +1022,11 @@ int mmap_clone(mmap_t *mmap, mmap_t **pclone) {
 int mmap_focus(mmap_t *mmap, uintptr_t *ref) {
     if (mmap == NULL || ref == NULL)
         return -EINVAL;
+    if (mmap->pgdir == 0)
+        return -EINVAL;
     mmap_assert_locked(mmap);
-    return arch_swtchvm(mmap->pgdir, ref);
+    arch_swtchvm(mmap->pgdir, ref);
+    return 0;
 }
 
 int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],

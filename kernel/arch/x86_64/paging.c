@@ -42,7 +42,7 @@ static inline int x86_64_map_pdpt(int i4, int flags) {
 }
 
 static inline int x86_64_map_pdt(int i4, int i3, int flags) {
-    int err = 0;
+    int err = -ENOMEM;
     uintptr_t lvl3 = 0, lvl2 = 0;
 
     if (iL_INV(i4) || iL_INV(i3))
@@ -83,7 +83,7 @@ error:
 }
 
 static inline int x86_64_map_pt(int i4, int i3, int i2, int flags) {
-    int err = 0;
+    int err = -ENOMEM;
     uintptr_t lvl3 = 0, lvl2 = 0, lvl1 = 0;
 
     if (iL_INV(i4) || iL_INV(i3) || iL_INV(i2))
@@ -198,13 +198,11 @@ static inline void x86_64_unmap_pt(int i4, int i3, int i2) {
     pmman.free(lvl1);
 }
 
-int x86_64_swtchvm(uintptr_t pdbr, uintptr_t *old) {
-    if (pdbr == 0)
-        return -EINVAL;
+void x86_64_swtchvm(uintptr_t pdbr, uintptr_t *old) {
     if (old)
         *old = rdcr3();
-    wrcr3(pdbr);
-    return 0;
+    // if PDBR is null, then switch to the kernel address space (_PML4_)
+    wrcr3(pdbr ? pdbr : VMA2LO(_PML4_));
 }
 
 int x86_64_map(uintptr_t p, int i4, int i3, int i2, int i1, int flags) {
@@ -330,10 +328,10 @@ error:
 }
 
 int x86_64_map_n(uintptr_t v, size_t sz, int flags) {
-    int err = 0;
-    uintptr_t p = 0;
-    uintptr_t vr = v;
-    size_t nr = NPAGE(sz);
+    int         err = 0;
+    uintptr_t   p   = 0;
+    uintptr_t   vr  = v;
+    size_t      nr  = NPAGE(sz);
 
     for (; nr; --nr, v += PGSZ) {
         if ((p = pmman.alloc()) == 0) {
@@ -353,8 +351,8 @@ error:
 }
 
 int x86_64_mount(uintptr_t p, void **pvp) {
-    int err = 0;
-    uintptr_t v = 0;
+    int         err = 0;
+    uintptr_t   v = 0;
 
     if (p == 0 || pvp == NULL)
         return -EINVAL;
@@ -406,15 +404,14 @@ void x86_64_fullvm_unmap(uintptr_t pml4) {
 
     if (pml4 == 0)
         return;
-    if (x86_64_swtchvm(pml4, &oldpml4))
-        return;
+    x86_64_swtchvm(pml4, &oldpml4);
     x86_64_unmap_full();
     x86_64_swtchvm(oldpml4, NULL);
 }
 
 static int x86_64_kvmcpy(uintptr_t dstp) {
-    int err = 0;
-    pte_t *dstv = NULL;
+    int     err     = 0;
+    pte_t   *dstv   = NULL;
 
     if ((dstp == 0) || PGOFF(dstp))
         return -EINVAL;
@@ -432,10 +429,13 @@ static int x86_64_kvmcpy(uintptr_t dstp) {
 }
 
 int x86_64_lazycpy(uintptr_t dst, uintptr_t src) {
-    int err = 0;
-    uintptr_t oldpdbr = 0;
-    size_t i4 = 0, i3 = 0, i2 = 0, i1 = 0;
-    pte_t *pml4 = NULL, *pdpt = NULL, *pdt = NULL, *pt = NULL;
+    int         err     = 0;
+    uintptr_t   oldpdbr = 0;
+    size_t      i4      = 0, i3 = 0, i2 = 0, i1 = 0;
+    pte_t       *pml4   = NULL, *pdpt = NULL, *pdt = NULL, *pt = NULL;
+
+    if (dst == 0 || src == 0)
+        return -EINVAL;
 
     /**
      * mount the source root page table
@@ -445,10 +445,7 @@ int x86_64_lazycpy(uintptr_t dst, uintptr_t src) {
     if ((err = x86_64_mount(src, (void **)&pml4)))
         return err;
     
-    if ((err = x86_64_swtchvm(dst, &oldpdbr))) {
-        x86_64_unmount((uintptr_t)pml4);
-        return err;
-    }
+    x86_64_swtchvm(dst, &oldpdbr);
     
     /**
      * Begin the process of copying the various table entries.
@@ -559,9 +556,9 @@ error:
 }
 
 int x86_64_memcpypp(uintptr_t pdst, uintptr_t psrc, size_t size) {
-    int err = 0;
-    size_t len = 0;
-    uintptr_t vdst = 0, vsrc = 0;
+    int         err     = 0;
+    size_t      len     = 0;
+    uintptr_t   vdst    = 0, vsrc = 0;
 
     for (; size; size -= len, psrc += len, pdst += len) {
         if ((err = x86_64_mount(PGROUND(pdst), (void **)&vdst)))
@@ -584,9 +581,9 @@ int x86_64_memcpypp(uintptr_t pdst, uintptr_t psrc, size_t size) {
 }
 
 int x86_64_memcpyvp(uintptr_t p, uintptr_t v, size_t size) {
-    int err = 0;
-    size_t len = 0;
-    uintptr_t vdst = 0;
+    int         err     = 0;
+    size_t      len     = 0;
+    uintptr_t   vdst    = 0;
     
     for (; size; size -= len, p += len, v += len) {
         if ((err = x86_64_mount(PGROUND(p), (void **)&vdst)))
@@ -601,9 +598,9 @@ int x86_64_memcpyvp(uintptr_t p, uintptr_t v, size_t size) {
 }
 
 int x86_64_memcpypv(uintptr_t v, uintptr_t p, size_t size) {
-    int err = 0;
-    size_t len = 0;
-    uintptr_t vsrc = 0;
+    int         err     = 0;
+    size_t      len     = 0;
+    uintptr_t   vsrc    = 0;
     
     for (; size; size -= len, p += len, v += len) {
         if ((err = x86_64_mount(PGROUND(p), (void **)&vsrc)))
@@ -643,8 +640,8 @@ int x86_64_getmapping(uintptr_t addr, pte_t **pte) {
 }
 
 int x86_64_pml4alloc(uintptr_t *ref) {
-    int err = 0;
-    uintptr_t pml4 = 0;
+    int         err     = 0;
+    uintptr_t   pml4    = 0;
 
     if (ref == NULL)
         return -EINVAL;

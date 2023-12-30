@@ -10,9 +10,9 @@
 #include <sys/syscall.h>
 #include <mm/mm_zone.h>
 
-int arch_swtchvm(uintptr_t pdbr, uintptr_t *old) {
+void arch_swtchvm(uintptr_t pdbr, uintptr_t *old) {
 #if defined (__x86_64__)
-    return x86_64_swtchvm(pdbr, old);
+    x86_64_swtchvm(pdbr, old);
 #endif
 }
 

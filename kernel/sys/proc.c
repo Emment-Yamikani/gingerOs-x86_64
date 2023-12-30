@@ -230,8 +230,7 @@ commit:
     iunlock(binary);
 
     /// switch back to the previous PDBR.
-    if ((err = arch_swtchvm(pdbr, NULL)))
-        goto error;
+    arch_swtchvm(pdbr, NULL);
 
     /// mmap was lock in this function and so must be release.
     if (newproc)

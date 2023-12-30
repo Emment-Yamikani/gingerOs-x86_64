@@ -129,7 +129,7 @@ typedef union viraddr {
 /**
  * 
 */
-int x86_64_swtchvm(uintptr_t pdbr, uintptr_t *old);
+void x86_64_swtchvm(uintptr_t pdbr, uintptr_t *old);
 
 /**
  * 

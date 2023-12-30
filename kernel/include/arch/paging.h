@@ -22,7 +22,7 @@ extern void arch_pagefree(uintptr_t v, size_t sz);
 extern int arch_lazycpy(uintptr_t dst, uintptr_t src);
 extern int arch_pagealloc(size_t sz, uintptr_t *addr);
 extern void arch_unmap(int i4, int i3, int i2, int i1);
-extern int arch_swtchvm(uintptr_t pdbr, uintptr_t *old);
+extern void arch_swtchvm(uintptr_t pdbr, uintptr_t *old);
 extern int arch_getmapping(uintptr_t addr, pte_t **pte);
 extern int arch_map_n(uintptr_t v, size_t sz, int flags);
 extern int arch_memcpyvp(uintptr_t p, uintptr_t v, size_t size);
