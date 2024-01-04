@@ -174,6 +174,7 @@ int getsb_pseudo(filesystem_t *fs, const char *target,
     unsigned long flags, void *data, superblock_t **psbp,
     int (*sb_fill)(filesystem_t *fs, const char *target,
     struct devid *dd, superblock_t *sb));
+
 int getsb_single(filesystem_t *fs, const char *target,
     unsigned long flags, void *data, superblock_t **psbp,
     int (*sb_fill)(filesystem_t *fs, const char *target,

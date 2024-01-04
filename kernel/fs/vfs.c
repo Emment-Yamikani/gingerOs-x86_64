@@ -235,7 +235,7 @@ int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred,
 
     if (dir == NULL)
         return -EINVAL;
-    
+
     dassert_locked(dir);
 
     if (cred.c_cwd)
@@ -297,7 +297,7 @@ delegate:
         // printk("delegate looking up '\e[0;013m%s\e[0m' in '\e[0;013m%s\e[0m'\n", token, dir->d_name);
         switch ((err = ilookup(dir->d_inode, token, &ip))) {
         case 0:
-            // printk("file(\e[0;013m%s\e[0m) found.\n", token);
+            // printk("file(\e[0;013m%s\e[0m) found. refs: %ld\n", token, ip->i_refcnt);
             break;
         case -ENOENT:
             // printk("file(\e[0;013m%s\e[0m) not found.\n", token);
@@ -377,15 +377,12 @@ delegate_err:
     return err;
 }
 
-int vfs_lookup(const char *pathname, cred_t *__cred, int oflags, mode_t mode, int flags, dentry_t **pdp) {
-    int err = 0;
+int vfs_lookup(const char *pathname, cred_t *__cred,
+    int oflags, mode_t mode, int flags, dentry_t **pdp) {
     dentry_t *dir = NULL;
 
-    if ((dir = vfs_getdroot()) == NULL) {
+    if ((dir = vfs_getdroot()) == NULL)
         return -EINVAL;
-    }
 
-    err = vfs_lookupat(pathname, dir, __cred, oflags, mode, flags, pdp);
-
-    return err;
+    return vfs_lookupat(pathname, dir, __cred, oflags, mode, flags, pdp);
 }

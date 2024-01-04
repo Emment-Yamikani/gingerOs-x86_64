@@ -19,7 +19,7 @@ void tgroup_destroy(tgroup_t *tgroup) {
     if (!tgroup_islocked(tgroup))
         tgroup_lock(tgroup);
 
-    if ((tgroup_kill_thread(tgroup, -1, 1)))
+    if ((err = tgroup_kill_thread(tgroup, -1, 1)))
         panic("Failed to kill all threads, error: %d\n", err);
 
     tgroup_putref(tgroup);
@@ -204,7 +204,8 @@ int tgroup_get_thread(tgroup_t *tgroup, tid_t tid, tstate_t state, thread_t **pt
     return -ESRCH;
 }
 
-int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry, void *arg, int flags, thread_t **pthread) {
+int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry,
+    void *arg, int flags, thread_t **pthread) {
     int err = 0;
     thread_t *thread = NULL;
     (void)entry, (void)arg, (void)flags, (void)pthread;
@@ -219,7 +220,7 @@ int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry, void *arg, int 
     // if ((err = thread_new(NULL, entry, arg, flags, &thread)))
         // goto error;
 
-    if ((tgroup_add_thread(tgroup, thread)))
+    if ((err = tgroup_add_thread(tgroup, thread)))
         goto error;
 
     *pthread = thread;
@@ -339,7 +340,8 @@ int tgroup_sigqueue(tgroup_t *tgroup, int signo) {
     return err;
 }
 
-int tgroup_sigprocmask(tgroup_t *tgroup, int how, const sigset_t *restrict set, sigset_t *restrict oset) {
+int tgroup_sigprocmask(tgroup_t *tgroup, int how,
+    const sigset_t *restrict set, sigset_t *restrict oset) {
     int err = 0;
     tgroup_assert_locked(tgroup);
 
@@ -388,11 +390,16 @@ int tgroup_stop(tgroup_t *tgroup) {
     return 0;
 }
 
-int tgroup_getmainthread(tgroup_t *tgroup, thread_t **ptp) {
+int tgroup_getmain(tgroup_t *tgroup, thread_t **ptp) {
     if (tgroup == NULL || ptp == NULL)
         return -EINVAL;
+    
     tgroup_assert_locked(tgroup);
-    *ptp = tgroup->tg_tmain;
-    thread_lock(*ptp);
+    
+    if (tgroup->tg_tmain == NULL)
+        return -ENOENT;
+
+    thread_lock(tgroup->tg_tmain);
+    *ptp = thread_getref(tgroup->tg_tmain);
     return 0;
 }

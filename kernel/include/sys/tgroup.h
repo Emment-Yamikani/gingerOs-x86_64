@@ -35,8 +35,6 @@ typedef struct {
 
 #define tgroup_getid(tgroup)                ({ tgroup_assert_locked(tgroup); (tgroup)->tg_tgid; })
 
-#define tgroup_getmain(tgroup)              ({ tgroup_assert_locked(tgroup); (tgroup)->tg_tmain; })
-
 /**
  * \brief No. of threads running in this tgroup.
  * \brief Callers must hold tgroup->lock before calling into this function.
@@ -49,13 +47,13 @@ typedef struct {
  * \brief Increase running thread count in this tgroup.
  * \brief Callers must hold tgroup->lock before calling into this function.
  **/
-#define tgroup_inc_running(tgroup)         ({ tgroup_assert_locked(tgroup); (tgroup)->tg_running++; })
+#define tgroup_inc_running(tgroup)          ({ tgroup_assert_locked(tgroup); (tgroup)->tg_running++; })
 
 /**
  * \brief Decrease running thread count in this tgroup.
  * \brief Callers must hold tgroup->lock before calling into this function.
  **/
-#define tgroup_dec_running(tgroup)         ({ tgroup_assert_locked(tgroup); (tgroup)->tg_running--; })
+#define tgroup_dec_running(tgroup)          ({ tgroup_assert_locked(tgroup); (tgroup)->tg_running--; })
 
 #define tgroup_getref(tgroup)               ({ tgroup_assert_locked(tgroup); (tgroup)->tg_refcnt++; })
 #define tgroup_putref(tgroup)               ({ tgroup_assert_locked(tgroup); (tgroup)->tg_refcnt--; })
@@ -160,3 +158,5 @@ int tgroup_terminate(tgroup_t *tgroup, spinlock_t *lock);
 int tgroup_spawn(thread_entry_t entry, void *arg, int flags, tgroup_t **ptgroup);
 
 int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry, void *arg, int flags, thread_t **pthread);
+
+int tgroup_getmain(tgroup_t *tgroup, thread_t **ptp);

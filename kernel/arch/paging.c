@@ -154,7 +154,6 @@ void arch_do_page_fault(tf_t *trapframe) {
     vm_fault_t  fault           = {0};
     mmap_t      *mmap           = NULL;
     vmr_t       *vmr            = NULL;
-    thread_t    *main_thread    = NULL;
 
     pushcli(); // temporarily get rid of interrupts.
 
@@ -173,14 +172,10 @@ void arch_do_page_fault(tf_t *trapframe) {
          */
         if (trapframe->rip == (-1ull)) {
 #endif
-            current_tgroup_lock();
-            main_thread = tgroup_getmain(current_tgroup());
-            current_tgroup_unlock();
-
             /* return from a signal handler.*/
             if (current_ishandling())
                 arch_signal_return();
-            else if (current == main_thread) {
+            else if (current_ismain()) {
 #if defined(__x86_64__) /*exit from main thread*/
                 exit(trapframe->rax);
 #elif defined(__aarch64__)
@@ -435,6 +430,8 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
                 return err;
             }
         }
+
+        iunlock(vmr->file);
     } else {
         if ((err = arch_map_n(fault->addr, PGSZ,
             vmr->vflags) | (__vmr_zero(vmr) ? PTE_ZERO : 0))) {

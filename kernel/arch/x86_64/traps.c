@@ -13,6 +13,7 @@
 #include <dev/rtc.h>
 #include <arch/x86_64/ipi.h>
 #include <arch/paging.h>
+#include <sys/syscall.h>
 
 void dump_tf(tf_t *tf, int halt) {
     if (halt)
@@ -54,6 +55,9 @@ void dump_tf(tf_t *tf, int halt) {
 void trap(tf_t *tf) {
     time_t time = 0;
     switch (tf->trapno) {
+    case T_LEG_SYSCALL:
+        do_syscall(tf);
+        break;
     case IRQ(0):
         pit_intr();
         lapic_eoi();

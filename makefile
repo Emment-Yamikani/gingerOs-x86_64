@@ -50,7 +50,7 @@ font.o
 .asm.o:
 	nasm $< -f elf64 -o $@
 
-all: lime.elf module _iso_ debug run
+all: lime.elf module _iso_ run
 
 font.o: font.tf
 	$(ld) -r -b binary -o $@ $^
@@ -65,7 +65,7 @@ $(iso_dir)/boot/lime.elf: $(kernel_dir)/kernel.ld $(linked_objs)
 
 run:
 	qemu-system-x86_64	\
-	-smp 1	 			\
+	-smp 2	 			\
 	-m size=2G			\
 	-cdrom	ginger.iso	\
 	-no-reboot			\

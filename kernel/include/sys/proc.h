@@ -21,7 +21,7 @@ typedef struct proc {
     long             refcnt;    // process' reference count.
     long             exit;      // process' exit status.
     mmap_t          *mmap;      // process' memory map(virtual address space).
-    cond_t           wait;      // process' wait condition.
+    cond_t           wait;      // process' wait condition. 
     tgroup_t        *tgroup;    // process' thread group.
     queue_t         children;   // process' children queue.
     struct pgroup   *pgroup;    // process' group
@@ -42,7 +42,7 @@ extern proc_t *initproc;
 #define proc_trylock(proc)              ({ proc_assert(proc); spin_trylock(&(proc)->lock); })
 #define proc_islocked(proc)             ({ proc_assert(proc); spin_islocked(&(proc)->lock); })
 #define proc_assert_locked(proc)        ({ proc_assert(proc); spin_assert_locked(&(proc)->lock); })
-#define proc_getref(proc)               ({ proc_assert_locked(proc); (proc)->refcnt++; })
+#define proc_getref(proc)               ({ proc_assert_locked(proc); (proc)->refcnt++; proc; })
 #define proc_release(proc)              ({ proc_assert_locked(proc); (proc)->refcnt--; proc_unlock(proc); })
 
 #define proc_tgroup(proc)               ({ proc_assert_locked(proc); (proc)->tgroup; })

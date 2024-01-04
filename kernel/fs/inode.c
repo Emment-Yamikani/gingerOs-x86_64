@@ -43,7 +43,7 @@ static int inew(inode_t **pip) {
     return 0;
 }
 
-int     ialloc(itype_t type,  inode_t **pip) {
+int ialloc(itype_t type,  inode_t **pip) {
     int         err = 0;
     inode_t     *ip = NULL;
     icache_t    *icache = NULL;
@@ -110,12 +110,12 @@ void iduplink(inode_t *ip) {
 
 void irelease(inode_t *ip) {
     iassert_locked(ip);
-    idupcnt(ip);
-    if (ip->i_refcnt <= 0) {
+    iputcnt(ip);
+    // printk("inode->ref: %ld\n", ip->i_refcnt);
+    if (ip->i_refcnt <= 0)
         iclose(ip);
-        printk("ip closed\n");
-    } else
-        iunlock(ip);
+
+    iunlock(ip);
 }
 
 int idel_alias(inode_t *inode, dentry_t *dentry) {
@@ -198,6 +198,7 @@ int iadd_alias(inode_t *inode, dentry_t *dentry) {
     /// because we have added an inode alias.
     idupcnt(inode);
     dentry->d_inode = inode;
+    // printk("file(\e[023582;013m%s\e[0m) found. refs: %ld\n", dentry->d_name, inode->i_refcnt);
 
     return 0;
 }
@@ -213,7 +214,7 @@ int iopen(inode_t *ip) {
     return 0;
 }
 
-int     ibind(inode_t *dir, struct dentry *dentry, inode_t *ip) {
+int ibind(inode_t *dir, struct dentry *dentry, inode_t *ip) {
     int err = 0;
     iassert_locked(dir);
     iassert_locked(ip);
@@ -228,7 +229,7 @@ int     ibind(inode_t *dir, struct dentry *dentry, inode_t *ip) {
     return dir->i_ops->ibind(dir, dentry, ip);
 }
 
-int     isync(inode_t *ip) {
+int isync(inode_t *ip) {
     int err = 0;
     iassert_locked(ip);
 
@@ -238,7 +239,7 @@ int     isync(inode_t *ip) {
     return ip->i_ops->isync(ip);
 }
 
-int     ilink(const char *oldname, inode_t *dir, const char *newname) {
+int ilink(const char *oldname, inode_t *dir, const char *newname) {
     int err = 0;
     iassert_locked(dir);
 
@@ -251,7 +252,7 @@ int     ilink(const char *oldname, inode_t *dir, const char *newname) {
     return dir->i_ops->ilink(oldname, dir, newname);
 }
 
-int     iclose(inode_t *ip) {
+int iclose(inode_t *ip) {
     int err = 0;
     iassert_locked(ip);
 
@@ -288,7 +289,7 @@ ssize_t iwrite_data(inode_t *ip, off_t off, void *buf, size_t nb) {
     return ip->i_ops->iwrite(ip, off, buf, nb);
 }
 
-int     imknod(inode_t *dir, const char *name, mode_t mode, int devid) {
+int imknod(inode_t *dir, const char *name, mode_t mode, int devid) {
     int err = 0;
     iassert_locked(dir);
 
@@ -301,7 +302,7 @@ int     imknod(inode_t *dir, const char *name, mode_t mode, int devid) {
     return dir->i_ops->imknod(dir, name, mode, devid);
 }
 
-int     ifcntl(inode_t *ip, int cmd, void *argp) {
+int ifcntl(inode_t *ip, int cmd, void *argp) {
     int err = 0;
     iassert_locked(ip);
 
@@ -314,7 +315,7 @@ int     ifcntl(inode_t *ip, int cmd, void *argp) {
     return ip->i_ops->ifcntl(ip, cmd, argp);
 }
 
-int     iioctl(inode_t *ip, int req, void *argp) {
+int iioctl(inode_t *ip, int req, void *argp) {
     int err = 0;
     iassert_locked(ip);
 
@@ -330,7 +331,7 @@ int     iioctl(inode_t *ip, int req, void *argp) {
     return ip->i_ops->iioctl(ip, req, argp);
 }
 
-int     imkdir(inode_t *dir, const char *fname, mode_t mode) {
+int imkdir(inode_t *dir, const char *fname, mode_t mode) {
     int err = 0;
     iassert_locked(dir);
 
@@ -343,7 +344,7 @@ int     imkdir(inode_t *dir, const char *fname, mode_t mode) {
     return dir->i_ops->imkdir(dir, fname, mode);
 }
 
-int     iunlink(inode_t *ip) {
+int iunlink(inode_t *ip) {
     int err = 0;
     iassert_locked(ip);
 
@@ -353,7 +354,7 @@ int     iunlink(inode_t *ip) {
     return ip->i_ops->iunlink(ip);
 }
 
-int     ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
+int ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     int err = 0;
     
     iassert_locked(dir);
@@ -367,7 +368,7 @@ int     ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     return dir->i_ops->ilookup(dir, fname, pipp);
 }
 
-int     icreate(inode_t *dir, const char *fname, mode_t mode) {
+int icreate(inode_t *dir, const char *fname, mode_t mode) {
     int err = 0;
     iassert_locked(dir);
 
@@ -380,7 +381,7 @@ int     icreate(inode_t *dir, const char *fname, mode_t mode) {
     return dir->i_ops->icreate(dir, fname, mode);
 }
 
-int     irename(inode_t *dir, const char *old, inode_t *newdir, const char *new) {
+int irename(inode_t *dir, const char *old, inode_t *newdir, const char *new) {
     int err = 0;
     iassert_locked(dir);
     iassert_locked(newdir);
@@ -407,7 +408,7 @@ ssize_t ireaddir(inode_t *dir, off_t off, void *buf, size_t count) {
     return dir->i_ops->ireaddir(dir, off, buf, count);
 }
 
-int     isymlink(inode_t *ip, inode_t *atdir, const char *symname) {
+int isymlink(inode_t *ip, inode_t *atdir, const char *symname) {
     int err = 0;
     iassert_locked(ip);
     if ((err = icheck_op(ip, isymlink)))
@@ -416,7 +417,7 @@ int     isymlink(inode_t *ip, inode_t *atdir, const char *symname) {
     return ip->i_ops->isymlink(ip, atdir, symname);
 }
 
-int     igetattr(inode_t *ip, void *attr) {
+int igetattr(inode_t *ip, void *attr) {
     int err = 0;
     iassert_locked(ip);
     if ((err = icheck_op(ip, igetattr)))
@@ -425,7 +426,7 @@ int     igetattr(inode_t *ip, void *attr) {
     return ip->i_ops->igetattr(ip, attr);
 }
 
-int     isetattr(inode_t *ip, void *attr) {
+int isetattr(inode_t *ip, void *attr) {
     int err = 0;
     iassert_locked(ip);
     if ((err = icheck_op(ip, isetattr)))
@@ -434,7 +435,7 @@ int     isetattr(inode_t *ip, void *attr) {
     return ip->i_ops->isetattr(ip, attr);
 }
 
-int     itruncate(inode_t *ip) {
+int itruncate(inode_t *ip) {
     int err = 0;
     iassert_locked(ip);
 

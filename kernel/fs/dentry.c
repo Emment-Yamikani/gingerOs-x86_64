@@ -8,15 +8,8 @@ void ddump(dentry_t *dp, int flags) {
     printk(
         "d_name: %p::%s\nd_count: %ld\nd_flags: %lX\n"
         "d_next: %p\nd_prev: %p\nd_parent: %p\nd_children: %p\n\n",
-        dp,
-        dp->d_name,
-        dp->d_count,
-        dp->d_flags,
-        dp->d_next,
-        dp->d_prev,
-        dp->d_parent,
-        dp->d_child
-    );
+        dp, dp->d_name, dp->d_count, dp->d_flags,
+        dp->d_next, dp->d_prev, dp->d_parent, dp->d_child);
 
     if (flags & DDUMP_HANG)
         while(1);
@@ -35,7 +28,6 @@ int ddelete(struct dentry *dp) {
 
 void drelease(struct dentry *dp) {
     dassert_locked(dp);
-
 }
 
 int drevalidate(struct dentry *dp) {
@@ -44,9 +36,9 @@ int drevalidate(struct dentry *dp) {
 }
 
 int dalloc(const char *__name, dentry_t **pdentry) {
-    int err = 0;
-    char *name = NULL;
-    dentry_t *dp = NULL;
+    int         err     = 0;
+    char        *name   = NULL;
+    dentry_t    *dp     = NULL;
 
     if (__name == NULL || pdentry == NULL)
         return -EINVAL;
@@ -60,14 +52,14 @@ int dalloc(const char *__name, dentry_t **pdentry) {
 
     memset(dp, 0, sizeof *dp);
 
-    dp->d_count = 1;
-    dp->d_name = name;
-    dp->d_lock = SPINLOCK_INIT();
-    dp->d_ops = (dops_t) {
-        .diput = diput,
-        .ddelete = ddelete,
-        .drelease = drelease,
-        .drevalidate = drevalidate,
+    dp->d_count     = 1;
+    dp->d_name      = name;
+    dp->d_lock      = SPINLOCK_INIT();
+    dp->d_ops       = (dops_t) {
+        .diput          = diput,
+        .ddelete        = ddelete,
+        .drelease       = drelease,
+        .drevalidate    = drevalidate,
     };
 
     dlock(dp);
@@ -84,13 +76,16 @@ error:
 void dfree(dentry_t *dp) {
     dassert_locked(dp);
     dunbind(dp);
+
     if (dp->d_inode) {
         if (!iislocked(dp->d_inode))
             ilock(dp->d_inode);
         idel_alias(dp->d_inode, dp);
     }
+
     if (dp->d_name)
         kfree(dp->d_name);
+
     dunlock(dp);
     kfree(dp);
 }
@@ -194,15 +189,10 @@ done:
 void dclose(dentry_t *dp) {
     dassert_locked(dp);
     dput(dp);
-    if (dget_count(dp) == 0) {
-        dp->d_ops.ddelete(dp);
-        dunlock(dp);
-    } else if (dget_count(dp) < 0)
-            dfree(dp);
+    if (dget_count(dp) <= 0)
+        dfree(dp);
     else
         dunlock(dp);
-
-    // printk("[WARNING]: call d_inode->iput() to release the reference of d_inode.\n");
 }
 
 int dlookup(dentry_t *d_parent, const char *name, dentry_t **pchild) {

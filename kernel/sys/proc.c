@@ -15,6 +15,8 @@ __unused static struct binfmt {
 
 proc_t *initproc = NULL;
 
+static queue_t *procQ = QUEUE_NEW();
+
 // bucket to hold free'd PIDs.
 static queue_t *procIDs = QUEUE_NEW();
 
@@ -25,8 +27,8 @@ static queue_t *procIDs = QUEUE_NEW();
 static atomic_t pids = {0};
 
 static int proc_alloc_pid(pid_t *ref) {
-    int err = 0;
-    pid_t pid = 0;
+    int     err = 0;
+    pid_t   pid = 0;
 
     if (ref == NULL)
         return -EINVAL;
@@ -50,11 +52,60 @@ static void proc_free_pid(pid_t pid) {
         return;
 }
 
+int procQ_get(pid_t pid, proc_t **ppp) {
+    proc_t *proc = NULL;
+    
+    queue_lock(procQ);
+    forlinked(node, procQ->head, node->next) {
+        proc = node->data;
+        proc_lock(proc);
+        if (proc->pid == pid) {
+            *ppp = proc_getref(proc);
+            queue_unlock(procQ);
+            return 0;
+        }
+        proc_unlock(proc);
+    }
+    queue_unlock(procQ);
+
+    return -ESRCH;
+}
+
+int procQ_insert(proc_t *proc) {
+    int err = 0;
+    
+    if (proc == NULL)
+        return -EINVAL;
+    
+    queue_lock(procQ);
+    if ((err = enqueue(procQ, (void *)proc_getref(proc), 1, NULL)))
+        proc->refcnt--;
+    queue_unlock(procQ);
+
+    return err;
+}
+
+void procQ_remove_bypid(pid_t pid) {
+    proc_t *proc = NULL;
+    queue_lock(procQ);
+    forlinked(node, procQ->head, node->next) {
+        proc = node->data;
+        proc_lock(proc);
+        if (proc->pid == pid) {
+            proc_free(proc);
+            queue_unlock(procQ);
+            return;
+        }
+        proc_unlock(proc);
+    }
+    queue_unlock(procQ);
+}
+
 int proc_alloc(const char *name, proc_t **pref) {
     int         err     = 0;
     proc_t     *proc    = NULL;
     mmap_t     *mmap    = NULL;
-    __unused thread_t   *thread  = NULL;
+    thread_t   *thread  = NULL;
     tgroup_t   *tgroup  = NULL;
 
     if (name == NULL || pref == NULL)
@@ -67,6 +118,12 @@ int proc_alloc(const char *name, proc_t **pref) {
         goto error;
 
     if ((err = tgroup_create(&tgroup)))
+        goto error;
+
+    if ((err = thread_alloc(KSTACKSZ, THREAD_USER, &thread)))
+        goto error;
+
+    if ((err = tgroup_add_thread(tgroup, thread)))
         goto error;
 
     memset(proc, 0, sizeof *proc);
@@ -84,17 +141,30 @@ int proc_alloc(const char *name, proc_t **pref) {
     proc->wait   = COND_INIT();
     proc->lock   = SPINLOCK_INIT();
 
+    thread->t_mmap = mmap;
     proc_lock(proc);
+
+    thread->t_owner = proc_getref(proc);
     mmap_unlock(mmap);
+
+    thread_unlock(thread);
     tgroup_unlock(tgroup);
 
     *pref = proc;
     return 0;
 error:
-    if (mmap)
-        mmap_free(mmap);
+    if (proc->name)
+        kfree(proc->name);
+
+    if (thread)
+        thread_free(thread);
+
     if (tgroup)
         tgroup_destroy(tgroup);
+
+    if (mmap)
+        mmap_free(mmap);
+
     if (proc)
         kfree(proc);
     return err;
@@ -148,21 +218,18 @@ void proc_free(proc_t *proc) {
 }
 
 int proc_load(const char *pathname, proc_t *proc, proc_t **ref) {
-    int err = 0;
-    uintptr_t pdbr = 0;
-    int newproc = !proc;
-    inode_t *binary = NULL;
-    dentry_t *dentry = NULL;
+    int         err     = 0;
+    uintptr_t   pdbr    = 0;
+    int         newproc = !proc;
+    inode_t     *binary = NULL;
+    dentry_t    *dentry = NULL;
 
     if (proc == NULL && ref == NULL)
         return -EINVAL;
-    
-    printk("openning \'%s\'\n", pathname);
-    
+
     if ((err = vfs_lookup(pathname, NULL, O_EXEC | O_RDONLY, 0, 0, &dentry)))
         goto error;
-    
-    printk("Opened binary\n");
+
     binary = dentry->d_inode;
 
     err = -ENOENT;
@@ -190,13 +257,10 @@ int proc_load(const char *pathname, proc_t *proc, proc_t **ref) {
     }
     iunlock(binary);
 
-    printk("is an executable\n");
-
     if (newproc) {
-        printk("this is a new process image\n");
         if ((err = proc_alloc(pathname, &proc)))
             goto error;
-        
+
         proc_mmap_lock(proc);
         if ((err = mmap_focus(proc_mmap(proc), &pdbr))) {
             proc_mmap_unlock(proc);
@@ -208,7 +272,6 @@ int proc_load(const char *pathname, proc_t *proc, proc_t **ref) {
         proc_mmap_assert_locked(proc);
     }
 
-    printk("attempt program image loading\n");
     ilock(binary);
     for (size_t i = 0; i <= NELEM(binfmt); ++i) {
         /// check the binary image to make sure it is a valid program file.
@@ -216,7 +279,7 @@ int proc_load(const char *pathname, proc_t *proc, proc_t **ref) {
             iunlock(binary);
             goto error;
         }
-        
+
         /// load the binary image into memory in readiness for execution.
         if ((err = binfmt[i].load(binary, proc)) == 0)
             goto commit;
@@ -262,61 +325,45 @@ int proc_init(const char *initpath) {
     proc_t      *proc   = NULL;
     thread_t    *thread = NULL;
 
-    const char *argp[] = { initpath, NULL, };
-    const char *envp[] = { "PATH=/mnt/ramfs/", NULL, };
+    const char *argp[] = { initpath, NULL };
+    const char *envp[] = { "PATH=/mnt/ramfs/", NULL };
 
     if ((err = proc_load(initpath, NULL, &proc)))
         goto error;
 
     proc_mmap_lock(proc);
 
-    printk("done loading file\n");
-
     if ((err = mmap_focus(proc_mmap(proc), &pdbr))) {
         proc_mmap_unlock(proc);
         goto error;
     }
 
-    if ((err = thread_alloc(KSTACKSZ, THREAD_USER, &thread))) {
-        proc_mmap_unlock(proc);
-        goto error;
-    }
-
-    thread->t_mmap = proc->mmap;
-
-    if ((err = thread_execve(proc, thread, proc->entry, argp, envp)))
-        goto error;
-
-    printk("doing thread execve\n");
-
     proc_tgroup_lock(proc);
-    
-    if ((err = tgroup_add_thread(proc_tgroup(proc), thread))) {
+    if ((err = tgroup_getmain(proc_tgroup(proc), &thread))) {
         proc_tgroup_unlock(proc);
-        proc_mmap_unlock(proc);
+        goto error;
+    }
+    proc_tgroup_unlock(proc);
+
+    if ((err = thread_execve(proc, thread, proc->entry, argp, envp))) {
+        thread_release(thread);
         goto error;
     }
 
-    proc_tgroup_unlock(proc);
     proc_mmap_unlock(proc);
 
-    thread->t_owner = proc;
-    proc_getref(proc);
+    if ((err = thread_schedule(thread))) {
+        thread_release(thread);
+        goto error;
+    }
+
+    thread_release(thread);
 
     initproc = proc;
-
-    printk("scheduling thread\n");
-    if ((err = thread_schedule(thread)))
-        goto error;
-    
-    thread_unlock(thread);
     proc_unlock(proc);
 
     return 0;
 error:
-    if (thread)
-        thread_free(thread);
-
     if (proc)
         proc_free(proc);
     return err;

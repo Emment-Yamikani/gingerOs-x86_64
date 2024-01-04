@@ -30,8 +30,7 @@ filesystem_t ramfs2 = {
     .fs_superblocks = &QUEUE_INIT(),
 };
 
-int ramfs_init(void)
-{
+int ramfs_init(void) {
     int err = 0;
     fslock(&ramfs2);
     if ((err = vfs_register_fs(&ramfs2)))
@@ -45,14 +44,12 @@ int ramfs_init(void)
 
 static int ramfs_getsb(filesystem_t *fs, const char *src,
             const char *target, unsigned long flags,
-            void *data, superblock_t **psb)
-{
+            void *data, superblock_t **psb) {
     return getsb_bdev(fs, src, target, flags, data, psb, ramfs_fill_sb);
 }
 
 static int ramfs_fill_sb(filesystem_t *fs, const char *target, 
-                    struct devid *devid, superblock_t *sb)
-{
+                    struct devid *devid, superblock_t *sb) {
     ssize_t err = 0;
     size_t sbsz = 0;
     dentry_t *droot = NULL;
@@ -137,8 +134,7 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
     return 0;
 }
 
-int ramfs2_validate(ramfs2_super_t *super)
-{
+int ramfs2_validate(ramfs2_super_t *super) {
     uint32_t chksum = 0;
     const char *magic = "ginger_rd2";
     if (!super)
@@ -153,14 +149,12 @@ int ramfs2_validate(ramfs2_super_t *super)
     return chksum;
 }
 
-static ramfs2_node_t *ramfs2_convert_inode(inode_t *ip)
-{
+static ramfs2_node_t *ramfs2_convert_inode(inode_t *ip) {
     if (ip == NULL) return NULL;
     return ip->i_priv;
 }
 
-int ramfs2_find(ramfs2_super_t *super, const char *fn, ramfs2_node_t **pnode)
-{
+int ramfs2_find(ramfs2_super_t *super, const char *fn, ramfs2_node_t **pnode) {
     if (!super || !pnode)
         return -EINVAL;
 
@@ -221,13 +215,11 @@ static int ramfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     return 0;
 };
 
-__unused static int ramfs2_open(inode_t *ip __unused, int mode __unused, ...)
-{
+__unused static int ramfs2_open(inode_t *ip __unused, int mode __unused, ...) {
     return 0;
 }
 
-static ssize_t ramfs2_read_data(inode_t *ip, off_t off, void *buf, size_t sz)
-{
+static ssize_t ramfs2_read_data(inode_t *ip, off_t off, void *buf, size_t sz) {
     ramfs2_node_t *node = NULL;
     ssize_t retval = 0;
 
@@ -246,33 +238,27 @@ static ssize_t ramfs2_read_data(inode_t *ip, off_t off, void *buf, size_t sz)
     return retval;
 }
 
-static ssize_t ramfs2_write_data(inode_t *ip __unused, off_t off __unused, void *buf __unused, size_t sz __unused)
-{
+static ssize_t ramfs2_write_data(inode_t *ip __unused, off_t off __unused, void *buf __unused, size_t sz __unused) {
     return -EROFS;
 }
 
-static int ramfs2_close(inode_t *ip __unused)
-{
+static int ramfs2_close(inode_t *ip __unused) {
     return 0;
 }
 
-static int ramfs2_creat(inode_t *ip __unused, const char *fname __unused, int mode __unused)
-{
+static int ramfs2_creat(inode_t *ip __unused, const char *fname __unused, int mode __unused) {
     return -EROFS;
 }
 
-static int ramfs2_sync(inode_t *ip __unused)
-{
+static int ramfs2_sync(inode_t *ip __unused) {
     return -EROFS;
 }
 
-static int ramfs2_ioctl(inode_t *ip __unused, int req __unused, void *argp __unused)
-{
+static int ramfs2_ioctl(inode_t *ip __unused, int req __unused, void *argp __unused) {
     return -ENOTTY;
 }
 
-__unused static int ramfs2_lseek(inode_t *ip __unused, off_t off __unused, int whence __unused)
-{
+__unused static int ramfs2_lseek(inode_t *ip __unused, off_t off __unused, int whence __unused) {
     return -EINVAL;
 }
 
@@ -325,19 +311,16 @@ static ssize_t ramfs2_readdir(inode_t *dir, off_t offset, struct dirent *buff, s
     return 0;
 }
 
-__unused static int ramfs2_chown(inode_t *ip __unused, uid_t uid __unused, gid_t gid __unused)
-{
+__unused static int ramfs2_chown(inode_t *ip __unused, uid_t uid __unused, gid_t gid __unused) {
     return -EROFS;
 }
 
 /*
-int ramfs2_fault(vmr_t *vmr __unused, struct vm_fault *fault __unused)
-{
+int ramfs2_fault(vmr_t *vmr __unused, struct vm_fault *fault __unused) {
     return -ENOSYS;
 }
 
-int ramfs2_mmap(file_t *file __unused, vmr_t *vmr __unused)
-{
+int ramfs2_mmap(file_t *file __unused, vmr_t *vmr __unused) {
     return -ENOSYS;
 }
 */
