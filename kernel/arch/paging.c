@@ -9,6 +9,11 @@
 #include <arch/signal.h>
 #include <sys/syscall.h>
 #include <mm/mm_zone.h>
+#include <mm/pmm.h>
+
+void arch_dumptable(pte_t *table) {
+    x86_64_dumptable(table);
+}
 
 void arch_swtchvm(uintptr_t pdbr, uintptr_t *old) {
 #if defined (__x86_64__)
@@ -145,10 +150,10 @@ void arch_tlbshootdown(uintptr_t pdbr, uintptr_t vaddr) {
 }
 
 void arch_do_page_fault(tf_t *trapframe) {
-    __unused int         err    = 0;
-    __unused vm_fault_t  fault  = {0};
-    __unused mmap_t      *mmap  = NULL;
-    __unused vmr_t       *vmr   = NULL;
+    int         err             = 0;
+    vm_fault_t  fault           = {0};
+    mmap_t      *mmap           = NULL;
+    vmr_t       *vmr            = NULL;
     thread_t    *main_thread    = NULL;
 
     pushcli(); // temporarily get rid of interrupts.
@@ -158,7 +163,7 @@ void arch_do_page_fault(tf_t *trapframe) {
 #if defined (__x86_64__) // get x86_64 specific
     fault.user         = x86_64_tf_isuser(trapframe);
 #endif
-    err = arch_getmapping(fault.addr, &fault.COW);
+    err                = arch_getmapping(fault.addr, &fault.COW);
 
     if (current) {
 #if defined(__x86_64__)
@@ -204,7 +209,7 @@ void arch_do_page_fault(tf_t *trapframe) {
     /*Access to kernel address?*/
     if (iskernel_addr(fault.addr))
         goto kernel_fault;
-    
+
     mmap_lock(mmap);
     // is this address in the virtual address space?
     if (NULL == (vmr = mmap_find(mmap, fault.addr))) {
@@ -215,10 +220,10 @@ void arch_do_page_fault(tf_t *trapframe) {
     // vmr has specific page fault handler?
     if (vmr->vmops == NULL || vmr->vmops->fault == NULL) {
         // call default page fault handler.
-        if ((err = default_pgf_handler(vmr, &fault))) {
+        if ((err = default_pgf_handler(vmr, &fault)) == -EFAULT) {
             mmap_unlock(mmap);
             goto send_SIGBUS;
-        } else {
+        } else if (err) {
             mmap_unlock(mmap);
             goto send_SIGSEGV;
         }
@@ -232,24 +237,27 @@ void arch_do_page_fault(tf_t *trapframe) {
     mmap_unlock(mmap);
 done:
     popcli(); // get interrupts back online.
-    dump_tf(trapframe, 1);
+    return;
 
 kernel_fault:
     if (fault.user)
         goto send_SIGSEGV;
     
+    dump_tf(trapframe, 0);
     panic("page fault: %s:%ld: %s() @[\e[025453;04m0x%p\e[0m], err_code: %x, from '%s' space\n",
         __FILE__, __LINE__, __func__, fault.addr,
         fault.err_code, fault.user ? "user" : "kernel");
     goto done;
 
 send_SIGSEGV:
+    dump_tf(trapframe, 0);
     panic("page fault: %s:%ld: %s() @[\e[025453;04m0x%p\e[0m], err_code: %x, from '%s' space\n",
         __FILE__, __LINE__, __func__, fault.addr,
         fault.err_code, fault.user ? "user" : "kernel");
     goto done;
 
 send_SIGBUS:
+    dump_tf(trapframe, 0);
     panic("page fault: %s:%ld: %s() @[\e[025453;04m0x%p\e[0m], err_code: %x, from '%s' space\n",
         __FILE__, __LINE__, __func__, fault.addr,
         fault.err_code, fault.user ? "user" : "kernel");
@@ -257,20 +265,22 @@ send_SIGBUS:
 }
 
 int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
-    __unused char    buf[PGSZ];
-    int     err         = 0;
-    uintptr_t srcaddr   = 0;
-    uintptr_t reserv    = 0;
-    __unused uintptr_t dstaddr   = 0;
-    flags16_t flags     = 0;      
-    __unused size_t  size        = 0;
-    long    pgref       = 0;
-    size_t  offset      = 0;
-    page_t  *page       = NULL;
+    int         err       = 0;
+    uintptr_t   srcaddr   = 0;
+    uintptr_t   reserv    = 0;
+    uintptr_t   dstaddr   = 0;
+    flags16_t   flags     = 0;      
+    size_t      size      = 0;
+    long        pgref     = 0;
+    size_t      offset    = 0;
+    page_t      *page     = NULL;
+    char        buf[PGSZ] __aligned(PGSZ);
 
     if (vmr == NULL || fault == NULL)
         return -EINVAL;
-    
+
+    offset = (PGROUND(fault->addr) - __vmr_start(vmr)) + vmr->file_pos;
+
     // write access?
     if (fault->err_code & PTE_W) {
         if (!__vmr_write(vmr)) // region is not writable?
@@ -280,7 +290,7 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
 
         if (fault->COW && (__vmr_shared(vmr) == 0)) { // copy-on-wrte if vmr is not shared.
             // reserve  this mapping incase we fail to COW.
-            reserv = fault->COW->raw;
+            reserv  = fault->COW->raw;
             srcaddr = PGROUND(reserv);
 
             if ((pgref = __page_count(srcaddr)) > 1) {
@@ -325,7 +335,6 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
                       __FILE__, __LINE__, __func__, fault->addr,
                       fault->err_code, fault->user ? "user" : "kernel");
             }
-
             return 0;
         }
 
@@ -337,26 +346,101 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
         }
 
         if (vmr->file) { // vmr has backing store.
+            ilock(vmr->file);
+            size = (size_t)__min(PGSZ, (size_t)__min(vmr->filesz, igetsize(vmr->file) - offset));
+
             if (__vmr_shared(vmr)) { // shared vmr?
-                if ((err = icache_getpage(vmr->file->i_cache, offset / PGSZ, &page)))
+                if ((err = icache_getpage(vmr->file->i_cache, offset / PGSZ, &page))) {
+                    iunlock(vmr->file);
                     return err;
+                }
                 
                 page_incr(page);
 
-                if ((err = arch_map_i(fault->addr, page_address(page), PGSZ, vmr->vflags)))
+                if ((err = arch_map_i(fault->addr, page_address(page), PGSZ, vmr->vflags))) {
+                    iunlock(vmr->file);
                     return err;
-
-                arch_tlbshootdown(rdcr3(), fault->addr);
+                }
             } else { // vmr has no backing store.
+                if ((err = arch_map_n(fault->addr, PGSZ, vmr->vflags))) {
+                    iunlock(vmr->file);
+                    return err;
+                }
                 
+                if ((err = iread(vmr->file, offset, (void *)fault->addr, size)) < 0) {
+                    arch_unmap_n(fault->addr, PGSZ);
+                    iunlock(vmr->file);
+                    return err;
+                }
             }
+            iunlink(vmr->file);
         } else { // No backing store, possibly an anonymous region.
-
+            if ((err = arch_map_n(fault->addr,
+                PGSZ, vmr->vflags | (__vmr_zero(vmr) ? PTE_ZERO : 0))))
+                return err;
         }
 
         return 0;
     }
 
-    panic("NO RETURN\n");
+    if ((!__vmr_read(vmr) && !__vmr_exec(vmr))
+        || (fault->err_code & PTE_P)) {
+        printk("Inval access\n");
+        return -EACCES;
+    }
+
+    if (vmr->file) {
+        ilock(vmr->file);
+        size = (size_t)__min(PGSZ, (size_t)__min(vmr->filesz, igetsize(vmr->file) - offset));
+
+        if (igetsize(vmr->file) == 0) {
+            iunlock(vmr->file);
+            return -EFAULT;
+        }
+
+        if (__vmr_shared(vmr)) {
+            if ((err = icache_getpage(vmr->file->i_cache, offset / PGSZ, &page))) {
+                iunlock(vmr->file);
+                return err;
+            }
+
+            page_incr(page);
+
+            if ((err = arch_map_i(fault->addr, page_address(page), PGSZ, vmr->vflags))) {
+                iunlock(vmr->file);
+                return err;
+            }
+        } else {
+            if ((dstaddr = pmman.get_page(GFP_NORMAL |
+                (__vmr_zero(vmr) ? GFP_ZERO : 0))) == 0) {
+                    iunlock(vmr->file);
+                return -ENOMEM;
+            }
+            
+            if ((err = iread(vmr->file, offset, buf, size)) < 0) {
+                pmman.free(dstaddr);
+                iunlock(vmr->file);
+                return err;
+            }
+
+            if ((err = arch_memcpyvp(dstaddr, (uintptr_t)buf, PGSZ))) {
+                pmman.free(dstaddr);
+                iunlock(vmr->file);
+                return err;
+            }
+
+            if ((err = arch_map_i(fault->addr, dstaddr, PGSZ, vmr->vflags))) {
+                pmman.free(dstaddr);
+                iunlock(vmr->file);
+                return err;
+            }
+        }
+    } else {
+        if ((err = arch_map_n(fault->addr, PGSZ,
+            vmr->vflags) | (__vmr_zero(vmr) ? PTE_ZERO : 0))) {
+            return err;
+        }
+    }
+
     return 0;
 }

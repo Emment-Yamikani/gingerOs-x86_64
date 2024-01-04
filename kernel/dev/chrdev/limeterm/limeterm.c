@@ -106,13 +106,13 @@ int limeterm_init(void) {
 
     memset(&ctx, 0, sizeof ctx);
    
-    ctx.op = 200;
-    ctx.cursor_char = '|';
-    ctx.cursor_timeout = 150;
-    ctx.fg_color = RGB_dark_cyan;
-    ctx.bg_color = RGB_black;
-    ctx.bg_color = 0x00002b2b;
-    ctx.lock = SPINLOCK_INIT();
+    ctx.op              = 200;
+    ctx.cursor_char     = '|';
+    ctx.cursor_timeout  = 150;
+    ctx.fg_color        = RGB_dark_cyan;
+    ctx.bg_color        = RGB_black;
+    ctx.bg_color        = 0x00002b2b;
+    ctx.lock            = SPINLOCK_INIT();
 
     if ((err = fontctx_alloc(&ctx.font)))
         goto error;

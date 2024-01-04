@@ -68,3 +68,9 @@ int arch_thread_execve(arch_thread_t *arch, thread_entry_t entry, int argc, cons
     return x86_64_thread_execve(arch, entry, argc, argp, envp);
 #endif
 }
+
+int arch_thread_setkstack(arch_thread_t *arch) {
+#if defined __x86_64__
+    return x86_64_thread_setkstack(arch);
+#endif
+}

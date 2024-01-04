@@ -1049,8 +1049,7 @@ int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
 
     if (pargc)
         *pargc = 0;
-    
-    
+
     if (src_argp) {
         /**Count the command-line arguments.
          * Also keep the size memory region
@@ -1074,6 +1073,7 @@ int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
     // allocate space for the arg_array and args
     if ((err = mmap_alloc_vmr(mmap, argslen, PROT_RW, MAP_PRIVATE | MAP_DONTEXPAND, &argvmr)))
         goto error;
+
 
     // Page the region in
     if ((err = arch_map_n(argvmr->start, argslen, argvmr->vflags)))

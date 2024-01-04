@@ -179,6 +179,8 @@ static void sched_self_destruct(void) {
 
 __noreturn void schedule(void) {
     int err = 0;
+    uintptr_t pgdir = 0;
+    mmap_t *mmap = NULL;
     jiffies_t before = 0;
     thread_t *thread = NULL;
     arch_thread_t *arch = NULL;
@@ -228,8 +230,17 @@ __noreturn void schedule(void) {
 
         arch = &current->t_arch;
         tsched = &current->t_sched;
+        mmap = current->t_mmap;
 
         tsched->ts_last_sched = jiffies_TO_s(before = jiffies_get());
+
+        if (mmap) {
+            mmap_lock(mmap);
+            mmap_focus(mmap, &pgdir);
+            mmap_unlock(mmap);
+
+            arch_thread_setkstack(&current->t_arch);
+        }
 
         swtch(&cpu->ctx, arch->t_ctx0);
 

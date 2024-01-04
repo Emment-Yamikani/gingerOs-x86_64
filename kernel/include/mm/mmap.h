@@ -109,6 +109,9 @@ typedef struct vmr {
 /*Previous mapping in the list*/
 #define __vmr_prev(r)               (r->prev)
 
+#define __vmr_start(r)              (r->start)
+#define __vmr_end(r)                (r->end)
+
 typedef struct mmap {
     int         flags;      // memory map flags.
     long        refs;       // reference count.

@@ -152,3 +152,5 @@ extern void loadgdt64(descptr_t *, int cs, int gs, int ss);
 
 extern void loadidt(descptr_t *);
 extern void loadtr(uint64_t sel);
+
+extern void tss_set(uintptr_t kstack, uint16_t desc);

@@ -496,3 +496,6 @@ int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigs
 /// @param queue 
 /// @return 
 int thread_stop(thread_t *thread, queue_t *queue);
+
+int thread_execve(proc_t *proc, thread_t *thread,
+    thread_entry_t entry, const char *argp[], const char *envp[]);

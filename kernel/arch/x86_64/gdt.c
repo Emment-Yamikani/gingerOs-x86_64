@@ -8,6 +8,12 @@
 
 static idt_t idt = {0};
 
+void tss_set(uintptr_t kstack, uint16_t desc __unused) {
+    cpu->gdt.tss = TSS(((uintptr_t)&cpu->tss), (sizeof(cpu->tss) - 1), TSS_SEG, 0x8E);
+    memset(&cpu->tss, 0, sizeof cpu->tss);
+    cpu->tss.rsp0 = kstack;
+}
+
 void gdt_init(void) {
     cpu_t *c = cpu;
 

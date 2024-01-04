@@ -15,7 +15,20 @@ pagemap_t kernel_map = {
     .pdbr = (void *)VMA2LO(_PML4_),
 };
 
-#define x86_64_CLR(t) ({ for (int i = 0; i < NPTE; ++i) ((pte_t *)(t))[i].raw = 0; })
+#define x86_64_CLR(t) ({           \
+    for (int i = 0; i < NPTE; ++i) \
+        ((pte_t *)(t))[i].raw = 0; \
+})
+
+void x86_64_dumptable(pte_t *table) {
+    printk("\t\t\t\t\t\t\t\t\tDUMP TABLE %p\n", table);
+    for (int y = 0; y < 64; ++y) {
+        printk("%2d: ", y);
+        for (int x =0; x < 8; ++x)
+            printk("%p |", table[y*8 + x]);
+        printk("\n");
+    }
+}
 
 spinlock_t *kvmhigh_lock = SPINLOCK_NEW();
 
@@ -29,13 +42,12 @@ static inline int x86_64_map_pdpt(int i4, int flags) {
         return -ENOTSUP;
 
     if (!pte_ispresent(PML4E(i4))) {
-        if ((lvl3 = pmman.alloc()) == 0)
+        if ((lvl3 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
             return -ENOMEM;
 
         PML4E(i4)->raw = lvl3 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDPTE(i4, 0));
         invlpg((uintptr_t)PDPTE(i4, 0));
-        x86_64_CLR(PDPTE(i4, 0)); // TODO: remove this if pmman.alloc() returns a zero'ed page.
     }
 
     return 0;
@@ -52,23 +64,21 @@ static inline int x86_64_map_pdt(int i4, int i3, int flags) {
         return -ENOTSUP;
 
     if (!pte_ispresent(PML4E(i4))) {
-        if ((lvl3 = pmman.alloc()) == 0)
+        if ((lvl3 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
             goto error;
 
         PML4E(i4)->raw = lvl3 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDPTE(i4, 0));
         invlpg((uintptr_t)PDPTE(i4, 0));
-        x86_64_CLR(PDPTE(i4, 0)); // TODO: remove this if pmman.alloc() returns a zero'ed page.
     }
 
     if (!pte_ispresent(PDPTE(i4, i3))) {
-        if ((lvl2 = pmman.alloc()) == 0)
+        if ((lvl2 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
             goto error;
 
         PDPTE(i4, i3)->raw = lvl2 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDTE(i4, i3, 0));
         invlpg((uintptr_t)PDTE(i4, i3, 0));
-        x86_64_CLR(PDTE(i4, i3, 0)); // TODO: remove this if pmman.alloc() returns a zero'ed page.
     }
 
     return 0;
@@ -93,33 +103,30 @@ static inline int x86_64_map_pt(int i4, int i3, int i2, int flags) {
         return -ENOTSUP;
 
     if (!pte_ispresent(PML4E(i4))) {
-        if ((lvl3 = pmman.alloc()) == 0)
+        if ((lvl3 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
             goto error;
 
         PML4E(i4)->raw = lvl3 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDPTE(i4, 0));
         invlpg((uintptr_t)PDPTE(i4, 0));
-        x86_64_CLR(PDPTE(i4, 0)); // TODO: remove this if pmman.alloc() returns a zero'ed page.
     }
 
     if (!pte_ispresent(PDPTE(i4, i3))) {
-        if ((lvl2 = pmman.alloc()) == 0)
+        if ((lvl2 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
             goto error;
 
         PDPTE(i4, i3)->raw = lvl2 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDTE(i4, i3, 0));
         invlpg((uintptr_t)PDTE(i4, i3, 0));
-        x86_64_CLR(PDTE(i4, i3, 0)); // TODO: remove this if pmman.alloc() returns a zero'ed page.
     }
 
     if (!pte_ispresent(PDTE(i4, i3, i2))) {
-        if ((lvl1 = pmman.alloc()) == 0)
+        if ((lvl1 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
             goto error;
 
         PDTE(i4, i3, i2)->raw = lvl1 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PTE(i4, i3, i2, 0));
         invlpg((uintptr_t)PTE(i4, i3, i2, 0));
-        x86_64_CLR(PTE(i4, i3, i2, 0)); // TODO: remove this if pmman.alloc() returns a zero'ed page.
     }
 
     return 0;
@@ -205,7 +212,7 @@ void x86_64_swtchvm(uintptr_t pdbr, uintptr_t *old) {
     wrcr3(pdbr ? pdbr : VMA2LO(_PML4_));
 }
 
-int x86_64_map(uintptr_t p, int i4, int i3, int i2, int i1, int flags) {
+int x86_64_map(uintptr_t paddr, int i4, int i3, int i2, int i1, int flags) {
     int         err     = -ENOMEM;
     int         do_remap= _isremap(flags);
     uintptr_t   lvl3    = 0, lvl2 = 0, lvl1 = 0;
@@ -220,39 +227,36 @@ int x86_64_map(uintptr_t p, int i4, int i3, int i2, int i1, int flags) {
         return -ENOTSUP;
 
     if (!pte_ispresent(PML4E(i4))) {
-        if ((lvl3 = pmman.alloc()) == 0)
+        if ((lvl3 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
             goto error;
 
         PML4E(i4)->raw = lvl3 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDPTE(i4, 0));
         invlpg((uintptr_t)PDPTE(i4, 0));
-        x86_64_CLR(PDPTE(i4, 0)); // TODO: remove this if pmman.alloc() returns a zero'ed page.
     }
 
     if (!pte_ispresent(PDPTE(i4, i3))) {
-        if ((lvl2 = pmman.alloc()) == 0)
+        if ((lvl2 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
             goto error;
 
         PDPTE(i4, i3)->raw = lvl2 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDTE(i4, i3, 0));
         invlpg((uintptr_t)PDTE(i4, i3, 0));
-        x86_64_CLR(PDTE(i4, i3, 0)); // TODO: remove this if pmman.alloc() returns a zero'ed page.
     }
 
     if (!pte_ispresent(PDTE(i4, i3, i2))) {
-        if ((lvl1 = pmman.alloc()) == 0)
+        if ((lvl1 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
             goto error;
 
         PDTE(i4, i3, i2)->raw = lvl1 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PTE(i4, i3, i2, 0));
         invlpg((uintptr_t)PTE(i4, i3, i2, 0));
-        x86_64_CLR(PTE(i4, i3, i2, 0)); // TODO: remove this if pmman.alloc() returns a zero'ed page.
     }
 
     if (!pte_ispresent(PTE(i4, i3, i2, i1)))
-        PTE(i4, i3, i2, i1)->raw = PGROUND(p) | PGOFF(flags);
+        PTE(i4, i3, i2, i1)->raw = PGROUND(paddr) | PGOFF(flags);
     else if (do_remap) // acknowledge remap request.
-        PTE(i4, i3, i2, i1)->raw = PGROUND(p) | PGOFF(flags);
+        PTE(i4, i3, i2, i1)->raw = PGROUND(paddr) | PGOFF(flags);
 
     send_tlb_shootdown(rdcr3(), vaddr);
     invlpg(vaddr);
@@ -276,7 +280,7 @@ error:
 }
 
 void x86_64_unmap(int i4, int i3, int i2, int i1) {
-    uintptr_t p = 0;
+    uintptr_t paddr = 0;
     
     if (!pte_ispresent(PML4E(i4)))
         goto done;
@@ -290,7 +294,7 @@ void x86_64_unmap(int i4, int i3, int i2, int i1) {
     if (!pte_ispresent(PTE(i4, i3, i2, i1)))
         goto done;
 
-    p = PTE(i4, i3, i2, i1)->raw;
+    paddr = PTE(i4, i3, i2, i1)->raw;
     PTE(i4, i3, i2, i1)->raw = 0;
     send_tlb_shootdown(rdcr3(), __viraddr(i4, i3, i2, i1));
 
@@ -299,24 +303,25 @@ done:
     
     /** Deallocate this page frame
      * if it was allocated at the time of mapping.*/
-    if (_isalloc_page(p)) {
-        printk("NOTE: Freeing page frame{0x%p}...\n", PGROUND(p));
-        pmman.free(PGROUND(p));
+    if (_isalloc_page(paddr)) {
+        printk("NOTE: Freeing page frame{0x%p}...\n", PGROUND(paddr));
+        pmman.free(PGROUND(paddr));
     }
 }
 
-void x86_64_unmap_n(uintptr_t v, size_t sz) {
-    for (size_t nr = NPAGE(sz); nr; --nr, v += PGSZ)
-        x86_64_unmap(PML4I(v), PDPTI(v), PDI(v), PTI(v));
+void x86_64_unmap_n(uintptr_t vaddr, size_t sz) {
+    for (size_t nr = NPAGE(sz); nr; --nr, vaddr += PGSZ)
+        x86_64_unmap(PML4I(vaddr), PDPTI(vaddr), PDI(vaddr), PTI(vaddr));
 }
 
-int x86_64_map_i(uintptr_t v, uintptr_t p, size_t sz, int flags) {
+int x86_64_map_i(uintptr_t vaddr, uintptr_t paddr, size_t sz, int flags) {
     int err = 0;
-    uintptr_t vr = v;
+    uintptr_t vr = vaddr;
     size_t nr = NPAGE(sz);
 
-    for (; nr; --nr, p += PGSZ, v += PGSZ) {
-        if ((err = x86_64_map(p, PML4I(v), PDPTI(v), PDI(v), PTI(v), flags)))
+    for (; nr; --nr, paddr += PGSZ, vaddr += PGSZ) {
+        if ((err = x86_64_map(paddr, PML4I(vaddr),
+            PDPTI(vaddr), PDI(vaddr), PTI(vaddr), flags)))
             goto error;
     }
 
@@ -327,19 +332,20 @@ error:
     return err;
 }
 
-int x86_64_map_n(uintptr_t v, size_t sz, int flags) {
+int x86_64_map_n(uintptr_t vaddr, size_t sz, int flags) {
     int         err = 0;
-    uintptr_t   p   = 0;
-    uintptr_t   vr  = v;
+    uintptr_t   paddr   = 0;
+    uintptr_t   vr  = vaddr;
     size_t      nr  = NPAGE(sz);
+    gfp_mask_t  gfp_mask = GFP_NORMAL | (_iszero(flags) ? GFP_ZERO : 0);
 
-    for (; nr; --nr, v += PGSZ) {
-        if ((p = pmman.alloc()) == 0) {
+    for (; nr; --nr, vaddr += PGSZ) {
+        if ((paddr = pmman.get_page(gfp_mask)) == 0) {
             err = -ENOMEM;
             goto error;
         }
-        if ((err = x86_64_map(p, PML4I(v),
-            PDPTI(v), PDI(v), PTI(v), flags | PTE_ALLOC_PAGE)))
+        if ((err = x86_64_map(paddr, PML4I(vaddr),
+            PDPTI(vaddr), PDI(vaddr), PTI(vaddr), flags | PTE_ALLOC_PAGE)))
             goto error;
     }
 
@@ -350,29 +356,29 @@ error:
     return err;
 }
 
-int x86_64_mount(uintptr_t p, void **pvp) {
+int x86_64_mount(uintptr_t paddr, void **pvp) {
     int         err = 0;
-    uintptr_t   v = 0;
+    uintptr_t   vaddr = 0;
 
-    if (p == 0 || pvp == NULL)
+    if (paddr == 0 || pvp == NULL)
         return -EINVAL;
 
-    if ((v = vmman.alloc(PGSZ)) == 0)
+    if ((vaddr = vmman.alloc(PGSZ)) == 0)
         return -ENOMEM;
     
-    if ((err = x86_64_map_i(v, p, PGSZ, PTE_KRW)))
+    if ((err = x86_64_map_i(vaddr, paddr, PGSZ, PTE_KRW)))
         goto error;
 
-    *pvp = (void *)v;
+    *pvp = (void *)vaddr;
     return 0;
 error:
-    if (v)
-        vmman.free(v);
+    if (vaddr)
+        vmman.free(vaddr);
     return err;
 }
 
-void x86_64_unmount(uintptr_t v) {
-    x86_64_unmap_n(v, PGSZ);
+void x86_64_unmount(uintptr_t vaddr) {
+    x86_64_unmap_n(vaddr, PGSZ);
 }
 
 void x86_64_unmap_full(void) {
@@ -422,6 +428,8 @@ static int x86_64_kvmcpy(uintptr_t dstp) {
     /// TODO: lock higer vmmap and kernel pDBr.
     for (size_t i = PML4I(USTACK); i < NPTE; ++i)
         dstv[i] = PML4[i];
+    
+    dstv[510].raw = dstp | PTE_KRW | PTE_PCDWT;
     /// TODO: unlock higer vmmap and kernel pDBr.
 
     x86_64_unmount((uintptr_t)dstv);
@@ -580,34 +588,34 @@ int x86_64_memcpypp(uintptr_t pdst, uintptr_t psrc, size_t size) {
     return 0;
 }
 
-int x86_64_memcpyvp(uintptr_t p, uintptr_t v, size_t size) {
+int x86_64_memcpyvp(uintptr_t paddr, uintptr_t vaddr, size_t size) {
     int         err     = 0;
     size_t      len     = 0;
     uintptr_t   vdst    = 0;
     
-    for (; size; size -= len, p += len, v += len) {
-        if ((err = x86_64_mount(PGROUND(p), (void **)&vdst)))
+    for (; size; size -= len, paddr += len, vaddr += len) {
+        if ((err = x86_64_mount(PGROUND(paddr), (void **)&vdst)))
             return err;
 
-        len = MIN(PAGESZ - PGOFF(p), size);
-        memcpy((void *)(vdst + PGOFF(p)), (void *)v, len);
+        len = MIN(PAGESZ - PGOFF(paddr), size);
+        memcpy((void *)(vdst + PGOFF(paddr)), (void *)vaddr, len);
         x86_64_unmount(vdst);
     }
 
     return 0;
 }
 
-int x86_64_memcpypv(uintptr_t v, uintptr_t p, size_t size) {
+int x86_64_memcpypv(uintptr_t vaddr, uintptr_t paddr, size_t size) {
     int         err     = 0;
     size_t      len     = 0;
     uintptr_t   vsrc    = 0;
     
-    for (; size; size -= len, p += len, v += len) {
-        if ((err = x86_64_mount(PGROUND(p), (void **)&vsrc)))
+    for (; size; size -= len, paddr += len, vaddr += len) {
+        if ((err = x86_64_mount(PGROUND(paddr), (void **)&vsrc)))
             return err;
 
-        len = MIN(PAGESZ - PGOFF(p), size);
-        memcpy((void *)v, (void *)(vsrc + PGOFF(p)), len);
+        len = MIN(PAGESZ - PGOFF(paddr), size);
+        memcpy((void *)vaddr, (void *)(vsrc + PGOFF(paddr)), len);
         x86_64_unmount(vsrc);
     }
 
@@ -646,7 +654,7 @@ int x86_64_pml4alloc(uintptr_t *ref) {
     if (ref == NULL)
         return -EINVAL;
     
-    if ((pml4 = pmman.alloc()) == 0)
+    if ((pml4 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
         return -ENOMEM;
     
     if ((err = x86_64_kvmcpy(pml4)))

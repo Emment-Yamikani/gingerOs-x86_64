@@ -8,7 +8,7 @@ __noreturn void icache_sync(void) {
     }
 }
 
-BUILTIN_THREAD(icache_sync, icache_sync, NULL);
+// BUILTIN_THREAD(icache_sync, icache_sync, NULL);
 
 
 __noreturn void icache_prefetch(void) {
@@ -17,4 +17,4 @@ __noreturn void icache_prefetch(void) {
         jiffies_sleep(5);    
     }
 }
-BUILTIN_THREAD(icache_prefetch, icache_prefetch, NULL);
+// BUILTIN_THREAD(icache_prefetch, icache_prefetch, NULL);

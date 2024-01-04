@@ -68,7 +68,6 @@ int proc_alloc(const char *name, proc_t **pref) {
 
     if ((err = tgroup_create(&tgroup)))
         goto error;
-    
 
     memset(proc, 0, sizeof *proc);
 
@@ -87,6 +86,7 @@ int proc_alloc(const char *name, proc_t **pref) {
 
     proc_lock(proc);
     mmap_unlock(mmap);
+    tgroup_unlock(tgroup);
 
     *pref = proc;
     return 0;
@@ -257,16 +257,13 @@ error:
 }
 
 int proc_init(const char *initpath) {
-    int                 err     = 0;
-    uintptr_t           pdbr    = 0;
-    int                 argc    = 0;
-    char                **argp = NULL;
-    char                **envp = NULL;
-    proc_t              *proc   = NULL;
-    vmr_t               *ustack = NULL;
-    thread_t            *thread = NULL;
-    const char *srcargp[] = { initpath, NULL, };
-    const char *srcenvp[] = { "PATH=/mnt/ramfs/", NULL, };
+    int         err     = 0;
+    uintptr_t   pdbr    = 0;
+    proc_t      *proc   = NULL;
+    thread_t    *thread = NULL;
+
+    const char *argp[] = { initpath, NULL, };
+    const char *envp[] = { "PATH=/mnt/ramfs/", NULL, };
 
     if ((err = proc_load(initpath, NULL, &proc)))
         goto error;
@@ -280,37 +277,21 @@ int proc_init(const char *initpath) {
         goto error;
     }
 
-    if ((err = mmap_argenvcpy(proc_mmap(proc), srcargp, srcenvp, &argp, &argc, &envp))) {
-        proc_mmap_unlock(proc);
-        goto error;
-    }
-
-    printk("done copying args\n");
-
-    if ((err = mmap_alloc_stack(proc_mmap(proc), USTACKSZ, &ustack))) {
-        proc_mmap_unlock(proc);
-        goto error;
-    }
-
     if ((err = thread_alloc(KSTACKSZ, THREAD_USER, &thread))) {
-        mmap_remove(proc_mmap(proc), ustack);
         proc_mmap_unlock(proc);
         goto error;
     }
 
-    thread->t_arch.t_ustack = ustack;
+    thread->t_mmap = proc->mmap;
+
+    if ((err = thread_execve(proc, thread, proc->entry, argp, envp)))
+        goto error;
 
     printk("doing thread execve\n");
-    if ((err = arch_thread_execve(&thread->t_arch, proc->entry, argc, (const char **)argp, (const char **)envp))) {
-        mmap_remove(proc_mmap(proc), ustack);
-        proc_mmap_unlock(proc);
-        goto error;
-    }
 
     proc_tgroup_lock(proc);
     
     if ((err = tgroup_add_thread(proc_tgroup(proc), thread))) {
-        mmap_remove(proc_mmap(proc), ustack);
         proc_tgroup_unlock(proc);
         proc_mmap_unlock(proc);
         goto error;

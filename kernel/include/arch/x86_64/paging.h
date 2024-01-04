@@ -104,6 +104,7 @@ typedef union viraddr {
 
 #define PTE_ALLOC_PAGE          0x800   // page was allocated.
 #define PTE_REMAPPG             0x1000  // remap page.
+#define PTE_ZERO                0x2000  // zero the page associated with pte.
 
 #define _ispresent(flags)       ((flags) & PTE_P)
 #define _iswritable(flags)      ((flags) & PTE_W)
@@ -112,6 +113,7 @@ typedef union viraddr {
 #define _isPS(flags)            ((flags) & PTE_PS)   // is page size flags set?
 #define _isalloc_page(flags)    ((flags) & PTE_ALLOC_PAGE) // page frame was allocated?.
 #define _isremap(flags)         ((flags) & PTE_REMAPPG) // page remap(force remap) requested?.
+#define _iszero(flags)          ((flags) & PTE_ZERO)
 
 #define pte_ispresent(pte)      (_ispresent((pte)->raw))
 #define pte_iswritable(pte)     (_iswritable((pte)->raw))
@@ -121,7 +123,7 @@ typedef union viraddr {
 #define pte_isalloc_page(pte)   (_isalloc_page((pte)->raw))
 
 // extract flags used to map a page.
-#define extract_vmflags(flags)  ({(PGOFF(flags) & ~PTE_REMAPPG); })
+#define extract_vmflags(flags)  ({ PGOFF(flags); })
 
 #define GETPHYS(entry)          ((uintptr_t)((entry) ? PGROUND((entry)->raw) : 0))
 
@@ -207,3 +209,5 @@ int x86_64_getmapping(uintptr_t addr, pte_t **pte);
 int x86_64_pml4alloc(uintptr_t *ref);
 
 void x86_64_pml4free(uintptr_t pgdir);
+
+void x86_64_dumptable(pte_t *table);

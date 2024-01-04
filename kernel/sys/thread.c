@@ -653,6 +653,44 @@ int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigs
     return err;
 }
 
+int thread_execve(proc_t *proc, thread_t *thread,
+    thread_entry_t entry, const char *argp[], const char *envp[]) {
+    int     err     = 0;
+    int     argc    = 0;
+    char    **arg   = NULL;
+    char    **env   = NULL;
+    vmr_t   *stack  = NULL;
+    vmr_t   *tmp_stack = NULL;
+
+    if (proc == NULL || thread == NULL || entry == NULL)
+        return -EINVAL;
+
+    // TODO: implement a function to reverse this.
+    if ((err = mmap_argenvcpy(proc->mmap, (const char **)argp,
+        (const char **)envp, &arg, &argc, &env)))
+        return err;
+
+    tmp_stack = thread->t_arch.t_ustack;
+
+    if ((err = mmap_alloc_stack(proc->mmap, USTACKSZ, &stack)))
+        goto error;
+
+    thread->t_arch.t_ustack = stack;
+
+    if ((err = arch_thread_execve(&thread->t_arch, entry, argc,
+        (const char **)arg, (const char **)env)))
+        goto error;
+
+    return 0;
+error:
+    thread->t_arch.t_ustack = tmp_stack;
+
+    //TODO: add here a call to reverse mmap_argenvcpy()
+
+    mmap_remove(proc->mmap, stack);
+    return err;
+}
+
 int builtin_threads_begin(size_t *nthreads) {
     int err = 0;
     builtin_thread_t *thrd = __builtin_thrds;

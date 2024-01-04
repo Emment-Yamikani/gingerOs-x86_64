@@ -42,4 +42,7 @@ int arch_kthread_init(arch_thread_t *arch_thread, thread_entry_t entry, void *ar
 void arch_exec_free_copy(char ***arg_env);
 char ***arch_execve_copy(char *_argp[], char *_envp[]);
 
-int arch_thread_execve(arch_thread_t *thread, thread_entry_t entry, int argc, const char *argp[], const char *envp[]);
+int arch_thread_execve(arch_thread_t *thread, thread_entry_t entry,
+    int argc, const char *argp[], const char *envp[]);
+
+int arch_thread_setkstack(arch_thread_t *arch);
