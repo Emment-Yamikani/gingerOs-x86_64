@@ -69,7 +69,7 @@ int icache_getpage(icache_t *icache, off_t pgno, page_t **ref) {
         return -EINVAL;    
 
     icache_assert_locked(icache);
-    
+
     icache_btree_lock(icache);
     if (0 == (err = btree_search(icache_btree(icache), pgno, (void **)&page))) {
         icache_btree_unlock(icache);
@@ -82,7 +82,7 @@ int icache_getpage(icache_t *icache, off_t pgno, page_t **ref) {
     err = -ENOMEM;
     if ((page = alloc_page(GFP_KERNEL | GFP_ZERO)) == NULL)
         goto error;
-    
+
     new_page = 1;
 
 update:
@@ -109,6 +109,7 @@ done:
 error:
     if (new_page)
         page_put(page);
+    printk("[\e[025453;04mERROR\e[0m]: %s:%ld: in %s(): error=%d\n", __FILE__, __LINE__, __func__, err);
     return err;
 }
 
@@ -117,7 +118,6 @@ ssize_t icache_read(icache_t *icache, off_t off, void *buff, size_t sz) {
     off_t   pgno        = 0;    /*page number*/
     size_t  size        = 0;    /*size to read*/
     ssize_t  total      = 0;    /*total bytes read*/
-    size_t  pagesz      = 0;
     off_t   offset      = off;  /*current offset*/
     page_t *page        = NULL;
 
@@ -126,16 +126,15 @@ ssize_t icache_read(icache_t *icache, off_t off, void *buff, size_t sz) {
         pgno = offset / PGSZ;
         if ((err = (ssize_t)icache_getpage(icache, pgno, &page)))
             goto error;
-
-        pagesz = PAGESZ - (offset % PGSZ);
-        size = MIN(pagesz, sz);
+        size = MIN(PAGESZ - (offset % PGSZ), sz);
         if ((err = (ssize_t)arch_memcpypv((uintptr_t)buff + total,
-                      page_address(page) + (offset % PGSZ), size)))
+            page_address(page) + (offset % PGSZ), size)))
             goto error;
     }
 
     return total;
 error:
+    printk("[\e[025453;04mERROR\e[0m]: %s:%ld: in %s(): error=%d\n", __FILE__, __LINE__, __func__, err);
     return err;
 }
 
@@ -147,11 +146,17 @@ ssize_t icache_write(icache_t *icache, off_t off, void *buff, size_t sz) {
     size_t      pagesz  = 0;
     off_t       offset  = off;  /*current offset*/
     page_t      *page   = NULL;
+    int         new_page = 0;
 
     icache_assert_locked(icache);
     for (; sz; sz -= size, total += size, offset += size) {
         pgno = offset / PGSZ;
-        if ((err = (ssize_t)icache_getpage(icache, pgno, &page)))
+    try:
+        if ((err = (ssize_t)icache_getpage(icache, pgno, &page)) == -1) { //EOF rechead.
+            if ((page = alloc_page(GFP_KERNEL | GFP_ZERO)) == NULL)
+                goto try;
+            new_page = 1;
+        } else if (err)
             goto error;
 
         pagesz = PAGESZ - (offset % PGSZ);
@@ -160,10 +165,24 @@ ssize_t icache_write(icache_t *icache, off_t off, void *buff, size_t sz) {
                                  (uintptr_t)buff + total, size)))
             goto error;
 
+        if (new_page) {
+            icache_btree_lock(icache);
+            if ((err = btree_insert(icache_btree(icache), pgno, page))) {
+                icache_btree_unlock(icache);
+                goto error;
+            }
+            icache_btree_unlock(icache);
+            page_setvalid(page);
+            iupdate_size(icache->pc_inode, offset + size);
+            new_page = 0;
+        }
         page_setdirty(page);
     }
 
     return total;
 error:
+    if (new_page)
+        page_put(page);
+    printk("[\e[025453;04mERROR\e[0m]: %s:%ld: in %s(): error=%d\n", __FILE__, __LINE__, __func__, err);
     return err;
 }

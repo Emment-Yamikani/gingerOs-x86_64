@@ -74,9 +74,22 @@ static int sig_defaults[] = {
     [SIGXFSZ - 1] = SIG_TERM,      // | teminate or terminate+core
 };
 
-int pause(void);
-int kill(pid_t pid, int signo);
-unsigned long alarm(unsigned long sec);
+int pause(void) {
+    return -ENOSYS;
+}
+
+int kill(pid_t pid, int signo) {
+    (void)pid, (void)signo;
+
+    return -ENOSYS;
+}
+
+unsigned long alarm(unsigned long sec) {
+    (void)sec;
+
+    return -ENOSYS;
+}
+
 
 sigfunc_t signal(int signo, sigfunc_t func) {
     sigaction_t act, oact;

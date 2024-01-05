@@ -179,10 +179,9 @@ int     file_dup(int fd1, int fd2) {
     return fd2;
 }
 
-int     open(const char *pathname, int oflags, ...) {
+int     open(const char *pathname, int oflags, mode_t mode) {
     int fd = 0;
     int err = 0;
-    mode_t mode = 0;
     cred_t *cred = NULL;
     file_t *file = NULL;
     dentry_t *dentry = NULL;

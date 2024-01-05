@@ -446,6 +446,8 @@ ssize_t tmpfs_iwrite_data(inode_t *ip, off_t off, void *buf, size_t sz) {
 
     iassert_locked(ip);
 
+    debugloc();
+
     if (ip == NULL || buf == NULL)
         return -EINVAL;
 

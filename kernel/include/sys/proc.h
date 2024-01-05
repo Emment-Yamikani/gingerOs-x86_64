@@ -21,7 +21,8 @@ typedef struct proc {
     long             refcnt;    // process' reference count.
     long             exit;      // process' exit status.
     mmap_t          *mmap;      // process' memory map(virtual address space).
-    cond_t           wait;      // process' wait condition. 
+    cond_t           wait;      // process' wait condition.
+    struct proc     *parent;    // process' parent.
     tgroup_t        *tgroup;    // process' thread group.
     queue_t         children;   // process' children queue.
     struct pgroup   *pgroup;    // process' group

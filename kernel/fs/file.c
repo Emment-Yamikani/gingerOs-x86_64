@@ -421,7 +421,6 @@ ssize_t fwrite(file_t *file, void *buf, size_t size) {
         goto generic;
 
     return file->fops->fwrite(file, buf, size);
-
 generic:
     if (file->f_dentry == NULL)
         return -ENOENT;
