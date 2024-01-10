@@ -6,11 +6,14 @@
 #include <sys/elf/elf.h>
 #include <sys/session.h>
 
-__unused static struct binfmt {
+static struct binfmt {
     int (*check)(inode_t *binary);
     int (*load)(inode_t *binary, proc_t *proc);
 } binfmt[] = {
-    {.check = binfmt_elf_check, binfmt_elf_load}
+    { // ELF loader
+        .check = binfmt_elf_check,
+        .load = binfmt_elf_load,
+    },
 };
 
 proc_t *initproc = NULL;
@@ -326,7 +329,7 @@ int proc_init(const char *initpath) {
     thread_t    *thread = NULL;
 
     const char *argp[] = { initpath, NULL };
-    const char *envp[] = { "PATH=/mnt/ramfs/", NULL };
+    const char *envp[] = { "MOUNT=/mnt/", "PATH=/mnt/ramfs/", "ROOT=/", "TMPFS=/tmp/", NULL };
 
     if ((err = proc_load(initpath, NULL, &proc)))
         goto error;

@@ -159,10 +159,11 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
     
     t_attr = attr ? *attr : (thread_attr_t){
         .detachstate    = 0,
-        .guardsz        = 0,
         .stackaddr      = 0,
+        .guardsz        = PGSZ,
         .stacksz        = USTACKSZ,
     };
+
 
     if (tgroup == NULL || curproc == NULL)
         return -EINVAL;
@@ -194,6 +195,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
         }
     }
 
+    thread->t_mmap = proc_mmap(curproc);
     proc_mmap_unlock(curproc);
     proc_unlock(curproc);
 
@@ -202,12 +204,17 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
     /// free() and unmap() calls to reverse malloc() and mmap() respectively
     /// for this region may fail. ???
     thread->t_arch.t_ustack = ustack;
+    thread->t_owner = curproc;
 
     if ((err = arch_uthread_init(&thread->t_arch, entry, arg)))
         goto error;
 
-    if ((err = tgroup_add_thread(tgroup, thread)))
+    tgroup_lock(tgroup);
+    if ((err = tgroup_add_thread(tgroup, thread))) {
+        tgroup_unlock(tgroup);
         goto error;
+    }
+    tgroup_unlock(tgroup);
 
     if (pthread)
         *pthread = thread;

@@ -121,19 +121,23 @@ void     sys_thread_exit(int exit_code) {
 }
 
 int      sys_thread_create(tid_t *ptidp, void *attr, thread_entry_t entry, void *arg) {
-    int err = 0;
-    thread_t *thread = NULL;
+    int         err     = 0;
+    thread_t    *thread = NULL;
 
-    if (entry == NULL || ptidp == NULL)
+    if (entry == NULL)
         return -EINVAL;
     
     if ((err = thread_create(attr, entry, arg, &thread)))
         return err;
     
-    *ptidp = thread_gettid(thread);
+    if (ptidp)
+        *ptidp = thread_gettid(thread);
+    
+    err = thread_schedule(thread);
+
     thread_release(thread);
 
-    return 0;
+    return err;
 }
 
 int      sys_thread_join(tid_t tid, void **retval) {
