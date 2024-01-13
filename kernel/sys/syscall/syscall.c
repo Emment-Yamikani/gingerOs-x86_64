@@ -140,8 +140,12 @@ int      sys_thread_create(tid_t *ptidp, void *attr, thread_entry_t entry, void 
     return err;
 }
 
-int      sys_thread_join(tid_t tid, void **retval) {
+int sys_thread_join(tid_t tid, void **retval) {
     return thread_join(tid, NULL, retval);
+}
+
+tid_t sys_thread_self(void) {
+    return sys_gettid();
 }
 
 int sys_pause(void) {

@@ -33,8 +33,7 @@ static void arch_thread_stop(void) {
  * *********************************************************************************/
 #if defined __x86_64__
 
-    int
-    x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) {
+int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) {
     tf_t *tf = NULL;
     context_t *ctx = NULL;
     uintptr_t *kstack = NULL;
@@ -49,20 +48,20 @@ static void arch_thread_stop(void) {
     tf = (tf_t *)((uintptr_t)kstack - sizeof *tf);
     memset(tf, 0, sizeof *tf);
     
-    tf->ss = SEG_KDATA64 << 3;
-    tf->rbp = tf->rsp = (uintptr_t)kstack;
-    tf->rflags = LF_IF;
-    tf->cs = SEG_KCODE64 << 3;
-    tf->rip = (uintptr_t)entry;
-    tf->rdi = (uintptr_t)arg;
-    tf->fs = SEG_KDATA64 << 3;
-    tf->ds = SEG_KDATA64 << 3;
+    tf->ss      = SEG_KDATA64 << 3;
+    tf->rbp     = tf->rsp = (uintptr_t)kstack;
+    tf->rflags  = LF_IF;
+    tf->cs      = SEG_KCODE64 << 3;
+    tf->rip     = (uintptr_t)entry;
+    tf->rdi     = (uintptr_t)arg;
+    tf->fs      = SEG_KDATA64 << 3;
+    tf->ds      = SEG_KDATA64 << 3;
 
-    kstack = (uintptr_t *)tf;
-    *--kstack = (uintptr_t)trapret;
-    ctx = (context_t *)((uintptr_t)kstack - sizeof *ctx);
-    ctx->rip = (uintptr_t)arch_thread_start;
-    ctx->rbp = tf->rsp;
+    kstack      = (uintptr_t *)tf;
+    *--kstack   = (uintptr_t)trapret;
+    ctx         = (context_t *)((uintptr_t)kstack - sizeof *ctx);
+    ctx->rip    = (uintptr_t)arch_thread_start;
+    ctx->rbp    = tf->rsp;
 
     thread->t_tf = tf;
     thread->t_ctx0 = ctx;
@@ -74,7 +73,7 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     int         err     = 0;
     tf_t        *tf     = NULL;
     context_t   *ctx    = NULL;
-    uintptr_t   *kstack  = NULL;
+    uintptr_t   *kstack = NULL;
     uintptr_t   *ustack = NULL;
 
     if (!thread)
@@ -89,30 +88,76 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
 
     kstack = (uintptr_t *)ALIGN4K((thread->t_kstack + thread->t_kstacksz) - sizeof(thread_t));
 
-    *--kstack = (uintptr_t)arch_thread_stop;
-    *--ustack = -1ull; // push dummy return address.
+    *--kstack   = (uintptr_t)arch_thread_stop;
+    *--ustack   = -1ull; // push dummy return address.
 
     tf = (tf_t *)((uintptr_t)kstack - sizeof *tf);
     memset(tf, 0, sizeof *tf);
 
-    tf->ss = SEG_UDATA64 << 3 | DPL_USR;
-    tf->rbp = tf->rsp = (uintptr_t)ustack;
-    tf->rflags = LF_IF;
-    tf->cs = SEG_UCODE64 << 3 | DPL_USR;
-    tf->rip = (uintptr_t)entry;
-    tf->rdi = (uintptr_t)arg;
+    tf->ss      = SEG_UDATA64 << 3 | DPL_USR;
+    tf->rbp     = tf->rsp = (uintptr_t)ustack;
+    tf->rflags  = LF_IF;
+    tf->cs      = SEG_UCODE64 << 3 | DPL_USR;
+    tf->rip     = (uintptr_t)entry;
+    tf->rdi     = (uintptr_t)arg;
 
-    tf->fs = SEG_UDATA64 << 3 | DPL_USR;
-    tf->ds = SEG_UDATA64 << 3 | DPL_USR;
+    tf->fs      = SEG_UDATA64 << 3 | DPL_USR;
+    tf->ds      = SEG_UDATA64 << 3 | DPL_USR;
 
-    kstack = (uintptr_t *)tf;
-    *--kstack = (uintptr_t)trapret;
-    ctx = (context_t *)((uintptr_t)kstack - sizeof *ctx);
-    ctx->rip = (uintptr_t)arch_thread_start;
-    ctx->rbp = tf->rsp;
+    kstack      = (uintptr_t *)tf;
+    *--kstack   = (uintptr_t)trapret;
+    ctx         = (context_t *)((uintptr_t)kstack - sizeof *ctx);
+    ctx->rip    = (uintptr_t)arch_thread_start;
+    ctx->rbp    = tf->rsp;
 
-    thread->t_tf = tf;
-    thread->t_ctx0 = ctx;
+    thread->t_tf    = tf;
+    thread->t_ctx0  = ctx;
+
+    return 0;
+}
+
+int x86_64_uthread_signal_init(arch_thread_t *thread, thread_entry_t entry, void *arg) {
+    int         err     = 0;
+    tf_t        *tf     = NULL;
+    context_t   *ctx    = NULL;
+    uintptr_t   *kstack = NULL;
+    uintptr_t   *ustack = NULL;
+
+    if (!thread)
+        return -EINVAL;
+
+    if ((ustack = (uintptr_t *)__vmr_upper_bound(thread->t_ustack)) == NULL)
+        return -EINVAL;
+
+    if ((err = arch_map_n(((uintptr_t)ustack) - PGSZ, PGSZ, thread->t_ustack->vflags)))
+        return err;
+
+    kstack = (uintptr_t *)ALIGN4K((thread->t_kstack + thread->t_kstacksz) - sizeof(thread_t));
+
+    *--kstack   = (uintptr_t)arch_thread_stop;
+    *--ustack   = -1ull; // push dummy return address.
+
+    tf = (tf_t *)((uintptr_t)kstack - sizeof *tf);
+    memset(tf, 0, sizeof *tf);
+
+    tf->ss      = SEG_UDATA64 << 3 | DPL_USR;
+    tf->rbp     = tf->rsp = (uintptr_t)ustack;
+    tf->rflags  = LF_IF;
+    tf->cs      = SEG_UCODE64 << 3 | DPL_USR;
+    tf->rip     = (uintptr_t)entry;
+    tf->rdi     = (uintptr_t)arg;
+
+    tf->fs      = SEG_UDATA64 << 3 | DPL_USR;
+    tf->ds      = SEG_UDATA64 << 3 | DPL_USR;
+
+    kstack      = (uintptr_t *)tf;
+    *--kstack   = (uintptr_t)trapret;
+    ctx         = (context_t *)((uintptr_t)kstack - sizeof *ctx);
+    ctx->rip    = (uintptr_t)arch_thread_start;
+    ctx->rbp    = tf->rsp;
+
+    thread->t_tf    = tf;
+    thread->t_ctx0  = ctx;
 
     return 0;
 }
@@ -149,25 +194,25 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
     tf = (tf_t *)((uintptr_t)kstack - sizeof *tf);
     memset(tf, 0, sizeof *tf);
 
-    tf->ss = SEG_UDATA64 << 3 | DPL_USR;
-    tf->rbp = tf->rsp = (uintptr_t)ustack;
-    tf->rflags = LF_IF;
-    tf->cs = SEG_UCODE64 << 3 | DPL_USR;
-    tf->rip = (uintptr_t)entry;
+    tf->ss      = SEG_UDATA64 << 3 | DPL_USR;
+    tf->rbp     = tf->rsp = (uintptr_t)ustack;
+    tf->rflags  = LF_IF;
+    tf->cs      = SEG_UCODE64 << 3 | DPL_USR;
+    tf->rip     = (uintptr_t)entry;
 
     // pass paramenters to entry function.
-    tf->rdi = (uintptr_t)argc;
-    tf->rsi = (uintptr_t)argp;
-    tf->rdx = (uintptr_t)envp;
+    tf->rdi     = (uintptr_t)argc;
+    tf->rsi     = (uintptr_t)argp;
+    tf->rdx     = (uintptr_t)envp;
 
-    tf->fs = SEG_UDATA64 << 3 | DPL_USR;
-    tf->ds = SEG_UDATA64 << 3 | DPL_USR;
+    tf->fs      = SEG_UDATA64 << 3 | DPL_USR;
+    tf->ds      = SEG_UDATA64 << 3 | DPL_USR;
 
-    kstack = (uintptr_t *)tf;
-    *--kstack = (uintptr_t)trapret;
-    ctx = (context_t *)((uintptr_t)kstack - sizeof *ctx);
-    ctx->rip = (uintptr_t)arch_thread_start;
-    ctx->rbp = tf->rsp;
+    kstack      = (uintptr_t *)tf;
+    *--kstack   = (uintptr_t)trapret;
+    ctx         = (context_t *)((uintptr_t)kstack - sizeof *ctx);
+    ctx->rip    = (uintptr_t)arch_thread_start;
+    ctx->rbp    = tf->rsp;
 
     thread->t_tf = tf;
     thread->t_ctx0 = ctx;
@@ -175,15 +220,15 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
     return 0;
 }
 
-int x86_64_thread_setkstack(arch_thread_t *arch) {
+int x86_64_thread_setkstack(arch_thread_t *thread) {
     uintptr_t kstack = 0;
-    if (arch == NULL)
+    if (thread == NULL)
         return -EINVAL;
     
-    if (arch->t_kstack == 0 || arch->t_sig_kstacksz)
+    if (thread->t_kstack == 0 || thread->t_sig_kstacksz)
         return -EFAULT;
     
-    kstack = ALIGN4K((arch->t_kstack + arch->t_kstacksz) - sizeof(thread_t));
+    kstack = ALIGN4K((thread->t_kstack + thread->t_kstacksz) - sizeof(thread_t));
 
     tss_set(kstack, SEG_KDATA64 << 3);
     

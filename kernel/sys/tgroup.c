@@ -79,7 +79,7 @@ int tgroup_kill_thread(tgroup_t *tgroup, tid_t tid, int wait) {
          * if it belongs to 'tgroup'.
          */
         if (current->t_group == tgroup)
-            tgroup->tg_tmain = current;
+            thread_setmain(current);
     } else {
         if ((err = tgroup_get_thread(tgroup, tid, 0, &thread)))
             goto error;
@@ -137,9 +137,8 @@ int tgroup_add_thread(tgroup_t *tgroup, thread_t *thread) {
         return err;
     
     thread->t_group = tgroup;
-    if (tgroup->tg_tmain == NULL) {
-        tgroup->tg_tmain = thread;
-        tgroup->tg_tlast = thread;
+    if (tgroup_getthread_count(tgroup) == 1) {
+        thread_setmain(thread);
         tgroup->tg_tgid = thread->t_tid;
     }
 
@@ -391,15 +390,25 @@ int tgroup_stop(tgroup_t *tgroup) {
 }
 
 int tgroup_getmain(tgroup_t *tgroup, thread_t **ptp) {
+    thread_t *thread = NULL;
+
     if (tgroup == NULL || ptp == NULL)
         return -EINVAL;
     
     tgroup_assert_locked(tgroup);
     
-    if (tgroup->tg_tmain == NULL)
-        return -ENOENT;
+    queue_lock(&tgroup->tg_thread);
+    forlinked(node, tgroup->tg_thread.head, node->next) {
+        thread = (thread_t *)node->data;
+        thread_lock(thread);
+        if (thread_ismain(thread)) {
+            *ptp = thread_getref(thread);
+            queue_unlock(&tgroup->tg_thread);
+            return 0;
+        }
+        thread_unlock(thread);
+    }
+    queue_unlock(&tgroup->tg_thread);
 
-    thread_lock(tgroup->tg_tmain);
-    *ptp = thread_getref(tgroup->tg_tmain);
-    return 0;
+    return -ESRCH;
 }

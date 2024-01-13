@@ -10,8 +10,7 @@
 struct thread;
 extern tid_t thread_self(void);
 extern tid_t thread_gettid(thread_t *);
-typedef struct spinlock
-{
+typedef struct spinlock {
     uint8_t s_lock;
     int s_line;
     cpu_t *s_cpu;

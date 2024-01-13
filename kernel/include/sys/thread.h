@@ -120,12 +120,13 @@ typedef struct {
 #define THREAD_DETACHED                 BS(5)   // free resources allocated to this thread imediately to terminates.
 #define THREAD_STOP                     BS(6)   // thread stop.
 #define THREAD_SIMD_DIRTY               BS(7)   // thread's SIMD context is dirty and must be save on context swtich.
-#define THREAD_ISMAIN                  BS(8)   // thread is a main thread in the tgroup.
+#define THREAD_ISMAIN                   BS(8)   // thread is a main thread in the tgroup.
+#define THREAD_ISLAST                   BS(9)   // thread is the last thread in the troup.
 
 #define thread_assert(t)                ({ assert(t, "No thread pointer\n");})
 #define thread_lock(t)                  ({ thread_assert(t); spin_lock(&((t)->t_lock)); })
 #define thread_unlock(t)                ({ thread_assert(t); spin_unlock(&((t)->t_lock)); })
-#define thread_locked(t)                ({ thread_assert(t); spin_islocked(&((t)->t_lock)); })
+#define thread_islocked(t)              ({ thread_assert(t); spin_islocked(&((t)->t_lock)); })
 #define thread_assert_locked(t)         ({ thread_assert(t); spin_assert_locked(&((t)->t_lock)); })
 
 #define thread_grabref(thread) ({ \
@@ -184,7 +185,7 @@ typedef struct {
 })
 
 #define thread_ismain(t) ({                            \
-    int locked = thread_locked(t);                     \
+    int locked = thread_islocked(t);                     \
     if (!locked)                                       \
         thread_lock(t);                                \
     int ismain = thread_testflags((t), THREAD_ISMAIN); \
@@ -193,8 +194,18 @@ typedef struct {
     ismain;                                            \
 })
 
+#define thread_islast(t) ({                            \
+    int locked = thread_islocked(t);                     \
+    if (!locked)                                       \
+        thread_lock(t);                                \
+    int ismain = thread_testflags((t), THREAD_ISLAST); \
+    if (!locked)                                       \
+        thread_unlock(t);                              \
+    ismain;                                            \
+})
+
 #define thread_iskilled(t) ({                          \
-    int locked = thread_locked(t);                     \
+    int locked = thread_islocked(t);                     \
     if (!locked)                                       \
         thread_lock(t);                                \
     int killed = thread_testflags((t), THREAD_KILLED); \
@@ -204,7 +215,7 @@ typedef struct {
 })
 
 #define thread_ishandling_signal(t) ({                         \
-    int locked = thread_locked(t);                             \
+    int locked = thread_islocked(t);                             \
     if (!locked)                                               \
         thread_lock(t);                                        \
     int handling = thread_testflags((t), THREAD_HANDLING_SIG); \
@@ -222,6 +233,24 @@ typedef struct {
 #define thread_isdetached(t)            ({ thread_testflags((t), THREAD_DETACHED); })
 #define thread_issetwake(t)             ({ thread_testflags((t), THREAD_WAKE); })
 #define thread_issetpark(t)             ({ thread_testflags((t), THREAD_PARK); })
+
+#define thread_setmain(t) ({             \
+    int locked = 0;                      \
+    if ((locked = !thread_islocked(t)))  \
+        thread_lock(t);                  \
+    thread_setflags((t), THREAD_ISMAIN); \
+    if (locked)                          \
+        thread_unlock(t);                \
+})
+
+#define thread_setlast(t) ({             \
+    int locked = 0;                      \
+    if ((locked = !thread_islocked(t)))  \
+        thread_lock(t);                  \
+    thread_setflags((t), THREAD_ISLAST); \
+    if (locked)                          \
+        thread_unlock(t);                \
+})
 
 #define thread_setuser(t)               ({ thread_setflags((t), THREAD_USER); })
 #define thread_setdetached(t)           ({ thread_setflags((t), THREAD_DETACHED); })
@@ -242,7 +271,7 @@ typedef struct {
 #define current_assert()                ({ assert(current, "No current thread running"); })
 #define current_lock()                  ({ thread_lock(current); })
 #define current_unlock()                ({ thread_unlock(current); })
-#define current_locked()                ({ thread_locked(current); })
+#define current_locked()                ({ thread_islocked(current); })
 #define current_assert_locked()         ({ thread_assert_locked(current); })
 
 #define current_tgroup()                ({ current ? thread_tgroup(current) : NULL; })

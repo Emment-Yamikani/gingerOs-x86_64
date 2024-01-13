@@ -12,9 +12,6 @@ typedef struct thread thread_t;
 typedef struct {
     tid_t           tg_tgid;
 
-    thread_t        *tg_tmain;
-    thread_t        *tg_tlast;
-
     long            tg_refcnt;
     long            tg_running;
     queue_t         tg_thread;
@@ -24,7 +21,7 @@ typedef struct {
     sigaction_t     sig_action[NSIG];
     uint8_t         sig_queues[NSIG];
 
-    spinlock_t  tg_lock;
+    spinlock_t      tg_lock;
 } tgroup_t;
 
 #define tgroup_assert(tgroup)               ({ assert(tgroup, "No tgroup."); })
