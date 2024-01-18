@@ -268,6 +268,7 @@ int main(int argc, char *argv[])
 #include <lib/stdlib.h>
 #include <lib/string.h>
 #include <mm/kalloc.h>
+#include <lib/printk.h>
 
 #define njAllocMem kmalloc
 #define njFreeMem kfree

@@ -11,7 +11,7 @@
 #include <sys/thread.h>
 #include <lib/string.h>
 #include <lib/stdint.h>
-#include <lib/nanojpeg.c>
+#include <lib/nanojpeg.h>
 #include <dev/clocks.h>
 #include <boot/boot.h>
 #include <ds/stack.h>

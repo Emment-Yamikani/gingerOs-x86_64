@@ -95,6 +95,9 @@ typedef struct vmr {
 /*Size of a memory mapping*/
 #define __vmr_size(r)               ((r->end - r->start) + 1)
 
+/*size of region in file on-disk*/
+#define __vmr_filesz(r)             ((r->filesz))
+
 /**Upper edge of a memory mapping.
  **NB*: 'edge' is not part of the mapping*/
 #define __vmr_upper_bound(r)        (r->end + 1)

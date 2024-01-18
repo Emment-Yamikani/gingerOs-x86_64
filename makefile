@@ -1,90 +1,94 @@
-cc=x86_64-elf-gcc
-ld=x86_64-elf-ld
-ar=x86_64-elf-ar
-as=x86_64-elf-as
+# Compiler
+CC := x86_64-elf-gcc
+LD := x86_64-elf-ld
+AR := x86_64-elf-ar
+AS := x86_64-elf-as
 
-_arch_=__x86_64__
+# Common flags
+CFLAGS := -O2 -g -nostdinc -nostdlib -lgcc \
+	-std=gnu2x -Wall -march=x86-64 -Werror \
+	-Wextra -mcmodel=large -mno-red-zone -mno-mmx -msse
+CPPFLAGS :=
 
-cflags += -O2 -g -nostdinc -nostdlib \
- 	-lgcc -std=gnu2x -Wall -march=x86-64\
- 	-Werror -Wextra -mcmodel=large \
- 	-mno-red-zone -mno-mmx -msse
-
-cppflags +=
-
-ldflags += -nostdlib -static -m elf_x86_64 \
+# Linker flags
+LDFLAGS := -nostdlib -static -m elf_x86_64 \
 	-z max-page-size=0x1000 -T
 
-kernel_flags:=$(cflags) $(cppflags) -ffreestanding -D$(_arch_) -Ikernel/include
+# Kernel flags
+KERNEL_FLAGS := $(CFLAGS) $(CPPFLAGS) -ffreestanding \
+	-D__x86_64__ -Ikernel/include
 
-#currently only supports the intel x86-32bit 386 or higher
-_ARCH_=i386
+# User flags
+USER_FLAGS := $(CFLAGS) $(CPPFLAGS) -fPIC
 
-kernel_dir=kernel
+# Directories
+USR_DIR := usr
+USR_LIB := $(USR_DIR)/usr/lib
 
-include $(kernel_dir)/makefile
+# Kernel directories
+KERNEL_DIR := kernel
+KERNEL_SUBDIRS := $(shell find $(KERNEL_DIR) -type d)
+ISO_DIR := iso
+RAMFS_DIR := ramfs
 
-#directory having iso-image recipe(contents)
-iso_dir=iso
+# Kernel source files
+KERNEL_SOURCES := $(shell find $(KERNEL_DIR) -type f \( -name '*.c' -o -name '*.asm' -o -name '*.S' \))
+KERNEL_OBJS := $(patsubst $(KERNEL_DIR)/%.c, $(KERNEL_DIR)/%.o, $(patsubst $(KERNEL_DIR)/%.asm, $(KERNEL_DIR)/%.o, $(patsubst $(KERNEL_DIR)/%.S, $(KERNEL_DIR)/%.o, $(KERNEL_SOURCES))))
 
-#directory having contents of our ramfs
-ramfs_dir=ramfs
+# User source files
+USER_SOURCES := $(wildcard $(USR_LIB)/*.c $(USR_LIB)/*.asm)
+USER_OBJS := $(patsubst $(USR_LIB)/%.c, $(USR_LIB)/%.o, $(patsubst $(USR_LIB)/%.asm, $(USR_LIB)/%.o, $(USER_SOURCES)))
 
-linked_objs:=\
-$(kernel_objs)\
-font.o
+# Kernel linked objects
+LINKED_OBJS := $(KERNEL_OBJS) font.o
 
-.PHONY: all clean
+# Shared object file
+LIBG_SO := $(USR_LIB)/libg.so
 
-.SUFFIXES: .o .asm .s .c
-
-.c.o:
-	$(cc) $(kernel_flags) -MD -c $< -o $@
-
-.s.o:
-	$(cc) $(kernel_flags) -MD -c $< -o $@
-
-.tf.o:
-	$(ld) -r -b binary -o $@ $^
-
-.asm.o:
-	nasm $< -f elf64 -o $@
-
+# Make rules
 all: lime.elf module _iso_ run
 
+# Kernel rules
+$(KERNEL_DIR)/%.o: $(KERNEL_DIR)/%.c
+	$(CC) $(KERNEL_FLAGS) -MD -c $< -o $@
+
+$(KERNEL_DIR)/%.o: $(KERNEL_DIR)/%.asm
+	nasm $< -f elf64 -o $@
+
+$(KERNEL_DIR)/%.o: $(KERNEL_DIR)/%.S
+	$(CC) $(KERNEL_FLAGS) -MD -c $< -o $@
+
+lime.elf: $(ISO_DIR)/boot/lime.elf
+
+$(ISO_DIR)/boot/lime.elf: $(KERNEL_DIR)/kernel.ld $(LINKED_OBJS)
+	$(LD) $(LDFLAGS) $^ -o $@
+
+# Shared library rules
+$(USR_LIB)/%.o: $(USR_LIB)/%.c
+	$(CC) $(USER_FLAGS) -MD -c $< -o $@
+
+$(USR_LIB)/%.o: $(USR_LIB)/%.asm
+	nasm $< -f elf64 -o $@
+
+$(LIBG_SO): $(USER_OBJS)
+	$(LD) $(LDFLAGS) --shared $^ -o $@
+
+# Additional rule
 font.o: font.tf
-	$(ld) -r -b binary -o $@ $^
+	$(LD) -r -b binary -o $@ $^
 
-lime.elf: $(iso_dir)/boot/lime.elf
-
-#$(iso_dir)/boot/lime.elf: $(kernel_dir)/linker.ld $(linked_objs)
-#	$(ld) $(ldflags) $^ -o $@ $(kernel_flags)
-
-$(iso_dir)/boot/lime.elf: $(kernel_dir)/kernel.ld $(linked_objs)
-	$(ld) $(ldflags) $^ -o $@
-
-run:
-	qemu-system-x86_64	\
-	-smp 2	 			\
-	-m size=2G			\
-	-cdrom	ginger.iso	\
-	-no-reboot			\
-	-no-shutdown		\
-	-vga std			\
-	-chardev stdio,\
-	id=char0,\
-	logfile=serial.log,\
-	signal=off 			\
-    -serial chardev:char0
+# Common rules
+module:
+	./mkdisk -o $(ISO_DIR)/modules/ramfs -d $(RAMFS_DIR)
 
 _iso_:
-	grub-mkrescue -o ginger.iso $(iso_dir)
+	grub-mkrescue -o ginger.iso $(ISO_DIR)
 
-module:
-	./mkdisk -o $(iso_dir)/modules/ramfs -d $(ramfs_dir)
+run:
+	qemu-system-x86_64 -smp 4 -m size=2G -cdrom ginger.iso -no-reboot -no-shutdown -vga std -chardev stdio,id=char0,logfile=serial.log,signal=off -serial chardev:char0
 
 debug:
-	objdump -d iso/boot/lime.elf -M intel > lime.asm
+	objdump -d $(ISO_DIR)/boot/lime.elf -M intel > lime.asm
 
 clean_debug:
 	rm lime.asm
@@ -93,8 +97,4 @@ passwd:
 	./crypt
 
 clean:
-	rm $(linked_objs) $(linked_objs:.o=.d) ginger.iso lime.asm $(iso_dir)/modules/initrd $(iso_dir)/boot/lime.elf $(iso_dir)/modules/* serial.log
-
-usr_dir=usr
-
-include $(usr_dir)/makefile
+	rm -rf $(KERNEL_OBJS) $(KERNEL_OBJS:.o=.d) $(LINKED_OBJS) $(LINKED_OBJS:.o=.d) $(USR_LIB)/*.o $(USR_LIB)/*.d $(LIBG_SO) ginger.iso $(ISO_DIR)/modules/initrd $(ISO_DIR)/boot/lime.elf $(ISO_DIR)/modules/* serial.log

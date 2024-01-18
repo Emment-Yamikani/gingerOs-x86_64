@@ -44,21 +44,24 @@ int binfmt_elf_load(inode_t *binary, proc_t *proc) {
     
     iassert_locked(binary);
 
-    if (iread(binary, 0, &elf, sizeof elf) != sizeof elf)
-        return -EAGAIN;
+    if ((err = iread(binary, 0, &elf, sizeof elf)) != sizeof elf)
+        return err;
 
     if (NULL == (phdr = kmalloc(elf.e_phentsize * elf.e_phnum)))
         return -ENOMEM;
 
-    err = -EAGAIN;
-    if (iread(binary, elf.e_phoff, phdr,
-        elf.e_phentsize * elf.e_phnum) !=
+    if ((err = iread(binary, elf.e_phoff, phdr,
+        elf.e_phentsize * elf.e_phnum)) !=
         (elf.e_phentsize * elf.e_phnum))
         goto error;
 
+    printk("type: %ld\n", elf.e_type);
+
     for (size_t i = 0; i < elf.e_phnum; ++i) {
         hdr = &phdr[i];
-
+    
+        printk("elf_phdr[%d]: addr: %ld, off: %ld, memsz: %ld, filesz: %ld\n",
+            hdr-phdr, hdr->p_vaddr, hdr->p_offset, hdr->p_memsz, hdr->p_filesz);
         if (hdr->p_type == PT_LOAD) {
             memsz = PGROUNDUP(hdr->p_memsz);
             prot  = (hdr->p_flags & PF_X ? PROT_X: 0)|
@@ -67,11 +70,10 @@ int binfmt_elf_load(inode_t *binary, proc_t *proc) {
             flags = MAP_PRIVATE | MAP_DONTEXPAND | MAP_FIXED;
 
             if ((err = mmap_map_region(proc->mmap,
-                hdr->p_vaddr, memsz, prot, flags, &vmr)))
+                ALIGN4K(hdr->p_vaddr), memsz, prot, flags, &vmr)))
                 goto error;
             
             vmr->file       = binary;
-            flags           = prot = flags;
             vmr->filesz     = hdr->p_filesz;
             vmr->file_pos   = hdr->p_offset;
         }

@@ -269,7 +269,7 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
     long        pgref     = 0;
     size_t      offset    = 0;
     page_t      *page     = NULL;
-    char        buf[PGSZ] __aligned(PGSZ);
+    char        buf[PGSZ] = {0};
 
     if (vmr == NULL || fault == NULL)
         return -EINVAL;
@@ -342,7 +342,7 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
 
         if (vmr->file) { // vmr has backing store.
             ilock(vmr->file);
-            size = (size_t)__min(PGSZ, (size_t)__min(vmr->filesz, igetsize(vmr->file) - offset));
+            size = (size_t)__min(PGSZ, (size_t)__min(__vmr_filesz(vmr), igetsize(vmr->file) - offset));
 
             if (__vmr_shared(vmr)) { // shared vmr?
                 if ((err = icache_getpage(vmr->file->i_cache, offset / PGSZ, &page))) {
@@ -356,13 +356,15 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
                     iunlock(vmr->file);
                     return err;
                 }
-            } else { // vmr has no backing store.
-                if ((err = arch_map_n(fault->addr, PGSZ, vmr->vflags))) {
+            } else { // vmr is not shared.
+                if ((err = arch_map_n(fault->addr, PGSZ, 
+                    vmr->vflags | (((__vmr_filesz(vmr) < __vmr_size(vmr)) ||
+                     __vmr_zero(vmr)) ? PTE_ZERO : 0)))) {
                     iunlock(vmr->file);
                     return err;
                 }
                 
-                if ((err = iread(vmr->file, offset, (void *)fault->addr, size)) < 0) {
+                if ((err = iread(vmr->file, offset, (void *)PGROUND(fault->addr), size)) < 0) {
                     arch_unmap_n(fault->addr, PGSZ);
                     iunlock(vmr->file);
                     return err;
@@ -386,12 +388,12 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
 
     if (vmr->file) {
         ilock(vmr->file);
-        size = (size_t)__min(PGSZ, (size_t)__min(vmr->filesz, igetsize(vmr->file) - offset));
-
         if (igetsize(vmr->file) == 0) {
             iunlock(vmr->file);
             return -EFAULT;
         }
+
+        size = (size_t)__min(PGSZ, (size_t)__min(__vmr_filesz(vmr), igetsize(vmr->file) - offset));
 
         if (__vmr_shared(vmr)) {
             if ((err = icache_getpage(vmr->file->i_cache, offset / PGSZ, &page))) {
@@ -405,13 +407,16 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
                 iunlock(vmr->file);
                 return err;
             }
-        } else {
+        } else { // vmr not shared
             if ((dstaddr = pmman.get_page(GFP_NORMAL |
-                (__vmr_zero(vmr) ? GFP_ZERO : 0))) == 0) {
+                (((__vmr_filesz(vmr) < __vmr_size(vmr)) ||
+                __vmr_zero(vmr)) ? GFP_ZERO : 0))) == 0) {
                     iunlock(vmr->file);
                 return -ENOMEM;
             }
-            
+
+            memset(buf, 0, sizeof buf);
+
             if ((err = iread(vmr->file, offset, buf, size)) < 0) {
                 pmman.free(dstaddr);
                 iunlock(vmr->file);
