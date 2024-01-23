@@ -60,7 +60,7 @@ int binfmt_elf_load(inode_t *binary, proc_t *proc) {
     for (size_t i = 0; i < elf.e_phnum; ++i) {
         hdr = &phdr[i];
     
-        printk("elf_phdr[%d]: addr: %ld, off: %ld, memsz: %ld, filesz: %ld\n",
+        printk("elf_phdr[%d]: addr: %p, off: %p, memsz: %ld, filesz: %ld\n",
             hdr-phdr, hdr->p_vaddr, hdr->p_offset, hdr->p_memsz, hdr->p_filesz);
         if (hdr->p_type == PT_LOAD) {
             memsz = PGROUNDUP(hdr->p_memsz);

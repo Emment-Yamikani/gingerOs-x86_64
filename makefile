@@ -18,18 +18,21 @@ LDFLAGS := -nostdlib -static -m elf_x86_64 \
 KERNEL_FLAGS := $(CFLAGS) $(CPPFLAGS) -ffreestanding \
 	-D__x86_64__ -Ikernel/include
 
-# User flags
-USER_FLAGS := $(CFLAGS) $(CPPFLAGS) -fPIC
+#User flags
+USER_FLAGS := $(CFLAGS) $(CPPFLAGS)
+
+# User lib flags
+USER_LIB_FLAGS := $(CFLAGS) $(CPPFLAGS) -fPIC
 
 # Directories
 USR_DIR := usr
-USR_LIB := $(USR_DIR)/usr/lib
+USR_LIB := $(USR_DIR)/lib
 
 # Kernel directories
-KERNEL_DIR := kernel
-KERNEL_SUBDIRS := $(shell find $(KERNEL_DIR) -type d)
 ISO_DIR := iso
 RAMFS_DIR := ramfs
+KERNEL_DIR := kernel
+KERNEL_SUBDIRS := $(shell find $(KERNEL_DIR) -type d)
 
 # Kernel source files
 KERNEL_SOURCES := $(shell find $(KERNEL_DIR) -type f \( -name '*.c' -o -name '*.asm' -o -name '*.S' \))
@@ -39,11 +42,11 @@ KERNEL_OBJS := $(patsubst $(KERNEL_DIR)/%.c, $(KERNEL_DIR)/%.o, $(patsubst $(KER
 USER_SOURCES := $(wildcard $(USR_LIB)/*.c $(USR_LIB)/*.asm)
 USER_OBJS := $(patsubst $(USR_LIB)/%.c, $(USR_LIB)/%.o, $(patsubst $(USR_LIB)/%.asm, $(USR_LIB)/%.o, $(USER_SOURCES)))
 
+# Shared object file
+LIBC_SO := $(USR_LIB)/libc.so
+
 # Kernel linked objects
 LINKED_OBJS := $(KERNEL_OBJS) font.o
-
-# Shared object file
-LIBG_SO := $(USR_LIB)/libg.so
 
 # Make rules
 all: lime.elf module _iso_ run
@@ -65,12 +68,12 @@ $(ISO_DIR)/boot/lime.elf: $(KERNEL_DIR)/kernel.ld $(LINKED_OBJS)
 
 # Shared library rules
 $(USR_LIB)/%.o: $(USR_LIB)/%.c
-	$(CC) $(USER_FLAGS) -MD -c $< -o $@
+	$(CC) $(USER_LIB_FLAGS) -MD -c $< -o $@
 
 $(USR_LIB)/%.o: $(USR_LIB)/%.asm
 	nasm $< -f elf64 -o $@
 
-$(LIBG_SO): $(USER_OBJS)
+$(LIBC_SO): $(USER_OBJS)
 	$(LD) $(LDFLAGS) --shared $^ -o $@
 
 # Additional rule
@@ -84,17 +87,23 @@ module:
 _iso_:
 	grub-mkrescue -o ginger.iso $(ISO_DIR)
 
-run:
-	qemu-system-x86_64 -smp 4 -m size=2G -cdrom ginger.iso -no-reboot -no-shutdown -vga std -chardev stdio,id=char0,logfile=serial.log,signal=off -serial chardev:char0
-
 debug:
 	objdump -d $(ISO_DIR)/boot/lime.elf -M intel > lime.asm
+
+run:
+	qemu-system-x86_64 -smp 4 \
+	-m size=2G -cdrom ginger.iso \
+	-no-reboot -no-shutdown -vga std \
+	-chardev stdio,id=char0,logfile=serial.log,signal=off \
+	-serial chardev:char0
 
 clean_debug:
 	rm lime.asm
 
-passwd:
-	./crypt
-
 clean:
-	rm -rf $(KERNEL_OBJS) $(KERNEL_OBJS:.o=.d) $(LINKED_OBJS) $(LINKED_OBJS:.o=.d) $(USR_LIB)/*.o $(USR_LIB)/*.d $(LIBG_SO) ginger.iso $(ISO_DIR)/modules/initrd $(ISO_DIR)/boot/lime.elf $(ISO_DIR)/modules/* serial.log
+	rm -rf $(KERNEL_OBJS) $(KERNEL_OBJS:.o=.d)\
+	$(LINKED_OBJS) $(LINKED_OBJS:.o=.d)\
+	$(USR_LIB)/*.o $(USR_LIB)/*.d $(LIBC_SO)\
+	ginger.iso $(ISO_DIR)/modules/initrd\
+	$(ISO_DIR)/boot/lime.elf\
+	$(ISO_DIR)/modules/* serial.log
