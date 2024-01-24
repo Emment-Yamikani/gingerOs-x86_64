@@ -268,13 +268,14 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
     size_t      size      = 0;
     long        pgref     = 0;
     size_t      offset    = 0;
+    size_t      gap       = 0; // space between start of seg in file and ALIGNED(fault->addr)
     page_t      *page     = NULL;
     char        buf[PGSZ] = {0};
 
     if (vmr == NULL || fault == NULL)
         return -EINVAL;
 
-    offset = (PGROUND(fault->addr) - __vmr_start(vmr)) + vmr->file_pos;
+    offset = (gap = (PGROUND(fault->addr) - __vmr_start(vmr))) + vmr->file_pos;
 
     // write access?
     if (fault->err_code & PTE_W) {
@@ -342,7 +343,16 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
 
         if (vmr->file) { // vmr has backing store.
             ilock(vmr->file);
-            size = (size_t)__min(PGSZ, (size_t)__min(__vmr_filesz(vmr), igetsize(vmr->file) - offset));
+            /**
+             * @brief get the minimum size to read from the file on-disk.
+             * Take into account the gap between the start of the memory region and
+             * the faulting address. this TODO: must be subtracted from the __vmr_filesz(vmr),
+             * but setting size to '0' if gap is greater than __vmr_filesz(vmr) appears to work.
+             */
+            size = (gap < __vmr_filesz(vmr)) ? 
+                (size_t)__min(PGSZ, (size_t)__min(__vmr_filesz(vmr) - gap,
+                igetsize(vmr->file) - offset)) 
+            : 0;
 
             if (__vmr_shared(vmr)) { // shared vmr?
                 if ((err = icache_getpage(vmr->file->i_cache, offset / PGSZ, &page))) {
@@ -370,7 +380,7 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
                     return err;
                 }
             }
-            iunlink(vmr->file);
+            iunlock(vmr->file);
         } else { // No backing store, possibly an anonymous region.
             if ((err = arch_map_n(fault->addr,
                 PGSZ, vmr->vflags | (__vmr_zero(vmr) ? PTE_ZERO : 0))))
@@ -393,7 +403,17 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
             return -EFAULT;
         }
 
-        size = (size_t)__min(PGSZ, (size_t)__min(__vmr_filesz(vmr), igetsize(vmr->file) - offset));
+        /**
+         * @brief get the minimum size to read from the file on-disk.
+         * Take into account the gap between the start of the memory region and
+         * the faulting address. this TODO: must be subtracted from the __vmr_filesz(vmr),
+         * but setting size to '0' if gap is greater than __vmr_filesz(vmr) appears to work.
+         */
+        size = (gap < __vmr_filesz(vmr)) ? 
+            (size_t)__min(PGSZ, (size_t)__min(__vmr_filesz(vmr) - gap,
+            igetsize(vmr->file) - offset)) 
+        : 0;
+
 
         if (__vmr_shared(vmr)) {
             if ((err = icache_getpage(vmr->file->i_cache, offset / PGSZ, &page))) {
@@ -401,7 +421,7 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
                 return err;
             }
 
-            assert(0, "hung");
+            assert(0, "hung"); //TODO: Just remove this!!
             page_incr(page);
 
             if ((err = arch_map_i(fault->addr, page_address(page), PGSZ, vmr->vflags))) {
@@ -416,6 +436,11 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
                 return -ENOMEM;
             }
 
+            // printk("Rs: %p, Fa: %lX, Size: %6ld, Fsz: %6ld, Msz: %6ld, Zsz: %6ld, off: %x, size: %6ld\n",
+            //     __vmr_start(vmr), fault->addr, __vmr_size(vmr), __vmr_filesz(vmr),
+            //     __vmr_memsz(vmr), __vmr_size(vmr) - __vmr_filesz(vmr), offset, size
+            // );
+            
             memset(buf, 0, sizeof buf);
 
             if ((err = iread(vmr->file, offset, buf, size)) < 0) {

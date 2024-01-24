@@ -873,9 +873,9 @@ int printf(const char *restrict format, ...) {
   va_list va;
   va_start(va, format);
   char buffer[1];
-  // spin_lock(lock);
+  spin_lock(lock);
   const size_t ret = _vsnprintf(_out_char, buffer, (size_t)-1, format, va);
-  // spin_unlock(lock);
+  spin_unlock(lock);
   va_end(va);
   return ret;
 }

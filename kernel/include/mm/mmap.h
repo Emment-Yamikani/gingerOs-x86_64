@@ -57,6 +57,7 @@ typedef struct vmr {
     void             *priv;     // Private data(for module and driver-specif use).
     inode_t          *file;     // File used as backing store for this memory region.
     size_t           filesz;    // Size of this region on the file.
+    size_t           memsz;     // Size of memory region as taken from program headers.
     off_t            file_pos;  // Position of this region in the file.
     struct mmap      *mmap;     // Memory map associated with this memory region.
     struct vmr_ops   *vmops;    // virtual memory operations that apply to this region.
@@ -97,6 +98,8 @@ typedef struct vmr {
 
 /*size of region in file on-disk*/
 #define __vmr_filesz(r)             ((r->filesz))
+
+#define __vmr_memsz(r)              ((r->memsz))
 
 /**Upper edge of a memory mapping.
  **NB*: 'edge' is not part of the mapping*/
