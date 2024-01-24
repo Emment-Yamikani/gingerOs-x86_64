@@ -55,14 +55,22 @@ int binfmt_elf_load(inode_t *binary, proc_t *proc) {
         (elf.e_phentsize * elf.e_phnum))
         goto error;
 
-    printk("type: %ld\n", elf.e_type);
-
     for (size_t i = 0; i < elf.e_phnum; ++i) {
         hdr = &phdr[i];
     
-        printk("elf_phdr[%d]: addr: %p, off: %p, memsz: %ld, filesz: %ld\n",
-            hdr-phdr, hdr->p_vaddr, hdr->p_offset, hdr->p_memsz, hdr->p_filesz);
         if (hdr->p_type == PT_LOAD) {
+        
+        char *flgs =
+            (hdr->p_flags & 7) == 7 ? "rwx" :
+            (hdr->p_flags & 7) == 6 ? "rw_" :
+            (hdr->p_flags & 7) == 5 ? "r_x" :
+            (hdr->p_flags & 7) == 4 ? "r__" :
+            (hdr->p_flags & 7) == 3 ? "_wx" :
+            (hdr->p_flags & 7) == 2 ? "_w_" :
+            (hdr->p_flags & 7) == 1 ? "__x" : "___";
+ 
+        printk("elf_phdr[%d]: [%s] addr: %p, off: %p, memsz: %ld, filesz: %ld\n",
+            hdr-phdr, flgs, hdr->p_vaddr, hdr->p_offset, hdr->p_memsz, hdr->p_filesz);
             memsz = PGROUNDUP(hdr->p_memsz);
             prot  = (hdr->p_flags & PF_X ? PROT_X: 0)|
                     (hdr->p_flags & PF_W ? PROT_W: 0)|
@@ -78,6 +86,8 @@ int binfmt_elf_load(inode_t *binary, proc_t *proc) {
             vmr->file_pos   = hdr->p_offset;
         }
     }
+
+    mmap_dump_list(*proc->mmap);
 
     kfree(phdr);
     proc->entry = (thread_entry_t)elf.e_entry;

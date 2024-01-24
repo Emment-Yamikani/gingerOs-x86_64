@@ -67,7 +67,7 @@ done:
         for (size_t count = 0; count < npages; ++count) {
             paddr = zone->start + ((&page[count] - zone->pages) * PAGESZ);
             if (where == MM_ZONE_HIGH) {
-                printk("may need to properly sleep\n");
+                printk("May need to properly sleep\n");
             map:
                 if (current)
                     goto map;

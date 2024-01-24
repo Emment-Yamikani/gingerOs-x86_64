@@ -6,14 +6,13 @@
 
 
 void vmr_dump(vmr_t *r, int i) {
-    printk("memory %d: [0x%08lX : 0x%08lX] %8ld [%5s] %s%s%s%s [%s-%s] refs: %ld|\n", i++,
+    printk("memory %d: [0x%08p : 0x%08p] %8ld [%5s] %s%s%s%s [%s-%s] refs: %ld|\n", i++,
            r->start, r->end, __vmr_size(r) / 1024,
            __isstack(r) ? "stack" : __vmr_exec(r) ? ".text"
                                 : __vmr_rw(r)     ? ".data"
-                                : __vmr_read(r)   ? "rodata"
+                                : __vmr_read(r)   ? ".rodata"
                                                   : "inval",
-           __vmr_read(r) ? "r" : "_",
-           __vmr_write(r) ? "w" : "_", __vmr_exec(r) ? "x" : "_",
+           __vmr_read(r) ? "r" : "_", __vmr_write(r) ? "w" : "_", __vmr_exec(r) ? "x" : "_",
            __vmr_shared(r) ? "S" : "P", __vmr_dontexpand(r) ? " " : __vmr_growsup(r) ? "U" : "D",
            __vmr_growsdown(r) ? "d" : "u", r->refs);
 }
@@ -22,7 +21,7 @@ void mmap_dump_list(mmap_t mmap) {
     int i = 0, j = 0;
     size_t holesz = 0;
     printk("\n_______________________________________________________________________\n");
-    printk("\tMemory Map[0x%08lX : 0x%08lX] Used: %ldKiB refs: %ld\n",
+    printk("\tMemory Map[0x%08p : 0x%08p] Used: %ldKiB refs: %ld\n",
            (mmap.vmr_head ? mmap.vmr_head->start : 0),
            (mmap.vmr_tail ? mmap.vmr_tail->end : 0), mmap.used_space / 1024, mmap.refs);
     
@@ -32,7 +31,7 @@ void mmap_dump_list(mmap_t mmap) {
     if (mmap.vmr_head == NULL) {
         mmap_holesize(&mmap, 0, &holesz);
         if (holesz) {
-            printk("hole   %d: [0x%08lX : 0x%08lX] %8ld [%5s]                   |\n",
+            printk("hole   %d: [0x%08p : 0x%08p] %8ld [%5s]                   |\n",
                    j++, (uintptr_t)0, holesz - 1, holesz / 1024, "free");
         }
 
@@ -42,7 +41,7 @@ void mmap_dump_list(mmap_t mmap) {
     
     holesz = mmap.vmr_head->start;
     if (holesz)
-        printk("hole   %d: [0x%08lX : 0x%08lX] %8ld [%5s]                   |\n", j++,
+        printk("hole   %d: [0x%08p : 0x%08p] %8ld [%5s]                   |\n", j++,
                 (uintptr_t)0, holesz - 1, holesz / 1024, "free");
 
     forlinked(r, mmap.vmr_head, r->next) {
@@ -50,13 +49,13 @@ void mmap_dump_list(mmap_t mmap) {
         if (r->next) {
             holesz = __vmr_next(r)->start - __vmr_upper_bound(r);
             if (holesz)
-                printk("hole   %d: [0x%08lX : 0x%08lX] %8ld [%5s]                   |\n", j++,
+                printk("hole   %d: [0x%08p : 0x%08p] %8ld [%5s]                   |\n", j++,
                     __vmr_upper_bound(r), __vmr_lower_bound(r->next), holesz / 1024, "free");
             continue;
         }
         mmap_holesize(&mmap, __vmr_upper_bound(r), &holesz);
         if (holesz) {
-            printk("hole   %d: [0x%08lX : 0x%08lX] %8ld [%5s]                   |\n", j++,
+            printk("hole   %d: [0x%08p : 0x%08p] %8ld [%5s]                   |\n", j++,
                 __vmr_upper_bound(r), __vmr_upper_bound(r) + holesz - 1, holesz / 1024, "free");
         }
     }
