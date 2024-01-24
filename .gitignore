@@ -5,8 +5,9 @@ serial.log
 lime.asm
 serial
 /ramfs/*
-/usr
 /usr/*/*.o
+/usr/*/*.so
+/usr/*/*.a
 /usr/*/*.d
 /usr/*/*.a
 *.iso
