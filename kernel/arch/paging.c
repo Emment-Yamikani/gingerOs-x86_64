@@ -421,7 +421,6 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
                 return err;
             }
 
-            assert(0, "hung"); //TODO: Just remove this!!
             page_incr(page);
 
             if ((err = arch_map_i(fault->addr, page_address(page), PGSZ, vmr->vflags))) {

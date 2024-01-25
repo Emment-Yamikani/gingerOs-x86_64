@@ -1,10 +1,12 @@
 bits 64
 
 global main
-extern sys_putc
+extern printf
 
 section .text
 main:
-    mov rdi, 'u'
-    call sys_putc
+    lea rdi, qword [fmt]
+    call printf
     jmp $
+
+fmt db "Hello init", 0xa, 0
