@@ -157,3 +157,5 @@ int tgroup_spawn(thread_entry_t entry, void *arg, int flags, tgroup_t **ptgroup)
 int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry, void *arg, int flags, thread_t **pthread);
 
 int tgroup_getmain(tgroup_t *tgroup, thread_t **ptp);
+
+int tgroup_getfiletable(tgroup_t *tgroup, file_table_t **pftp);

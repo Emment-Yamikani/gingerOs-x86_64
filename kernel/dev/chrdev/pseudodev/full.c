@@ -13,6 +13,7 @@ static int full_ioctl(struct devid *dd, int req, void *argp);
 static off_t full_lseek(struct devid *dd, off_t off, int whence);
 static ssize_t full_read(struct devid *dd, off_t off, void *buf, size_t sz);
 static ssize_t full_write(struct devid *dd, off_t off, void *buf, size_t sz);
+static int full_mmap(struct devid *dd, vmr_t *region);
 
 static DEV_INIT(full, FS_CHR, DEV_FULL, 7);
 
@@ -56,5 +57,11 @@ static ssize_t full_write(struct devid *dd __unused, off_t off __unused, void *b
     return -ENOSPC;
 }
 
+static int full_mmap(struct devid *dd, vmr_t *region) {
+    if (dd == NULL || region == NULL)
+        return -EINVAL;
+    
+    return -ENOSYS;
+}
 
 MODULE_INIT(full, NULL, full_init, NULL);

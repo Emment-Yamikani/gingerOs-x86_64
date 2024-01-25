@@ -3,6 +3,7 @@
 #include <mm/kalloc.h>
 #include <bits/errno.h>
 #include <sys/thread.h>
+#include <dev/dev.h>
 #include <fs/fs.h>
 
 int     falloc(file_t **pfp) {
@@ -644,4 +645,67 @@ generic:
     iputcnt(inode);
     iunlock(inode);
     return err;
+}
+
+int fmmap(file_t *file, vmr_t *region) {
+    int     err     = 0;
+    inode_t *inode  = NULL;
+
+    if (file == NULL || region == NULL)
+        return -EINVAL;
+    
+    fassert_locked(file);
+
+    if (__mm_region_read(region)) {
+        if (((file->f_oflags & O_ACCMODE) != O_RDONLY)
+            && ((file->f_oflags & O_ACCMODE) != O_RDWR))
+            return -EACCES;
+    }
+
+    if (__mm_region_write(region)) {
+        if (((file->f_oflags & O_ACCMODE) != O_WRONLY)
+            && ((file->f_oflags & O_ACCMODE) != O_RDWR))
+            return -EACCES;
+    }
+
+    if (__mm_region_exec(region)) {
+        if (!(file->f_oflags & O_EXCL))
+            return -EACCES;
+    }
+
+    if (file->fops == NULL || file->fops->fmmap == NULL)
+        goto generic;
+    
+    return file->fops->fmmap(file, region);
+
+generic:
+    if (file->f_dentry == NULL)
+        return -ENOENT;
+
+    dlock(file->f_dentry);
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode);
+        idupcnt(inode);
+    }
+    dunlock(file->f_dentry);
+
+    if (inode == NULL)
+        return -ENOENT;
+    
+    if ((IISDEV(inode) == 0) && (IISREG(inode) == 0)) {
+        irelease(inode);
+        return -ENODEV;
+    }
+    
+    region->file = inode;
+
+    if (IISDEV(inode)) {
+        if ((err = kdev_mmap(IDEVID(inode), region))) {
+            irelease(inode);
+            return err;
+        }
+    }
+
+    iunlock(inode);
+    return 0;
 }

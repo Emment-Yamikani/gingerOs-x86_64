@@ -46,6 +46,7 @@ typedef struct {
     int     (*ioctl)(struct devid *dd, int request, void *arg);
     ssize_t (*read)(struct devid *dd, off_t off, void *buf, size_t nbyte);
     ssize_t (*write)(struct devid *dd, off_t off, void *buf, size_t nbyte);
+    int     (*mmap)(struct devid *dd, vmr_t *region);
 } devops_t;
 
 typedef struct dev {
@@ -79,27 +80,28 @@ typedef struct dev {
 #define DEV_T(major, minor) ((devid_t)(((devid_t)(minor) << 8) & 0xff00) | ((devid_t)(major) & 0xff))
 
 #define DEV_INIT(name, _type, _major, _minor) \
-    dev_t name##dev = {                       \
-        .devlock = SPINLOCK_INIT(),           \
-        .devname = #name,                     \
-        .devnext = NULL,                      \
-        .devprev = NULL,                      \
-        .devprobe = name##_probe,             \
-        .devid = {                            \
-            .type = (_type),                  \
-            .major = (_major),                \
-            .minor = (_minor),                \
-        },                                    \
-        .devops = {                           \
-            .close = name##_close,            \
-            .getinfo = name##_getinfo,        \
-            .open = name##_open,              \
-            .lseek = name##_lseek,            \
-            .ioctl = name##_ioctl,            \
-            .read = name##_read,              \
-            .write = name##_write,            \
-        },                                    \
-    }
+dev_t name##dev = {                       \
+    .devlock = SPINLOCK_INIT(),           \
+    .devname = #name,                     \
+    .devnext = NULL,                      \
+    .devprev = NULL,                      \
+    .devprobe = name##_probe,             \
+    .devid = {                            \
+        .type = (_type),                  \
+        .major = (_major),                \
+        .minor = (_minor),                \
+    },                                    \
+    .devops = {                           \
+        .close = name##_close,            \
+        .getinfo = name##_getinfo,        \
+        .open = name##_open,              \
+        .lseek = name##_lseek,            \
+        .ioctl = name##_ioctl,            \
+        .read = name##_read,              \
+        .write = name##_write,            \
+        .mmap = name##_mmap,              \
+    },                                    \
+}
 
 extern int dev_init(void);
 extern dev_t *kdev_get(struct devid *dd);
@@ -111,6 +113,7 @@ extern off_t   kdev_lseek(struct devid *dd, off_t off, int whence);
 extern int     kdev_ioctl(struct devid *dd, int request, void *argp);
 extern ssize_t kdev_read(struct devid *dd, off_t off, void *buf, size_t nbyte);
 extern ssize_t kdev_write(struct devid *dd, off_t off, void *buf, size_t nbyte);
+extern int     kdev_mmap(struct devid *dd, vmr_t *region);
 
 typedef struct {
     size_t bi_size;

@@ -22,7 +22,7 @@ int sched_init(void) {
     for (size_t i = 0; i < NELEM(ready_queue.level); ++i) {
         if ((err = queue_alloc(&ready_queue.level[i].queue)))
             goto error;
-        ready_queue.level[i].quatum = i * 5 + 10;
+        ready_queue.level[i].quatum = i * 5 + 5;
     }
 
     return 0;

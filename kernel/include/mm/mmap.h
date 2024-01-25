@@ -94,29 +94,31 @@ typedef struct vmr {
 #define __isaligned(p)              (((p) & PAGEMASK) == 0)
 
 /*Size of a memory mapping*/
-#define __vmr_size(r)               ((r->end - r->start) + 1)
+#define __vmr_size(r)               (((r)->end - (r)->start) + 1)
 
 /*size of region in file on-disk*/
-#define __vmr_filesz(r)             ((r->filesz))
+#define __vmr_filesz(r)             (((r)->filesz))
 
-#define __vmr_memsz(r)              ((r->memsz))
+#define __vmr_memsz(r)              (((r)->memsz))
 
 /**Upper edge of a memory mapping.
  **NB*: 'edge' is not part of the mapping*/
-#define __vmr_upper_bound(r)        (r->end + 1)
+#define __vmr_upper_bound(r)        ((r)->end + 1)
 
 /**Lower edge of a memory mapping.
  **NB*: 'edge' is not part of the mapping*/
-#define __vmr_lower_bound(r)        (r->start - 1)
+#define __vmr_lower_bound(r)        ((r)->start - 1)
 
 /*Next mapping in the list*/
-#define __vmr_next(r)               (r->next)
+#define __vmr_next(r)               ((r)->next)
 
 /*Previous mapping in the list*/
-#define __vmr_prev(r)               (r->prev)
+#define __vmr_prev(r)               ((r)->prev)
 
-#define __vmr_start(r)              (r->start)
-#define __vmr_end(r)                (r->end)
+#define __vmr_start(r)              ((r)->start)
+#define __vmr_end(r)                ((r)->end)
+
+#define __vmr_filepos(r)            ((r)->file_pos)           
 
 typedef struct mmap {
     int         flags;      // memory map flags.
@@ -261,7 +263,7 @@ int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
  * Map address range as given, 
  * and unmap any overlaping regions previously mapped.
 */
-#define MAP_FIXED    0x1000
+#define MAP_FIXED                   0x1000
 
 
 #define __flags_locked(flags)       ((flags) & MAP_LOCK)

@@ -35,6 +35,7 @@ typedef struct inode {
     uid_t           i_uid;      // User identifier of owner.
     gid_t           i_gid;      // Group identifier of group that owns this file.
     itype_t         i_type;     // Type of file this inode represents.
+    devid_t         i_rdev;     // Device description.
     mode_t          i_mode;     // Inode's access mode.
     size_t          i_size;     // Inode's data size.
     int             i_flags;    // Inode flags.
@@ -108,7 +109,7 @@ typedef struct iops {
 })
 
 #define IISINV(ip) ({ IISTYPE(ip, FS_INV); })
-#define IISREG(ip) ({ IISTYPE(ip, FS_REG); })
+#define IISREG(ip) ({ IISTYPE(ip, FS_RGL); })
 #define IISDIR(ip) ({ IISTYPE(ip, FS_DIR); })
 #define IISCHR(ip) ({ IISTYPE(ip, FS_CHR); })
 #define IISSYM(ip) ({ IISTYPE(ip, FS_SYM); })

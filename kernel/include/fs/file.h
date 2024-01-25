@@ -7,6 +7,7 @@
 #include <fs/fcntl.h>
 #include <fs/inode.h>
 #include <fs/cred.h>
+#include <mm/mmap.h>
 
 typedef struct file_t file_t;
 
@@ -28,6 +29,7 @@ typedef struct fops_t {
     ssize_t (*freaddir)(file_t *dir, off_t off, void *buf, size_t count);
     int     (*flinkat)(file_t *dir, const char *oldname, const char *newname);
     int     (*fmknodat)(file_t *dir, const char *filename, mode_t mode, int devid);
+    int     (*fmmap)(file_t *file, vmr_t *region);
 } fops_t;
 
 typedef struct file_t {
@@ -67,6 +69,7 @@ int     fmkdirat(file_t *dir, const char *filename, mode_t mode);
 ssize_t freaddir(file_t *dir, off_t off, void *buf, size_t count);
 int     flinkat(file_t *dir, const char *oldname, const char *newname);
 int     fmknodat(file_t *dir, const char *filename, mode_t mode, int devid);
+int     fmmap(file_t *file, vmr_t *region);
 
 int     fsymlink(file_t *file, file_t *atdir, const char *symname);
 int     fbind(file_t *dir, struct dentry *dentry, inode_t *file);
@@ -84,6 +87,7 @@ typedef struct file_table_t {
 #define ftislocked(ft)      ({ fassert(ft); spin_islocked(&(ft)->ft_lock); })
 #define ftassert_locked(ft) ({ fassert(ft); spin_assert_locked(&(ft)->ft_lock); })
 
+int     file_get(int fd, file_t **ref);
 
 int     sync(int fd);
 int     close(int fd);

@@ -226,6 +226,9 @@ int kdev_getinfo(struct devid *dd, void *info) {
     if ((dev = kdev_get(dd)) == NULL)
         return -ENOENT;
 
+    if (NULL == dev->devops.getinfo)
+        return -ENOSYS;
+
     return dev->devops.getinfo(dd, info);
 }
 
@@ -258,4 +261,20 @@ int kdev_create(const char *dev_name,
     return 0;
     if (dev) kfree(dev);
     return err;
+}
+
+int kdev_mmap(struct devid *dd, vmr_t *region) {
+    int err = 0;
+    dev_t *dev = NULL;
+
+    if (dd == NULL || region == NULL)
+        return -EINVAL;
+    
+    if ((dev = kdev_get(dd)) == NULL)
+        return -ENXIO;
+    
+    if (NULL == dev->devops.mmap)
+        return -ENOSYS;
+
+    return dev->devops.mmap(dd, region);
 }

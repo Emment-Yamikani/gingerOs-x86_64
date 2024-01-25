@@ -13,6 +13,7 @@ static int null_ioctl(struct devid *dd, int req, void *argp);
 static off_t null_lseek(struct devid *dd, off_t off, int whence);
 static ssize_t null_read(struct devid *dd, off_t off, void *buf, size_t sz);
 static ssize_t null_write(struct devid *dd, off_t off, void *buf, size_t sz);
+static int null_mmap(struct devid *dd, vmr_t *region);
 
 static DEV_INIT(null, FS_CHR, DEV_NULL, 3);
 
@@ -53,5 +54,11 @@ static ssize_t null_write(struct devid *dd __unused, off_t off __unused, void *b
     return sz;
 }
 
+static int null_mmap(struct devid *dd, vmr_t *region) {
+    if (dd == NULL || region == NULL)
+        return -EINVAL;
+    
+    return -ENOSYS;
+}
 
 MODULE_INIT(null, NULL, null_init, NULL);

@@ -13,6 +13,7 @@ static int zero_ioctl(struct devid *dd, int req, void *argp);
 static off_t zero_lseek(struct devid *dd, off_t off, int whence);
 static ssize_t zero_read(struct devid *dd, off_t off, void *buf, size_t sz);
 static ssize_t zero_write(struct devid *dd, off_t off, void *buf, size_t sz);
+static int zero_mmap(struct devid *dd, vmr_t *region);
 
 static DEV_INIT(zero, FS_CHR, DEV_ZERO, 5);
 
@@ -54,5 +55,11 @@ static ssize_t zero_write(struct devid *dd __unused, off_t off __unused, void *b
     return sz;
 }
 
+static int zero_mmap(struct devid *dd, vmr_t *region) {
+    if (dd == NULL || region == NULL)
+        return -EINVAL;
+    
+    return -ENOSYS;
+}
 
 MODULE_INIT(zero, NULL, zero_init, NULL);
