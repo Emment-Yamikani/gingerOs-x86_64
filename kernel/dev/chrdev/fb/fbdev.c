@@ -19,7 +19,7 @@ static off_t fbdev_lseek(struct devid *dd, off_t off, int whence);
 static ssize_t fbdev_read(struct devid *dd, off_t off, void *buf, size_t sz);
 static ssize_t fbdev_write(struct devid *dd, off_t off, void *buf, size_t sz);
 
-int fbdev_vmr_fault(vmr_t *region, vm_fault_t *fault);
+static int fbdev_vmr_fault(vmr_t *region, vm_fault_t *fault);
 static int fbdev_mmap(struct devid *dd, vmr_t *region);
 
 static dev_t fbdev;
@@ -224,7 +224,7 @@ static ssize_t fbdev_write(struct devid *dd, off_t off, void *buf, size_t sz) {
     return size;
 }
 
-int fbdev_vmr_fault(vmr_t *region, vm_fault_t *fault) {
+static int fbdev_vmr_fault(vmr_t *region, vm_fault_t *fault) {
     uintptr_t   fbaddr = 0;
     framebuffer_t *fb  = NULL;
 
@@ -243,10 +243,13 @@ int fbdev_vmr_fault(vmr_t *region, vm_fault_t *fault) {
      */
     fb = (framebuffer_t *)region->priv;
 
+    if (fb == NULL)
+        return -EFAULT;
+
     // TODO: Do i need to lock fb here.
 
     if (fb->fixinfo == NULL)
-        return -EINVAL;
+        return -EFAULT;
 
     if (__vmr_filepos(region) > fb->fixinfo->memsz)
         return -ERANGE; // Out of range not allowed.
@@ -270,18 +273,23 @@ static int fbdev_mmap(struct devid *dd, vmr_t *region) {
     /// TODO: may need an explicit locking mechanism here.
     /// To protect fbs[] array.
     fb = &fbs[dd->minor];
-    
+
+    if (fb == NULL)
+        return -EFAULT;
+
+    // TODO: Do i need to lock fb here.
+
+    if (fb->fixinfo == NULL)
+        return -EFAULT;
+
+    if (__vmr_filepos(region) > fb->fixinfo->memsz)
+        return -ERANGE; // Out of range not allowed.
+
     if (__vmr_exec(region) || __vmr_dontexpand(region))
         return -EINVAL;
     
     if (!__vmr_read(region) && !__vmr_write(region))
         return -EINVAL;
-
-    if (fb->fixinfo == NULL)
-        return -EINVAL;
-
-    if (__vmr_filepos(region) > fb->fixinfo->memsz)
-        return -ERANGE; // Out of range not allowed.
 
     region->priv  = fb;
     region->vmops = &fbdev_vmrops;
