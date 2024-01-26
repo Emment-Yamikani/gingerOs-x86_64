@@ -52,7 +52,10 @@ sys_%2:
 %define SYS_SIGWAIT         38
 %define SYS_PTHREAD_SIGMASK 39
 %define SYS_THREAD_SELF     40
-
+%define SYS_MMAP            41
+%define SYS_UNMAP           42
+%define SYS_MPROTECT        43
+%define SYS_THREAD_YIELD    44
 
 stub SYS_PUTC, putc
 stub SYS_CLOSE, close
@@ -95,3 +98,7 @@ stub SYS_PTHREAD_KILL, pthread_kill
 stub SYS_SIGWAIT, sigwait
 stub SYS_PTHREAD_SIGMASK, pthread_sigmask
 stub SYS_THREAD_SELF, thread_self
+stub SYS_THREAD_YIELD, thread_yield
+stub SYS_MMAP, mmap
+stub SYS_UNMAP, munmap
+stub SYS_MPROTECT, mprotect

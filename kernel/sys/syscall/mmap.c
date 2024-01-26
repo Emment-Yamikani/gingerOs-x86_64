@@ -9,11 +9,10 @@
 #include <arch/paging.h>
 
 void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off) {
-    long err = 0;
+    long            err = 0;
     mmap_t          *mmap   = NULL;
     file_t          *file   = NULL;
     vmr_t           *region = NULL;
-    tgroup_t        *tgroup = NULL;
 
     printk("[%d:%d:%d]: mmap(%p, %d, %d, %d, %d, %d)\n",
         thread_self(), getpid(), getppid(), addr, len, prot, flags, fd, off);
@@ -47,8 +46,12 @@ void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off) {
     region->flags  |= VM_FILE;
     region->memsz   = __vmr_size(region);
 
-    if ((err = fmmap(file, region)))
+    if ((err = fmmap(file, region))) {
         goto error;
+        funlock(file);
+    }
+
+    funlock(file);
 
     goto done;
     // make an annonymous mapping.

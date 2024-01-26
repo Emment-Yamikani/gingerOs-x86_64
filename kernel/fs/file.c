@@ -656,19 +656,19 @@ int fmmap(file_t *file, vmr_t *region) {
     
     fassert_locked(file);
 
-    if (__mm_region_read(region)) {
+    if (__vmr_read(region)) {
         if (((file->f_oflags & O_ACCMODE) != O_RDONLY)
             && ((file->f_oflags & O_ACCMODE) != O_RDWR))
             return -EACCES;
     }
 
-    if (__mm_region_write(region)) {
+    if (__vmr_write(region)) {
         if (((file->f_oflags & O_ACCMODE) != O_WRONLY)
             && ((file->f_oflags & O_ACCMODE) != O_RDWR))
             return -EACCES;
     }
 
-    if (__mm_region_exec(region)) {
+    if (__vmr_exec(region)) {
         if (!(file->f_oflags & O_EXCL))
             return -EACCES;
     }
@@ -677,7 +677,6 @@ int fmmap(file_t *file, vmr_t *region) {
         goto generic;
     
     return file->fops->fmmap(file, region);
-
 generic:
     if (file->f_dentry == NULL)
         return -ENOENT;

@@ -6,6 +6,7 @@
 #include <arch/x86_64/context.h>
 #include <sys/sleep.h>
 #include <sys/_signal.h>
+#include <sys/mman/mman.h>
 
 void sys_putc(int c) {
     printk("%c", c);
@@ -148,6 +149,10 @@ tid_t sys_thread_self(void) {
     return sys_gettid();
 }
 
+void sys_thread_yield(void) {
+    thread_yield();
+}
+
 int sys_pause(void) {
     return pause();
 }
@@ -184,4 +189,16 @@ int sys_sigwait(const sigset_t *restrict set, int *restrict signop) {
 
 int sys_pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset) {
     return pthread_sigmask(how, set, oset);
+}
+
+void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off) {
+    return mmap(addr, len, prot, flags, fd, off);
+}
+
+int sys_munmap(void *addr, size_t len) {
+    return munmap(addr, len);
+}
+
+int sys_mprotect(void *addr, size_t len, int prot) {
+    return mprotect(addr, len, prot);
 }

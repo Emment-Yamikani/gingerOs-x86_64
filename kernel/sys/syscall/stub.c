@@ -45,6 +45,10 @@ size_t (*syscall[])() = {
     [SYS_SIGWAIT]       = (void *)sys_sigwait,
     [SYS_PTHREAD_SIGMASK]= (void *)sys_pthread_sigmask,
     [SYS_THREAD_SELF]    = (void *)sys_thread_self,
+    [SYS_MMAP]           = (void *)sys_mmap,
+    [SYS_UNMAP]          = (void *)sys_munmap,
+    [SYS_MPROTECT]       = (void *)sys_mprotect,
+    [SYS_THREAD_YIELD]   = (void *)sys_thread_yield,
 };
 
 static int sys_syscall_ni(tf_t *tf) {

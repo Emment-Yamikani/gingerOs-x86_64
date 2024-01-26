@@ -137,12 +137,12 @@ typedef struct mmap {
     spinlock_t  lock;
 } mmap_t;
 
-#define mmap_assert(mmap)           ({assert(mmap, "No Memory Map");})
-#define mmap_islocked(mmap)         ({mmap_assert(mmap); spin_islocked(&(mmap)->lock);})
-#define mmap_trylock(mmap)          ({mmap_assert(mmap); spin_trylock(&(mmap)->lock);})
-#define mmap_lock(mmap)             ({mmap_assert(mmap); spin_lock(&(mmap)->lock);})
-#define mmap_unlock(mmap)           ({mmap_assert(mmap); spin_unlock(&(mmap)->lock);})
-#define mmap_assert_locked(mmap)    ({mmap_assert(mmap); spin_assert_locked(&(mmap)->lock);})
+#define mmap_assert(mmap)           ({ assert(mmap, "No Memory Map"); })
+#define mmap_lock(mmap)             ({ mmap_assert(mmap); spin_lock(&(mmap)->lock); })
+#define mmap_unlock(mmap)           ({ mmap_assert(mmap); spin_unlock(&(mmap)->lock); })
+#define mmap_trylock(mmap)          ({ mmap_assert(mmap); spin_trylock(&(mmap)->lock); })
+#define mmap_islocked(mmap)         ({ mmap_assert(mmap); spin_islocked(&(mmap)->lock); })
+#define mmap_assert_locked(mmap)    ({ mmap_assert(mmap); spin_assert_locked(&(mmap)->lock); })
 
 int mmap_init(mmap_t *mmap);
 

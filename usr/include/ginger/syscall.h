@@ -37,7 +37,7 @@ extern void     sys_thread_exit(int exit_code);
 extern int      sys_thread_create(tid_t *ptidp, void *attr, void *(*entry)(void *arg), void *arg);
 extern int      sys_thread_join(tid_t tid, void **retval);
 extern tid_t    sys_thread_self(void);
-
+extern void     sys_thread_yield();
 
 /** @brief SIGNALS */
 
@@ -51,3 +51,9 @@ extern int      sys_sigaction(int signo, const sigaction_t *restrict act, sigact
 extern int      sys_pthread_kill(tid_t thread, int signo);
 extern int      sys_sigwait(const sigset_t *restrict set, int *restrict signop);
 extern int      sys_pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
+
+/** @brief MEMORY MANAGEMENT */
+
+void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
+int sys_munmap(void *addr, size_t len);
+int sys_mprotect(void *addr, size_t len, int prot);

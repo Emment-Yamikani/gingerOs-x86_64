@@ -7,11 +7,11 @@
 #include <sync/atomic.h>
 
 typedef struct {
-    void *addr;
-    char *name;
-    size_t size;
-    struct devid dd;
-    spinlock_t lock;
+    void            *addr;
+    char            *name;
+    size_t          size;
+    struct devid    dd;
+    spinlock_t      lock;
 } ramdisk_t;
 
 static ramdisk_t *ramdisks [256];

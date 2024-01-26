@@ -51,6 +51,10 @@ void do_syscall(tf_t *tf);
 #define SYS_SIGWAIT             38  // int sys_sigwait(const sigset_t *restrict set, int *restrict signop);
 #define SYS_PTHREAD_SIGMASK     39  // int sys_pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 #define SYS_THREAD_SELF         40  // tid_t sys_thread_self(void)
+#define SYS_MMAP                41  // void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
+#define SYS_UNMAP               42  // int sys_munmap(void *addr, size_t len);
+#define SYS_MPROTECT            43  // int sys_mprotect(void *addr, size_t len, int prot);
+#define SYS_THREAD_YIELD        44  // void sys_thread_yield(void);
 
 extern void sys_putc(int c);
 
@@ -102,3 +106,10 @@ extern int      sys_sigaction(int signo, const sigaction_t *restrict act, sigact
 extern int      sys_pthread_kill(tid_t thread, int signo);
 extern int      sys_sigwait(const sigset_t *restrict set, int *restrict signop);
 extern int      sys_pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
+extern void     sys_thread_yield(void);
+
+/** @brief MEMORY MANAGEMENT */
+
+extern void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
+extern int sys_munmap(void *addr, size_t len);
+extern int sys_mprotect(void *addr, size_t len, int prot);
