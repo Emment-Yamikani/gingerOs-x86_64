@@ -94,6 +94,12 @@ extern void arch_do_page_fault(tf_t *trapframe);
 extern void arch_unmap_n(uintptr_t vaddr, size_t sz);
 
 /**
+ * @brief
+ *
+ */
+int arch_mprotect(uintptr_t vaddr, size_t sz, int flags);
+
+/**
  * @brief 
  * 
  * @param vaddr 

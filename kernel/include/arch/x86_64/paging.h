@@ -47,6 +47,7 @@ typedef union pte {
         uint64_t alloc : 1;
         uint64_t phys : 40;
         uint64_t ign2 : 12;
+        //011
     };
     uint64_t raw;
 } __packed pte_t;
@@ -106,10 +107,11 @@ typedef union viraddr {
 #define PTE_REMAPPG             0x1000  // remap page.
 #define PTE_ZERO                0x2000  // zero the page associated with pte.
 
-#define _ispresent(flags)       ((flags) & PTE_P)
 #define _iswritable(flags)      ((flags) & PTE_W)
+#define _ispresent(flags)       ((flags) & PTE_P)
+#define _isreadable(flags)      ((flags) & PTE_R)
+#define _isexecutable(flags)    ((flags) & PTE_X)
 #define _isuser_page(flags)     ((flags) & PTE_U)    // is page a user page?
-#define _is2mb_page(flags)      ((flags) & PTE_PS)   // is a 2mb page?
 #define _isPS(flags)            ((flags) & PTE_PS)   // is page size flags set?
 #define _isalloc_page(flags)    ((flags) & PTE_ALLOC_PAGE) // page frame was allocated?.
 #define _isremap(flags)         ((flags) & PTE_REMAPPG) // page remap(force remap) requested?.
@@ -172,6 +174,12 @@ void x86_64_unmount(uintptr_t v);
  * 
 */
 void x86_64_unmap_full(void);
+
+/**
+ * @brief 
+ * 
+ */
+int x86_64_mprotect(uintptr_t vaddr, size_t sz, int flags);
 
 /**
  * 

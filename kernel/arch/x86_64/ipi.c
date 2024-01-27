@@ -20,6 +20,7 @@ int tlb_shootdown(uintptr_t pml4, uintptr_t viraddr) {
 }
 
 void send_tlb_shootdown(uintptr_t pml4, uintptr_t viraddr) {
+    invlpg(viraddr);
     tlb_shootdown(pml4, viraddr);
 }
 

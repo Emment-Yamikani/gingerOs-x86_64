@@ -792,10 +792,11 @@ int mmap_vmr_expand(mmap_t *mmap, vmr_t *r, intptr_t incr) {
 }
 
 int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
-    int err = 0;
-    int forge_prot = 0;
+    int     err = 0;
+    int     flags = 0;
+    int     forge_prot = 0;
     uintptr_t end = addr + len - 1;
-    vmr_t *r = NULL, *split0 = NULL, *split1 = NULL, tmp = {0};
+    vmr_t   *r = NULL, *split0 = NULL, *split1 = NULL, tmp = {0};
     
     if (mmap == NULL || len == 0)
         return -EINVAL;
@@ -891,11 +892,21 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
 
     __vmr_mask_rwx(r);
 
-    r->flags |= __prot_read(prot)   ? VM_READ : 0;
-    r->flags |= __prot_exec(prot)   ? VM_EXEC : 0;
-    r->flags |= __prot_write(prot)  ? VM_WRITE : 0;
+    flags |= __prot_read(prot)   ? VM_READ : 0;
+    flags |= __prot_exec(prot)   ? VM_EXEC : 0;
+    flags |= __prot_write(prot)  ? VM_WRITE: 0;
+    r->flags = flags;
 
-    return 0;
+    flags = 0;
+    flags |= __vmr_read(r)              ? PTE_R : 0;
+    flags |= __vmr_write(r)             ? PTE_W : 0;
+    flags |= __vmr_exec(r)              ? PTE_X : 0;
+    flags |= (mmap->flags & MMAP_USER)  ? PTE_U : 0;
+
+    r->vflags = flags;
+
+    // TODO: reverse split if failure.
+    return arch_mprotect(__vmr_start(r), __vmr_size(r), __vmr_vflags(r));
 }
 
 int mmap_clean(mmap_t *mmap) {
@@ -1185,7 +1196,6 @@ error:
  * *******************************************************************
  */
 
-
 void vmr_free(vmr_t *r) {
     if (r == NULL)
         return;
@@ -1221,8 +1231,8 @@ int vmr_split(vmr_t *r, uintptr_t addr, vmr_t **pvmr) {
     if ((err = vmr_alloc(&new)))
         return err;
 
-    new->end        = r->end;
     new->start      = addr;
+    new->end        = r->end;
     new->file       = r->file;
     new->flags      = r->flags;
     new->vflags     = r->vflags;

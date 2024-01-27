@@ -19,6 +19,9 @@ int main(int argc, char const*argv[]) {
 
 
     *pa = 'F';
+    printf("Wrote pa: %c\n", *pa);
+    sys_mprotect(pa, 0x1000, PROT_READ);
+    *pa = 'X';
 
     printf("Wrote pa: %c\n", *pa);
 

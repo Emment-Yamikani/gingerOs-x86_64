@@ -45,6 +45,12 @@ int arch_map_i(uintptr_t v, uintptr_t p, size_t sz, int flags) {
 #endif
 }
 
+int arch_mprotect(uintptr_t vaddr, size_t sz, int flags) {
+#if defined (__x86_64__)
+    return x86_64_mprotect(vaddr, sz, flags);
+#endif
+}
+
 int arch_map_n(uintptr_t v, size_t sz, int flags) {
 #if defined (__x86_64__)
     return x86_64_map_n(v, sz, flags);

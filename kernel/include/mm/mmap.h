@@ -118,7 +118,9 @@ typedef struct vmr {
 #define __vmr_start(r)              ((r)->start)
 #define __vmr_end(r)                ((r)->end)
 
-#define __vmr_filepos(r)            ((r)->file_pos)           
+#define __vmr_filepos(r)            ((r)->file_pos)
+
+#define __vmr_vflags(t)             ((r)->vflags)
 
 typedef struct mmap {
     int         flags;      // memory map flags.

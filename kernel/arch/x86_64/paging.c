@@ -332,6 +332,38 @@ error:
     return err;
 }
 
+int x86_64_mprotect(uintptr_t vaddr, size_t sz, int flags) {
+    int     err     = 0;
+    int     mask    = 0;
+    pte_t   *pte    = NULL;
+    size_t  nr      = NPAGE(sz);
+    vaddr   = PGROUND(vaddr);
+    flags   = extract_vmflags(flags);
+
+    if (_ispresent(flags) == 0)
+        return -EINVAL;
+
+    mask |= _isuser_page(flags)  == 0 ? PTE_U : 0;
+    mask |= _isreadable(flags)   == 0 ? PTE_R : 0;
+    mask |= _iswritable(flags)   == 0 ? PTE_W : 0;
+    mask |= _isexecutable(flags) == 0 ? PTE_X : 0;
+    mask = extract_vmflags(mask);
+
+    while (nr--) {
+        if ((err = x86_64_getmapping(vaddr, &pte)))
+            return err;
+
+        /**
+         * @brief Mask out the page permissions we dont want
+         */
+        pte->raw &= ~mask; // Smart huh? ;)
+        send_tlb_shootdown(rdcr3(), vaddr);
+        vaddr += PGSZ;
+    }
+
+    return 0;
+}
+
 int x86_64_map_n(uintptr_t vaddr, size_t sz, int flags) {
     int         err = 0;
     uintptr_t   paddr   = 0;
