@@ -149,6 +149,30 @@ pid_t    sys_getppid(void) {
     return getppid();
 }
 
+pid_t   sys_getsid(pid_t pid) {
+    return getsid(pid);
+}
+
+pid_t   sys_setsid(void) {
+    return setsid();
+}
+
+pid_t   sys_getpgrp(void) {
+    return getpgrp();
+}
+
+pid_t   sys_setpgrp(void) {
+    return setpgrp();
+}
+
+pid_t   sys_getpgid(pid_t pid) {
+    return getpgid( pid);
+}
+
+int     sys_setpgid(pid_t pid, pid_t pgid) {
+    return setpgid( pid, pgid);
+}
+
 long      sys_sleep(long seconds) {
     return sleep(seconds);
 }

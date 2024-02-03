@@ -20,6 +20,7 @@ typedef struct proc {
     pid_t            session;   // process' session
     struct proc     *parent;    // process' parent.
     
+    long             flags;
     long             exit;      // process' exit status.
     thread_entry_t   entry;     // process' entry point.
     long             refcnt;    // process' reference count.
@@ -34,8 +35,15 @@ typedef struct proc {
     spinlock_t      lock;       // lock to protect this structure.
 } proc_t;
 
+#define PROC_USER               BS(0)   // process is a user process.
+#define PROC_EXECED             BS(1)   // process has executed exec().
+#define PROC_KILLED             BS(2)   // process killed.
+
+
 #define NPROC                   (32786)
 #define curproc                 ({ current ? current->t_owner : NULL; })                //
+
+extern queue_t *procQ;
 
 /// INIT process of the system.
 extern proc_t *initproc;
@@ -49,7 +57,96 @@ extern proc_t *initproc;
 #define proc_getref(proc)               ({ proc_assert_locked(proc); (proc)->refcnt++; proc; })
 #define proc_release(proc)              ({ proc_assert_locked(proc); (proc)->refcnt--; proc_unlock(proc); })
 
+#define proc_setflags(p, f)             ({ proc_assert_locked(p); (p)->flags |= (f); })
+#define proc_unsetflags(p, f)           ({ proc_assert_locked(p); (p)->flags &= ~(f); })
+#define proc_testflags(p, f)            ({ proc_assert_locked(p); (p)->flags & (f); })
+
+#define proc_set_user(p) ({           \
+    int locked = 0;                   \
+    if ((locked = !proc_islocked(p))) \
+        proc_lock(p);                 \
+    proc_setflags(p, PROC_USER);      \
+    if (locked)                       \
+        proc_unlock(p);               \
+})
+
+#define proc_unset_user(p) ({         \
+    int locked = 0;                   \
+    if ((locked = !proc_islocked(p))) \
+        proc_lock(p);                 \
+    proc_unsetflags(p, PROC_USER);    \
+    if (locked)                       \
+        proc_unlock(p);               \
+})
+
+#define proc_isuser(p) ({                \
+    int locked = 0, test = 0;            \
+    if ((locked = !proc_islocked(p)))    \
+        proc_lock(p);                    \
+    test = proc_testflags(p, PROC_USER); \
+    if (locked)                          \
+        proc_unlock(p);                  \
+    test ? 1 : 0;                        \
+})
+
+#define proc_sethas_execed(p) ({      \
+    int locked = 0;                   \
+    if ((locked = !proc_islocked(p))) \
+        proc_lock(p);                 \
+    proc_setflags(p, PROC_EXECED);    \
+    if (locked)                       \
+        proc_unlock(p);               \
+})
+
+#define proc_unset_has_execed(p) ({    \
+    int locked = 0;                   \
+    if ((locked = !proc_islocked(p))) \
+        proc_lock(p);                 \
+    proc_unsetflags(p, PROC_EXECED);  \
+    if (locked)                       \
+        proc_unlock(p);               \
+})
+
+#define proc_hasexeced(p) ({              \
+    int locked = 0, test = 0;              \
+    if ((locked = !proc_islocked(p)))      \
+        proc_lock(p);                      \
+    test = proc_testflags(p, PROC_EXECED); \
+    if (locked)                            \
+        proc_unlock(p);                    \
+    test ? 1 : 0;                          \
+})
+
+#define proc_set_killed(p) ({         \
+    int locked = 0;                   \
+    if ((locked = !proc_islocked(p))) \
+        proc_lock(p);                 \
+    proc_setflags(p, PROC_KILLED);    \
+    if (locked)                       \
+        proc_unlock(p);               \
+})
+
+#define proc_unset_killed(p) ({       \
+    int locked = 0;                   \
+    if ((locked = !proc_islocked(p))) \
+        proc_lock(p);                 \
+    proc_unsetflags(p, PROC_KILLED);  \
+    if (locked)                       \
+        proc_unlock(p);               \
+})
+
+#define proc_killed(p) ({                  \
+    int locked = 0, test = 0;              \
+    if ((locked = !proc_islocked(p)))      \
+        proc_lock(p);                      \
+    test = proc_testflags(p, PROC_KILLED); \
+    if (locked)                            \
+        proc_unlock(p);                    \
+    test ? 1 : 0;                          \
+})
+
 #define proc_tgroup(proc)               ({ proc_assert_locked(proc); (proc)->tgroup; })
+
 
 #define proc_tgroup_lock(proc)          ({ tgroup_lock(proc_tgroup(proc)); })
 #define proc_tgroup_unlock(proc)        ({ tgroup_unlock(proc_tgroup(proc)); })
@@ -66,3 +163,5 @@ extern int proc_init(const char *initpath);
 extern void proc_free(proc_t *proc);
 extern int  proc_alloc(const char *name, proc_t **pref);
 extern int proc_copy(proc_t *child, proc_t *parent);
+extern int procQ_search_bypid(pid_t pid, proc_t **ref);
+extern int procQ_search_bypgid(pid_t pgid, proc_t **ref);

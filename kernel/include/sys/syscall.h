@@ -71,6 +71,13 @@ void do_syscall(tf_t *tf);
 #define SYS_FORK                54  // pid_t sys_fork(void);
 #define SYS_GETMEMUSAGE         55  // void sys_getmemusage(meminfo_t *info);
 
+#define SYS_GETSID              56  // pid_t sys_getsid(pid_t pid);
+#define SYS_SETSID              57  // pid_t sys_setsid(void);
+#define SYS_GETPGRP             58  // pid_t sys_getpgrp(void);
+#define SYS_SETPGRP             60  // pid_t sys_setpgrp(void);
+#define SYS_GETPGID             59  // pid_t sys_getpgid(pid_t pid);
+#define SYS_SETPGID             61  // int   sys_setpgid(pid_t pid, pid_t pgid);
+
 extern void     sys_putc(int c);
 
 extern int      sys_close(int fd);
@@ -119,11 +126,15 @@ extern void     exit(int exit_code);
 extern pid_t    getpid(void);
 extern pid_t    getppid(void);
 
-extern pid_t    sys_getpgid(void);
 extern pid_t    sys_getpid(void);
 extern pid_t    sys_getppid(void);
-extern pid_t    sys_getsid(void);
-extern int      sys_setsid(pid_t pid);
+
+extern pid_t   sys_getsid(pid_t pid);
+extern pid_t   sys_setsid(void);
+extern pid_t   sys_getpgrp(void);
+extern pid_t   sys_setpgrp(void);
+extern pid_t   sys_getpgid(pid_t pid);
+extern int     sys_setpgid(pid_t pid, pid_t pgid);
 
 /** @brief SIGNALS */
 

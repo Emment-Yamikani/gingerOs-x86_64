@@ -31,6 +31,14 @@ size_t (*syscall[])() = {
     [SYS_EXIT]              = (void *)sys_exit,
     [SYS_GETPID]            = (void *)sys_getpid,
     [SYS_GETPPID]           = (void *)sys_getppid,
+
+    [SYS_GETSID]            = (void *)sys_getsid,
+    [SYS_SETSID]            = (void *)sys_setsid,
+    [SYS_GETPGRP]           = (void *)sys_getpgrp,
+    [SYS_SETPGRP]           = (void *)sys_setpgrp,
+    [SYS_GETPGID]           = (void *)sys_getpgid,
+    [SYS_SETPGID]           = (void *)sys_setpgid,
+
     [SYS_SLEEP]             = (void *)sys_sleep,
     [SYS_GETTID]            = (void *)sys_gettid,
     [SYS_THREAD_EXIT]       = (void *)sys_thread_exit,

@@ -18,7 +18,7 @@ static struct binfmt {
 
 proc_t *initproc = NULL;
 
-static queue_t *procQ = QUEUE_NEW();
+queue_t *procQ = QUEUE_NEW();
 
 // bucket to hold free'd PIDs.
 static queue_t *procIDs = QUEUE_NEW();
@@ -102,6 +102,48 @@ void procQ_remove_bypid(pid_t pid) {
         proc_unlock(proc);
     }
     queue_unlock(procQ);
+}
+
+int procQ_search_bypid(pid_t pid, proc_t **ref) {
+    proc_t *proc = NULL;
+    queue_lock(procQ);
+    forlinked(node, procQ->head, node->next) {
+        proc = node->data;
+        proc_lock(proc);
+        if (proc->pid == pid) {
+            if (ref)
+                *ref = proc_getref(proc);
+            else
+                proc_unlock(proc);
+            queue_unlock(procQ);
+            return 0;
+        }
+        proc_unlock(proc);
+    }
+    queue_unlock(procQ);
+
+    return -ESRCH;
+}
+
+int procQ_search_bypgid(pid_t pgid, proc_t **ref) {
+    proc_t *proc = NULL;
+    queue_lock(procQ);
+    forlinked(node, procQ->head, node->next) {
+        proc = node->data;
+        proc_lock(proc);
+        if (proc->pgroup == pgid) {
+            if (ref)
+                *ref = proc_getref(proc);
+            else
+                proc_unlock(proc);
+            queue_unlock(procQ);
+            return 0;
+        }
+        proc_unlock(proc);
+    }
+    queue_unlock(procQ);
+
+    return -ESRCH;
 }
 
 int proc_alloc(const char *name, proc_t **pref) {
@@ -364,6 +406,11 @@ int proc_init(const char *initpath) {
 
     thread_release(thread);
 
+    if ((err = procQ_insert(proc))) {
+        proc_unlock(proc);
+        goto error;
+    }
+
     initproc = proc;
     proc_unlock(proc);
 
@@ -383,6 +430,9 @@ int proc_copy(proc_t *child, proc_t *parent) {
     proc_assert_locked(child);
     proc_assert_locked(parent);
 
+    if ((err = procQ_insert(child)))
+        return err;
+
     if ((err = mmap_copy(child->mmap, parent->mmap)))
         goto error;
 
@@ -395,4 +445,9 @@ int proc_copy(proc_t *child, proc_t *parent) {
     return 0;
 error:
     return err;
+}
+
+int proc_search_by_pgid(pid_t pgid, proc_t **ref) {
+    (void)pgid, (void)ref;
+    return -ESRCH;
 }

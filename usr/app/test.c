@@ -9,19 +9,21 @@ int main(int argc, char const*argv[]) {
     (void)argc, (void)argv;
     pid_t pid = sys_fork();
 
-    meminfo_t mem;
-    sys_getmemusage(&mem);
-
     if (pid == 0) {
-        printf(
-            "Free: %8d KiB\n"
-            "Used: %8d KiB\n",
-            mem.free,
-            mem.used
-        );
+        sys_setsid();
+        pid = sys_fork();
+        if (pid) {
+            sys_setpgid(pid, sys_getppid());
+        }
     }
+    
+    printf(
+        "pid: %d, pgid: %d, sid: %d\n",
+        sys_getpid(),
+        sys_getpgrp(),
+        sys_getsid(sys_getpid())
+    );
 
-    loop()
-        sys_thread_yield();
+    loop() sys_thread_yield();
     return 0xDEADBEEF;
 }

@@ -38,10 +38,6 @@ extern int      sys_seteuid(uid_t euid);
 extern int      sys_setegid(gid_t egid);
 extern int      sys_setgid(gid_t gid);
 
-extern int      sys_setsid(pid_t pid);
-extern pid_t    sys_getsid(void);
-
-
 extern int      sys_park(void);
 extern int      sys_unpark(tid_t);
 
@@ -78,3 +74,12 @@ int sys_munmap(void *addr, size_t len);
 int sys_mprotect(void *addr, size_t len, int prot);
 int sys_getpagesize(void);
 int sys_getmemusage(meminfo_t *info);
+
+/** @brief  PROCESS(JOB) RELATIONSHIPS. */
+
+pid_t   sys_getsid(pid_t pid);
+pid_t   sys_setsid(void);
+pid_t   sys_getpgrp(void);
+pid_t   sys_setpgrp(void);
+pid_t   sys_getpgid(pid_t pid);
+int     sys_setpgid(pid_t pid, pid_t pgid);
