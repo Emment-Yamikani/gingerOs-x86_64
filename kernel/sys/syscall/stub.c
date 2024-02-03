@@ -26,6 +26,8 @@ size_t (*syscall[])() = {
     [SYS_SETATTR]       = (void *)sys_setattr,
     [SYS_PARK]          = (void *)sys_park,
     [SYS_UNPARK]        = (void *)sys_unpark,
+
+    [SYS_FORK]          = (void *)sys_fork,
     [SYS_EXIT]          = (void *)sys_exit,
     [SYS_GETPID]        = (void *)sys_getpid,
     [SYS_GETPPID]       = (void *)sys_getppid,
@@ -49,6 +51,17 @@ size_t (*syscall[])() = {
     [SYS_UNMAP]          = (void *)sys_munmap,
     [SYS_MPROTECT]       = (void *)sys_mprotect,
     [SYS_THREAD_YIELD]   = (void *)sys_thread_yield,
+    [SYS_GETPAGESIZE]    = (void *)sys_getpagesize,
+    [SYS_GETMEMUSAGE]    = (void *)sys_getmemusage,
+
+    [SYS_GETUID]         = (void *)sys_getuid,
+    [SYS_GETGID]         = (void *)sys_getgid,
+    [SYS_GETEUID]        = (void *)sys_geteuid,
+    [SYS_GETEGID]        = (void *)sys_getegid,
+    [SYS_SETUID]         = (void *)sys_setuid,
+    [SYS_SETGID]         = (void *)sys_setgid,
+    [SYS_SETEUID]        = (void *)sys_seteuid,
+    [SYS_SETEGID]        = (void *)sys_setegid,
 };
 
 static int sys_syscall_ni(tf_t *tf) {

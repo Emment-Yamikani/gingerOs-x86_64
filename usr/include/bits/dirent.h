@@ -1,9 +1,9 @@
 #ifndef _BITS_DIRENT_H
 #define _BITS_DIRENT_H
 
-#include "../stdint.h"
-#include "../stddef.h"
-#include "../types.h"
+#include <stdint.h>
+#include <stddef.h>
+#include <types.h>
 
 #define MAX_NAME_LEN 256
 

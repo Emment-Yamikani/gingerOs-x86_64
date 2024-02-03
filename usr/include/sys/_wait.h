@@ -21,14 +21,14 @@
 
 #pragma once
 
-#include "../types.h"
+#include <types.h>
 
 /* This will define the `W*' macros for the flag
    bits to `waitpid', `wait3', and `wait4'.  */
-# include "../bits/waitflags.h"
+#include <bits/waitflags.h>
 
 /* This will define all the `__W*' macros.  */
-# include "../bits/waitstatus.h"
+#include <bits/waitstatus.h>
 
 #define WEXITSTATUS(status)	__WEXITSTATUS (status)
 #define WTERMSIG(status)	__WTERMSIG (status)

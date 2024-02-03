@@ -398,7 +398,7 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
 
     if ((!__vmr_read(vmr) && !__vmr_exec(vmr))
         || (fault->err_code & PTE_P)) {
-        printk("Inval access\n");
+        printk("%s:%d: Inval access: %x, start: %p\n", __FILE__, __LINE__, vmr->flags, __vmr_start(vmr));
         return -EACCES;
     }
 

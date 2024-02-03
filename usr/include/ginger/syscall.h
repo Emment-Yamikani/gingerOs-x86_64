@@ -1,9 +1,10 @@
 #pragma once
 
-#include "../stdint.h"
-#include "../stddef.h"
-#include "../types.h"
-#include "../sys/_signal.h"
+#include <stdint.h>
+#include <stddef.h>
+#include <types.h>
+#include <sys/_signal.h>
+#include <ginger/ginger.h>
 
 extern void     sys_putc(int c);
 extern int      sys_close(int fd);
@@ -26,11 +27,29 @@ extern int      sys_sync(int fd);
 extern int      sys_getattr(int fd, void *attr);
 extern int      sys_setattr(int fd, void *attr);
 
+/** @brief PROTECTION */
+
+extern uid_t    sys_getuid(void);
+extern uid_t    sys_geteuid(void);
+extern gid_t    sys_getegid(void);
+extern gid_t    sys_getgid(void);
+extern int      sys_setuid(uid_t uid);
+extern int      sys_seteuid(uid_t euid);
+extern int      sys_setegid(gid_t egid);
+extern int      sys_setgid(gid_t gid);
+
+extern int      sys_setsid(pid_t pid);
+extern pid_t    sys_getsid(void);
+
+
 extern int      sys_park(void);
 extern int      sys_unpark(tid_t);
+
 extern void     sys_exit(int exit_code);
+extern pid_t    sys_fork(void);
 extern pid_t    sys_getpid(void);
 extern pid_t    sys_getppid(void);
+
 extern long     sys_sleep(long seconds);
 extern tid_t    sys_gettid(void);
 extern void     sys_thread_exit(int exit_code);
@@ -57,3 +76,5 @@ extern int      sys_pthread_sigmask(int how, const sigset_t *restrict set, sigse
 void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
 int sys_munmap(void *addr, size_t len);
 int sys_mprotect(void *addr, size_t len, int prot);
+int sys_getpagesize(void);
+int sys_getmemusage(meminfo_t *info);

@@ -1,4 +1,4 @@
-#include "../include/api.h"
+#include <api.h>
 
 int isalpha(int c) {
     return (islower(c) || isupper(c));

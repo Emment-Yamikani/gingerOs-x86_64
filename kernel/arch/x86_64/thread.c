@@ -235,4 +235,31 @@ int x86_64_thread_setkstack(arch_thread_t *thread) {
     return 0;
 }
 
+int x86_64_thread_fork(arch_thread_t *dst, arch_thread_t *src) {
+    tf_t        *tf     = NULL;
+    context_t   *ctx    = NULL;
+    uintptr_t   *kstack = NULL;
+
+    if (dst == NULL || src == NULL)
+        return -EINVAL;
+
+    kstack = (uintptr_t *)ALIGN4K((dst->t_kstack + dst->t_kstacksz) - sizeof(thread_t));
+    *--kstack = (uintptr_t)arch_thread_stop;
+
+    tf          = (tf_t *)(((uintptr_t)kstack) - sizeof *tf);
+    *tf         = *src->t_tf;
+    tf->rax     = 0;
+
+    kstack      = (uintptr_t *)tf;
+    *--kstack   = (uintptr_t)trapret;
+    ctx         = (context_t *)(((uintptr_t)kstack) - sizeof *ctx);
+    ctx->rip    = (uintptr_t)arch_thread_start;
+    ctx->rbp    = ALIGN4K((dst->t_kstack + dst->t_kstacksz) - sizeof(thread_t));
+
+    dst->t_tf   = tf;
+    dst->t_ctx0 = ctx;
+
+    return 0;
+}
+
 #endif // __x86_64__

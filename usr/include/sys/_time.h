@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../stdint.h"
-#include "../stddef.h"
-#include "../types.h"
+#include <stdint.h>
+#include <stddef.h>
+#include <types.h>
 
 struct timespec {
     time_t tv_sec;

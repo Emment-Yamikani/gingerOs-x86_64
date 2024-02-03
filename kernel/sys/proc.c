@@ -141,6 +141,8 @@ int proc_alloc(const char *name, proc_t **pref) {
     proc->refcnt = 1;
     proc->mmap   = mmap;
     proc->tgroup = tgroup;
+    proc->pgroup = proc->pid;
+    proc->session= proc->pid;
     proc->wait   = COND_INIT();
     proc->lock   = SPINLOCK_INIT();
 
@@ -369,5 +371,28 @@ int proc_init(const char *initpath) {
 error:
     if (proc)
         proc_free(proc);
+    return err;
+}
+
+int proc_copy(proc_t *child, proc_t *parent) {
+    int         err     = 0;
+
+    if (child == NULL || parent == NULL)
+        return -EINVAL;
+    
+    proc_assert_locked(child);
+    proc_assert_locked(parent);
+
+    if ((err = mmap_copy(child->mmap, parent->mmap)))
+        goto error;
+
+    child->exit     = parent->exit;
+    child->entry    = parent->entry;
+    child->pgroup   = parent->pgroup;
+    child->session  = parent->session;
+    child->parent   = proc_getref(curproc);
+
+    return 0;
+error:
     return err;
 }

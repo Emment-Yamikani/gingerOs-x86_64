@@ -15,18 +15,21 @@ struct session;
 struct pgroup;
 
 typedef struct proc {
-    char            *name;      // process' name.
     pid_t            pid;       // process' ID.
+    pid_t            pgroup;    // process' group
+    pid_t            session;   // process' session
+    struct proc     *parent;    // process' parent.
+    
+    long             exit;      // process' exit status.
     thread_entry_t   entry;     // process' entry point.
     long             refcnt;    // process' reference count.
-    long             exit;      // process' exit status.
-    mmap_t          *mmap;      // process' memory map(virtual address space).
-    cond_t           wait;      // process' wait condition.
-    struct proc     *parent;    // process' parent.
     tgroup_t        *tgroup;    // process' thread group.
+    
+    char            *name;      // process' name.
+    mmap_t          *mmap;      // process' memory map(virtual address space).
+    
+    cond_t           wait;      // process' wait condition.
     queue_t         children;   // process' children queue.
-    struct pgroup   *pgroup;    // process' group
-    struct session  *session;   // process' session
 
     spinlock_t      lock;       // lock to protect this structure.
 } proc_t;
@@ -62,3 +65,4 @@ extern proc_t *initproc;
 extern int proc_init(const char *initpath);
 extern void proc_free(proc_t *proc);
 extern int  proc_alloc(const char *name, proc_t **pref);
+extern int proc_copy(proc_t *child, proc_t *parent);

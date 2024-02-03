@@ -74,3 +74,9 @@ int arch_thread_setkstack(arch_thread_t *arch) {
     return x86_64_thread_setkstack(arch);
 #endif
 }
+
+int arch_thread_fork(arch_thread_t *dst, arch_thread_t *src) {
+#if defined __x86_64__
+    return x86_64_thread_fork(dst, src);
+#endif
+}

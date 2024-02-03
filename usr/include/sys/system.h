@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../stdint.h"
-#include "../stddef.h"
+#include <stdint.h>
+#include <stddef.h>
 
 #define __CAT(a, b) a##b
 

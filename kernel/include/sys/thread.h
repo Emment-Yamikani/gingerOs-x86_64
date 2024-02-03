@@ -565,3 +565,5 @@ int thread_stop(thread_t *thread, queue_t *queue);
 
 int thread_execve(proc_t *proc, thread_t *thread,
     thread_entry_t entry, const char *argp[], const char *envp[]);
+
+int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap);

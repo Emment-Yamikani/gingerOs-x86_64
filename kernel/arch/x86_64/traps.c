@@ -56,6 +56,7 @@ void trap(tf_t *tf) {
     time_t time = 0;
     switch (tf->trapno) {
     case T_LEG_SYSCALL:
+        current->t_arch.t_tf = tf;
         do_syscall(tf);
         break;
     case IRQ(0):

@@ -1,4 +1,8 @@
-#include "../include/api.h"
+#include <stdint.h>
+#include <stddef.h>
+#include <limits.h>
+#include <ctype.h>
+#include <sys/system.h>
 
 #define ALIGN (sizeof(size_t))
 #define ONES ((size_t)-1 / UCHAR_MAX)

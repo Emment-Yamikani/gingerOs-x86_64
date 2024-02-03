@@ -16,6 +16,11 @@ typedef struct mm_zone {
     spinlock_t  lock;
 } mm_zone_t;
 
+typedef struct meminfo_t {
+    size_t      free;
+    size_t      used;
+} meminfo_t;
+
 extern    queue_t     *mm_zone_sleep_queue[];
 #define MM_ZONE_DMA   0 //  mem < 16 MiB.
 #define MM_ZONE_NORM  1 //  16 MiB <= mem < 2 GiB.
@@ -32,7 +37,7 @@ extern    queue_t     *mm_zone_sleep_queue[];
 
 #define mm_zone_isvalid(zone) ({mm_zone_assert_locked(zone); ((zone)->flags & MM_ZONE_VALID); })
 
-#define NZONE   4
+#define NZONE         4
 
 extern mm_zone_t zones[NZONE];
 extern const char *str_zone[];

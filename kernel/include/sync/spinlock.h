@@ -107,7 +107,7 @@ typedef struct spinlock {
                                 : (lk)->s_cpu == cpu) &&                     \
                 (lk)->s_lock),                                               \
                "%s:%d: cpu[%d] thread[tid:%d::cpu:%d] state[%s] current[%d]" \
-               " Spinlock not held.",                                        \
+               " Spinlock not held.\n",                                        \
                __FILE__, __LINE__, cpu_id,                                   \
                thread_gettid((lk)->s_thread),                                \
                (lk)->s_cpu ? (lk)->s_cpu->apicID : -1,                       \
@@ -147,7 +147,7 @@ typedef struct spinlock {
                                      : (lk)->s_cpu == cpu) &&                    \
                     1),                                                          \
                    "%s:%d: cpu[%d] thread[tid:%d::cpu:%d] state[%s] current[%d]" \
-                   " Spinlock already held.",                                    \
+                   " Spinlock already held.\n",                                    \
                    __FILE__, __LINE__, cpu_id,                                   \
                    thread_gettid((lk)->s_thread),                                \
                    (lk)->s_cpu ? (lk)->s_cpu->apicID : -1,                       \

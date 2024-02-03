@@ -719,3 +719,30 @@ int thread_schedule(thread_t *thread) {
     thread_assert_locked(thread);
     return sched_park(thread);
 }
+
+int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap) {
+    uintptr_t   sp      = 0;
+    vmr_t       *stack  = NULL;
+
+    if (dst == NULL || src == NULL)
+        return -EINVAL;
+    
+    thread_assert_locked(dst);
+    thread_assert_locked(src);
+
+    sp = src->t_arch.t_tf->rsp;
+
+    dst->t_sched = (thread_sched_t) {
+        .ts_priority        = src->t_sched.ts_priority,
+        .ts_processor       = src->t_sched.ts_processor,
+        .ts_timeslice       = src->t_sched.ts_timeslice,
+        .ts_affinity_type   = src->t_sched.ts_affinity_type,
+    };
+
+    if ((stack = mmap_find(mmap, sp)) == NULL) {
+        return -EADDRNOTAVAIL;
+    }
+
+    dst->t_arch.t_ustack = stack;
+    return arch_thread_fork(&dst->t_arch, &src->t_arch);
+}

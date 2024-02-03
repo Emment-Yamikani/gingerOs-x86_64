@@ -568,12 +568,7 @@ int x86_64_lazycpy(uintptr_t dst, uintptr_t src) {
                         continue;
 
                     // increase the page count on this page.
-                    if ((err = __page_incr(PGROUND(pt[i1].raw)))) {
-                        x86_64_unmount((uintptr_t)pt);
-                        x86_64_unmount((uintptr_t)pdt);
-                        x86_64_unmount((uintptr_t)pdpt);
-                        goto error;
-                    }
+                    __page_incr(PGROUND(pt[i1].raw));
                 }
 
                 x86_64_unmount((uintptr_t)pt);

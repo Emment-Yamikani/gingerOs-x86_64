@@ -1,5 +1,4 @@
-#include "../include/api.h"
-#include <sys/mman.h>
+#include <api.h>
 
 void fun(void) {
     loop()
@@ -8,22 +7,21 @@ void fun(void) {
 
 int main(int argc, char const*argv[]) {
     (void)argc, (void)argv;
-    tid_t tid = 0;
-    
-    printf("Hello, World!\n");
-    
-    while (tid < 10)
-        sys_thread_create(&tid, NULL, (thread_entry_t)fun, NULL);
+    pid_t pid = sys_fork();
 
-    char *pa = sys_mmap(0, 0x1000, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    meminfo_t mem;
+    sys_getmemusage(&mem);
 
+    if (pid == 0) {
+        printf(
+            "Free: %8d KiB\n"
+            "Used: %8d KiB\n",
+            mem.free,
+            mem.used
+        );
+    }
 
-    *pa = 'F';
-    printf("Wrote pa: %c\n", *pa);
-    sys_mprotect(pa, 0x1000, PROT_READ);
-    *pa = 'X';
-
-    printf("Wrote pa: %c\n", *pa);
-
+    loop()
+        sys_thread_yield();
     return 0xDEADBEEF;
 }

@@ -4,6 +4,7 @@
 #include <lib/stddef.h>
 #include <lib/stdint.h>
 #include <sys/thread.h>
+#include <mm/mm_zone.h>
 
 void do_syscall(tf_t *tf);
 
@@ -34,6 +35,8 @@ void do_syscall(tf_t *tf);
 #define SYS_EXIT                22  // void sys_exit(int exit_code);
 #define SYS_GETPID              23  // pid_t sys_getpid(void);
 #define SYS_GETPPID             24  // pid_t sys_getppid(void);
+
+
 #define SYS_SLEEP               25  // long sys_sleep(long seconds);
 #define SYS_GETTID              26  // tid_t sys_gettid(void);
 #define SYS_THREAD_EXIT         27  // void sys_thread_exit(int exit_code);
@@ -55,8 +58,20 @@ void do_syscall(tf_t *tf);
 #define SYS_UNMAP               42  // int sys_munmap(void *addr, size_t len);
 #define SYS_MPROTECT            43  // int sys_mprotect(void *addr, size_t len, int prot);
 #define SYS_THREAD_YIELD        44  // void sys_thread_yield(void);
+#define SYS_GETPAGESIZE         45  // int sys_getpagesize(void);
+#define SYS_GETUID              46  // uid_t sys_getuid(void);
+#define SYS_GETGID              47  // gid_t sys_getgid(void);
+#define SYS_GETEUID             48  // uid_t sys_geteuid(void);
+#define SYS_GETEGID             49  // gid_t sys_getegid(void);
+#define SYS_SETUID              50  // int sys_setuid(uid_t uid);
+#define SYS_SETGID              51  // int sys_setgid(gid_t gid);
+#define SYS_SETEUID             52  // int sys_seteuid(uid_t euid);
+#define SYS_SETEGID             53  // int sys_setegid(gid_t egid);
 
-extern void sys_putc(int c);
+#define SYS_FORK                54  // pid_t sys_fork(void);
+#define SYS_GETMEMUSAGE         55  // void sys_getmemusage(meminfo_t *info);
+
+extern void     sys_putc(int c);
 
 extern int      sys_close(int fd);
 extern int      sys_unlink(int fd);
@@ -78,11 +93,21 @@ extern int      sys_sync(int fd);
 extern int      sys_getattr(int fd, void *attr);
 extern int      sys_setattr(int fd, void *attr);
 
+/** @brief PROTECTION */
+
+extern uid_t    sys_getuid(void);
+extern uid_t    sys_geteuid(void);
+extern gid_t    sys_getegid(void);
+extern gid_t    sys_getgid(void);
+extern int      sys_setuid(uid_t uid);
+extern int      sys_seteuid(uid_t euid);
+extern int      sys_setegid(gid_t egid);
+extern int      sys_setgid(gid_t gid);
+
 extern int      sys_park(void);
 extern int      sys_unpark(tid_t);
+extern pid_t    sys_fork(void);
 extern void     sys_exit(int exit_code);
-extern pid_t    sys_getpid(void);
-extern pid_t    sys_getppid(void);
 extern long     sys_sleep(long seconds);
 extern tid_t    sys_gettid(void);
 extern void     sys_thread_exit(int exit_code);
@@ -93,6 +118,12 @@ extern tid_t    sys_thread_self(void);
 extern void     exit(int exit_code);
 extern pid_t    getpid(void);
 extern pid_t    getppid(void);
+
+extern pid_t    sys_getpgid(void);
+extern pid_t    sys_getpid(void);
+extern pid_t    sys_getppid(void);
+extern pid_t    sys_getsid(void);
+extern int      sys_setsid(pid_t pid);
 
 /** @brief SIGNALS */
 
@@ -110,6 +141,8 @@ extern void     sys_thread_yield(void);
 
 /** @brief MEMORY MANAGEMENT */
 
-extern void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
+extern int sys_getpagesize(void);
 extern int sys_munmap(void *addr, size_t len);
 extern int sys_mprotect(void *addr, size_t len, int prot);
+extern void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
+extern int sys_getmemusage(meminfo_t *info);

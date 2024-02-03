@@ -7,6 +7,9 @@
 #include <sys/sleep.h>
 #include <sys/_signal.h>
 #include <sys/mman/mman.h>
+#include <sys/sysprot.h>
+#include <sys/sysproc.h>
+#include <mm/pmm.h>
 
 void sys_putc(int c) {
     printk("%c", c);
@@ -88,6 +91,40 @@ int      sys_setattr(int fd, void *attr) {
     return setattr(fd, attr);
 }
 
+/** @brief PROTECTION */
+
+uid_t sys_getuid(void) {
+    return getuid();
+}
+
+uid_t sys_geteuid(void) {
+    return geteuid();
+}
+
+gid_t sys_getegid(void) {
+    return getegid();
+}
+
+gid_t sys_getgid(void) {
+    return getgid();
+}
+
+int sys_setuid(uid_t uid) {
+    return setuid(uid);
+}
+
+int sys_seteuid(uid_t euid) {
+    return seteuid(euid);
+}
+
+int sys_setegid(gid_t egid) {
+    return setegid(egid);
+}
+
+int sys_setgid(gid_t gid) {
+    return setgid(gid);
+}
+
 int sys_park(void) {
     return park();
 }
@@ -96,6 +133,9 @@ int sys_unpark(tid_t tid) {
     return unpark(tid);
 }
 
+pid_t sys_fork(void) {
+    return fork();
+}
 
 void     sys_exit(int exit_code) {
     exit(exit_code);
@@ -156,9 +196,11 @@ void sys_thread_yield(void) {
 int sys_pause(void) {
     return pause();
 }
+
 int sys_kill(pid_t pid, int signo) {
     return kill(pid, signo);
 }
+
 unsigned long sys_alarm(unsigned long sec) {
     return alarm(sec);
 }
@@ -201,4 +243,18 @@ int sys_munmap(void *addr, size_t len) {
 
 int sys_mprotect(void *addr, size_t len, int prot) {
     return mprotect(addr, len, prot);
+}
+
+int sys_getpagesize(void) {
+    return getpagesize();
+}
+
+int sys_getmemusage(meminfo_t *info) {
+    if (info == NULL)
+        return -EFAULT;
+    
+    info->free = pmman.mem_free();
+    info->used = pmman.mem_used();
+
+    return 0;
 }

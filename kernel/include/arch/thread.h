@@ -46,3 +46,5 @@ int arch_thread_execve(arch_thread_t *thread, thread_entry_t entry,
     int argc, const char *argp[], const char *envp[]);
 
 int arch_thread_setkstack(arch_thread_t *arch);
+
+int arch_thread_fork(arch_thread_t *dst, arch_thread_t *src);

@@ -37,10 +37,12 @@ sys_%2:
 %define SYS_GETPID          23
 %define SYS_GETPPID         24
 %define SYS_SLEEP           25
+
 %define SYS_GETTID          26
 %define SYS_THREAD_EXIT     27
 %define SYS_THREAD_CREATE   28
 %define SYS_THREAD_JOIN     29
+
 %define SYS_PAUSE           30
 %define SYS_KILL            31
 %define SYS_ALARM           32
@@ -52,10 +54,23 @@ sys_%2:
 %define SYS_SIGWAIT         38
 %define SYS_PTHREAD_SIGMASK 39
 %define SYS_THREAD_SELF     40
+
 %define SYS_MMAP            41
 %define SYS_UNMAP           42
 %define SYS_MPROTECT        43
 %define SYS_THREAD_YIELD    44
+%define SYS_GETPAGESIZE     45
+
+%define SYS_GETUID          46
+%define SYS_GETGID          47
+%define SYS_GETEUID         48
+%define SYS_GETEGID         49
+%define SYS_SETUID          50
+%define SYS_SETGID          51
+%define SYS_SETEUID         52
+%define SYS_SETEGID         53
+%define SYS_FORK            54
+%define SYS_GETMEMUSAGE     55
 
 stub SYS_PUTC, putc
 stub SYS_CLOSE, close
@@ -79,9 +94,12 @@ stub SYS_GETATTR, getattr
 stub SYS_SETATTR, setattr
 stub SYS_PARK, park
 stub SYS_UNPARK, unpark
+
+stub SYS_FORK, fork
 stub SYS_EXIT, exit
 stub SYS_GETPID, getpid
 stub SYS_GETPPID, getppid
+
 stub SYS_SLEEP, sleep
 stub SYS_GETTID, gettid
 stub SYS_THREAD_EXIT, thread_exit
@@ -99,6 +117,18 @@ stub SYS_SIGWAIT, sigwait
 stub SYS_PTHREAD_SIGMASK, pthread_sigmask
 stub SYS_THREAD_SELF, thread_self
 stub SYS_THREAD_YIELD, thread_yield
+
 stub SYS_MMAP, mmap
 stub SYS_UNMAP, munmap
 stub SYS_MPROTECT, mprotect
+stub SYS_GETPAGESIZE, getpagesize
+stub SYS_GETMEMUSAGE, getmemusage
+
+stub SYS_GETUID, getuid
+stub SYS_GETGID, getgid
+stub SYS_GETEUID, geteuid
+stub SYS_GETEGID, getegid
+stub SYS_SETUID, setuid
+stub SYS_SETGID, setgid
+stub SYS_SETEUID, seteuid
+stub SYS_SETEGID, setegid

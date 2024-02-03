@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../stdint.h"
-#include "../stddef.h"
-#include "../types.h"
-#include "../sys/system.h"
+#include <stdint.h>
+#include <stddef.h>
+#include <types.h>
+#include <sys/system.h>
 
 #define SIGABRT     1  // abnormal termination (abort)         | terminate+core
 #define SIGALRM     2  // timer expired (alarm)                | terminate

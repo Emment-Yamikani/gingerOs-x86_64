@@ -30,10 +30,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "../include/api.h"
-// #include "../include/stdbool.h"
-// #include "../include/stdint.h"
-// #include "../include/stdio.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 
 
 // define this globally (e.g. gcc -DPRINTF_INCLUDE_CONFIG_H ...) to include the
@@ -114,10 +113,10 @@
 
 // import float.h for DBL_MAX
 #if defined(PRINTF_SUPPORT_FLOAT)
-#include "../include/float.h"
+#include <float.h>
 #endif
 
-#include "../include/ginger/syscall.h"
+#include <ginger/syscall.h>
 
 void _putchar(char character) {
   sys_putc(character);
@@ -864,8 +863,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "../include/api.h"
-// #include "../include/ginger/spinlock.h"
+#include <ginger/spinlock.h>
 
 static spinlock_t *lock = SPINLOCK_NEW();
 

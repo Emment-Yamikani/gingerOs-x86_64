@@ -1,8 +1,8 @@
 #pragma once
 
-#include "atomic.h"
-#include "syscall.h"
-#include "../types.h"
+#include <types.h>
+#include <ginger/atomic.h>
+#include <ginger/syscall.h>
 
 typedef struct {
     uint8_t     guard;
