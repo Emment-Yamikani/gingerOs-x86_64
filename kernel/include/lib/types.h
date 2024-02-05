@@ -43,7 +43,7 @@ typedef struct proc proc_t;
 
 typedef struct vmr vmr_t;
 typedef struct vm_fault_t vm_fault_t;
-typedef struct thread thread_t;
+typedef struct thread_t thread_t;
 typedef struct page page_t;
 typedef struct queue queue_t;
 typedef struct spinlock spinlock_t;

@@ -6,8 +6,7 @@
 #include <sync/spinlock.h>
 #include <lib/types.h>
 
-struct thread;
-typedef struct thread thread_t;
+typedef struct thread_t thread_t;
 
 typedef struct {
     tid_t           tg_tgid;

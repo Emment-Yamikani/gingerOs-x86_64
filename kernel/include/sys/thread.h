@@ -17,6 +17,7 @@
 #include <fs/file.h>
 #include <sys/tgroup.h>
 #include <mm/mmap.h>
+#include <fs/file.h>
 
 typedef enum tstate_t {
     T_EMBRYO,
@@ -34,14 +35,14 @@ extern char *tget_state(const tstate_t st);
 
 typedef struct proc proc_t;
 
-typedef struct {
+typedef struct thread_attr_t {
     int         detachstate;
     size_t      guardsz;
     uintptr_t   stackaddr;
     size_t      stacksz;
 } thread_attr_t;
 
-typedef struct {
+typedef struct thread_sched_t {
     time_t      ts_ctime;              // Thread ceation time.
     time_t      ts_cpu_time;           // CPU time in jiffies(n seconds = (jiffy * (HZ_TO_ns(SYS_HZ) / seconds_TO_ns(1))) ).
     time_t      ts_timeslice;          // Quantum of CPU time for which this thread is allowed to run.
@@ -62,13 +63,13 @@ typedef struct {
 /*hard affinity for the cpu*/
 #define SCHED_HARD_AFFINITY 1
 
-typedef struct {
+typedef struct sleep_attr_t {
     queue_t         *queue; // thread's sleep queue.
     queue_node_t    *node;  // thread's sleep node.
     spinlock_t      *guard; // non-null if sleep queue is associated with a guard lock.
 } sleep_attr_t;
 
-typedef struct thread {
+typedef struct thread_t {
     tid_t           t_tid;              // thread ID.
     tid_t           t_ktid;             // killer thread ID for thread that killed this thread.
     uintptr_t       t_entry;            // thread entry point.
@@ -93,6 +94,7 @@ typedef struct thread {
     sleep_attr_t    sleep_attr;         // struct describing sleep attributes for this thread.
     thread_sched_t  t_sched;            // struct describing scheduler attributes for this thread.
 
+    file_table_t    *t_file_table;      // Pointer to file table structure of this thread's tgroup.
     tgroup_t        *t_group;           // thread group.
     queue_t         *t_queues;          // queues on which this thread resides.
 

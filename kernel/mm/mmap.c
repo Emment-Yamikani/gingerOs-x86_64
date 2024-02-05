@@ -634,8 +634,21 @@ int mmap_map_region(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flag
     int whence = 0;
     vmr_t *r = NULL;
 
-    if (mmap == NULL || (!__flags_fixed(flags) && pvmr == NULL) || len == 0)
+    if (mmap == NULL || (!__flags_fixed(flags) && pvmr == NULL) || len == 0){
+        // printk(
+        //     "mmap:   %p\n"
+        //     "flags:  %p\n"
+        //     "fixed?: %s\n"
+        //     "pvmr:   %p\n"
+        //     "len:    %ld\n",
+        //     mmap,
+        //     flags,
+        //     __flags_fixed(flags) ? "yes" : "no",
+        //     pvmr,
+        //     len
+        // );
         return -EINVAL;
+    }
 
     mmap_assert_locked(mmap);
 
@@ -674,7 +687,7 @@ int mmap_map_region(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flag
         return err;
 
     r->start = addr;
-    r->end = addr + len - 1;
+    r->end   = addr + len - 1;
 
     r->flags |= __prot_exec(prot)           ? VM_EXEC : 0;
     r->flags |= __prot_read(prot)           ? VM_READ : 0;

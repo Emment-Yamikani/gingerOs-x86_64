@@ -38,7 +38,7 @@ typedef struct proc {
 #define PROC_USER               BS(0)   // process is a user process.
 #define PROC_EXECED             BS(1)   // process has executed exec().
 #define PROC_KILLED             BS(2)   // process killed.
-
+#define PROC_ORPHANED           BS(3)   // process was orphaned by parent.
 
 #define NPROC                   (32786)
 #define curproc                 ({ current ? current->t_owner : NULL; })                //
@@ -55,6 +55,7 @@ extern proc_t *initproc;
 #define proc_islocked(proc)             ({ proc_assert(proc); spin_islocked(&(proc)->lock); })
 #define proc_assert_locked(proc)        ({ proc_assert(proc); spin_assert_locked(&(proc)->lock); })
 #define proc_getref(proc)               ({ proc_assert_locked(proc); (proc)->refcnt++; proc; })
+#define proc_putref(proc)               ({ proc_assert_locked(proc); (proc)->refcnt--; })
 #define proc_release(proc)              ({ proc_assert_locked(proc); (proc)->refcnt--; proc_unlock(proc); })
 
 #define proc_setflags(p, f)             ({ proc_assert_locked(p); (p)->flags |= (f); })
@@ -163,5 +164,7 @@ extern int proc_init(const char *initpath);
 extern void proc_free(proc_t *proc);
 extern int  proc_alloc(const char *name, proc_t **pref);
 extern int proc_copy(proc_t *child, proc_t *parent);
+
+extern int procQ_remove(proc_t *proc);
 extern int procQ_search_bypid(pid_t pid, proc_t **ref);
 extern int procQ_search_bypgid(pid_t pgid, proc_t **ref);

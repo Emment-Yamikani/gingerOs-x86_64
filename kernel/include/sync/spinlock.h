@@ -7,7 +7,6 @@
 #include <lib/types.h>
 #include <lib/stdint.h>
 
-struct thread;
 extern tid_t thread_self(void);
 extern tid_t thread_gettid(thread_t *);
 typedef struct spinlock {
@@ -72,7 +71,7 @@ typedef struct spinlock {
                                          : (lk)->s_cpu == cpu) &&                    \
                          1),                                                         \
                        "%s:%d: cpu[%d] thread[tid:%d::cpu:%d] state[%s] current[%d]" \
-                       " Spinlock already held at [%s:%ld:%p].\n",                   \
+                       " Spinlock held at [%s:%ld:%p].\n",                   \
                        __FILE__, __LINE__, cpu_id, thread_gettid((lk)->s_thread),    \
                        (lk)->s_cpu ? (lk)->s_cpu->apicID : -1,                       \
                        (lk)->s_lock ? "locked" : "unlocked", thread_self(),          \

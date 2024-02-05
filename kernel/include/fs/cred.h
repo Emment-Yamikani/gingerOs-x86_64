@@ -3,9 +3,14 @@
 #include <lib/types.h>
 
 typedef struct cred_t {
-    char    *c_cwd, *c_root;
-    uid_t   c_uid, c_euid, c_suid;
-    gid_t   c_gid, c_egid, c_sgid;
+    char    *c_cwd;
+    char    *c_root;
+    uid_t   c_uid;
+    uid_t   c_euid;
+    uid_t   c_suid;
+    gid_t   c_gid;
+    gid_t   c_egid;
+    gid_t   c_sgid;
     mode_t  c_umask;
 } cred_t;
 

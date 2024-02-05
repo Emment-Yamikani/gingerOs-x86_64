@@ -105,24 +105,50 @@ error:
 }
 
 int tgroup_create(tgroup_t **ptgroup) {
-    tgroup_t *tgroup = NULL;
+    char        *cwd    = NULL;
+    char        *rootdir= NULL;
+    tgroup_t    *tgroup = NULL;
+    int         err     = -ENOMEM;
 
     if (ptgroup == NULL)
         return -EINVAL;
 
+    if (NULL == (cwd = (char *)strdup("/")))
+        goto error;
+    
+    if (NULL == (rootdir = (char *)strdup("/")))
+        goto error;
+
     if (NULL == (tgroup = (tgroup_t *)kmalloc(sizeof *tgroup)))
-        return -ENOMEM;
+        goto error;
 
     memset(tgroup, 0, sizeof *tgroup);
 
-    tgroup->tg_refcnt = 1;
-    tgroup->tg_thread = QUEUE_INIT();
     tgroup->tg_lock   = SPINLOCK_INIT();
 
     tgroup_lock(tgroup);
+    tgroup->tg_refcnt = 1;
+    tgroup->tg_thread = QUEUE_INIT();
+
+    tgroup->tg_file_table.ft_maxfiles = NFILE;
+
+    tgroup->tg_file_table.cred = UIO_DEFAULT();
+    tgroup->tg_file_table.cred.c_cwd = cwd;
+    tgroup->tg_file_table.cred.c_root = rootdir;
 
     *ptgroup = tgroup;
     return 0;
+error:
+    if (cwd)
+        kfree(cwd);
+    
+    if (rootdir)
+        kfree(rootdir);
+
+    if (tgroup)
+        kfree(tgroup);
+
+    return err;
 }
 
 int tgroup_add_thread(tgroup_t *tgroup, thread_t *thread) {
@@ -137,6 +163,8 @@ int tgroup_add_thread(tgroup_t *tgroup, thread_t *thread) {
         return err;
     
     thread->t_group = tgroup;
+    thread->t_file_table = &tgroup->tg_file_table;
+
     if (tgroup_getthread_count(tgroup) == 1) {
         thread_setmain(thread);
         tgroup->tg_tgid = thread->t_tid;

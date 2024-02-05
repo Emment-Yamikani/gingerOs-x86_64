@@ -52,8 +52,10 @@ int binfmt_elf_load(inode_t *binary, proc_t *proc) {
 
     if ((err = iread(binary, elf.e_phoff, phdr,
         elf.e_phentsize * elf.e_phnum)) !=
-        (elf.e_phentsize * elf.e_phnum))
+        (elf.e_phentsize * elf.e_phnum)) {
+        printk("%s:%d: Failed in ELF\n", __FILE__, __LINE__);
         goto error;
+    }
 
     for (size_t i = 0; i < elf.e_phnum; ++i) {
         hdr = &phdr[i];
@@ -75,9 +77,10 @@ int binfmt_elf_load(inode_t *binary, proc_t *proc) {
             flags = MAP_PRIVATE | MAP_DONTEXPAND | MAP_FIXED;
 
             if ((err = mmap_map_region(proc->mmap,
-                ALIGN4K(hdr->p_vaddr), memsz, prot, flags, &vmr)))
+                ALIGN4K(hdr->p_vaddr), memsz, prot, flags, &vmr))){
+                printk("%s:%d: Failed in ELF\n", __FILE__, __LINE__);
                 goto error;
-            
+            }
             vmr->file       = binary;
             vmr->filesz     = hdr->p_filesz;
             vmr->memsz      = hdr->p_memsz;

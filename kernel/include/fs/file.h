@@ -74,11 +74,14 @@ int     fmmap(file_t *file, vmr_t *region);
 int     fsymlink(file_t *file, file_t *atdir, const char *symname);
 int     fbind(file_t *dir, struct dentry *dentry, inode_t *file);
 
+#define NFILE   1024
+
 typedef struct file_table_t {
-    cred_t      cred;
-    file_t      **ft_file;  // file descriptor table.
-    int         ft_fcnt;   // No. of file descriptors in the table.
-    spinlock_t  ft_lock;   // spinlock to guard this table.
+    cred_t      cred;           // Credentials for this file table.
+    int         ft_maxfiles;    // Maximum allowed open files for this file table.
+    file_t      **ft_file;      // File descriptor table (Just a C-style array of pointers to file_t).
+    int         ft_fcnt;        // No. of file descriptors in the table.
+    spinlock_t  ft_lock;        // Spinlock to guard this table.
 } file_table_t;
 
 #define ftassert(ft)        ({ assert(ft, "No file table pointer."); })
@@ -86,6 +89,9 @@ typedef struct file_table_t {
 #define ftunlock(ft)        ({ fassert(ft); spin_unlock(&(ft)->ft_lock); })
 #define ftislocked(ft)      ({ fassert(ft); spin_islocked(&(ft)->ft_lock); })
 #define ftassert_locked(ft) ({ fassert(ft); spin_assert_locked(&(ft)->ft_lock); })
+
+void file_close_all(void);
+int file_copy(file_table_t *dst, file_table_t *src);
 
 int     file_get(int fd, file_t **ref);
 

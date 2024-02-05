@@ -21,10 +21,9 @@ Development of ginger Os started late in 2020 as a simple project for learning p
 
 ## Supported Architectures
 
-- Intel
+- AMD/Intel
   - x86
   - x86_64
-- AMD (not supported yet)
 - Riscv (Not supported yet)
 
 Current working on making intel x86_64 arch to work perfectly, then move on to other archs and then later their 32 bit counterparts.

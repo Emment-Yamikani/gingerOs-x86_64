@@ -55,23 +55,18 @@ static void proc_free_pid(pid_t pid) {
         return;
 }
 
-int procQ_get(pid_t pid, proc_t **ppp) {
-    proc_t *proc = NULL;
-    
-    queue_lock(procQ);
-    forlinked(node, procQ->head, node->next) {
-        proc = node->data;
-        proc_lock(proc);
-        if (proc->pid == pid) {
-            *ppp = proc_getref(proc);
-            queue_unlock(procQ);
-            return 0;
-        }
-        proc_unlock(proc);
-    }
-    queue_unlock(procQ);
+int procQ_remove(proc_t *proc) {
+    int err = 0;
 
-    return -ESRCH;
+    if (proc == NULL)
+        return -EINVAL;
+    
+    proc_assert_locked(proc);
+    queue_lock(procQ);
+    if ((err = queue_remove(procQ, proc)) == 0)
+        proc_putref(proc);
+    queue_unlock(procQ);
+    return err;
 }
 
 int procQ_insert(proc_t *proc) {
@@ -423,6 +418,7 @@ error:
 
 int proc_copy(proc_t *child, proc_t *parent) {
     int         err     = 0;
+    file_table_t *file_table    = NULL;
 
     if (child == NULL || parent == NULL)
         return -EINVAL;
@@ -436,6 +432,26 @@ int proc_copy(proc_t *child, proc_t *parent) {
     if ((err = mmap_copy(child->mmap, parent->mmap)))
         goto error;
 
+    /// TODO: Do I really need this lock on current thread??
+    current_lock();
+    file_table = current->t_file_table;
+    ftlock(file_table);
+    current_unlock();
+
+    tgroup_lock(child->tgroup);
+    ftlock(&child->tgroup->tg_file_table);
+
+    if ((err = file_copy(&child->tgroup->tg_file_table, file_table))) {
+        ftunlock(&child->tgroup->tg_file_table);
+        tgroup_unlock(child->tgroup);
+        ftunlock(file_table);
+        goto error;
+    }
+
+    ftunlock(&child->tgroup->tg_file_table);
+    tgroup_unlock(child->tgroup);
+    ftunlock(file_table);
+
     child->exit     = parent->exit;
     child->entry    = parent->entry;
     child->pgroup   = parent->pgroup;
@@ -444,6 +460,8 @@ int proc_copy(proc_t *child, proc_t *parent) {
 
     return 0;
 error:
+    /// TODO: Reverse mmap_clone(),
+    /// but i think it will be handled by proc_free().
     return err;
 }
 

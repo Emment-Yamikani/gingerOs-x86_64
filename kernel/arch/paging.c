@@ -187,15 +187,13 @@ void arch_do_page_fault(tf_t *trapframe) {
 #elif defined(__aarch64__)
                 exit(trapframe->rax);
 #endif
-            }
-            else { /*thread exit*/
+            } else { /*Some other thread exiting with a return from entry point func.*/
 #if defined(__x86_64__)
                 thread_exit(trapframe->rax);
 #elif defined(__aarch64__)
                 thread_exit(trapframe->rax);
 #endif
             }
-            goto done;
         }
 
         current_lock();
