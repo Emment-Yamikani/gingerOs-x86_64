@@ -41,6 +41,15 @@ void exit(int exit_code) {
     // abandon children to initproc.
     proc_lock(initproc);
 
+    if ((err = proc_abandon_children(initproc, curproc))) {
+        panic(
+            "%s:%d: [%d:%d]: "
+            "Error abandoning children, error: %d",
+            __FILE__, __LINE__, curproc->pid,
+            thread_self(), err
+        );
+    }
+
     // clean mmap.
     mmap_lock(curproc->mmap);
     if ((err = mmap_clean(curproc->mmap))) {

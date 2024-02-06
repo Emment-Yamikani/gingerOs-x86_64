@@ -160,11 +160,15 @@ extern proc_t *initproc;
 #define proc_mmap_islocked(proc)        ({ mmap_islocked(proc_mmap(proc)); })
 #define proc_mmap_assert_locked(proc)   ({ mmap_assert_locked(proc_mmap(proc)); })
 
+extern int procQ_remove(proc_t *proc);
+extern int procQ_search_bypid(pid_t pid, proc_t **ref);
+extern int procQ_search_bypgid(pid_t pgid, proc_t **ref);
+
 extern int proc_init(const char *initpath);
 extern void proc_free(proc_t *proc);
 extern int  proc_alloc(const char *name, proc_t **pref);
 extern int proc_copy(proc_t *child, proc_t *parent);
 
-extern int procQ_remove(proc_t *proc);
-extern int procQ_search_bypid(pid_t pid, proc_t **ref);
-extern int procQ_search_bypgid(pid_t pgid, proc_t **ref);
+extern int proc_add_child(proc_t *parent, proc_t *child);
+extern int proc_remove_child(proc_t *parent, proc_t *child);
+extern int proc_abandon_children(proc_t *new_parent, proc_t *old_parent);

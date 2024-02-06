@@ -17,6 +17,9 @@ int main(int argc, char const*argv[]) {
         int err = 0;
         char buf[1024] = {0};
 
+        if (sys_fork() == 0)
+            loop() sys_thread_yield();
+
         sys_thread_create(NULL, NULL, (thread_entry_t)fun, NULL);
 
         if ((err = sys_read(fd, buf, 1024)) < 0)

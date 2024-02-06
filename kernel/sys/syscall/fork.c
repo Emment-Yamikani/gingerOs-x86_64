@@ -51,15 +51,12 @@ pid_t fork(void) {
 
     mmap_unlock(proc_mmap(child));
 
-    queue_lock(&curproc->children);
-    if ((err = enqueue(&curproc->children, (void *)child, 1, NULL))) {
-        queue_unlock(&curproc->children);
+    if ((err = proc_add_child(curproc, child))) {
+        thread_unlock(thread);
         proc_unlock(child);
         proc_unlock(curproc);
-        thread_unlock(thread);
         goto error;
     }
-    queue_unlock(&curproc->children);
 
     proc_unlock(child);
     proc_unlock(curproc);

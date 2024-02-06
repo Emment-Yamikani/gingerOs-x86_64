@@ -465,7 +465,84 @@ error:
     return err;
 }
 
-int proc_search_by_pgid(pid_t pgid, proc_t **ref) {
-    (void)pgid, (void)ref;
-    return -ESRCH;
+/********************************************************************************/
+/***********************    PROCESS QUEUE HELPERS    ****************************/
+/********************************************************************************/
+
+int proc_add_child(proc_t *parent, proc_t *child) {
+    int err = 0;
+
+    if (parent == NULL || child == NULL)
+        return -EINVAL;
+    
+    proc_assert_locked(child);
+    proc_assert_locked(parent);
+
+    queue_lock(&parent->children);
+    if ((err = enqueue(&parent->children, (void *)child, 1, NULL)) == 0)
+        proc_getref(child);
+    queue_unlock(&parent->children);
+
+    return err;
+}
+
+int proc_remove_child(proc_t *parent, proc_t *child) {
+     int err = 0;
+
+    if (parent == NULL || child == NULL)
+        return -EINVAL;
+    
+    proc_assert_locked(child);
+    proc_assert_locked(parent);
+
+    queue_lock(&parent->children);
+    if ((err = queue_remove(&parent->children, (void *)child)) == 0)
+        proc_putref(child);
+    queue_unlock(&parent->children);
+
+    return err;
+}
+
+int proc_abandon_children(proc_t *new_parent, proc_t *old_parent) {
+    int             err         = 0;
+    proc_t          *child      = NULL;
+    queue_node_t    *next_node  = NULL;
+
+    if (new_parent == NULL || old_parent == NULL)
+        return -EINVAL;
+
+    proc_assert_locked(old_parent);
+    proc_assert_locked(new_parent);
+
+    queue_lock(&new_parent->children);
+    queue_lock(&old_parent->children);
+    
+    forlinked (node, old_parent->children.head, next_node) {
+        next_node = node->next;
+        child = (proc_t *)node->data;
+        
+        proc_lock(child);
+        
+        if ((err = enqueue(&new_parent->children, (void *)child, 1, NULL))) {
+            proc_unlock(child);
+            queue_unlock(&old_parent->children);
+            queue_unlock(&new_parent->children);
+            return err;
+        }
+        
+        if ((err = queue_remove(&old_parent->children, (void *)child))) {
+            queue_remove(&new_parent->children, child);
+            proc_unlock(child);
+            queue_unlock(&old_parent->children);
+            queue_unlock(&new_parent->children);
+            return err;
+        }
+
+        // printk("Child process abandoned.\n");
+        proc_unlock(child);
+    }
+    
+    queue_unlock(&old_parent->children);
+    queue_unlock(&new_parent->children);
+    return 0;
 }
