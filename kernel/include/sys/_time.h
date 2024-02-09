@@ -33,3 +33,5 @@ time_t mktime(struct tm *timeptr);
 int clock_getres(clockid_t clock_id, struct timespec *res);
 int clock_gettime(clockid_t clock_id, struct timespec *tp);
 int clock_settime(clockid_t clock_id, const struct timespec *tp);
+
+int gettimeofday(struct timeval *restrict tp, void *restrict tzp);

@@ -486,6 +486,44 @@ int proc_add_child(proc_t *parent, proc_t *child) {
     return err;
 }
 
+int proc_get_child(proc_t *parent, child_desc_t *desc) {
+    int     err     = 0;
+    pid_t   pgid    = 0;
+    proc_t  *child  = NULL;
+
+    if (parent == NULL || desc == NULL)
+        return -EINVAL;
+    
+    proc_assert_locked(parent);
+
+    if (desc->pid == 0) {
+
+    } else if (desc->pid < 0) {
+        pgid = ABS(desc->pid);
+
+        if ((err = procQ_search_bypgid(pgid, &child)))
+            return err;
+        
+        desc->child = child;
+        return 0;
+    } else {
+        queue_lock(&parent->children);
+        forlinked(node, parent->children.head, node->next) {
+            child = node->data;
+            proc_lock(child);
+            if (child == desc->pid) {
+                desc->child = proc_getref(child);
+                queue_unlock(&parent->children);
+                return 0;
+            }
+            proc_unlock(child);
+        }
+        queue_unlock(&parent->children);
+    }
+
+    return -ESRCH;
+}
+
 int proc_remove_child(proc_t *parent, proc_t *child) {
      int err = 0;
 

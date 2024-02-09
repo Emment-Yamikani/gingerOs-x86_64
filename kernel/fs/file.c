@@ -708,3 +708,33 @@ generic:
     iunlock(inode);
     return 0;
 }
+
+int file_stat(file_t *file, struct stat *buf) {
+    int     err     = 0;
+    inode_t *inode  = NULL;
+
+    fassert_locked(file);
+
+    if (file->fops == NULL || file->fops->fstat == NULL)
+        goto generic;
+
+    return file->fops->fstat(file, buf);
+generic:
+    if (file->f_dentry == NULL)
+        return -ENOENT;
+
+    dlock(file->f_dentry);
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode);
+        idupcnt(inode);
+    }
+    dunlock(file->f_dentry);
+
+    if (inode == NULL)
+        return -ENOENT;
+
+    err = istat(inode, buf);
+    iputcnt(inode);
+    iunlock(inode);
+    return err;
+}

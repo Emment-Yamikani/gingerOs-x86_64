@@ -451,3 +451,94 @@ int     mknodat(int fd, const char *pathname, mode_t mode, int devid) {
     funlock(file);
     return err;
 }
+
+int fstat(int fd, struct stat *buf) {
+    int     err = 0;
+    file_t  *file = NULL;
+
+    if (buf == NULL)
+        return -EINVAL;
+
+    if ((err = file_get(fd, &file)))
+        return err;
+    
+    if ((err = file_stat(file, buf))) {
+        funlock(file);
+        return err;
+    }
+
+    funlock(file);
+    return 0;
+}
+
+int stat(const char *restrict path, struct stat *restrict buf) {
+    int         err     = 0;
+    dentry_t    *dentry = NULL;
+    cred_t      *cred   = NULL;
+
+    if (path == NULL || buf == NULL)
+        return -EINVAL;
+    
+    if ((err = vfs_lookup(path, cred, O_RDONLY, 0, 0, &dentry)))
+        return err;
+    
+    if (dentry->d_inode == NULL) {
+        dclose(dentry);
+        return -EBADF;
+    }
+
+    ilock(dentry->d_inode);
+    if ((err = istat(dentry->d_inode, buf))) {
+        iunlock(dentry->d_inode);
+        dclose(dentry);
+        return -EBADF;
+    }
+    iunlock(dentry->d_inode);
+
+    dclose(dentry);
+    return 0;
+}
+
+int lstat(const char *restrict path, struct stat *restrict buf) {
+    return stat(path, buf);
+}
+
+int fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag) {
+    int         err         = 0;
+    file_t      *dir_file   = NULL;
+    dentry_t    *dentry     = NULL;
+    cred_t      *cred       = NULL;
+
+    if ((err = file_get(fd, &dir_file)))
+        return err;
+    
+    if (dir_file->f_dentry == NULL) {
+        funlock(dir_file);
+        return err;
+    }
+
+    dlock(dir_file->f_dentry);
+    if ((err = vfs_lookupat(path, dir_file->f_dentry, cred, O_RDONLY, 0, 0, &dentry))) {
+        dunlock(dir_file->f_dentry);
+        funlock(dir_file);
+        return err;
+    }
+    dunlock(dir_file->f_dentry);
+    funlock(dir_file);
+
+    if (dentry->d_inode == NULL) {
+        dclose(dentry);
+        return -EBADF;
+    }
+
+    ilock(dentry->d_inode);
+    if ((err = istat(dentry->d_inode, buf))) {
+        iunlock(dentry->d_inode);
+        dclose(dentry);
+        return -EBADF;
+    }
+    iunlock(dentry->d_inode);
+
+    dclose(dentry);
+    return 0;
+}

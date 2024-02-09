@@ -26,6 +26,7 @@ typedef enum {
     FS_SYM,
     FS_BLK,
     FS_FIFO,
+    FS_SOCK,
 } itype_t;
 
 extern char * itype_strings [];
@@ -115,6 +116,7 @@ typedef struct iops {
 #define IISSYM(ip) ({ IISTYPE(ip, FS_SYM); })
 #define IISBLK(ip) ({ IISTYPE(ip, FS_BLK); })
 #define IISFIFO(ip)({ IISTYPE(ip, FS_FIFO); })
+#define IISSOCK(ip)({ IISTYPE(ip, FS_SOCK); })
 #define IISDEV(ip) ({ IISCHR(ip) || IISBLK(ip); })
 
 #define igetsize(ip) ({ \
@@ -139,6 +141,7 @@ int     iadd_alias(inode_t *ip, struct dentry *dentry);
 
 int     icheck_perm(inode_t *ip, cred_t *cred, int oflags);
 
+int     istat(inode_t *ip, struct stat *buf);
 int     isync(inode_t *ip);
 int     iclose(inode_t *ip);
 int     iunlink(inode_t *ip);

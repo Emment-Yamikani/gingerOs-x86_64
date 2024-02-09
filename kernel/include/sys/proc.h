@@ -27,7 +27,7 @@ typedef struct proc {
     pid_t            session;   // process' session
     struct proc     *parent;    // process' parent.
     
-    status_t         status;    // process' status.
+    status_t         state;    // process' status.
     long             flags;     // process' flags.
     long             exit_code; // process' exit status.
     thread_entry_t   entry;     // process' entry point.
@@ -177,6 +177,21 @@ extern void proc_free(proc_t *proc);
 extern int  proc_alloc(const char *name, proc_t **pref);
 extern int proc_copy(proc_t *child, proc_t *parent);
 
+/**
+ * @brief Describes how to search for the child.
+ * using int proc_get_child();
+ */
+typedef struct child_desc_t {
+    pid_t   pid;    // Process ID of child to get.
+    int     flags;  // Used with pid to provide further info on how to get child.
+    proc_t  *child; // If found, pointer to a child shall be returned through this pointer.
+} child_desc_t;
+
+#define CHLD_ANY            // Any child of calling process.
+#define CHLD_SIG            // Child that was signaled and didn't catch the signal.
+#define CHLD_ZOMBIE         // Child is in a zombie state.
+
 extern int proc_add_child(proc_t *parent, proc_t *child);
 extern int proc_remove_child(proc_t *parent, proc_t *child);
+extern int proc_get_child(proc_t *parent, child_desc_t *desc);
 extern int proc_abandon_children(proc_t *new_parent, proc_t *old_parent);

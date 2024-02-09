@@ -5,6 +5,7 @@
 #include <lib/stdint.h>
 #include <sys/thread.h>
 #include <mm/mm_zone.h>
+#include <fs/stat.h>
 
 void do_syscall(tf_t *tf);
 
@@ -77,6 +78,12 @@ void do_syscall(tf_t *tf);
 #define SYS_SETPGRP             60  // pid_t sys_setpgrp(void);
 #define SYS_GETPGID             59  // pid_t sys_getpgid(pid_t pid);
 #define SYS_SETPGID             61  // int   sys_setpgid(pid_t pid, pid_t pgid);
+#define SYS_WAITPID             62  // pid_t sys_waitpid(pid_t __pid, int *__stat_loc, int __options);
+
+#define SYS_FSTAT               63  // int sys_fstat(int fildes, struct stat *buf);
+#define SYS_STAT                64  // int sys_stat(const char *restrict path, struct stat *restrict buf);
+#define SYS_LSTAT               65  // int sys_lstat(const char *restrict path, struct stat *restrict buf);
+#define SYS_FSTATAT             66  // int sys_fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag);
 
 extern void     sys_putc(int c);
 
@@ -100,6 +107,11 @@ extern int      sys_sync(int fd);
 extern int      sys_getattr(int fd, void *attr);
 extern int      sys_setattr(int fd, void *attr);
 
+extern int      sys_fstat(int fildes, struct stat *buf);
+extern int      sys_stat(const char *restrict path, struct stat *restrict buf);
+extern int      sys_lstat(const char *restrict path, struct stat *restrict buf);
+extern int      sys_fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag);
+
 /** @brief PROTECTION */
 
 extern uid_t    sys_getuid(void);
@@ -116,6 +128,8 @@ extern int      sys_unpark(tid_t);
 extern pid_t    sys_fork(void);
 extern void     sys_exit(int exit_code);
 extern long     sys_sleep(long seconds);
+extern pid_t    sys_waitpid(pid_t __pid, int *__stat_loc, int __options);
+
 extern tid_t    sys_gettid(void);
 extern void     sys_thread_exit(int exit_code);
 extern int      sys_thread_create(tid_t *ptidp, void *attr, thread_entry_t entry, void *arg);

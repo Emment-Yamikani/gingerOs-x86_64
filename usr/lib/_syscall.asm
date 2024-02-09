@@ -78,6 +78,12 @@ sys_%2:
 %define SYS_SETPGRP         60
 %define SYS_GETPGID         59
 %define SYS_SETPGID         61
+%define SYS_WAITPID         62
+
+%define SYS_FSTAT           63
+%define SYS_STAT            64
+%define SYS_LSTAT           65
+%define SYS_FSTATAT         66
 
 stub SYS_PUTC, putc
 stub SYS_CLOSE, close
@@ -99,10 +105,16 @@ stub SYS_MKNODAT, mknodat
 stub SYS_SYNC, sync
 stub SYS_GETATTR, getattr
 stub SYS_SETATTR, setattr
+stub SYS_FSTAT, fstat
+stub SYS_STAT, stat
+stub SYS_LSTAT, lstat
+stub SYS_FSTATAT, fstatat
+
 stub SYS_PARK, park
 stub SYS_UNPARK, unpark
 
 stub SYS_FORK, fork
+stub SYS_WAITPID, waitpid
 stub SYS_EXIT, exit
 stub SYS_GETPID, getpid
 stub SYS_GETPPID, getppid
@@ -112,6 +124,9 @@ stub SYS_GETTID, gettid
 stub SYS_THREAD_EXIT, thread_exit
 stub SYS_THREAD_CREATE, thread_create
 stub SYS_THREAD_JOIN, thread_join
+stub SYS_THREAD_SELF, thread_self
+stub SYS_THREAD_YIELD, thread_yield
+
 stub SYS_PAUSE, pause
 stub SYS_KILL, kill
 stub SYS_ALARM, alarm
@@ -122,8 +137,6 @@ stub SYS_SIGACTION, sigaction
 stub SYS_PTHREAD_KILL, pthread_kill
 stub SYS_SIGWAIT, sigwait
 stub SYS_PTHREAD_SIGMASK, pthread_sigmask
-stub SYS_THREAD_SELF, thread_self
-stub SYS_THREAD_YIELD, thread_yield
 
 stub SYS_MMAP, mmap
 stub SYS_UNMAP, munmap

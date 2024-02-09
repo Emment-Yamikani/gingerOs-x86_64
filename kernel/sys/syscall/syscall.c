@@ -10,6 +10,7 @@
 #include <sys/sysprot.h>
 #include <sys/sysproc.h>
 #include <mm/pmm.h>
+#include <sys/_wait.h>
 
 void sys_putc(int c) {
     printk("%c", c);
@@ -91,6 +92,23 @@ int      sys_setattr(int fd, void *attr) {
     return setattr(fd, attr);
 }
 
+int      sys_fstat(int fildes, struct stat *buf) {
+    return sys_fstat(fildes, buf);
+}
+
+int      sys_stat(const char *restrict path, struct stat *restrict buf) {
+    return sys_stat(path, buf);
+}
+
+int      sys_lstat(const char *restrict path, struct stat *restrict buf) {
+    return sys_lstat(path, buf);
+}
+
+int      sys_fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag) {
+    return sys_fstatat(fd, path, buf, flag);
+}
+
+
 /** @brief PROTECTION */
 
 uid_t sys_getuid(void) {
@@ -135,6 +153,10 @@ int sys_unpark(tid_t tid) {
 
 pid_t sys_fork(void) {
     return fork();
+}
+
+pid_t sys_waitpid(pid_t __pid, int *__stat_loc, int __options) {
+    return waitpid( __pid, __stat_loc, __options);
 }
 
 void     sys_exit(int exit_code) {

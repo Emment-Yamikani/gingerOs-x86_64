@@ -551,3 +551,32 @@ ssize_t iwrite(inode_t *ip, off_t off, void *buf, size_t sz) {
     icache_unlock(ip->i_cache);
     return retval;
 }
+
+int istat(inode_t *ip, struct stat *buf) {
+    if (ip == NULL || buf == NULL)
+        return -EINVAL;
+
+    iassert_locked(ip);
+
+    buf->st_mode = (int[]){
+        [FS_RGL]    = _IFREG,
+        [FS_DIR]    = _IFDIR,
+        [FS_CHR]    = _IFCHR,
+        [FS_BLK]    = _IFBLK,
+        [FS_FIFO]   = _IFIFO,
+        [FS_SYM]    = _IFLNK,
+        [FS_SOCK]   = _IFSOCK,
+        //[FS_SPECIAL]  = 0    /* FIXME */
+    }[ip->i_type];
+
+    buf->st_dev     = 0; /* TODO */
+    buf->st_ino     = ip->i_ino;
+    buf->st_uid     = ip->i_uid;
+    buf->st_gid     = ip->i_gid;
+    buf->st_rdev    = ip->i_rdev;
+    buf->st_size    = ip->i_size;
+    buf->st_mode    |= ip->i_mode;
+    buf->st_nlink   = ip->i_hlinks;
+
+    return 0;
+}

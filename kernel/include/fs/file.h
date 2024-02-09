@@ -30,6 +30,7 @@ typedef struct fops_t {
     int     (*flinkat)(file_t *dir, const char *oldname, const char *newname);
     int     (*fmknodat)(file_t *dir, const char *filename, mode_t mode, int devid);
     int     (*fmmap)(file_t *file, vmr_t *region);
+    int     (*fstat)(file_t *file, struct stat *buf);
 } fops_t;
 
 typedef struct file_t {
@@ -58,6 +59,7 @@ int     fclose(file_t *file);
 int     funlink(file_t *file);
 int     fgetattr(file_t *file, void *attr);
 int     fsetattr(file_t *file, void *attr);
+int     file_stat(file_t *file, struct stat *buf);
 int     ftruncate(file_t *file, off_t length);
 int     ffcntl(file_t *file, int cmd, void *argp);
 int     fioctl(file_t *file, int req, void *argp);
@@ -122,3 +124,4 @@ int     mkdirat(int fd, const char *filename, mode_t mode);
 ssize_t readdir(int fd, off_t off, void *buf, size_t count);
 int     linkat(int fd, const char *oldname, const char *newname);
 int     mknodat(int fd, const char *filename, mode_t mode, int devid);
+int     openat(int fd, const char *pathn, int oflags, mode_t);

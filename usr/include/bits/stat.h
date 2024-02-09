@@ -1,8 +1,8 @@
 #ifndef _STAT_H
 #define _STAT_H
-#include <lib/stddef.h>
-#include <lib/stdint.h>
-#include <lib/types.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <types.h>
 
 
 struct  stat  {

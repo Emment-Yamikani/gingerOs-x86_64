@@ -6,6 +6,7 @@
 #include <sys/_signal.h>
 #include <ginger/ginger.h>
 
+
 extern void     sys_putc(int c);
 extern int      sys_close(int fd);
 extern int      sys_unlink(int fd);
@@ -26,6 +27,10 @@ extern int      sys_mknodat(int fd, const char *filename, mode_t mode, int devid
 extern int      sys_sync(int fd);
 extern int      sys_getattr(int fd, void *attr);
 extern int      sys_setattr(int fd, void *attr);
+extern int      sys_fstat(int fildes, struct stat *buf);
+extern int      sys_stat(const char *restrict path, struct stat *restrict buf);
+extern int      sys_lstat(const char *restrict path, struct stat *restrict buf);
+extern int      sys_fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag);
 
 /** @brief PROTECTION */
 
@@ -41,8 +46,9 @@ extern int      sys_setgid(gid_t gid);
 extern int      sys_park(void);
 extern int      sys_unpark(tid_t);
 
-extern void     sys_exit(int exit_code);
 extern pid_t    sys_fork(void);
+extern pid_t    sys_waitpid(pid_t __pid, int *__stat_loc, int __options);
+extern void     sys_exit(int exit_code);
 extern pid_t    sys_getpid(void);
 extern pid_t    sys_getppid(void);
 

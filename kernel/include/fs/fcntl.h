@@ -22,4 +22,8 @@
 #define O_EXEC           0x400000
 #define O_SEARCH         O_EXEC
 
+int chown(const char *path, uid_t owner, gid_t group);
+
+int fchownat(int fd, const char *path, uid_t owner, gid_t group, int flag);
+
 #endif
