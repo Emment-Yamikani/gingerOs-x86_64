@@ -71,7 +71,7 @@ int sched_park(thread_t *thread) {
     int     prior = 0;
     int     affini = 0;
     level_t *lvl = NULL;
-    cpu_t   *proc = NULL;
+    cpu_t   *processor = NULL;
     int     core = cpu_id;
     thread_sched_t *tsched = NULL;
 
@@ -102,13 +102,13 @@ int sched_park(thread_t *thread) {
         }
     }
 
-    proc = tsched->ts_processor ? tsched->ts_processor : cpus[core];
+    processor = tsched->ts_processor ? tsched->ts_processor : cpus[core];
 
-    if (proc == NULL)
-        proc = cpu;
+    if (processor == NULL)
+        processor = cpu;
     
-    tsched->ts_processor = proc;
-    lvl = &proc->queueq.level[SCHED_LEVEL(prior)];
+    tsched->ts_processor = processor;
+    lvl = &processor->queueq.level[SCHED_LEVEL(prior)];
     return thread_enqueue(lvl->queue, thread, NULL);
 }
 

@@ -6,8 +6,6 @@
 
 void exit(int exit_code) {
     int     err = 0;
-    __unused proc_t *child   = NULL;
-    __unused proc_t *parent  = NULL;
 
     if (curproc == initproc)
         panic("initproc not allowed to exit?!\n");
@@ -26,7 +24,6 @@ void exit(int exit_code) {
     file_close_all();
 
     proc_lock(curproc);
-    parent = curproc->parent;
 
     if ((err = procQ_remove(curproc))) {
         panic(
@@ -40,7 +37,6 @@ void exit(int exit_code) {
 
     // abandon children to initproc.
     proc_lock(initproc);
-
     if ((err = proc_abandon_children(initproc, curproc))) {
         panic(
             "%s:%d: [%d:%d]: "
@@ -49,6 +45,7 @@ void exit(int exit_code) {
             thread_self(), err
         );
     }
+    proc_unlock(initproc);
 
     // clean mmap.
     mmap_lock(curproc->mmap);
@@ -62,7 +59,16 @@ void exit(int exit_code) {
     }
     mmap_unlock(curproc->mmap);
 
-    // broadcast to self and to parent.
+    curproc->status     = ZOMBIE;
+    curproc->exit_code  = exit_code;
+
+    // broadcast event to self and to parent.
+    proc_lock(curproc->parent);
+    cond_broadcast(&curproc->wait);
+    cond_broadcast(&curproc->parent->wait);
+    proc_unlock(curproc->parent);
+    proc_unlock(curproc);
+
     printk("%s:%ld: %s(%d);\n", __FILE__, __LINE__, __func__, exit_code);
     thread_exit(exit_code);
 }

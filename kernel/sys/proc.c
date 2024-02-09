@@ -452,10 +452,10 @@ int proc_copy(proc_t *child, proc_t *parent) {
     tgroup_unlock(child->tgroup);
     ftunlock(file_table);
 
-    child->exit     = parent->exit;
     child->entry    = parent->entry;
     child->pgroup   = parent->pgroup;
     child->session  = parent->session;
+    child->exit_code= parent->exit_code;
     child->parent   = proc_getref(curproc);
 
     return 0;
@@ -538,6 +538,8 @@ int proc_abandon_children(proc_t *new_parent, proc_t *old_parent) {
             return err;
         }
 
+        proc_putref(child->parent);
+        child->parent = proc_getref(new_parent);
         // printk("Child process abandoned.\n");
         proc_unlock(child);
     }

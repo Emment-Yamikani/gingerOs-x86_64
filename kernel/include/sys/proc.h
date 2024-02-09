@@ -14,14 +14,22 @@
 struct session;
 struct pgroup;
 
+typedef enum status_t {
+    EMBROY,
+    RUNNING,
+    ZOMBIE,
+    TERMINATED,
+} status_t;
+
 typedef struct proc {
     pid_t            pid;       // process' ID.
     pid_t            pgroup;    // process' group
     pid_t            session;   // process' session
     struct proc     *parent;    // process' parent.
     
-    long             flags;
-    long             exit;      // process' exit status.
+    status_t         status;    // process' status.
+    long             flags;     // process' flags.
+    long             exit_code; // process' exit status.
     thread_entry_t   entry;     // process' entry point.
     long             refcnt;    // process' reference count.
     tgroup_t        *tgroup;    // process' thread group.
