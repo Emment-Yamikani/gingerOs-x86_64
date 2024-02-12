@@ -43,7 +43,7 @@ static int proc_alloc_pid(pid_t *ref) {
     if (err == 0) goto done;
 
     pid = (pid_t) atomic_inc_fetch(&pids);
-    if (pid > NPROC)
+    if (pid >= NPROC)
         return -EAGAIN;
 done:
     *ref = pid;
@@ -511,7 +511,7 @@ int proc_get_child(proc_t *parent, child_desc_t *desc) {
         forlinked(node, parent->children.head, node->next) {
             child = node->data;
             proc_lock(child);
-            if (child == desc->pid) {
+            if (child->pid == desc->pid) {
                 desc->child = proc_getref(child);
                 queue_unlock(&parent->children);
                 return 0;

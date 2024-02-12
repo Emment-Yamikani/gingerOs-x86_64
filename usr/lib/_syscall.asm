@@ -105,6 +105,7 @@ stub SYS_MKNODAT, mknodat
 stub SYS_SYNC, sync
 stub SYS_GETATTR, getattr
 stub SYS_SETATTR, setattr
+
 stub SYS_FSTAT, fstat
 stub SYS_STAT, stat
 stub SYS_LSTAT, lstat

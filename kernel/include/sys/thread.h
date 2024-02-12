@@ -124,6 +124,7 @@ typedef struct {
 #define THREAD_SIMD_DIRTY               BS(7)   // thread's SIMD context is dirty and must be save on context swtich.
 #define THREAD_ISMAIN                   BS(8)   // thread is a main thread in the tgroup.
 #define THREAD_ISLAST                   BS(9)   // thread is the last thread in the troup.
+#define THREAD_CONTINUE                 BS(10)  // thread has been continued from a stopped state.
 
 #define thread_assert(t)                ({ assert(t, "No thread pointer\n");})
 #define thread_lock(t)                  ({ thread_assert(t); spin_lock(&((t)->t_lock)); })

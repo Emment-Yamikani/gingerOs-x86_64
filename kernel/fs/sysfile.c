@@ -508,6 +508,7 @@ int fstatat(int fd, const char *restrict path, struct stat *restrict buf, int fl
     file_t      *dir_file   = NULL;
     dentry_t    *dentry     = NULL;
     cred_t      *cred       = NULL;
+    (void)      flag;
 
     if ((err = file_get(fd, &dir_file)))
         return err;

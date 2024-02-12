@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <types.h>
 #include <sys/_signal.h>
+#include <bits/stat.h>
 #include <ginger/ginger.h>
 
 

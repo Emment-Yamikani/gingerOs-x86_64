@@ -93,19 +93,19 @@ int      sys_setattr(int fd, void *attr) {
 }
 
 int      sys_fstat(int fildes, struct stat *buf) {
-    return sys_fstat(fildes, buf);
+    return fstat(fildes, buf);
 }
 
 int      sys_stat(const char *restrict path, struct stat *restrict buf) {
-    return sys_stat(path, buf);
+    return stat(path, buf);
 }
 
 int      sys_lstat(const char *restrict path, struct stat *restrict buf) {
-    return sys_lstat(path, buf);
+    return lstat(path, buf);
 }
 
 int      sys_fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag) {
-    return sys_fstatat(fd, path, buf, flag);
+    return fstatat(fd, path, buf, flag);
 }
 
 
