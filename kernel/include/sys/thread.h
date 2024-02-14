@@ -125,6 +125,7 @@ typedef struct {
 #define THREAD_ISMAIN                   BS(8)   // thread is a main thread in the tgroup.
 #define THREAD_ISLAST                   BS(9)   // thread is the last thread in the troup.
 #define THREAD_CONTINUE                 BS(10)  // thread has been continued from a stopped state.
+#define THREAD_USING_SSE                BS(11)  // thread is using SSE extensions if this flags is set, FPU otherwise.
 
 #define thread_assert(t)                ({ assert(t, "No thread pointer\n");})
 #define thread_lock(t)                  ({ thread_assert(t); spin_lock(&((t)->t_lock)); })
@@ -188,7 +189,7 @@ typedef struct {
 })
 
 #define thread_ismain(t) ({                            \
-    int locked = thread_islocked(t);                     \
+    int locked = thread_islocked(t);                   \
     if (!locked)                                       \
         thread_lock(t);                                \
     int ismain = thread_testflags((t), THREAD_ISMAIN); \
@@ -198,7 +199,7 @@ typedef struct {
 })
 
 #define thread_islast(t) ({                            \
-    int locked = thread_islocked(t);                     \
+    int locked = thread_islocked(t);                   \
     if (!locked)                                       \
         thread_lock(t);                                \
     int ismain = thread_testflags((t), THREAD_ISLAST); \
@@ -208,7 +209,7 @@ typedef struct {
 })
 
 #define thread_iskilled(t) ({                          \
-    int locked = thread_islocked(t);                     \
+    int locked = thread_islocked(t);                   \
     if (!locked)                                       \
         thread_lock(t);                                \
     int killed = thread_testflags((t), THREAD_KILLED); \
@@ -218,7 +219,7 @@ typedef struct {
 })
 
 #define thread_ishandling_signal(t) ({                         \
-    int locked = thread_islocked(t);                             \
+    int locked = thread_islocked(t);                           \
     if (!locked)                                               \
         thread_lock(t);                                        \
     int handling = thread_testflags((t), THREAD_HANDLING_SIG); \

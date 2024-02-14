@@ -144,18 +144,18 @@ typedef struct cpu {
 #define MAXNCPU             16 // maximum supported cpus
 extern cpu_t                *cpus[MAXNCPU];
 
-#define cpu                 ((cpu_t *)cpu_getcls())                     // get CPU local structure.
-#define cpu_id              (cpu_local_id())                            // local apic.
+#define cpu                 (cpu_getcls())                  // get CPU local structure.
+#define cpu_id              (cpu_local_id())                // local apic.
 #define cpuID               (cpu_id)
-#define current             (cpu ? cpu->thread : (thread_t *)NULL )     // currently running thread.
-#define simd_thread         (cpu ? cpu->simd_thread : (thread_t *)NULL) // current SIMD/FPU thread.
-#define simdctx             (cpu ? cpu->math_ctx : (void *)NULL)        // current SIMD/FPU context.
-#define ready_queue         (cpu ? cpu->queueq : (sched_queue_t *)NULL)                // per-CPU ready queue.
-#define cpu_setflags(f)     (cpu->flags | (f))                          // set CPU flag(s).
-#define cpu_testflags(f)    (cpu->flags & (f))                          // test CPU flag(s).
+#define current             (cpu->thread)                   // currently running thread.
+#define simd_thread         (cpu->simd_thread)              // current SIMD/FPU thread.
+#define simdctx             (cpu->math_ctx)                 // current SIMD/FPU context.
+#define ready_queue         (cpu->queueq)                   // per-CPU ready queue.
+#define cpu_setflags(f)     (cpu->flags | (f))              // set CPU flag(s).
+#define cpu_testflags(f)    (cpu->flags & (f))              // test CPU flag(s).
 #define cpu_features        (cpu->features)
-#define cpu_has(f)          (cpu_features & (f))                        // Check for CPU features (read-only).
-#define isbsp()             (cpu_testflags(CPU_ISBSP))                  // is this CPU a bootstrap processor?
+#define cpu_has(f)          (cpu_features & (f))            // Check for CPU features (read-only).
+#define isbsp()             (cpu_testflags(CPU_ISBSP))      // is this CPU a bootstrap processor?
 
 extern int                  sse_init(void);
 extern void                 simd_fp_except(void);
