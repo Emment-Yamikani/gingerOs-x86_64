@@ -46,7 +46,7 @@ typedef struct spinlock {
 #define spin_debug(lk) ({                                       \
     spin_assert(lk);                                            \
     pushcli();                                                  \
-    printk("%s:%d: in %s, CPU[%d] state: %s,"                   \
+    printk("%s:%d: in %s, cpu%d state: %s,"                   \
            " cpu: %d, s_thread: %d\n",                          \
            __FILE__, __LINE__, __func__, cpu_id,                \
            atomic_read(&(lk)->lock) ? "locked" : "unlocked",    \
@@ -55,40 +55,41 @@ typedef struct spinlock {
 })
 
 // acquire spinlock
-#define spin_lock(lk) ({                                                             \
-    spin_assert(lk);                                                                 \
-    for (;;) {                                                                       \
-        pushcli();                                                                   \
-        barrier();                                                                   \
-        while (atomic_test_and_set(&(lk)->s_guard)) {                                \
-            popcli();                                                                \
-            cpu_pause();                                                             \
-            pushcli();                                                               \
-        }                                                                            \
-        if ((lk)->s_lock)                                                            \
-        {                                                                            \
-            assert_msg(!(((lk)->s_thread ? (lk)->s_thread == current                 \
-                                         : (lk)->s_cpu == cpu) &&                    \
-                         1),                                                         \
-                       "%s:%d: cpu[%d] thread[tid:%d::cpu:%d] state[%s] current[%d]" \
-                       " Spinlock held at [%s:%ld:%p].\n",                   \
-                       __FILE__, __LINE__, cpu_id, thread_gettid((lk)->s_thread),    \
-                       (lk)->s_cpu ? (lk)->s_cpu->apicID : -1,                       \
-                       (lk)->s_lock ? "locked" : "unlocked", thread_self(),          \
-                       (lk)->s_file, (lk)->s_line, (lk)->s_retaddr);                 \
-            atomic_clear(&(lk)->s_guard);                                            \
-            popcli();                                                                \
-        }                                                                            \
-        else                                                                         \
-            break;                                                                   \
-    }                                                                                \
-    (lk)->s_lock = 1;                                                                \
-    (lk)->s_cpu = cpu;                                                               \
-    (lk)->s_line = __LINE__;                                                         \
-    (lk)->s_file = __FILE__;                                                         \
-    (lk)->s_thread = current;                                                        \
-    (lk)->s_retaddr = __retaddr(0);                                                  \
-    atomic_clear(&(lk)->s_guard);                                                    \
+#define spin_lock(lk) ({                                                                      \
+    spin_assert(lk);                                                                          \
+    for (;;)                                                                                  \
+    {                                                                                         \
+        pushcli();                                                                            \
+        barrier();                                                                            \
+        while (atomic_test_and_set(&(lk)->s_guard))                                           \
+        {                                                                                     \
+            popcli();                                                                         \
+            cpu_pause();                                                                      \
+            pushcli();                                                                        \
+        }                                                                                     \
+        if ((lk)->s_lock)                                                                     \
+        {                                                                                     \
+            assert_msg(!(((lk)->s_thread ? (lk)->s_thread == current                          \
+                                         : (lk)->s_cpu == cpu) &&                             \
+                         1),                                                                  \
+                       "%s:%d: cpu%d state[%s:tid:%d:cpu:%d] current[%d]"                     \
+                       " Spinlock held at [%s:%ld:%p].\n",                                    \
+                       __FILE__, __LINE__, cpu_id, (lk)->s_lock ? "locked" : "unlocked",      \
+                       thread_gettid((lk)->s_thread), (lk)->s_cpu ? (lk)->s_cpu->apicID : -1, \
+                       thread_self(), (lk)->s_file, (lk)->s_line, (lk)->s_retaddr);           \
+            atomic_clear(&(lk)->s_guard);                                                     \
+            popcli();                                                                         \
+        }                                                                                     \
+        else                                                                                  \
+            break;                                                                            \
+    }                                                                                         \
+    (lk)->s_lock = 1;                                                                         \
+    (lk)->s_cpu = cpu;                                                                        \
+    (lk)->s_line = __LINE__;                                                                  \
+    (lk)->s_file = __FILE__;                                                                  \
+    (lk)->s_thread = current;                                                                 \
+    (lk)->s_retaddr = __retaddr(0);                                                           \
+    atomic_clear(&(lk)->s_guard);                                                             \
 })
 
 // release spinlock
@@ -105,7 +106,7 @@ typedef struct spinlock {
     assert_msg((((lk)->s_thread ? (lk)->s_thread == current                  \
                                 : (lk)->s_cpu == cpu) &&                     \
                 (lk)->s_lock),                                               \
-               "%s:%d: cpu[%d] thread[tid:%d::cpu:%d] state[%s] current[%d]" \
+               "%s:%d: cpu%d thread[tid:%d::cpu:%d] state[%s] current[%d]" \
                " Spinlock not held.\n",                                        \
                __FILE__, __LINE__, cpu_id,                                   \
                thread_gettid((lk)->s_thread),                                \
@@ -127,7 +128,8 @@ typedef struct spinlock {
  * @brief try to acquire a spinlock
  *
  * @param lk
- * @return int '1' if acquisition was successful(lock wasn't held before) and '0' if acquisition failed(lock is already held)
+ * @return int '1' if acquisition was successful(lock wasn't held before)
+ * and '0' if acquisition failed(lock is already held)
  */
 #define spin_trylock(lk) ({                                                      \
     spin_assert(lk);                                                             \
@@ -145,8 +147,8 @@ typedef struct spinlock {
         assert_msg((!((lk)->s_thread ? (lk)->s_thread == current                 \
                                      : (lk)->s_cpu == cpu) &&                    \
                     1),                                                          \
-                   "%s:%d: cpu[%d] thread[tid:%d::cpu:%d] state[%s] current[%d]" \
-                   " Spinlock already held.\n",                                    \
+                   "%s:%d: cpu%d thread[tid:%d::cpu:%d] state[%s] current[%d]" \
+                   " Spinlock already held.\n",                                  \
                    __FILE__, __LINE__, cpu_id,                                   \
                    thread_gettid((lk)->s_thread),                                \
                    (lk)->s_cpu ? (lk)->s_cpu->apicID : -1,                       \

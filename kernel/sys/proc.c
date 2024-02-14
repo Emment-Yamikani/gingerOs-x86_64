@@ -509,7 +509,7 @@ int proc_get_child(proc_t *parent, child_desc_t *desc) {
     } else {
         queue_lock(&parent->children);
         forlinked(node, parent->children.head, node->next) {
-            child = node->data;
+            child = (proc_t *)node->data;
             proc_lock(child);
             if (child->pid == desc->pid) {
                 desc->child = proc_getref(child);

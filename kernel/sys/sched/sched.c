@@ -178,34 +178,41 @@ static void sched_self_destruct(void) {
 }
 
 __noreturn void schedule(void) {
-    int err = 0;
-    uintptr_t pgdir = 0;
-    mmap_t *mmap = NULL;
-    jiffies_t before = 0;
-    thread_t *thread = NULL;
-    arch_thread_t *arch = NULL;
-    thread_sched_t *tsched = NULL;
+    int             err     = 0;
+    uintptr_t       pgdir   = 0;
+    jiffies_t       before  = 0;
+    mmap_t          *mmap   = NULL;
+    arch_thread_t   *arch   = NULL;
+    thread_t        *thread = NULL;
+    thread_sched_t  *tsched = NULL;
 
     if ((err = sched_init()))
         panic("cpu%d failed to initialize scheduling queues. err: %d\n", cpu_id, err);
 
     loop() {
-        current = NULL;
-        cpu->ncli = 0;
+        cpu->ncli   = 0;
         cpu->intena = 0;
+        current     = NULL;
 
-        sti();
+        sti(); // start hardware interrupts here
 
         if (NULL == (thread = sched_next())) {
+            /// TODO: make cpu core enter an idle state,
+            /// to reduce queue contentions in sched_next().
+            /// instead of hlt() and cpu_pause().
             hlt();
             cpu_pause();
             continue;
         }
 
-        cli();
+        cli(); // temporarily stop hardware interrupts
 
+        // set the new thread to run as 'current'
         current = thread;
-
+        
+        /// ensure current thred is locked,
+        /// this will be implicity unlocked,
+        /// in arch_thread_start() or in sched().
         current_assert_locked();
 
         if (current_iszombie()  ||
@@ -215,7 +222,8 @@ __noreturn void schedule(void) {
 
             if (current_isstopped()) {
                 pushcli();
-                printk("[\e[0;04mWARNING\e[0m] ???Hmmm this will call sched(), "
+                /// TODO: Hope this code is not executed \'ever!\'
+                panic("[\e[0;04mWARNING\e[0m] ???Hmmm this will call sched(), "
                     "do you know the implications of doing this???");
                 thread_stop(current, sched_stopq);
                 continue;
@@ -228,10 +236,11 @@ __noreturn void schedule(void) {
             continue;
         }
 
-        arch = &current->t_arch;
-        tsched = &current->t_sched;
-        mmap = current->t_mmap;
+        mmap    = current->t_mmap;
+        arch    = &current->t_arch;
+        tsched  = &current->t_sched;
 
+        // get the current time of scheduling.
         tsched->ts_last_sched = jiffies_TO_s(before = jiffies_get());
 
         if (mmap) {
@@ -242,9 +251,19 @@ __noreturn void schedule(void) {
             arch_thread_setkstack(&current->t_arch);
         }
 
+        // Context switch to the new thread.
+        // This will, depending of the stack frame,
+        // unlock the current thread struct in sched()
+        // if the thread is returning from a call to sched()
+        // or arch_thread_start() is this is the first
+        // time the thread is being run.
         swtch(&cpu->ctx, arch->t_ctx0);
 
+        // Do no allow current to return to schedule() without acquiring
+        // a lock on itself.
         current_assert_locked();
+    
+        // get the time thread returned execution to the scheduler.
         tsched->ts_cpu_time += jiffies_TO_s(jiffies_get() - before);
         
         pushcli();

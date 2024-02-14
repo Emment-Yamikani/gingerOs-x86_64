@@ -53,6 +53,9 @@ pid_t waitpid(pid_t __pid, int *__stat_loc, int __opt) {
             return err;
         }
 
+        
+
+        panic("child: %d\n", desc.child->pid);
         proc_unlock(curproc);
     }
 

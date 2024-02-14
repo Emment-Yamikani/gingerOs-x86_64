@@ -24,31 +24,34 @@ typedef enum status_t {
 } status_t;
 
 typedef struct proc {
-    pid_t            pid;       // process' ID.
-    pid_t            pgroup;    // process' group
-    pid_t            session;   // process' session
-    struct proc     *parent;    // process' parent.
+    pid_t           pid;       // process' ID.
+    pid_t           pgroup;    // process' group
+    pid_t           session;   // process' session
+    struct proc     *parent;   // process' parent.
     
-    status_t         state;    // process' status.
-    long             flags;     // process' flags.
-    long             exit_code; // process' exit status.
-    thread_entry_t   entry;     // process' entry point.
-    long             refcnt;    // process' reference count.
-    tgroup_t        *tgroup;    // process' thread group.
+    status_t        state;     // process' status.
+    unsigned long   flags;     // process' flags.
+    long            exit_code; // process' exit status.
+    thread_entry_t  entry;     // process' entry point.
+    long            refcnt;    // process' reference count.
+    tgroup_t        *tgroup;   // process' thread group.
     
-    char            *name;      // process' name.
-    mmap_t          *mmap;      // process' memory map(virtual address space).
+    char            *name;     // process' name.
+    mmap_t          *mmap;     // process' memory map(virtual address space).
     
-    cond_t           wait;      // process' wait condition.
-    queue_t         children;   // process' children queue.
+    cond_t          wait;      // process' wait condition.
+    queue_t         children;  // process' children queue.
 
-    spinlock_t      lock;       // lock to protect this structure.
+    spinlock_t      lock;      // lock to protect this structure.
 } proc_t;
 
 #define PROC_USER               BS(0)   // process is a user process.
 #define PROC_EXECED             BS(1)   // process has executed exec().
 #define PROC_KILLED             BS(2)   // process killed.
 #define PROC_ORPHANED           BS(3)   // process was orphaned by parent.
+#define PROC_STOPPED            BS(4)   // process was stopped.
+#define PROC_REAP               BS(5)   // process struct marked for reaping.
+
 
 #define NPROC                   (32786)
 #define curproc                 ({ current ? current->t_owner : (proc_t *)NULL; })                //
@@ -64,9 +67,9 @@ extern proc_t *initproc;
 #define proc_trylock(proc)              ({ proc_assert(proc); spin_trylock(&(proc)->lock); })
 #define proc_islocked(proc)             ({ proc_assert(proc); spin_islocked(&(proc)->lock); })
 #define proc_assert_locked(proc)        ({ proc_assert(proc); spin_assert_locked(&(proc)->lock); })
-#define proc_getref(proc)               ({ proc_assert_locked(proc); (proc)->refcnt++; proc; })
-#define proc_putref(proc)               ({ proc_assert_locked(proc); (proc)->refcnt--; })
-#define proc_release(proc)              ({ proc_assert_locked(proc); (proc)->refcnt--; proc_unlock(proc); })
+#define proc_getref(proc)               ({ proc_assert_locked(proc); ++(proc)->refcnt; proc; })
+#define proc_putref(proc)               ({ proc_assert_locked(proc); --(proc)->refcnt; })
+#define proc_release(proc)              ({ proc_putref(proc); proc_unlock(proc); })
 
 #define proc_setflags(p, f)             ({ proc_assert_locked(p); (p)->flags |= (f); })
 #define proc_unsetflags(p, f)           ({ proc_assert_locked(p); (p)->flags &= ~(f); })
