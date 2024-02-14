@@ -5,58 +5,25 @@
 #include <sys/_wait.h>
 
 __unused
-pid_t waitpid(pid_t __pid, int *__stat_loc, int __opt) {
-    int             err     = 0;            // error code if an error  occurs.
-    child_desc_t    desc    = {0};
-    (void)__stat_loc, (void)__opt;
+pid_t waitpid(pid_t pid, int *stat_loc, int opt) {
+    int     err = 0;
+    (void)stat_loc, (void)opt;
 
     loop() {
-        if (__pid < -1) {
-            /**
-             * get status info of any child process
-             * whose process group ID matches pgid.
-            */
+    switch (pid) {
+    case -1: // wait for any child.
+        break;
+    case 0: // wait for process whose pgid == getpgrp().
+        break;
+    default:
+        // wait for process whose pgid == abs(pid)
+        if (pid < -1) {
 
-            desc.child  = NULL;
-            desc.flags  = 0;
-            desc.pid    = ABS(__pid);
-        } else if (__pid == -1) {
-            /**
-             * Get status info of any child process.
-            */
-            desc.pid    = 0;
-            desc.child  = NULL;
-            desc.flags  = 0;
-        } else if (__pid == 0) {
-            /**
-             * Get status info of any child
-             * whose process group ID matches
-             * that of the calling process.
-            */
-
-            desc.child = NULL;
-            desc.pid   = getpgrp();
-            desc.flags = 0;
-        } else if (__pid > 0) {
-            /**
-             * Get status info of a child process
-             * whose process ID matches pid.
-            */
-            desc.flags  = 0;
-            desc.child  = NULL;
-            desc.pid    = __pid;
+        } else { // wait for process whose pid == pid
+            
         }
-
-        proc_lock(curproc);
-        if ((err = proc_get_child(curproc, &desc))) {
-            proc_unlock(curproc);
-            return err;
-        }
-
-        
-
-        panic("child: %d\n", desc.child->pid);
-        proc_unlock(curproc);
+        break;
+    }
     }
 
     return 0;

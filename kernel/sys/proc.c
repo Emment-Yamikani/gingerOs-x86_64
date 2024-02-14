@@ -487,8 +487,6 @@ int proc_add_child(proc_t *parent, proc_t *child) {
 }
 
 int proc_get_child(proc_t *parent, child_desc_t *desc) {
-    int     err     = 0;
-    pid_t   pgid    = 0;
     proc_t  *child  = NULL;
 
     if (parent == NULL || desc == NULL)
@@ -496,30 +494,48 @@ int proc_get_child(proc_t *parent, child_desc_t *desc) {
     
     proc_assert_locked(parent);
 
-    if (desc->pid == 0) {
-
-    } else if (desc->pid < 0) {
-        pgid = ABS(desc->pid);
-
-        if ((err = procQ_search_bypgid(pgid, &child)))
-            return err;
-        
-        desc->child = child;
-        return 0;
-    } else {
-        queue_lock(&parent->children);
+    queue_lock(&parent->children);
         forlinked(node, parent->children.head, node->next) {
-            child = (proc_t *)node->data;
+            child = node->data;
             proc_lock(child);
             if (child->pid == desc->pid) {
                 desc->child = proc_getref(child);
                 queue_unlock(&parent->children);
                 return 0;
+            } else if (desc->pid == -1) {
+                if (proc_testflags(child, PROC_KILLED | PROC_REAP)) {
+                    
+                    if (proc_testflags(child, PROC_REAP))
+                        desc->reason |= CHLD_REAP;
+                    
+                    if (proc_testflags(child, PROC_KILLED))
+                        desc->reason |= CHLD_KILL;
+
+                    desc->child = proc_getref(child);
+                    queue_unlock(&parent->children);
+                    return 0;
+                }
+                
+                if (proc_iscontinued(child) || proc_iszombie(child)
+                    || proc_isstopped(child) || proc_isterminated(child) ) {
+                    
+                    if (proc_iscontinued(child))
+                        desc->reason |= CHLD_CONT;
+                    if (proc_isstopped(child))
+                        desc->reason |= CHLD_STOP;
+                    if (proc_iszombie(child))
+                        desc->reason |= CHLD_ZOMB;
+                    if (proc_isterminated(child))
+                        desc->reason |= CHLD_TERM;
+
+                    desc->child = proc_getref(child);
+                    queue_unlock(&parent->children);
+                    return 0;
+                }
             }
             proc_unlock(child);
         }
         queue_unlock(&parent->children);
-    }
 
     return -ESRCH;
 }

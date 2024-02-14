@@ -15,12 +15,12 @@ struct session;
 struct pgroup;
 
 typedef enum status_t {
-    EMBROY,
-    RUNNING,
-    STOPPED,
-    CONTINUED,
-    ZOMBIE,
-    TERMINATED,
+    P_EMBROY,
+    P_RUNNING,
+    P_STOPPED,
+    P_CONTINUED,
+    P_TERMINATED,
+    P_ZOMBIE,
 } status_t;
 
 typedef struct proc {
@@ -49,9 +49,7 @@ typedef struct proc {
 #define PROC_EXECED             BS(1)   // process has executed exec().
 #define PROC_KILLED             BS(2)   // process killed.
 #define PROC_ORPHANED           BS(3)   // process was orphaned by parent.
-#define PROC_STOPPED            BS(4)   // process was stopped.
 #define PROC_REAP               BS(5)   // process struct marked for reaping.
-
 
 #define NPROC                   (32786)
 #define curproc                 ({ current ? current->t_owner : (proc_t *)NULL; })                //
@@ -74,6 +72,14 @@ extern proc_t *initproc;
 #define proc_setflags(p, f)             ({ proc_assert_locked(p); (p)->flags |= (f); })
 #define proc_unsetflags(p, f)           ({ proc_assert_locked(p); (p)->flags &= ~(f); })
 #define proc_testflags(p, f)            ({ proc_assert_locked(p); (p)->flags & (f); })
+
+#define proc_isstate(p, st)             ({ proc_assert_locked(p); (p)->state == (st); })
+#define proc_isembryo(p)                ({ proc_isstate(p, P_EMBROY); })
+#define proc_isrunning(p)               ({ proc_isstate(p, P_RUNNING); })
+#define proc_isstopped(p)               ({ proc_isstate(p, P_STOPPED); })
+#define proc_iscontinued(p)             ({ proc_isstate(p, P_CONTINUED); })
+#define proc_isterminated(p)            ({ proc_isstate(p, P_TERMINATED); })
+#define proc_iszombie(p)                ({ proc_isstate(p, P_ZOMBIE); })
 
 #define proc_set_user(p) ({           \
     int locked = 0;                   \
@@ -190,9 +196,18 @@ typedef struct child_desc_t {
     pid_t       pid;    // Process ID of child to get.
     unsigned    flags;  // Used with pid to provide further info on how to get child.
     proc_t      *child; // If found, pointer to a child shall be returned through this pointer.
-} child_desc_t;
 
-#define CHLD_
+    /// Reasons for picking child.
+
+    #define CHLD_REAP   BS(0)
+    #define CHLD_KILL   BS(1)
+    #define CHLD_STOP   BS(2)
+    #define CHLD_CONT   BS(3)
+    #define CHLD_ZOMB   BS(4)
+    #define CHLD_TERM   BS(5)
+
+    unsigned    reason; // if pid == -1, get also why child was picked.
+} child_desc_t;
 
 extern int proc_add_child(proc_t *parent, proc_t *child);
 extern int proc_remove_child(proc_t *parent, proc_t *child);
