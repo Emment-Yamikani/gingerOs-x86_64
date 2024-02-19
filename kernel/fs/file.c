@@ -738,3 +738,33 @@ generic:
     iunlock(inode);
     return err;
 }
+
+int file_chown(file_t *file, uid_t owner, gid_t group) {
+    int     err     = 0;
+    inode_t *inode  = NULL;
+
+    fassert_locked(file);
+
+    if (file->fops == NULL || file->fops->fchown == NULL)
+        goto generic;
+
+    return file->fops->fchown(file, owner,group);
+generic:
+    if (file->f_dentry == NULL)
+        return -ENOENT;
+
+    dlock(file->f_dentry);
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode);
+        idupcnt(inode);
+    }
+    dunlock(file->f_dentry);
+
+    if (inode == NULL)
+        return -ENOENT;
+
+    err = ichown(inode, owner, group);
+    iputcnt(inode);
+    iunlock(inode);
+    return err;
+}

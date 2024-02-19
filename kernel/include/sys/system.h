@@ -13,15 +13,18 @@
 #define __aligned_section(s, a)         __attribute__((section(#s), aligned(a)))
 #define __fallthrough                   __attribute__((fallthrough))
 #define __used_section(__section__)     __attribute__((used, section(#__section__)))
+
 #define barrier()                       ({ asm volatile ("":::"memory"); })
 
-#define loop()                           for (;;)
+#define loop()                          for (;;)
 
 #define forlinked(elem, list, iter) \
     for (typeof(list) elem = list; elem; elem = iter)
 
-#define foreach(elem, list) \
-    for (typeof(*list) *tmp = list, elem = *tmp; elem; elem = *++tmp)
+#define foreach(elem, list)                         \
+    for (typeof(*list) *tmp = list,                 \
+        elem = (typeof(elem))(tmp ? *tmp : NULL);   \
+        elem; elem = *++tmp)
 
 #ifndef container_of
 #define container_of(ptr, type, member) ({ \
@@ -45,6 +48,7 @@
 #define MAX(a, b)               ((long)((a) > (b) ? (a) : (b)))     // take max of two arguments
 #define MIN(a, b)               ((long)((a) < (b) ? (a) : (b)))     // take min of two arguments.
 #define ABS(a)                  (((long)(a) < 0) ? -(long)(a) : (a))// take the absolute value of an argument.
+#define ABSi(x)                 ({ (int)x < 0 ? -(int)(x) : (int)(x); })
 
 // C('A') == Control-A
 #define CTRL(x)                 ((x) - '@')

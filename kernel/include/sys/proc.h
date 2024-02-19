@@ -24,25 +24,25 @@ typedef enum status_t {
 } status_t;
 
 typedef struct proc {
-    pid_t           pid;       // process' ID.
-    pid_t           pgroup;    // process' group
-    pid_t           session;   // process' session
-    struct proc     *parent;   // process' parent.
+    pid_t           pid;            // process' ID.
+    pid_t           pgroup;         // process' group
+    pid_t           session;        // process' session
+    struct proc     *parent;        // process' parent.
     
-    status_t        state;     // process' status.
-    unsigned long   flags;     // process' flags.
-    long            exit_code; // process' exit status.
-    thread_entry_t  entry;     // process' entry point.
-    long            refcnt;    // process' reference count.
-    tgroup_t        *tgroup;   // process' thread group.
+    status_t        state;          // process' status.
+    unsigned long   flags;          // process' ho   
+    long            exit_code;      // process' exit status
+    thread_entry_t  entry;          // process' entry point.
+    long            refcnt;         // process' reference count.
+    tgroup_t        *tgroup;        // process' thread group.
     
-    char            *name;     // process' name.
-    mmap_t          *mmap;     // process' memory map(virtual address space).
+    char            *name;          // process' name.
+    mmap_t          *mmap;          // process' memory map(virtual address space).
     
-    cond_t          wait;      // process' wait condition.
-    queue_t         children;  // process' children queue.
+    cond_t          child_event;    // process' child wait-event condition.
+    queue_t         children;       // process' children queue.
 
-    spinlock_t      lock;      // lock to protect this structure.
+    spinlock_t      lock;           // lock to protect this structure.
 } proc_t;
 
 #define PROC_USER               BS(0)   // process is a user process.
@@ -69,10 +69,9 @@ extern proc_t *initproc;
 #define proc_putref(proc)               ({ proc_assert_locked(proc); --(proc)->refcnt; })
 #define proc_release(proc)              ({ proc_putref(proc); proc_unlock(proc); })
 
-#define proc_setflags(p, f)             ({ proc_assert_locked(p); (p)->flags |= (f); })
-#define proc_unsetflags(p, f)           ({ proc_assert_locked(p); (p)->flags &= ~(f); })
-#define proc_testflags(p, f)            ({ proc_assert_locked(p); (p)->flags & (f); })
-
+#define proc_setflags(p, f)             ({ proc_assert_locked(p); (p)->flags |=   (f); })
+#define proc_unsetflags(p, f)           ({ proc_assert_locked(p); (p)->flags &=   ~(f); })
+#define proc_testflags(p, f)            ({ proc_assert_locked(p); (p)->flags &   (f); })
 #define proc_isstate(p, st)             ({ proc_assert_locked(p); (p)->state == (st); })
 #define proc_isembryo(p)                ({ proc_isstate(p, P_EMBROY); })
 #define proc_isrunning(p)               ({ proc_isstate(p, P_RUNNING); })
@@ -118,7 +117,7 @@ extern proc_t *initproc;
         proc_unlock(p);               \
 })
 
-#define proc_unset_has_execed(p) ({    \
+#define proc_unset_has_execed(p) ({   \
     int locked = 0;                   \
     if ((locked = !proc_islocked(p))) \
         proc_lock(p);                 \
@@ -127,7 +126,7 @@ extern proc_t *initproc;
         proc_unlock(p);               \
 })
 
-#define proc_hasexeced(p) ({              \
+#define proc_hasexeced(p) ({               \
     int locked = 0, test = 0;              \
     if ((locked = !proc_islocked(p)))      \
         proc_lock(p);                      \
@@ -189,27 +188,40 @@ extern int  proc_alloc(const char *name, proc_t **pref);
 extern int proc_copy(proc_t *child, proc_t *parent);
 
 /**
- * @brief Describes how to search for the child.
+ * @brief Describes flags to search for the child.
  * using int proc_get_child();
  */
-typedef struct child_desc_t {
-    pid_t       pid;    // Process ID of child to get.
-    unsigned    flags;  // Used with pid to provide further info on how to get child.
-    proc_t      *child; // If found, pointer to a child shall be returned through this pointer.
+typedef struct proc_desc_t {
+    pid_t           pid;    // Process ID of proc to get.
 
-    /// Reasons for picking child.
+/// The following are used with desc->pid <= -1 or 0.
+/// Only one of these values should be used in desc->flags.
 
-    #define CHLD_REAP   BS(0)
-    #define CHLD_KILL   BS(1)
-    #define CHLD_STOP   BS(2)
-    #define CHLD_CONT   BS(3)
-    #define CHLD_ZOMB   BS(4)
-    #define CHLD_TERM   BS(5)
+#define SRCH_ANY    0x00    // search for any process.
+#define SRCH_STOP   0x01    // search for "any" stopped process.
+#define SRCH_CONT   0x02    // search for "any" continued process.
+#define SRCH_TERM   0x04    // search for "any" terminated process.
+#define SRCH_ZOMB   0x08    // search for "any" Zombie process.
+#define SRCH_ALL    0x10    // search for "any" process.
+    unsigned        flags;  // Used with pid to provide further info on flags to get proc.
+    proc_t          *proc;  // If found, pointer to proc shall be returned through this pointer.
 
-    unsigned    reason; // if pid == -1, get also why child was picked.
-} child_desc_t;
+/// Reasons for picking child.
+
+#define CHLD_REAP   BS(0)
+#define CHLD_KILL   BS(1)
+#define CHLD_STOP   BS(2)
+#define CHLD_CONT   BS(3)
+#define CHLD_ZOMB   BS(4)
+#define CHLD_TERM   BS(5)
+#define CHLD_STATE  BS(6)
+#define CHLD_EXIST  BS(31)
+
+    unsigned        reason; // if pid == -1, get also why child was picked.
+} proc_desc_t;
+
 
 extern int proc_add_child(proc_t *parent, proc_t *child);
 extern int proc_remove_child(proc_t *parent, proc_t *child);
-extern int proc_get_child(proc_t *parent, child_desc_t *desc);
+extern int proc_get_child(proc_t *parent, proc_desc_t *desc);
 extern int proc_abandon_children(proc_t *new_parent, proc_t *old_parent);

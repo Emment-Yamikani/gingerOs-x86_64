@@ -8,19 +8,18 @@ void fun(void) {
 int main(void) {
     pid_t   pid         = 0;
     int     statloc     = 0;
+    
+    sys_thread_create(NULL, NULL, (thread_entry_t)fun, NULL);
 
-    if ((pid = sys_fork()) < 0)
-        panic("[%d:%d]: Failed to fork a child.", sys_thread_self(), sys_getpid());
-    else if (pid)
-        sys_waitpid(pid, &statloc, 0);
-    else {
-        if ((sys_thread_create(NULL, NULL, (thread_entry_t)fun, NULL))) {
-            panic("[%d:%d]: Failed to create new thread in process.", sys_thread_self(), sys_getpid());
-        }
-
-        sys_exit(0);
+    if (0 > (pid = sys_fork())) // error occured.
+        panic("Failed to fork(), sys_fork() returned =%d\n", pid);
+    else if (pid == 0) { // child process.
+        sys_sleep(3); // Child thread simulates some work.
+        sys_exit(1); // then exists.
+    } else { // parent process.
+        pid = sys_waitpid(pid, &statloc, 0); // wait for child process to exit.
+        printf("Child changed state, stat_val= %d\n", statloc);
+        loop();
     }
-
-    fun();
     return 0xDEADBEEF;
 }

@@ -580,3 +580,13 @@ int istat(inode_t *ip, struct stat *buf) {
 
     return 0;
 }
+
+int ichown(inode_t *ip, uid_t owner, gid_t group) {
+    int err = 0;
+    iassert_locked(ip);
+
+    if ((err = icheck_op(ip, ichown)))
+        return err;
+    
+    return ip->i_ops->ichown(ip, owner, group);
+}

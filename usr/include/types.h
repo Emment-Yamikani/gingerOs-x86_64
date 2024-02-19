@@ -12,6 +12,7 @@ typedef int         gid_t;
 typedef int         ino_t;
 typedef int         mode_t;
 typedef long        time_t;
+typedef int         susseconds_t;
 typedef long        timer_t;
 typedef long        clock_t;
 typedef long        clockid_t;

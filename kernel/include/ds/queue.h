@@ -4,16 +4,14 @@
 
 struct queue;
 
-typedef struct queue_node
-{
+typedef struct queue_node {
     struct queue_node   *prev;
     void                *data;
     struct queue_node   *next;
     struct queue        *queue;
 } queue_node_t;
 
-typedef struct queue
-{
+typedef struct queue {
     queue_node_t    *head;
     queue_node_t    *tail;
     size_t          q_count;
@@ -34,6 +32,13 @@ typedef struct queue
     memset(q, 0, sizeof *(q));     \
     (q)->q_lock = SPINLOCK_INIT(); \
 })
+
+#define queue_foreach(type, item, queue)                                          \
+    queue_assert_locked(queue);                                                   \
+    for (type item = (queue) ? (queue)->head ? (queue)->head->data : NULL : NULL, \
+              *node = (typeof(node))((queue) ? (queue)->head : NULL);             \
+         node != NULL; node = (typeof(node))((queue_node_t *)node)->next,         \
+              item = (type)(node ? ((queue_node_t *)node)->data : NULL))
 
 int queue_alloc(queue_t **pqp);
 

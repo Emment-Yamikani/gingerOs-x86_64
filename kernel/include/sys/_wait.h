@@ -30,20 +30,20 @@
 /* This will define all the `__W*' macros.  */
 # include <bits/waitstatus.h>
 
-#define WEXITSTATUS(status)	__WEXITSTATUS (status)
-#define WTERMSIG(status)	__WTERMSIG (status)
-#define WSTOPSIG(status)	__WSTOPSIG (status)
-#define WIFEXITED(status)	__WIFEXITED (status)
-#define WIFSIGNALED(status)	__WIFSIGNALED (status)
-#define WIFSTOPPED(status)	__WIFSTOPPED (status)
+#define WEXITSTATUS(status)      __WEXITSTATUS (status)
+#define WTERMSIG(status)         __WTERMSIG (status)
+#define WSTOPSIG(status)         __WSTOPSIG (status)
+#define WIFEXITED(status)        __WIFEXITED (status)
+#define WIFSIGNALED(status)      __WIFSIGNALED (status)
+#define WIFSTOPPED(status)       __WIFSTOPPED (status)
 # ifdef __WIFCONTINUED
-#  define WIFCONTINUED(status)	__WIFCONTINUED (status)
+#  define WIFCONTINUED(status)   __WIFCONTINUED (status)
 # endif
 
-#define WCOREFLAG		__WCOREFLAG
-#define WCOREDUMP(status)	__WCOREDUMP (status)
-#define W_EXITCODE(ret, sig)	__W_EXITCODE (ret, sig)
-#define W_STOPCODE(sig)	__W_STOPCODE (sig)
+#define WCOREFLAG		            __WCOREFLAG
+#define WCOREDUMP(status)	      __WCOREDUMP (status)
+#define W_EXITCODE(ret, sig)	   __W_EXITCODE (ret, sig)
+#define W_STOPCODE(sig)	         __W_STOPCODE (sig)
 
 /* Wait for a child to die.  When one does, put its status in *STAT_LOC
    and return its process ID.  For errors, return (pid_t) -1.
@@ -53,8 +53,8 @@
 extern pid_t wait (int *__stat_loc);
 
 /* Special values for the PID argument to `waitpid' and `wait4'.  */
-#define WAIT_ANY	(-1)	/* Any process.  */
-#define WAIT_MYPGRP	0	/* Any process in my process group.  */
+#define WAIT_ANY	      (-1)	/* Any process.  */
+#define WAIT_MYPGRP	   0	/* Any process in my process group.  */
 
 /* Wait for a child matching PID to die.
    If PID is greater than 0, match any process whose process ID is PID.

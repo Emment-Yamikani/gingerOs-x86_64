@@ -60,6 +60,16 @@ int cond_wait(cond_t *cond) {
     return retval;
 }
 
+int cond_wait_releasing(cond_t *cond, spinlock_t *lk) {
+    int retval = 0;
+    if (lk)
+        spin_unlock(lk);
+    retval = cond_wait(cond);
+    if (lk)
+        spin_lock(lk);
+    return retval;
+}
+
 static void cond_wake1(cond_t *cond) {
     sched_wake1(&cond->waiters);
 }

@@ -38,6 +38,7 @@ size_t (*syscall[])() = {
     [SYS_GETPID]            = (void *)sys_getpid,
     [SYS_GETPPID]           = (void *)sys_getppid,
     [SYS_WAITPID]           = (void *)sys_waitpid,
+    [SYS_WAIT]              = (void *)sys_wait,
 
     [SYS_GETSID]            = (void *)sys_getsid,
     [SYS_SETSID]            = (void *)sys_setsid,

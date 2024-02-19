@@ -11,6 +11,8 @@
 #include <sys/sysproc.h>
 #include <mm/pmm.h>
 #include <sys/_wait.h>
+#include <sys/_time.h>
+#include <sys/_utsname.h>
 
 void sys_putc(int c) {
     printk("%c", c);
@@ -109,6 +111,31 @@ int      sys_fstatat(int fd, const char *restrict path, struct stat *restrict bu
 }
 
 
+int      sys_uname(struct utsname *name) {
+    return uname(name);
+}
+
+int      sys_chown(const char *pathname, uid_t uid, gid_t gid) {
+    return chown(pathname, uid, gid);
+}
+
+int      sys_fchown(int fd, uid_t uid, gid_t gid) {
+    return fchown(fd, uid, gid);
+}
+
+int      sys_gettimeofday(struct timeval *restrict tp, void *restrict tzp) {
+    return gettimeofday(tp, tzp);
+}
+
+mode_t   sys_umask(mode_t cmask) {
+    return umask(cmask);
+}
+
+int      sys_isatty(int fd) {
+    return isatty(fd);
+}
+
+
 /** @brief PROTECTION */
 
 uid_t sys_getuid(void) {
@@ -157,6 +184,10 @@ pid_t sys_fork(void) {
 
 pid_t sys_waitpid(pid_t __pid, int *__stat_loc, int __options) {
     return waitpid( __pid, __stat_loc, __options);
+}
+
+pid_t sys_wait(int *stat_loc) {
+    return wait(stat_loc);
 }
 
 void     sys_exit(int exit_code) {

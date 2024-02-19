@@ -22,6 +22,12 @@ struct tm
     int tm_isdst;
 };
 
+typedef struct timeval {
+    time_t          tv_sec;  // Seconds.
+    susseconds_t    tv_usec; // Microseconds.
+} timeval_t;
+int gettimeofday(struct timeval *restrict tp, void *restrict tzp);
+
 clock_t clock(void);
 
 struct tm *localtime(const time_t *timer);
@@ -33,5 +39,3 @@ time_t mktime(struct tm *timeptr);
 int clock_getres(clockid_t clock_id, struct timespec *res);
 int clock_gettime(clockid_t clock_id, struct timespec *tp);
 int clock_settime(clockid_t clock_id, const struct timespec *tp);
-
-// int gettimeofday(struct timeval *restrict tp, void *restrict tzp);

@@ -6,6 +6,8 @@
 #include <sys/thread.h>
 #include <mm/mm_zone.h>
 #include <fs/stat.h>
+#include <sys/_time.h>
+#include <sys/_utsname.h>
 
 void do_syscall(tf_t *tf);
 
@@ -84,6 +86,14 @@ void do_syscall(tf_t *tf);
 #define SYS_STAT                64  // int sys_stat(const char *restrict path, struct stat *restrict buf);
 #define SYS_LSTAT               65  // int sys_lstat(const char *restrict path, struct stat *restrict buf);
 #define SYS_FSTATAT             66  // int sys_fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag);
+#define SYS_WAIT                67  // pid_t sys_wait(int *stat_loc);
+#define SYS_UNAME               68  // int sys_uname(struct utsname *name);
+#define SYS_CHOWN               69  // int sys_chown(const char *pathname, uid_t uid, gid_t gid);
+#define SYS_FCHOWN              70  // int sys_fchown(int fd, uid_t uid, gid_t gid);
+#define SYS_GETTIMEOFDAY        71  // int sys_gettimeofday(struct timeval *restrict tp, void *restrict tzp);
+#define SYS_UMASK               72  // mode_t sys_umask(mode_t cmask);
+#define SYS_ISATTY              73  // int sys_isatty(int fd);
+
 
 extern void     sys_putc(int c);
 
@@ -112,6 +122,13 @@ extern int      sys_stat(const char *restrict path, struct stat *restrict buf);
 extern int      sys_lstat(const char *restrict path, struct stat *restrict buf);
 extern int      sys_fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag);
 
+extern int      sys_uname(struct utsname *name);
+extern int      sys_chown(const char *pathname, uid_t uid, gid_t gid);
+extern int      sys_fchown(int fd, uid_t uid, gid_t gid);
+extern int      sys_gettimeofday(struct timeval *restrict tp, void *restrict tzp);
+extern mode_t   sys_umask(mode_t cmask);
+extern int      sys_isatty(int fd);
+
 /** @brief PROTECTION */
 
 extern uid_t    sys_getuid(void);
@@ -129,6 +146,7 @@ extern pid_t    sys_fork(void);
 extern void     sys_exit(int exit_code);
 extern long     sys_sleep(long seconds);
 extern pid_t    sys_waitpid(pid_t __pid, int *__stat_loc, int __options);
+extern pid_t    sys_wait(int *stat_loc);
 
 extern tid_t    sys_gettid(void);
 extern void     sys_thread_exit(int exit_code);

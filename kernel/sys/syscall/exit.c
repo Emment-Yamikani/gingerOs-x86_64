@@ -59,13 +59,13 @@ void exit(int exit_code) {
     }
     mmap_unlock(curproc->mmap);
 
-    curproc->state      = ZOMBIE;
+    curproc->state      = P_ZOMBIE;
     curproc->exit_code  = exit_code;
 
     // broadcast event to self and to parent.
     proc_lock(curproc->parent);
-    cond_broadcast(&curproc->wait);
-    cond_broadcast(&curproc->parent->wait);
+    cond_broadcast(&curproc->child_event);
+    cond_broadcast(&curproc->parent->child_event);
     proc_unlock(curproc->parent);
     proc_unlock(curproc);
 

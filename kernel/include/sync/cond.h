@@ -18,3 +18,4 @@ void cond_free(cond_t *cond);
 void cond_signal(cond_t *cond);
 void cond_broadcast(cond_t *cond);
 int cond_init(cond_t *c, cond_t **ref);
+int cond_wait_releasing(cond_t *cond, spinlock_t *lk);

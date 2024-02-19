@@ -24,6 +24,8 @@
 
 int chown(const char *path, uid_t owner, gid_t group);
 
+int fchown(int fd, uid_t owner, gid_t group);
+
 int fchownat(int fd, const char *path, uid_t owner, gid_t group, int flag);
 
 #endif

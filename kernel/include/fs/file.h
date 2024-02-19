@@ -8,6 +8,7 @@
 #include <fs/inode.h>
 #include <fs/cred.h>
 #include <mm/mmap.h>
+#include <sys/_utsname.h>
 
 typedef struct file_t file_t;
 
@@ -31,6 +32,7 @@ typedef struct fops_t {
     int     (*fmknodat)(file_t *dir, const char *filename, mode_t mode, int devid);
     int     (*fmmap)(file_t *file, vmr_t *region);
     int     (*fstat)(file_t *file, struct stat *buf);
+    int     (*fchown)(file_t *file, uid_t owner, gid_t group);
 } fops_t;
 
 typedef struct file_t {
@@ -60,6 +62,9 @@ int     funlink(file_t *file);
 int     fgetattr(file_t *file, void *attr);
 int     fsetattr(file_t *file, void *attr);
 int     file_stat(file_t *file, struct stat *buf);
+
+int     file_chown(file_t *file, uid_t owner, gid_t group);
+
 int     ftruncate(file_t *file, off_t length);
 int     ffcntl(file_t *file, int cmd, void *argp);
 int     fioctl(file_t *file, int req, void *argp);
@@ -125,3 +130,5 @@ ssize_t readdir(int fd, off_t off, void *buf, size_t count);
 int     linkat(int fd, const char *oldname, const char *newname);
 int     mknodat(int fd, const char *filename, mode_t mode, int devid);
 int     openat(int fd, const char *pathn, int oflags, mode_t);
+mode_t  umask(mode_t cmask);
+int     isatty(int fd);

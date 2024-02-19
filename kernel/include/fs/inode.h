@@ -84,6 +84,7 @@ typedef struct iops {
     int     (*imknod)(inode_t *dir, const char *name, mode_t mode, int devid);
     ssize_t (*ireaddir)(inode_t *dir, off_t off, struct dirent *buf, size_t count);
     int     (*irename)(inode_t *dir, const char *old, inode_t *newdir, const char *new);
+    int     (*ichown)(inode_t *ip, uid_t owner, gid_t group);
 } iops_t;
 
 #define iassert(ip)         ({ assert((ip), "No inode"); })
@@ -163,3 +164,4 @@ int     isymlink(inode_t *ip, inode_t *atdir, const char *symname);
 int     ilink(const char *oldname, inode_t *dir, const char *newname);
 int     imknod(inode_t *dir, const char *name, mode_t mode, int devid);
 int     irename(inode_t *dir, const char *old, inode_t *newdir, const char *new);
+int     ichown(inode_t *ip, uid_t owner, gid_t group);

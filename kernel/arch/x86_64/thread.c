@@ -6,6 +6,7 @@
 #include <lib/string.h>
 #include <sys/system.h>
 #include <sys/thread.h>
+#include <sys/proc.h>
 
 void arch_thread_exit(uintptr_t exit_code) {
     current_lock();
@@ -19,6 +20,12 @@ void arch_thread_exit(uintptr_t exit_code) {
 /// @brief all threads start here
 static void arch_thread_start(void) {
     current_unlock();
+
+    if (curproc) {
+        proc_lock(curproc);
+        curproc->state = P_RUNNING;
+        proc_unlock(curproc);
+    }
 }
 
 /// @brief all threads end executution here.

@@ -6,6 +6,8 @@
 #include <sys/_signal.h>
 #include <bits/stat.h>
 #include <ginger/ginger.h>
+#include <sys/_time.h>
+#include <sys/_utsname.h>
 
 
 extern void     sys_putc(int c);
@@ -32,6 +34,14 @@ extern int      sys_fstat(int fildes, struct stat *buf);
 extern int      sys_stat(const char *restrict path, struct stat *restrict buf);
 extern int      sys_lstat(const char *restrict path, struct stat *restrict buf);
 extern int      sys_fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag);
+
+extern pid_t    sys_wait(int *stat_loc);
+extern int      sys_uname(struct utsname *name);
+extern int      sys_chown(const char *pathname, uid_t uid, gid_t gid);
+extern int      sys_fchown(int fd, uid_t uid, gid_t gid);
+extern int      sys_gettimeofday(struct timeval *restrict tp, void *restrict tzp);
+extern mode_t   sys_umask(mode_t cmask);
+extern int      sys_isatty(int fd);
 
 /** @brief PROTECTION */
 

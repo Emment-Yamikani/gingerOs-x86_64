@@ -10,22 +10,22 @@
 extern tid_t thread_self(void);
 extern tid_t thread_gettid(thread_t *);
 typedef struct spinlock {
-    uint8_t s_lock;
-    int s_line;
-    cpu_t *s_cpu;
-    char *s_file;
-    thread_t *s_thread;
-    void *s_retaddr;
-    uint8_t s_guard;
+    uint8_t     s_lock;
+    int         s_line;
+    cpu_t       *s_cpu;
+    char        *s_file;
+    thread_t    *s_thread;
+    void        *s_retaddr;
+    uint8_t     s_guard;
 } spinlock_t;
 
 #define SPINLOCK_INIT() ((spinlock_t){ \
-    .s_lock = 0,                       \
-    .s_line = 0,                       \
-    .s_cpu = NULL,                     \
-    .s_file = NULL,                    \
-    .s_thread = NULL,                  \
-    .s_retaddr = NULL,                 \
+    .s_lock     = 0,                   \
+    .s_line     = 0,                   \
+    .s_cpu      = NULL,                \
+    .s_file     = NULL,                \
+    .s_thread   = NULL,                \
+    .s_retaddr  = NULL,                \
 })
 
 #define SPINLOCK_NEW()  (&SPINLOCK_INIT())
@@ -73,7 +73,7 @@ typedef struct spinlock {
                                          : (lk)->s_cpu == cpu) &&                             \
                          1),                                                                  \
                        "%s:%d: cpu%d state[%s:tid:%d:cpu:%d] current[%d]"                     \
-                       " Spinlock held at [%s:%ld:%p].\n",                                    \
+                       " Spinlock held at [%s:%ld |%p|].\n",                                  \
                        __FILE__, __LINE__, cpu_id, (lk)->s_lock ? "locked" : "unlocked",      \
                        thread_gettid((lk)->s_thread), (lk)->s_cpu ? (lk)->s_cpu->apicID : -1, \
                        thread_self(), (lk)->s_file, (lk)->s_line, (lk)->s_retaddr);           \

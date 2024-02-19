@@ -85,6 +85,14 @@ sys_%2:
 %define SYS_LSTAT           65
 %define SYS_FSTATAT         66
 
+%define SYS_WAIT            67
+%define SYS_UNAME           68
+%define SYS_CHOWN           69
+%define SYS_FCHOWN          70
+%define SYS_GETTIMEOFDAY    71
+%define SYS_UMASK           72
+%define SYS_ISATTY          73
+
 stub SYS_PUTC, putc
 stub SYS_CLOSE, close
 stub SYS_UNLINK, unlink
@@ -111,11 +119,19 @@ stub SYS_STAT, stat
 stub SYS_LSTAT, lstat
 stub SYS_FSTATAT, fstatat
 
+stub SYS_UNAME, uname
+stub SYS_CHOWN, chown
+stub SYS_FCHOWN, fchown
+stub SYS_GETTIMEOFDAY, gettimeofday
+stub SYS_UMASK, umask
+stub SYS_ISATTY, isatty
+
 stub SYS_PARK, park
 stub SYS_UNPARK, unpark
 
 stub SYS_FORK, fork
 stub SYS_WAITPID, waitpid
+stub SYS_WAIT, wait
 stub SYS_EXIT, exit
 stub SYS_GETPID, getpid
 stub SYS_GETPPID, getppid
