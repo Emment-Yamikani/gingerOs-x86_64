@@ -184,8 +184,8 @@ extern void     sys_thread_yield(void);
 
 /** @brief MEMORY MANAGEMENT */
 
-extern int sys_getpagesize(void);
-extern int sys_munmap(void *addr, size_t len);
-extern int sys_mprotect(void *addr, size_t len, int prot);
-extern void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
-extern int sys_getmemusage(meminfo_t *info);
+extern int      sys_munmap(void *addr, size_t len);
+extern int      sys_getpagesize(void);
+extern int      sys_mprotect(void *addr, size_t len, int prot);
+extern void     *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
+extern int      sys_getmemusage(meminfo_t *info);

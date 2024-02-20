@@ -22,6 +22,7 @@ static void arch_thread_start(void) {
     current_unlock();
 
     if (curproc) {
+        // printk("%s(); pid=%d\n", __func__, curproc->pid);
         proc_lock(curproc);
         curproc->state = P_RUNNING;
         proc_unlock(curproc);
