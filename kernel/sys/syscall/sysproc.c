@@ -3,19 +3,24 @@
 
 pid_t getsid(pid_t pid) {
     int     err     = 0;
+    pid_t   mysess  = 0;
     proc_t  *proc   = NULL;
 
-    if (pid == 0) {
-        proc_lock(curproc);
-        pid = proc->session;
-        proc_unlock(curproc);
-        return pid;
-    }
+    proc_lock(curproc);
+    mysess = curproc->session;
+    proc_unlock(curproc);
+
+    if (pid == 0)
+        return mysess;
 
     if ((err = procQ_search_bypid(curproc->pid, &proc)))
         return err;
 
-    pid = proc->session;
+    if (mysess != proc->session)
+        pid = -EPERM;
+    else
+        pid = proc->session;
+
     proc_release(proc);
     return pid;
 }

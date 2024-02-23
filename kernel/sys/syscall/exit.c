@@ -25,16 +25,6 @@ void exit(int exit_code) {
 
     proc_lock(curproc);
 
-    if ((err = procQ_remove(curproc))) {
-        panic(
-            "%s:%d: [%d:%d]: "
-            "Failed to remove from"
-            " the process queue, error: %d",
-            __FILE__, __LINE__, curproc->pid,
-            thread_self(), err
-        );
-    }
-
     // abandon children to initproc.
     proc_lock(initproc);
     if ((err = proc_abandon_children(initproc, curproc))) {
