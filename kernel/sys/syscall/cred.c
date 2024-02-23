@@ -184,3 +184,55 @@ mode_t umask(mode_t cmask) {
 
     return omask;
 }
+
+int getcwd(char *buf, size_t size) {
+    int ret     = 0;
+    file_table_t *ft = NULL;
+
+    if (buf == NULL)
+        return -EFAULT;
+    
+    if (size == 0)
+        return -EINVAL;
+    
+    current_lock();
+    ft = current->t_file_table;
+    ftlock(ft);
+
+    if (ft->cred.c_cwd == NULL)
+        ret = -ENOENT;
+    else if (strlen(ft->cred.c_cwd) >= size)
+        ret = -ERANGE;
+    else
+        strncpy(buf, ft->cred.c_cwd, size);
+
+    ftunlock(ft);
+    current_unlock();
+
+    return 0;
+}
+
+int chdir(const char *path) {
+    int err             = 0;
+    char *path_dup      = NULL;
+    file_table_t *ft    = NULL;
+
+    if ((err = vfs_lookup(path, NULL, O_RDONLY, 0, 0, NULL)))
+        return err;
+
+    if ((path_dup = strdup(path)) == NULL)
+        return -ENOMEM;
+
+    current_lock();
+    ft = current->t_file_table;
+    ftlock(ft);
+
+    if (ft->cred.c_cwd)
+        kfree(ft->cred.c_cwd);
+    ft->cred.c_cwd = path_dup;
+
+    ftunlock(ft);
+    current_unlock();
+
+    return 0;
+}
