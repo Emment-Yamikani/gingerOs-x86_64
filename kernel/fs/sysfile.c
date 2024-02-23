@@ -544,27 +544,6 @@ int fstatat(int fd, const char *restrict path, struct stat *restrict buf, int fl
     return 0;
 }
 
-int isatty(int fd __unused) {
-    return -ENOSYS;
-}
-
-mode_t umask(mode_t cmask) {
-    mode_t      omask   = 0;
-    file_table_t *ft    = NULL;
-
-    current_lock();
-    ft = current->t_file_table;
-    ftlock(ft);
-    current_unlock();
-
-    omask = ft->cred.c_umask;
-    ft->cred.c_umask = cmask;
-
-    ftunlock(ft);
-
-    return omask;
-}
-
 int chown(const char *path, uid_t owner, gid_t group) {
     int         err     = 0;
     dentry_t    *dentry = NULL;

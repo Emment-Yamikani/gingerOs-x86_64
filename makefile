@@ -99,7 +99,6 @@ run:
 #			 USER RULES			     #
 ###################################### 
 
-
 # Shared library rules
 $(USR_LIB)/%.o: $(USR_LIB)/%.c
 	$(CC) $(USER_LIB_FLAGS) -MD -c $< -o $@

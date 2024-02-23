@@ -167,3 +167,20 @@ int setegid(gid_t egid) {
     current_unlock();
     return err;
 }
+
+mode_t umask(mode_t cmask) {
+    mode_t      omask   = 0;
+    file_table_t *ft    = NULL;
+
+    current_lock();
+    ft = current->t_file_table;
+    ftlock(ft);
+    current_unlock();
+
+    omask = ft->cred.c_umask;
+    ft->cred.c_umask = cmask & 0777;
+
+    ftunlock(ft);
+
+    return omask;
+}

@@ -6,6 +6,7 @@
 
 void exit(int exit_code) {
     int     err = 0;
+    proc_t *parent = NULL;
 
     if (curproc == initproc)
         panic("initproc not allowed to exit?!\n");
@@ -21,11 +22,12 @@ void exit(int exit_code) {
 
     // cancel all pending signals.
 
+    // close all open file descriptors.
     file_close_all();
 
     proc_lock(curproc);
 
-    // abandon children to initproc.
+    // abandon children to 'init'.
     proc_lock(initproc);
     if ((err = proc_abandon_children(initproc, curproc))) {
         panic(
@@ -52,11 +54,11 @@ void exit(int exit_code) {
     curproc->state      = P_ZOMBIE;
     curproc->exit_code  = exit_code;
 
-    // broadcast event to self and to parent.
-    proc_lock(curproc->parent);
-    cond_broadcast(&curproc->child_event);
-    cond_broadcast(&curproc->parent->child_event);
-    proc_unlock(curproc->parent);
+    parent = curproc->parent;
+    // broadcast event to parent process.
+    proc_lock(parent);
+    cond_broadcast(&parent->child_event);
+    proc_unlock(parent);
     proc_unlock(curproc);
 
     printk("%s:%ld: %s(%d);\n", __FILE__, __LINE__, __func__, exit_code);

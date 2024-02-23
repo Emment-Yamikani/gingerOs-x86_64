@@ -51,9 +51,9 @@
 - [x] Symmetric Multiprocessing up to 16 Cores
 - [x] Multi-Threading
   - [x] Thread groups
-- [ ] User processes
+- [x] User processes
 
-- [ ] POSIX Signals
+- [x] POSIX Signals
 
 ## Virtual Filesystem
 

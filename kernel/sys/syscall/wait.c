@@ -314,7 +314,6 @@ pid_t waitpid(pid_t pid, int *stat_loc, int opt) {
         if (has_kids == 0)
             return -ECHILD;
 
-
         if (opt & WNOHANG)
             return 0;
 
