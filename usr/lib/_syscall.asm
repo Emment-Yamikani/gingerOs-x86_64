@@ -93,6 +93,9 @@ sys_%2:
 %define SYS_UMASK           72
 %define SYS_ISATTY          73
 
+%define SYS_GETCWD          74
+%define SYS_CHDIR           75
+
 stub SYS_PUTC, putc
 stub SYS_CLOSE, close
 stub SYS_UNLINK, unlink
@@ -169,6 +172,8 @@ stub SYS_SETUID, setuid
 stub SYS_SETGID, setgid
 stub SYS_SETEUID, seteuid
 stub SYS_SETEGID, setegid
+stub SYS_GETCWD, getcwd
+stub SYS_CHDIR, chdir
 
 stub SYS_GETSID, getsid
 stub SYS_SETSID, setsid
@@ -176,3 +181,4 @@ stub SYS_GETPGRP, getpgrp
 stub SYS_SETPGRP, setpgrp
 stub SYS_GETPGID, getpgid
 stub SYS_SETPGID, setpgid
+

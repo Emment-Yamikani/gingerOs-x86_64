@@ -78,6 +78,8 @@ size_t (*syscall[])() = {
     [SYS_SETGID]            = (void *)sys_setgid,
     [SYS_SETEUID]           = (void *)sys_seteuid,
     [SYS_SETEGID]           = (void *)sys_setegid,
+    [SYS_GETCWD]            = (void *)sys_getcwd,
+    [SYS_CHDIR]             = (void *)sys_chdir,
 };
 
 static int sys_syscall_ni(tf_t *tf) {

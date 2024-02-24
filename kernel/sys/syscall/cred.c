@@ -3,6 +3,7 @@
 #include <lib/stdint.h>
 #include <sys/sysprot.h>
 #include <sys/thread.h>
+#include <mm/kalloc.h>
 
 uid_t getuid(void) {
     uid_t           uid     = 0;
@@ -209,7 +210,7 @@ int getcwd(char *buf, size_t size) {
     ftunlock(ft);
     current_unlock();
 
-    return 0;
+    return ret;
 }
 
 int chdir(const char *path) {

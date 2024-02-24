@@ -110,3 +110,6 @@
 
 extern void _kernel_end();
 extern void _kernel_start();
+
+extern int copy_to_user(void *udst, void *ksrc, size_t size);
+extern int copy_from_user(void *kdst, void * usrc, size_t size);

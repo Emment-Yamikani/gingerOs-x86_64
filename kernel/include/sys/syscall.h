@@ -94,6 +94,9 @@ void do_syscall(tf_t *tf);
 #define SYS_UMASK               72  // mode_t sys_umask(mode_t cmask);
 #define SYS_ISATTY              73  // int sys_isatty(int fd);
 
+#define SYS_GETCWD              74  // int getcwd(char *buf, size_t size);
+#define SYS_CHDIR               75  // int chdir(const char *path);
+
 
 extern void     sys_putc(int c);
 
@@ -161,12 +164,15 @@ extern pid_t    getppid(void);
 extern pid_t    sys_getpid(void);
 extern pid_t    sys_getppid(void);
 
-extern pid_t   sys_getsid(pid_t pid);
-extern pid_t   sys_setsid(void);
-extern pid_t   sys_getpgrp(void);
-extern pid_t   sys_setpgrp(void);
-extern pid_t   sys_getpgid(pid_t pid);
-extern int     sys_setpgid(pid_t pid, pid_t pgid);
+extern pid_t    sys_getsid(pid_t pid);
+extern pid_t    sys_setsid(void);
+extern pid_t    sys_getpgrp(void);
+extern pid_t    sys_setpgrp(void);
+extern pid_t    sys_getpgid(pid_t pid);
+extern int      sys_setpgid(pid_t pid, pid_t pgid);
+
+extern int      sys_getcwd(char *buf, size_t size);
+extern int      sys_chdir(const char *path);
 
 /** @brief SIGNALS */
 

@@ -13,6 +13,7 @@
 #include <sys/_wait.h>
 #include <sys/_time.h>
 #include <sys/_utsname.h>
+#include <mm/kalloc.h>
 
 void sys_putc(int c) {
     printk("%c", c);
@@ -169,6 +170,37 @@ int sys_setegid(gid_t egid) {
 int sys_setgid(gid_t gid) {
     return setgid(gid);
 }
+
+int sys_getcwd(char *buf, size_t size) {
+    int err = 0;
+    char *buffer = NULL;
+
+    if (buf == NULL)
+        return -EFAULT;
+    
+    if (size == 0)
+        return -EINVAL;
+    
+    if (NULL == (buffer = (char *)kmalloc(size)))
+        return -ENOMEM;
+    
+
+    if ((err = getcwd(buffer, size))) {
+        kfree(buffer);
+        return err;
+    }
+
+    err = copy_to_user(buf, buffer, size);
+
+    kfree(buffer);
+
+    return err;
+}
+
+int sys_chdir(const char *path) {
+    return chdir(path);
+}
+
 
 int sys_park(void) {
     return park();

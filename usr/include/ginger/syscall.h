@@ -8,6 +8,7 @@
 #include <ginger/ginger.h>
 #include <sys/_time.h>
 #include <sys/_utsname.h>
+#include <sys/mman.h>
 
 
 extern void     sys_putc(int c);
@@ -34,6 +35,9 @@ extern int      sys_fstat(int fildes, struct stat *buf);
 extern int      sys_stat(const char *restrict path, struct stat *restrict buf);
 extern int      sys_lstat(const char *restrict path, struct stat *restrict buf);
 extern int      sys_fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag);
+extern int      sys_getcwd(char *buf, size_t size);
+extern int      sys_chdir(const char *path);
+
 
 extern pid_t    sys_wait(int *stat_loc);
 extern int      sys_uname(struct utsname *name);
