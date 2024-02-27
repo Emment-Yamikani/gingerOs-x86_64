@@ -231,7 +231,6 @@ int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *cred,
     size_t      tok_i   = 0;
     dentry_t    *dp     = NULL;
     inode_t     *ip     = NULL;
-    char        *cwd    = NULL;
     path_t      *path   = NULL;
     int         err     = 0, isdir = 0;
 
@@ -239,18 +238,8 @@ int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *cred,
         return -EINVAL;
 
     dassert_locked(dir);
-    ddup(dir); // duplicate dir because we need to temporarily unlock it.
-    dunlock(dir); // temporarily unlock dir.
-    
-    err = dretrieve_path(dir, &cwd, NULL);
-    
-    dlock(dir); // regain lock on dir.
-    dput(dir); // reliquish the reference on dir.
 
-    if (err != 0)
-        return err;
-
-    if ((err = parse_path(pathname, cwd, 0, &path)))
+    if ((err = parse_path(pathname, NULL, 0, &path)))
         goto error;
 
     if (!compare_strings(path->absolute, "/")) {
@@ -371,15 +360,9 @@ found:
     
     if (path)
         path_free(path);
-
-    kfree(cwd);
-
     return 0;
 
 error:
-
-    if (cwd)
-        kfree(cwd);
     if (path)
         path_free(path);
     return err;

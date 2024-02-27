@@ -23,6 +23,7 @@ extern off_t    sys_lseek(int fd, off_t off, int whence);
 extern ssize_t  sys_read(int fd, void *buf, size_t size);
 extern ssize_t  sys_write(int fd, void *buf, size_t size);
 extern int      sys_open(const char *pathname, int oflags, mode_t mode);
+extern int      sys_openat(int fd, const char *pathname, int oflags, mode_t mode);
 extern int      sys_create(int fd, const char *filename, mode_t mode);
 extern int      sys_mkdirat(int fd, const char *filename, mode_t mode);
 extern ssize_t  sys_readdir(int fd, off_t off, void *buf, size_t count);

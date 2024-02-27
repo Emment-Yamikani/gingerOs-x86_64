@@ -180,12 +180,12 @@ int vfs_mount(const char *src,
               const char *type,
               unsigned long flags,
               const void *data) {
-    int err = 0;
-    char *lasttok = NULL;
-    fs_mount_t *mnt = NULL;
-    filesystem_t *fs = NULL;
-    __unused inode_t *isrc = NULL, *itarget = NULL;
-    __unused dentry_t *dentry = NULL, *dsrc = NULL, *dtarget = NULL;
+    int                 err     = 0;
+    char                *lasttok= NULL;
+    fs_mount_t          *mnt    = NULL;
+    filesystem_t        *fs     = NULL;
+    __unused inode_t    *isrc   = NULL, *itarget = NULL;
+    __unused dentry_t   *dentry = NULL, *dsrc = NULL, *dtarget = NULL;
 
     if (target == NULL)
         return -EINVAL;

@@ -125,6 +125,7 @@ off_t   lseek(int fd, off_t off, int whence);
 ssize_t read(int fd, void *buf, size_t size);
 ssize_t write(int fd, void *buf, size_t size);
 int     open(const char *pathname, int oflags, mode_t mode);
+int     openat(int fd, const char *pathname, int oflags, mode_t mode);
 int     create(int fd, const char *filename, mode_t mode);
 int     mkdirat(int fd, const char *filename, mode_t mode);
 ssize_t readdir(int fd, off_t off, void *buf, size_t count);

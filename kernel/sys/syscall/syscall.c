@@ -35,6 +35,10 @@ int      sys_open(const char *pathname, int oflags, int mode) {
     return open(pathname, oflags, mode);
 }
 
+int      sys_openat(int fd, const char *pathname, int oflags, mode_t mode) {
+    return openat(fd, pathname, oflags, mode);
+}
+
 int      sys_close(int fd) {
     return close(fd);
 }

@@ -95,6 +95,7 @@ sys_%2:
 
 %define SYS_GETCWD          74
 %define SYS_CHDIR           75
+%define SYS_OPENAT          76
 
 stub SYS_PUTC, putc
 stub SYS_CLOSE, close
@@ -108,6 +109,7 @@ stub SYS_LSEEK, lseek
 stub SYS_READ, read
 stub SYS_WRITE, write
 stub SYS_OPEN, open
+stub SYS_OPENAT, openat
 stub SYS_CREATE, create
 stub SYS_MKDIRAT, mkdirat
 stub SYS_READDIR, readdir

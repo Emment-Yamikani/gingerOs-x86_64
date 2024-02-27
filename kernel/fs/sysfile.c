@@ -273,6 +273,42 @@ int     open(const char *pathname, int oflags, mode_t mode) {
     return fd;
 }
 
+int openat(int fd, const char *pathname, int oflags, mode_t mode) {
+    int err       = 0;
+    file_t  *file = NULL;
+    cred_t  *cred = NULL;
+    dentry_t *dentry = NULL;
+
+    if ((err = file_get(fd, &file)))
+        return err;
+
+    dlock(file->f_dentry);
+
+    if ((err = vfs_lookupat(pathname, file->f_dentry, cred, oflags, mode, 0, &dentry))) {
+        if (dislocked(file->f_dentry))
+            dunlock(file->f_dentry);
+        return err;
+    }
+
+    funlock(file);
+
+    fd   = 0;
+    file = NULL;
+
+    if ((err = file_alloc(&fd, &file))) {
+        dclose(dentry);
+        return err;
+    }
+
+    file->fops      = NULL;
+    file->f_dentry  = dentry;
+    file->f_oflags  = oflags;
+    
+    funlock(file);
+    dunlock(dentry);
+    return fd;
+}
+
 int     dup(int fd) {
     return file_dup(fd, -1);
 }

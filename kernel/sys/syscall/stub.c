@@ -16,6 +16,7 @@ size_t (*syscall[])() = {
     [SYS_READ]              = (void *)sys_read,
     [SYS_WRITE]             = (void *)sys_write,
     [SYS_OPEN]              = (void *)sys_open,
+    [SYS_OPENAT]            = (void *)sys_openat,
     [SYS_CREATE]            = (void *)sys_create,
     [SYS_MKDIRAT]           = (void *)sys_mkdirat,
     [SYS_READDIR]           = (void *)sys_readdir,
