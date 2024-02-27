@@ -18,7 +18,7 @@ int main(void) {
     int     statloc     = 0;
 
     if ((pid = fork()) < 0) {
-        panic("Failed to fork child process.");
+        panic("Failed to fork child process. error: %d\n", pid);
     } else if (pid != 0) { // init process.
         loop() {
             waitpid(-1, &statloc, 0);
@@ -35,10 +35,6 @@ int main(void) {
         sys_sleep(1); // Child thread simulates some work.
         sys_exit(1); // then exists.
     } else { // parent process.
-        char  *cwd = sys_mmap((void *)0, 100, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ZERO | MAP_ANON, -1, 0);
-        sys_getcwd(cwd, 100);
-        printf("cwd: %s\n", cwd);
-
         pid = sys_waitpid(0, &statloc, WEXITED); // wait for child process to exit.
         printf("Child: %d, changed state, stat_val= %d\n", pid, statloc);
         loop();

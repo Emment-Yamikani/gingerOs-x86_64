@@ -8,7 +8,7 @@
 
 int     file_get(int fd, file_t **ref) {
     file_t *file = NULL;
-    file_table_t *file_table = NULL;
+    file_ctx_t   *fctx   = NULL; // file context
 
     if (ref == NULL)
         return -EINVAL;
@@ -16,51 +16,51 @@ int     file_get(int fd, file_t **ref) {
     /// TODO: Is this lock on current thread
     /// neccessary just for accessing file_table?
     current_lock();
-    file_table = current->t_file_table;
-    ftlock(file_table);
+    fctx    = current->t_file_ctx;
+    fctx_lock(fctx);
     current_unlock();
 
-    if ((file_table->ft_file == NULL) || (fd < 0) || (fd >= file_table->ft_fcnt)) {
-        ftunlock(file_table);
+    if ((fctx->fc_files == NULL) || (fd < 0) || (fd >= fctx->fc_nfile)) {
+        fctx_unlock(fctx);
         return -EBADFD;
     }
 
-    if ((file = file_table->ft_file[fd]) == NULL) {
-        ftunlock(file_table);
+    if ((file = fctx->fc_files[fd]) == NULL) {
+        fctx_unlock(fctx);
         return -EBADFD;
     }
 
     flock(file);
-    ftunlock(file_table);
+    fctx_unlock(fctx);
 
     *ref = file;
     return 0;
 }
 
 int     file_free(int fd) {
-    file_table_t *file_table = NULL;
+    file_ctx_t   *fctx = NULL; // file context
 
     current_lock();
-    file_table = current->t_file_table;
-    ftlock(file_table);
+    fctx = current->t_file_ctx;
+    fctx_lock(fctx);
     current_unlock();
 
-    if ((file_table->ft_file == NULL) || (fd < 0) || (fd >= file_table->ft_fcnt)) {
-        ftunlock(file_table);
+    if ((fctx->fc_files == NULL) || (fd < 0) || (fd >= fctx->fc_nfile)) {
+        fctx_unlock(fctx);
         return -EBADFD;
     }
 
-    file_table->ft_file[fd] = NULL;
-    ftunlock(file_table);
+    fctx->fc_files[fd] = NULL;
+    fctx_unlock(fctx);
     return 0;
 }
 
 int     file_alloc(int *ref, file_t **fref) {
-    int fd = 0;
-    int err = 0;
-    file_t *file = NULL;
-    file_t **tmp = NULL;
-    file_table_t *file_table = NULL;
+    int             fd          = 0;
+    int             err         = 0;
+    file_t          *file       = NULL;
+    file_t          **tmp       = NULL;
+    file_ctx_t      *fctx   = NULL; // file context
 
     if (ref == NULL || fref == NULL)
         return -EINVAL;
@@ -69,40 +69,40 @@ int     file_alloc(int *ref, file_t **fref) {
         return err;
 
     current_lock();
-    file_table = current->t_file_table;
-    ftlock(file_table);
+    fctx = current->t_file_ctx;
+    fctx_lock(fctx);
     current_unlock();
 
-    if (file_table->ft_file == NULL) {
-        if ((file_table->ft_file = kcalloc(1, sizeof (file_t *))) == NULL) {
-            ftunlock(file_table);
+    if (fctx->fc_files == NULL) {
+        if ((fctx->fc_files = kcalloc(1, sizeof (file_t *))) == NULL) {
+            fctx_unlock(fctx);
             fdestroy(file);
             return -ENOMEM;
         }
 
-        file_table->ft_fcnt = 1;
+        fctx->fc_nfile = 1;
     }
 
-    for (fd = 0; fd < file_table->ft_fcnt; ++fd) {
-        if (file_table->ft_file[fd] == NULL) {
-            file_table->ft_file[fd] = file;
-            ftunlock(file_table);
+    for (fd = 0; fd < fctx->fc_nfile; ++fd) {
+        if (fctx->fc_files[fd] == NULL) {
+            fctx->fc_files[fd] = file;
+            fctx_unlock(fctx);
             goto done;
         }
     }
 
 
-    if ((tmp = krealloc(file_table->ft_file, ((file_table->ft_fcnt + 1) * sizeof (file_t *)))) == NULL) {
-        ftunlock(file_table);
+    if ((tmp = krealloc(fctx->fc_files, ((fctx->fc_nfile + 1) * sizeof (file_t *)))) == NULL) {
+        fctx_unlock(fctx);
         fdestroy(file);
         return -ENOMEM;
     }
     
     tmp[fd] = file;
-    file_table->ft_file = tmp;
-    file_table->ft_fcnt++;
+    fctx->fc_files = tmp;
+    fctx->fc_nfile++;
 
-    ftunlock(file_table);
+    fctx_unlock(fctx);
 done:
     *ref = fd;
     *fref = file;
@@ -111,133 +111,127 @@ done:
 
 int     file_dup(int fd1, int fd2) {
     int err = 0;
-    file_table_t *file_table = NULL;
+    file_ctx_t *fctx = NULL; // file context
     file_t *file = NULL, **tmp = NULL;
 
     current_lock();
-    file_table = current->t_file_table;
-    ftlock(file_table);
+    fctx = current->t_file_ctx;
+    fctx_lock(fctx);
     current_unlock();
 
-    if ((file_table->ft_file == NULL)) {
-        ftunlock(file_table);
+    if ((fctx->fc_files == NULL)) {
+        fctx_unlock(fctx);
         return -EBADFD;
     }
 
-    if (((file = file_table->ft_file[fd1]) == NULL) || (fd1 < 0) || (fd1 >= file_table->ft_fcnt)) {
-        ftunlock(file_table);
+    if (((file = fctx->fc_files[fd1]) == NULL) || (fd1 < 0) || (fd1 >= fctx->fc_nfile)) {
+        fctx_unlock(fctx);
         return -EBADFD;
     }
 
     if (fd2 < 0)
-        fd2 = file_table->ft_fcnt;
+        fd2 = fctx->fc_nfile;
     
     if (fd1 == fd2) {
-        ftunlock(file_table);
+        fctx_unlock(fctx);
         return fd1;
     }
 
     if (fd2 > 0) {
-        if (fd2 >= file_table->ft_fcnt) {
-            if ((tmp = krealloc(file_table->ft_file, ((fd2 + 1) * sizeof (file_t *)))) == NULL) {
-                ftunlock(file_table);
+        if (fd2 >= fctx->fc_nfile) {
+            if ((tmp = krealloc(fctx->fc_files, ((fd2 + 1) * sizeof (file_t *)))) == NULL) {
+                fctx_unlock(fctx);
                 return -ENOMEM;
             }
-            memset(&tmp[file_table->ft_fcnt], 0, ((fd2 + 1) - file_table->ft_fcnt)*sizeof (file_t *));
-            file_table->ft_file = tmp;
-            file_table->ft_fcnt = fd2 + 1;
+            memset(&tmp[fctx->fc_nfile], 0, ((fd2 + 1) - fctx->fc_nfile)*sizeof (file_t *));
+            fctx->fc_files = tmp;
+            fctx->fc_nfile = fd2 + 1;
         }
 
-        if (file_table->ft_file[fd2]) {
-            flock(file_table->ft_file[fd2]);
-            if ((err = fclose(file_table->ft_file[fd2]))) {
-                funlock(file_table->ft_file[fd2]);
-                ftunlock(file_table);
+        if (fctx->fc_files[fd2]) {
+            flock(fctx->fc_files[fd2]);
+            if ((err = fclose(fctx->fc_files[fd2]))) {
+                funlock(fctx->fc_files[fd2]);
+                fctx_unlock(fctx);
                 return err;
             }
-            file_table->ft_file[fd2] = NULL;
+            fctx->fc_files[fd2] = NULL;
         }
     }
 
     flock(file);
     if ((err = fdup(file))) {
         funlock(file);
-        ftunlock(file_table);
+        fctx_unlock(fctx);
         return err;
     }
     funlock(file);
 
-    file_table->ft_file[fd2] = file;
-    ftunlock(file_table);
+    fctx->fc_files[fd2] = file;
+    fctx_unlock(fctx);
 
     return fd2;
 }
 
 void file_close_all(void) {
     int         file_cnt = 0;
-    file_table_t *file_table = NULL;
+    file_ctx_t *fctx = NULL; // file context
 
     current_lock();
-    file_table = current->t_file_table;
-    ftlock(file_table);
+    fctx = current->t_file_ctx;
+    fctx_lock(fctx);
     current_unlock();
 
-    if (file_table->ft_file != NULL)
-        file_cnt = file_table->ft_fcnt;
-    ftunlock(file_table);
+    if (fctx->fc_files != NULL)
+        file_cnt = fctx->fc_nfile;
+    fctx_unlock(fctx);
 
     for (int fd = 0; fd < file_cnt; ++fd)
         close(fd);
 }
 
-int file_copy(file_table_t *dst, file_table_t *src) {
-    char    *cwdir      = NULL;
-    char    *rootdir    = NULL;
-    file_t  **file_table= NULL;
-    int     err         = -ENOMEM;
+int file_copy(file_ctx_t *dst, file_ctx_t *src) {
+    dentry_t    *cwdir      = NULL;
+    dentry_t    *rootdir    = NULL;
+    file_t      **files     = NULL;
+    int         err         = -ENOMEM;
 
     if (dst == NULL || src == NULL)
         return -EINVAL;
     
-    ftassert_locked(dst);
-    ftassert_locked(src);
+    fctx_assert_locked(dst);
+    fctx_assert_locked(src);
     
+    if (src->fc_cwd == NULL || src->fc_root == NULL)
+        return -EINVAL;
 
-    if (NULL == (cwdir  = (char *)strdup(src->cred.c_cwd)))
-        goto error;
-
-    if (NULL == (rootdir = (char *)strdup(src->cred.c_root)))
-        goto error;
-
-    if (src->ft_fcnt != 0) {
-        if (!(file_table = (file_t **)kmalloc(src->ft_fcnt * sizeof (file_t *))))
+    if (src->fc_nfile != 0) {
+        if (!(files = (file_t **)kmalloc(src->fc_nfile * sizeof (file_t *))))
             goto error;
     }
 
-    dst->ft_fcnt        = src->ft_fcnt;
+    dlock(src->fc_cwd);
+    if (src->fc_cwd != src->fc_root)
+        dlock(src->fc_root);
 
-    kfree(dst->cred.c_cwd);
-    kfree(dst->cred.c_root);
+    dst->fc_cwd     = ddup(src->fc_cwd);
+    dst->fc_root    = ddup(src->fc_root);
 
-    dst->cred.c_cwd     = cwdir;
-    dst->cred.c_root    = rootdir;
-    dst->ft_file        = file_table;
-    dst->cred.c_uid     = src->cred.c_uid;
-    dst->cred.c_euid    = src->cred.c_euid;
-    dst->cred.c_suid    = src->cred.c_suid;
-    dst->cred.c_gid     = src->cred.c_gid;
-    dst->cred.c_egid    = src->cred.c_egid;
-    dst->cred.c_sgid    = src->cred.c_sgid;
-    dst->cred.c_umask   = src->cred.c_umask;
-    
-    for (int fd = 0; fd < src->ft_fcnt; ++fd) {
-        if (src->ft_file[fd] == NULL)
+    if (src->fc_cwd != src->fc_root)
+        dunlock(src->fc_root);
+    dunlock(src->fc_cwd);
+
+    dst->fc_files   = files;
+    dst->fc_nfile   = src->fc_nfile;
+
+    for (int fd = 0; fd < src->fc_nfile; ++fd) {
+        if (src->fc_files[fd] == NULL)
             continue;
         
-        flock(src->ft_file[fd]);
-        src->ft_file[fd]->f_refcnt++;
-        dst->ft_file[fd] = src->ft_file[fd];
-        funlock(src->ft_file[fd]);
+        flock(src->fc_files[fd]);
+        src->fc_files[fd]->f_refcnt++;
+        dst->fc_files[fd] = src->fc_files[fd];
+        funlock(src->fc_files[fd]);
     }
 
     return 0;
@@ -248,18 +242,18 @@ error:
     if (rootdir)
         kfree(rootdir);
     
-    if (file_table)
-        kfree(file_table);
+    if (files)
+        kfree(files);
 
     return err;
 }
 
 int     open(const char *pathname, int oflags, mode_t mode) {
-    int fd = 0;
-    int err = 0;
-    cred_t *cred = NULL;
-    file_t *file = NULL;
-    dentry_t *dentry = NULL;
+    int         fd      = 0;
+    int         err     = 0;
+    cred_t      *cred   = NULL;
+    file_t      *file   = NULL;
+    dentry_t    *dentry = NULL;
 
     if ((err = vfs_lookup(pathname, cred, oflags, mode, 0, &dentry)))
         return err;
@@ -270,9 +264,9 @@ int     open(const char *pathname, int oflags, mode_t mode) {
         return err;
     }
 
-    file->fops = NULL;
-    file->f_dentry = dentry;
-    file->f_oflags = oflags;
+    file->fops      = NULL;
+    file->f_dentry  = dentry;
+    file->f_oflags  = oflags;
     
     funlock(file);
     dunlock(dentry);

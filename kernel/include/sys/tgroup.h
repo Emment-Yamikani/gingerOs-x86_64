@@ -14,7 +14,8 @@ typedef struct {
     long            tg_refcnt;
     long            tg_running;
     queue_t         tg_thread;
-    file_table_t    tg_file_table;
+    cred_t          tg_cred;
+    file_ctx_t      tg_file_ctx;
 
     sigset_t        sig_mask;
     sigaction_t     sig_action[NSIG];
@@ -156,5 +157,3 @@ int tgroup_spawn(thread_entry_t entry, void *arg, int flags, tgroup_t **ptgroup)
 int tgroup_thread_create(tgroup_t *tgroup, thread_entry_t entry, void *arg, int flags, thread_t **pthread);
 
 int tgroup_getmain(tgroup_t *tgroup, thread_t **ptp);
-
-int tgroup_getfiletable(tgroup_t *tgroup, file_table_t **pftp);

@@ -81,24 +81,25 @@ int     fmmap(file_t *file, vmr_t *region);
 int     fsymlink(file_t *file, file_t *atdir, const char *symname);
 int     fbind(file_t *dir, struct dentry *dentry, inode_t *file);
 
-#define NFILE   1024
+#define NFILE   1024    // file count.
 
-typedef struct file_table_t {
-    cred_t      cred;           // Credentials for this file table.
-    int         ft_maxfiles;    // Maximum allowed open files for this file table.
-    file_t      **ft_file;      // File descriptor table (Just a C-style array of pointers to file_t).
-    int         ft_fcnt;        // No. of file descriptors in the table.
-    spinlock_t  ft_lock;        // Spinlock to guard this table.
-} file_table_t;
+typedef struct file_ctx_t {
+    dentry_t    *fc_cwd;      // current working directory of this file contect.
+    int         fc_fmax;      // file context's allowed maximum for open files.
+    dentry_t    *fc_root;     // root directory of this file context.
+    int         fc_nfile;     // file context's open file count.
+    file_t      **fc_files;   // file context's open file table(array).
+    spinlock_t  fc_lock;      // spinlock to guard this file context.
+} file_ctx_t;
 
-#define ftassert(ft)        ({ assert(ft, "No file table pointer."); })
-#define ftlock(ft)          ({ fassert(ft); spin_lock(&(ft)->ft_lock); })
-#define ftunlock(ft)        ({ fassert(ft); spin_unlock(&(ft)->ft_lock); })
-#define ftislocked(ft)      ({ fassert(ft); spin_islocked(&(ft)->ft_lock); })
-#define ftassert_locked(ft) ({ fassert(ft); spin_assert_locked(&(ft)->ft_lock); })
+#define fctx_assert(fctx)        ({ assert(fctx, "No file table pointer."); })
+#define fctx_lock(fctx)          ({ fassert(fctx); spin_lock(&(fctx)->fc_lock); })
+#define fctx_unlock(fctx)        ({ fassert(fctx); spin_unlock(&(fctx)->fc_lock); })
+#define fctx_islocked(fctx)      ({ fassert(fctx); spin_islocked(&(fctx)->fc_lock); })
+#define fctx_assert_locked(fctx) ({ fassert(fctx); spin_assert_locked(&(fctx)->fc_lock); })
 
 void file_close_all(void);
-int file_copy(file_table_t *dst, file_table_t *src);
+int file_copy(file_ctx_t *dst, file_ctx_t *src);
 
 int     file_get(int fd, file_t **ref);
 

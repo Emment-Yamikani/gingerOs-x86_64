@@ -4,6 +4,7 @@
 #include <lib/string.h>
 #include <mm/kalloc.h>
 #include <sys/thread.h>
+#include <fs/fs.h>
 
 void tgroup_destroy(tgroup_t *tgroup) {
     int err = 0;
@@ -105,19 +106,19 @@ error:
 }
 
 int tgroup_create(tgroup_t **ptgroup) {
-    char        *cwd    = NULL;
-    char        *rootdir= NULL;
     tgroup_t    *tgroup = NULL;
+    dentry_t    *cwd    = NULL;
+    dentry_t    *rootdir= NULL;
     int         err     = -ENOMEM;
 
     if (ptgroup == NULL)
         return -EINVAL;
 
-    if (NULL == (cwd = (char *)strdup("/")))
-        goto error;
-    
-    if (NULL == (rootdir = (char *)strdup("/")))
-        goto error;
+    if ((err = vfs_lookup("/", NULL, O_RDONLY, 0, 0, &cwd)))
+        return err;
+
+    rootdir = ddup(cwd);
+    dunlock(cwd);
 
     if (NULL == (tgroup = (tgroup_t *)kmalloc(sizeof *tgroup)))
         goto error;
@@ -130,20 +131,21 @@ int tgroup_create(tgroup_t **ptgroup) {
     tgroup->tg_refcnt = 1;
     tgroup->tg_thread = QUEUE_INIT();
 
-    tgroup->tg_file_table.ft_maxfiles = NFILE;
+    tgroup->tg_cred = CRED_DEFAULT();
 
-    tgroup->tg_file_table.cred = UIO_DEFAULT();
-    tgroup->tg_file_table.cred.c_cwd = cwd;
-    tgroup->tg_file_table.cred.c_root = rootdir;
+    tgroup->tg_file_ctx.fc_cwd    = cwd;
+    tgroup->tg_file_ctx.fc_root   = rootdir;
+    tgroup->tg_file_ctx.fc_fmax   = NFILE;
+    tgroup->tg_file_ctx.fc_lock   = SPINLOCK_INIT();
 
     *ptgroup = tgroup;
     return 0;
 error:
     if (cwd)
-        kfree(cwd);
+        dclose(cwd);
     
     if (rootdir)
-        kfree(rootdir);
+        dclose(rootdir);
 
     if (tgroup)
         kfree(tgroup);
@@ -162,8 +164,9 @@ int tgroup_add_thread(tgroup_t *tgroup, thread_t *thread) {
     if ((err = thread_enqueue(tgroup_queue(tgroup), thread, NULL)))
         return err;
     
-    thread->t_group = tgroup;
-    thread->t_file_table = &tgroup->tg_file_table;
+    thread->t_group         = tgroup;
+    thread->t_credentials   = &tgroup->tg_cred;
+    thread->t_file_ctx      = &tgroup->tg_file_ctx;
 
     if (tgroup_getthread_count(tgroup) == 1) {
         thread_setmain(thread);

@@ -4,19 +4,36 @@
 #include <sys/sysprot.h>
 #include <sys/thread.h>
 #include <mm/kalloc.h>
+#include <fs/cred.h>
+
+int cred_copy(cred_t *dst, cred_t *src) {
+    if (dst == NULL || src == NULL)
+        return -EINVAL;
+    
+    cred_assert_locked(dst);
+    cred_assert_locked(src);
+
+    dst->c_uid      = src->c_uid;
+    dst->c_gid      = src->c_gid;
+    dst->c_euid     = src->c_euid;
+    dst->c_egid     = src->c_egid;
+    dst->c_suid     = src->c_suid;
+    dst->c_sgid     = src->c_sgid;
+    dst->c_umask    = src->c_umask;
+
+    return 0;
+}
 
 uid_t getuid(void) {
-    uid_t           uid     = 0;
-    cred_t          *cred   = NULL;
-    file_table_t    *file_table = NULL;
+    uid_t   uid     = 0;
+    cred_t  *cred   = NULL;
 
     current_lock();
-    file_table = current->t_file_table;
+    cred = current->t_credentials;
 
-    ftlock(file_table);
-    cred = &file_table->cred;
+    cred_lock(cred);
     uid = cred->c_uid;
-    ftunlock(file_table);
+    cred_unlock(cred);
 
     current_unlock();
     return uid;
@@ -25,15 +42,13 @@ uid_t getuid(void) {
 gid_t getgid(void) {
     gid_t            gid    = 0;
     cred_t          *cred   = NULL;
-    file_table_t    *file_table = NULL;
 
     current_lock();
-    file_table = current->t_file_table;
+    cred = current->t_credentials;
 
-    ftlock(file_table);
-    cred = &file_table->cred;
+    cred_lock(cred);
     gid = cred->c_gid;
-    ftunlock(file_table);
+    cred_unlock(cred);
 
     current_unlock();
     return gid;
@@ -42,15 +57,13 @@ gid_t getgid(void) {
 uid_t geteuid(void) {
     uid_t uid = 0;
     cred_t *cred = NULL;
-    file_table_t *file_table = NULL;
 
     current_lock();
-    file_table = current->t_file_table;
     
-    ftlock(file_table);
-    cred = &file_table->cred;
+    cred = current->t_credentials;
+    cred_lock(cred);
     uid = cred->c_euid;
-    ftunlock(file_table);
+    cred_unlock(cred);
 
     current_unlock();
     return uid;
@@ -59,15 +72,14 @@ uid_t geteuid(void) {
 gid_t getegid(void) {
     gid_t            gid    = 0;
     cred_t          *cred   = NULL;
-    file_table_t    *file_table = NULL;
 
     current_lock();
-    file_table = current->t_file_table;
+    
+    cred = current->t_credentials;
 
-    ftlock(file_table);
-    cred = &file_table->cred;
+    cred_lock(cred);
     gid = cred->c_egid;
-    ftunlock(file_table);
+    cred_unlock(cred);
 
     current_unlock();
     return gid;
@@ -76,13 +88,12 @@ gid_t getegid(void) {
 int setuid(uid_t uid) {
     int             err     = 0;
     cred_t          *cred   = NULL;
-    file_table_t    *file_table = NULL;
 
     current_lock();
-    file_table = current->t_file_table;
-    
-    ftlock(file_table);
-    cred = &file_table->cred;
+
+    cred = current->t_credentials;
+
+    cred_lock(cred);
 
     /*No. permissions.*/
     if (uid != cred->c_uid && cred->c_uid != 0)
@@ -91,7 +102,7 @@ int setuid(uid_t uid) {
     else
         cred->c_uid = uid;
 
-    ftunlock(file_table);
+    cred_unlock(cred);
 
     current_unlock();
     return err;
@@ -100,13 +111,11 @@ int setuid(uid_t uid) {
 int setgid(gid_t gid) {
     int          err    = 0;
     cred_t       *cred  = NULL;
-    file_table_t *file_table    = NULL;
 
     current_lock();
-    file_table = current->t_file_table;
     
-    ftlock(file_table);
-    cred = &file_table->cred;
+    cred = current->t_credentials;
+    cred_lock(cred);
 
     /*No. permissions.*/
     if (gid != cred->c_gid && cred->c_gid != 0)
@@ -115,7 +124,7 @@ int setgid(gid_t gid) {
     else
         cred->c_gid = gid;
 
-    ftunlock(file_table);
+    cred_unlock(cred);
 
     current_unlock();
     return err;
@@ -124,13 +133,11 @@ int setgid(gid_t gid) {
 int seteuid(uid_t euid) {
     int             err     = 0;
     cred_t          *cred   = NULL;
-    file_table_t    *file_table = NULL;
 
     current_lock();
-    file_table = current->t_file_table;
     
-    ftlock(file_table);
-    cred = &file_table->cred;
+    cred = current->t_credentials;
+    cred_lock(cred);
 
     /*No. permissions.*/
     if (euid != cred->c_euid && cred->c_euid != 0)
@@ -139,7 +146,7 @@ int seteuid(uid_t euid) {
     else
         cred->c_euid = euid;
 
-    ftunlock(file_table);
+    cred_unlock(cred);
 
     current_unlock();
     return err;
@@ -148,13 +155,11 @@ int seteuid(uid_t euid) {
 int setegid(gid_t egid) {
     int             err     = 0;
     cred_t          *cred   = NULL;
-    file_table_t    *file_table = NULL;
 
     current_lock();
-    file_table = current->t_file_table;
     
-    ftlock(file_table);
-    cred = &file_table->cred;
+    cred = current->t_credentials;
+    cred_lock(cred);
 
     /*No. permissions.*/
     if (egid != cred->c_egid && cred->c_egid != 0)
@@ -163,7 +168,7 @@ int setegid(gid_t egid) {
     else
         cred->c_egid = egid;
 
-    ftunlock(file_table);
+    cred_unlock(cred);
 
     current_unlock();
     return err;
@@ -171,24 +176,26 @@ int setegid(gid_t egid) {
 
 mode_t umask(mode_t cmask) {
     mode_t      omask   = 0;
-    file_table_t *ft    = NULL;
+    cred_t      *cred = NULL;
 
     current_lock();
-    ft = current->t_file_table;
-    ftlock(ft);
+    cred = current->t_credentials;
+
+    cred_lock(cred);
+    omask = cred->c_umask;
+    cred->c_umask = cmask & 0777;
+    cred_unlock(cred);
+
     current_unlock();
-
-    omask = ft->cred.c_umask;
-    ft->cred.c_umask = cmask & 0777;
-
-    ftunlock(ft);
 
     return omask;
 }
 
 int getcwd(char *buf, size_t size) {
     int ret     = 0;
-    file_table_t *ft = NULL;
+    char *path  = NULL;
+    file_ctx_t  *file_ctx = NULL;
+    size_t      len = 0;
 
     if (buf == NULL)
         return -EFAULT;
@@ -197,42 +204,43 @@ int getcwd(char *buf, size_t size) {
         return -EINVAL;
     
     current_lock();
-    ft = current->t_file_table;
-    ftlock(ft);
+    
+    file_ctx = current->t_file_ctx;
+    fctx_lock(file_ctx);
+    ret = dretrieve_path(file_ctx->fc_cwd, &path, &len);
+    fctx_unlock(file_ctx);
 
-    if (ft->cred.c_cwd == NULL)
-        ret = -ENOENT;
-    else if (strlen(ft->cred.c_cwd) >= size)
-        ret = -ERANGE;
-    else
-        strncpy(buf, ft->cred.c_cwd, size);
-
-    ftunlock(ft);
     current_unlock();
+
+    if (ret == 0) {
+        if (len >= size)
+            ret = -ERANGE;
+        else
+            safestrncpy(buf, path, len);
+        
+        kfree(path);
+    }
 
     return ret;
 }
 
 int chdir(const char *path) {
-    int err             = 0;
-    char *path_dup      = NULL;
-    file_table_t *ft    = NULL;
+    int         err         = 0;
+    dentry_t     *newcwd    = NULL;
+    file_ctx_t *file_ctx  = NULL;
 
-    if ((err = vfs_lookup(path, NULL, O_RDONLY, 0, 0, NULL)))
+    if ((err = vfs_lookup(path, NULL, O_RDONLY, 0, 0, &newcwd)))
         return err;
 
-    if ((path_dup = strdup(path)) == NULL)
-        return -ENOMEM;
-
     current_lock();
-    ft = current->t_file_table;
-    ftlock(ft);
+    file_ctx = current->t_file_ctx;
+    fctx_lock(file_ctx);
 
-    if (ft->cred.c_cwd)
-        kfree(ft->cred.c_cwd);
-    ft->cred.c_cwd = path_dup;
+    dclose(file_ctx->fc_cwd);
+    file_ctx->fc_cwd = newcwd;
+    dunlock(newcwd);
 
-    ftunlock(ft);
+    fctx_unlock(file_ctx);
     current_unlock();
 
     return 0;

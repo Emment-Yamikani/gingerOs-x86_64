@@ -452,13 +452,18 @@ int itruncate(inode_t *ip) {
 int icheck_perm(inode_t *ip, cred_t *cred, int oflags)
 {
     // printk("%s(\e[0;15mip=%p, cred=%p, oflags=%d)\e[0m\n", __func__, ip, cred, oflags);
-    if (!ip || !cred)
+    if (!ip)
         return -EINVAL;
+    
+    if (cred == NULL) /* root */
+        return 0;
 
     iassert_locked(ip);
 
+    cred_lock(cred);
+
     if (cred->c_uid == 0) /* root */
-        return 0;
+        goto done;
 
     if (((oflags & O_ACCMODE) == O_RDONLY) || (oflags & O_ACCMODE) != O_WRONLY)
     {
@@ -478,6 +483,7 @@ int icheck_perm(inode_t *ip, cred_t *cred, int oflags)
                 goto write_perms;
         }
 
+        cred_unlock(cred);
         return -EACCES;
     }
 
@@ -500,6 +506,7 @@ write_perms:
                 goto exec_perms;
         }
 
+        cred_unlock(cred);
         return -EACCES;
     }
 
@@ -521,10 +528,13 @@ exec_perms:
             if (ip->i_mode & S_IXOTH)
                 goto done;
         }
+        
+        cred_unlock(cred);
         return -EACCES;
     }
 done:
     // printk("%s(): \e[0;12maccess granted\e[0m\n", __func__);
+    cred_unlock(cred);
     return 0;
 }
 

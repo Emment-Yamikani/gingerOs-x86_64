@@ -94,7 +94,9 @@ typedef struct thread_t {
     sleep_attr_t    sleep_attr;         // struct describing sleep attributes for this thread.
     thread_sched_t  t_sched;            // struct describing scheduler attributes for this thread.
 
-    file_table_t    *t_file_table;      // Pointer to file table structure of this thread's tgroup.
+    cred_t          *t_credentials;     // credentials for this thread's tgroup.
+    file_ctx_t      *t_file_ctx;        // Pointer to file context for this thread's tgroup.
+
     tgroup_t        *t_group;           // thread group.
     queue_t         *t_queues;          // queues on which this thread resides.
 

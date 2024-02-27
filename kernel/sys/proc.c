@@ -418,7 +418,8 @@ error:
 
 int proc_copy(proc_t *child, proc_t *parent) {
     int         err     = 0;
-    file_table_t *file_table    = NULL;
+    file_ctx_t *file_ctx= NULL;
+    cred_t      *cred   = NULL;
 
     if (child == NULL || parent == NULL)
         return -EINVAL;
@@ -434,23 +435,35 @@ int proc_copy(proc_t *child, proc_t *parent) {
 
     /// TODO: Do I really need this lock on current thread??
     current_lock();
-    file_table = current->t_file_table;
-    ftlock(file_table);
+    file_ctx = current->t_file_ctx;
+    cred     = current->t_credentials;
+    fctx_lock(file_ctx);
     current_unlock();
 
     tgroup_lock(child->tgroup);
-    ftlock(&child->tgroup->tg_file_table);
+    fctx_lock(&child->tgroup->tg_file_ctx);
 
-    if ((err = file_copy(&child->tgroup->tg_file_table, file_table))) {
-        ftunlock(&child->tgroup->tg_file_table);
+    if ((err = file_copy(&child->tgroup->tg_file_ctx, file_ctx))) {
+        fctx_unlock(&child->tgroup->tg_file_ctx);
         tgroup_unlock(child->tgroup);
-        ftunlock(file_table);
+        fctx_unlock(file_ctx);
         goto error;
     }
 
-    ftunlock(&child->tgroup->tg_file_table);
+    fctx_unlock(&child->tgroup->tg_file_ctx);
+    fctx_unlock(file_ctx);
+
+    cred_lock(cred);
+    cred_lock(&child->tgroup->tg_cred);
+    if ((err = cred_copy(&child->tgroup->tg_cred, cred))) {
+        cred_unlock(&child->tgroup->tg_cred);
+        cred_unlock(cred);
+        tgroup_unlock(child->tgroup);
+        return err;
+    }
+    cred_unlock(&child->tgroup->tg_cred);
+    cred_unlock(cred);
     tgroup_unlock(child->tgroup);
-    ftunlock(file_table);
 
     child->entry    = parent->entry;
     child->pgroup   = parent->pgroup;

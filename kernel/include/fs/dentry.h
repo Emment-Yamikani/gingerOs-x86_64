@@ -83,6 +83,7 @@ void ddump(dentry_t *dentry, int flags);
 #define ddup(dp) ({     \
     dassert_locked(dp); \
     ++dp->d_count;      \
+    (dp);               \
 })
 
 #define dput(dp) ({     \
@@ -98,3 +99,4 @@ void drelease(dentry_t *dentry);
 int dbind(dentry_t *parent, dentry_t *child);
 int dalloc(const char *name, dentry_t **pdentry);
 int dlookup(dentry_t *dir, const char *name, dentry_t **pchild);
+int dretrieve_path(dentry_t *dentry, char **path, size_t *rlen);

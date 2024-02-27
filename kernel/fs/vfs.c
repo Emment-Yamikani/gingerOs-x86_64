@@ -28,6 +28,11 @@ dentry_t *vfs_getdroot(void) {
     return droot;
 }
 
+/// returns 1 if dentry is the root of vfs and zero otherwise.
+int vfs_isroot(dentry_t *dentry) {
+    return dentry ? droot ? dentry == droot : 0 : 0; 
+}
+
 int vfs_mount_droot(dentry_t *dentry) {
     if (dentry == NULL)
         return -EINVAL;
@@ -221,30 +226,32 @@ int vfs_dirlist(const char *path) {
     return 0;
 }
 
-int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred,
-                    int oflags, mode_t mode, int flags, dentry_t **pdp) {
-    size_t      tok_i = 0;
-    dentry_t    *dp = NULL;
-    inode_t     *ip = NULL;
-    char        *cwd = NULL;
-    path_t      *path = NULL;
-    int         err = 0, isdir = 0;
-    cred_t      cred = __cred ? *__cred : UIO_DEFAULT();
-
-    (void)flags;
+int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *cred,
+                    int oflags, mode_t mode, int flags __unused, dentry_t **pdp) {
+    size_t      tok_i   = 0;
+    dentry_t    *dp     = NULL;
+    inode_t     *ip     = NULL;
+    char        *cwd    = NULL;
+    path_t      *path   = NULL;
+    int         err     = 0, isdir = 0;
 
     if (dir == NULL)
         return -EINVAL;
 
     dassert_locked(dir);
+    ddup(dir); // duplicate dir because we need to temporarily unlock it.
+    dunlock(dir); // temporarily unlock dir.
+    
+    err = dretrieve_path(dir, &cwd, NULL);
+    
+    dlock(dir); // regain lock on dir.
+    dput(dir); // reliquish the reference on dir.
 
-    if (cred.c_cwd)
-        cwd = "/";
-    else
-        cwd = "/";
+    if (err != 0)
+        return err;
 
     if ((err = parse_path(pathname, cwd, 0, &path)))
-        return err;
+        goto error;
 
     if (!compare_strings(path->absolute, "/")) {
         dp = dir;
@@ -256,7 +263,7 @@ int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred,
         switch ((err = dlookup(dir, token, &dp))) {
         case 0:
             ilock(dp->d_inode);
-            if ((err = icheck_perm(dp->d_inode, &cred, oflags))) {
+            if ((err = icheck_perm(dp->d_inode, cred, oflags))) {
                 iunlock(dp->d_inode);
                 dclose(dp);
                 goto error;
@@ -326,7 +333,7 @@ delegate:
         }
         iunlock(dir->d_inode);
 
-        if ((err = icheck_perm(ip, &cred, oflags))) {
+        if ((err = icheck_perm(ip, cred, oflags))) {
             irelease(ip);
             dclose(dir);
             goto error;
@@ -364,9 +371,15 @@ found:
     
     if (path)
         path_free(path);
+
+    kfree(cwd);
+
     return 0;
 
 error:
+
+    if (cwd)
+        kfree(cwd);
     if (path)
         path_free(path);
     return err;

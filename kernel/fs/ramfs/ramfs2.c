@@ -104,11 +104,10 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
             strlen(ramfs2_super->header.magic));
     sb->sb_size = ramfs2_super->header.file_size;
     sb->sb_uio  = (cred_t) {
-        .c_cwd = "/",
-        .c_root = "/",
         .c_gid = 0,
         .c_uid = 0,
         .c_umask = 0555,
+        .c_lock = SPINLOCK_INIT(),
     };
     sb->sb_root = droot;
     ramfs2_sb = sb;

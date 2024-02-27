@@ -104,11 +104,10 @@ static int tmpfs_fill_sb(filesystem_t *fs __unused, const char *target,
     strncpy(sb->sb_magic0, "virtual FS", 10);
     sb->sb_size = -1;
     sb->sb_uio = (cred_t){
-        .c_cwd = "/",
-        .c_root = "/",
-        .c_gid = 0,
-        .c_uid = 0,
-        .c_umask = 0555,
+        .c_gid  = 0,
+        .c_uid  = 0,
+        .c_umask= 0555,
+        .c_lock = SPINLOCK_INIT(),
     };
     sb->sb_root = droot;
 

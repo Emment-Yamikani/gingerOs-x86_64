@@ -187,7 +187,8 @@ done:
 }
 
 void dclose(dentry_t *dp) {
-    dassert_locked(dp);
+    if (!dislocked(dp))
+        dlock(dp);
     dput(dp);
     if (dget_count(dp) <= 0)
         dfree(dp);
@@ -260,4 +261,86 @@ int dopen(dentry_t *dentry) {
     dassert_locked(dentry);
     ddup(dentry);
     return 0;
+}
+
+int dretrieve_path(dentry_t *dentry, char **ret, size_t *rlen) {
+    int         err         = 0;
+    size_t      count       = 0;
+    size_t      size        = 0;
+    size_t      len         = 0;
+    size_t      ntok        = 0;
+    char        **tokens    = NULL;
+    char        **tmp_toks  = NULL;
+    char        *tmp_path   = NULL;
+    char        *path       = NULL;
+    dentry_t    *parent     = NULL;
+
+    if (dentry == NULL || ret == NULL)
+        return -EINVAL;
+    
+    forlinked(cur_dir, dentry, parent) {
+        ntok++; // increment ntok of tokens.
+
+        if (NULL == (tmp_toks = krealloc(tokens,
+            (ntok + 1) * (sizeof (char *))))) {
+            err     = -ENOMEM;
+            break;
+        }
+
+        dlock(cur_dir);
+        parent  = cur_dir->d_parent;
+        path    = strdup(cur_dir->d_name);
+        dunlock(cur_dir);
+
+        if (path == NULL) {
+            err     =  -ENOMEM;
+            break;
+        }
+
+        tokens              = tmp_toks;
+        tokens[ntok]       = path;
+        if (ntok == 1)
+            tokens[0]       = (char *)NULL;
+        path                = (char *)NULL;
+    }
+
+    if (err == 0) {
+        foreach_reverse(token, &tokens[count = ntok]) {
+            len += size = strlen(token);
+            if (NULL == (tmp_path = krealloc(path,
+                len + 1))) {
+                err = -ENOMEM;
+                if (path)
+                    kfree(path);
+                break;    
+            }
+            
+            path = tmp_path;
+            strncpy(path + (len - size), token, size);
+
+            if (compare_strings(token, "/") == 0)
+                path[len] = '\0';
+            else
+                path[len] = (--count > 1) ? '/' : '\0';
+            // printk("path: %s, token: %s len: %d, index: %d, count: %d\n",
+                // path, token, len, index, count);
+            len += (path[len] == '/' ? 1 : 0);
+        }
+    }
+
+    if (err != 0)
+        kfree(path);
+    else {
+        *ret = path;
+        if (rlen)
+            *rlen = len;
+    }
+
+    if (tokens) {
+        foreach_reverse(token, &tokens[ntok])
+            kfree(token);
+        kfree(tokens);
+    }
+
+    return err;
 }

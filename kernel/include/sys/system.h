@@ -26,6 +26,11 @@
         elem = (typeof(elem))(tmp ? *tmp : NULL);   \
         elem; elem = *++tmp)
 
+#define foreach_reverse(elem, list)                 \
+    for (typeof(*list) *tmp = list,                 \
+        elem = (typeof(elem))(tmp ? *tmp : NULL);   \
+        elem; elem = *--tmp)
+
 #ifndef container_of
 #define container_of(ptr, type, member) ({ \
 	const typeof( ((type *)0)->member ) *__mptr = (ptr); \
