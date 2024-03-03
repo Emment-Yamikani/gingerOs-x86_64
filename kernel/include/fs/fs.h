@@ -100,6 +100,9 @@ int vfs_mount_droot(dentry_t *dentry);
 int vfs_register_fs(filesystem_t *fs);
 int vfs_unregister_fs(filesystem_t *fs);
 int  vfs_getfs(const char *type, filesystem_t **pfs);
+
+int vfs_traverse_path(dentry_t *dir, cred_t *cred, int oflags, vfspath_t *path, size_t *ptok_i);
+
 int vfs_lookup(const char *fn, cred_t *cred,
                int oflags, mode_t mode,
                int flags, dentry_t **pdp);
@@ -119,7 +122,22 @@ fs_mount_t *alloc_fsmount(void);
  * Super block helpers
 */
 
-int getsb_bdev(filesystem_t *fs, const char *bdev_name, const char *target, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb));
-int getsb_nodev(filesystem_t *fs, const char *target, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb));
-int getsb_pseudo(filesystem_t *fs, const char *target, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb));
-int getsb_single(filesystem_t *fs, const char *target, unsigned long flags, void *data, superblock_t **psbp, int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb));
+int getsb_bdev(filesystem_t *fs,    const char *bdev_name,
+    const char *target, unsigned long flags, void *data,
+    superblock_t **psbp, int (*sb_fill)(filesystem_t *fs,
+    const char *target, struct devid *dd, superblock_t *sb));
+
+int getsb_nodev(filesystem_t *fs,   const char *target,
+    unsigned long flags, void *data, superblock_t **psbp,
+    int (*sb_fill)(filesystem_t *fs, const char *target,
+    struct devid *dd, superblock_t *sb));
+
+int getsb_pseudo(filesystem_t *fs,  const char *target,
+    unsigned long flags, void *data, superblock_t **psbp,
+    int (*sb_fill)(filesystem_t *fs, const char *target,
+    struct devid *dd, superblock_t *sb));
+
+int getsb_single(filesystem_t *fs,  const char *target,
+    unsigned long flags, void *data, superblock_t **psbp,
+    int (*sb_fill)(filesystem_t *fs, const char *target,
+    struct devid *dd, superblock_t *sb));

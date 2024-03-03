@@ -226,12 +226,84 @@ int vfs_dirlist(const char *path) {
     return 0;
 }
 
+int vfs_traverse_path(dentry_t *dir, cred_t *cred, int oflags, vfspath_t *path, size_t *ptok_i) {
+    int         err     = 0;
+    size_t      tok_i   = 0;
+    dentry_t    *dentry = NULL;
+
+    if (dir == NULL || path == NULL)
+        return -EINVAL;
+
+    dassert_locked(dir);
+    foreach(token, path->tokenized) {
+        dlock(dir);
+        ddup(dir); // increment d_refcnt on dir.
+
+        ilock(dir->d_inode);
+        // check if this is a valid directory.
+        err = IISDIR(dir->d_inode) ? 0 /*this is a directory*/
+                                   : -ENOTDIR /*this is not a directory*/;
+        iunlock(dir->d_inode);
+
+        // this isn't a directory and as such we must not follow it.
+        if (err != 0) {
+            drelease(dir);
+            goto error;
+        }
+
+        err = dlookup(dir, token, &dentry);
+        drelease(dir);
+
+        // check permissions and goto the next token.
+        if (err == 0) {
+            ilock(dentry->d_inode);
+            err = icheck_perm(dentry->d_inode, cred, oflags);
+            iunlock(dentry->d_inode);
+
+            // error occured while checking the dentry permissions.
+            if (err != 0) {
+                /** dlookup() incremented d_refcnt on dentry before returning.
+                 * so we need to call dput to decrement d_refcnt then unlock the struct.*/
+                drelease(dentry);
+                goto perm_error;
+            }
+        } else { // an error occured, either dentry not found or just some other error.
+            if (err == -ENOENT) {
+                dlock(dir);
+                ddup(dir);
+                path->directory = dir;
+                drelease(dir);
+            }
+            goto error;
+        }
+
+        if (compare_strings(token, path->lasttoken) == 0)
+            break;
+
+        dir     = dentry;
+        dentry  = NULL;
+        tok_i++;
+    }
+
+found:
+    if (ptok_i)
+        *ptok_i = tok_i;
+    path->dentry= dentry;
+    return 0;
+error:
+    if (ptok_i)
+        *ptok_i = tok_i;
+    return err;
+perm_error:
+    return err;
+}
+
 int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *cred,
                     int oflags, mode_t mode, int flags __unused, dentry_t **pdp) {
     size_t      tok_i   = 0;
     dentry_t    *dp     = NULL;
     inode_t     *ip     = NULL;
-    path_t      *path   = NULL;
+    vfspath_t   *path   = NULL;
     int         err     = 0, isdir = 0;
 
     if (dir == NULL)

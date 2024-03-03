@@ -3,6 +3,8 @@
 #include <lib/stdlib.h>
 #include <lib/string.h>
 #include <mm/kalloc.h>
+#include <fs/path.h>
+
 
 void ddump(dentry_t *dp, int flags) {
     printk(
@@ -28,6 +30,8 @@ int ddelete(struct dentry *dp) {
 
 void drelease(struct dentry *dp) {
     dassert_locked(dp);
+    dput(dp);
+    dunlock(dp);
 }
 
 int drevalidate(struct dentry *dp) {

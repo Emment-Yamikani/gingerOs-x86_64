@@ -45,7 +45,7 @@ typedef struct dentry {
     spin_assert_locked(&(dentry)->d_lock); \
 })
 
-#define dislocked(dentry) ({            \
+#define dislocked(dentry) ({          \
     spin_islocked(&(dentry)->d_lock); \
 })
 
@@ -60,7 +60,7 @@ typedef struct dentry {
 })
 
 #define dtestflags(dentry, flags) ({ \
-    (dentry)->d_flags & (flags);   \
+    (dentry)->d_flags &(flags);      \
 })
 
 #define dsetflags(dentry, flags) ({ \
@@ -72,8 +72,8 @@ typedef struct dentry {
 })
 
 void ddump(dentry_t *dentry, int flags);
-#define DDUMP_HANG  1
-#define DDUMP_PANIC 2
+#define DDUMP_HANG      1
+#define DDUMP_PANIC     2
 
 #define dget_count(dp) ({ \
     dassert_locked(dp);   \

@@ -42,7 +42,7 @@ error:
  * 
  * @param path is the path to be parsed.
  * @param cwd is the working directory into which path resides.
- * @param pref: is a pointer to type path_t *, this is where the following,
+ * @param pref: is a pointer to type vfspath_t *, this is where the following,
  *      according to flags will be returned:
  *      1. absolute     : is the returned absolute path.
  *      2. tokens       : is the returned absolute path in a canonical form.
@@ -51,7 +51,7 @@ error:
  * @returns (int)0 on success and non-zero on failure.
  * 
 */
-int parse_path(const char *pathname, const char *cwd, int flags, path_t **pref) {
+int parse_path(const char *pathname, const char *cwd, int flags, vfspath_t **pref) {
     int     err         = 0;
     size_t  ntok        = 0;
     size_t  tok_i       = 0;
@@ -65,7 +65,7 @@ int parse_path(const char *pathname, const char *cwd, int flags, path_t **pref) 
     char    *tmppath    = NULL;
     char    *__last_tok = NULL;
     char    *last_token = NULL;
-    path_t  *path       = NULL;
+    vfspath_t  *path       = NULL;
     char    **tokens    = NULL;
     char    **tmptokens = NULL;
 
@@ -214,7 +214,7 @@ error:
     return err;
 }
 
-void path_free(path_t *path) {
+void path_free(vfspath_t *path) {
     if (path == NULL)
         return;
     
@@ -232,7 +232,7 @@ void path_free(path_t *path) {
 
 int path_get_lasttoken(const char *pathname, char **ltok) {
     int err = 0;
-    path_t *path = NULL;
+    vfspath_t *path = NULL;
 
     if (ltok == NULL)
         return -EINVAL;
