@@ -14,16 +14,16 @@
 #include <arch/paging.h>
 #include <mm/vmm.h>
 
-cpu_t *cpus[MAXNCPU];
-static atomic_t ncpu = 1; // '1' because we are starting with BSP
-static cpu_t bspcls = {0};
-static atomic_t cpus_running = 0;
+cpu_t               *cpus[MAXNCPU];
+static atomic_t     ncpu            = 1; // '1' because we are starting with BSP
+static atomic_t     cpus_running    = 0;
+static cpu_t        bspcls          = {0};
 
-cpu_t *cpu_getcls(void) {
+cpu_t *getcls(void) {
     return (cpu_t *)rdmsr(IA32_GS_BASE);
 }
 
-void cpu_setcls(cpu_t *c) {
+void setcls(cpu_t *c) {
     wrmsr(IA32_GS_BASE, (uintptr_t)c);
     wrmsr(IA32_KERNEL_GS_BASE, (uintptr_t)c);
 }
@@ -137,13 +137,13 @@ int is64bit(void) {
 
 int bsp_init(void) {
     tvinit();
-    cpu_setcls(&bspcls);
+    setcls(&bspcls);
     cpu_init();
     return 0;
 }
 
 void ap_init(void) {
-    cpu_setcls(cpus[lapic_id()]);
+    setcls(cpus[getcpuid()]);
     cpu_init();
     schedule();
     loop();
@@ -166,7 +166,7 @@ int cpu_rsel(void) {
     return (atomic_inc(&i) % ncpu);
 }
 
-int cpu_local_id(void) {
+int getcpuid(void) {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     cpuid(0x1, 0, &a, &b, &c, &d);
     return ((b >> 24) & 0xFF);
@@ -185,7 +185,7 @@ int enumerate_cpus(void) {
     } *apic = NULL;
 
     memset(cpus, 0, sizeof cpus);
-    cpus[cpu_id] = cpu;
+    cpus[getcpuid()] = cpu;
 
     if (!(MADT = (acpiMADT_t *)acpi_enumerate("APIC")))
         return -ENOENT;
@@ -196,7 +196,7 @@ int enumerate_cpus(void) {
     for (; entry && entry < (((char *)MADT) + MADT->madt.length); entry += entry[1]) {
         if (*entry == 0) {
             apic = (void *)entry;
-            if ((apic->apicID == cpu_id) || !BTEST(apic->flags, 0))
+            if ((apic->apicID == getcpuid()) || !BTEST(apic->flags, 0))
                 continue;
             if (!(cpus[apic->apicID] = (cpu_t *)kcalloc(1, sizeof (cpu_t))))
                 panic("Not enough memory to complete operation.\n");

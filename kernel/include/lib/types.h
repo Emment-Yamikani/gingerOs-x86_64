@@ -47,7 +47,7 @@ typedef struct vm_fault_t vm_fault_t;
 typedef struct thread_t thread_t;
 typedef struct page page_t;
 typedef struct queue queue_t;
-typedef struct spinlock spinlock_t;
+typedef struct __spinlock_t spinlock_t;
 typedef enum tstate_t tstate_t;
 typedef void *(*thread_entry_t)(void *);
 typedef struct arch_thread_t arch_thread_t;

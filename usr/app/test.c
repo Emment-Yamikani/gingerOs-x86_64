@@ -17,16 +17,6 @@ int main(void) {
     pid_t   pid         = 0;
     int     statloc     = 0;
 
-    int dir = sys_open("/ramfs/", O_RDONLY, 0);
-    printf("dir: %d\n", dir);
-    int fd  = sys_openat(dir, "makefile", O_RDONLY, 0);
-    char *buf = sys_mmap(NULL, 256, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE | MAP_ZERO, -1, 0);
-    sys_read(fd, buf, 256);
-    sys_close(fd);
-    sys_close(dir);
-
-    printf("Data read by ROOT:\n\n%s\n\n", buf);
-
     if ((pid = fork()) < 0) {
         panic("Failed to fork child process. error: %d\n", pid);
     } else if (pid != 0) { // init process.
@@ -42,8 +32,8 @@ int main(void) {
         panic("Failed to fork(), sys_fork() returned =%d\n", pid);
     else if (pid == 0) { // child process.
         printf("PID: %d, PGID: %d, SID: %d\n", sys_getpid(), sys_getpgrp(), sys_getsid(0));
-        sys_sleep(1); // Child thread simulates some work.
-        sys_exit(1); // then exists.
+        sys_sleep(1);   // Child thread simulates some work.
+        sys_exit(0);    // then exists.
     } else { // parent process.
         pid = sys_waitpid(0, &statloc, WEXITED); // wait for child process to exit.
         printf("Child: %d, changed state, stat_val= %d\n", pid, statloc);

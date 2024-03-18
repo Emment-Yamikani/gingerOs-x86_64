@@ -104,5 +104,5 @@ void coprocessor_except(void) {
 }
 
 void simd_fp_except(void) {
-    panic("CPU%d executed %s()\n", cpu_id, __func__);
+    panic("CPU%d executed %s()\n", getcpuid(), __func__);
 }
