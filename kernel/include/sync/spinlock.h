@@ -9,12 +9,11 @@
 
 extern tid_t thread_self(void);
 
-typedef struct spinlock
-{
-    uint8_t s_guard;
-    tid_t s_tid;      //
+typedef struct __spinlock_t {
+    uint8_t s_guard;  // protects(guards) this structure.
+    tid_t s_tid;      // thread ID of currently holding thread.
     uint8_t s_lock;   // A 1 in this bit position signifies that the lock is held.
-    uint8_t s_apicid; //
+    uint8_t s_apicid; // APIC ID of currently holding CPU.
 
     // for debugging.
 
