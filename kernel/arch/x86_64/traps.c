@@ -25,7 +25,7 @@ void dump_tf(tf_t *tf, int halt) {
               "\e[025453;015mr12\e[0m=\e[025453;012m%16p\e[0m \e[025453;015mr13\e[0m=\e[025453;12m%16p\e[0m \e[025453;015mr14\e[0m=\e[025453;12m%16p\n\e[0m"
               "\e[025453;015mr15\e[0m=%16p \e[025453;015mrip\e[0m=\e[025453;016m%16p\e[0m \e[025453;015mcr0\e[0m=%16p\n"
               "\e[025453;015mcr2\e[0m=\e[025453;016m%16p\e[0m \e[025453;015mcr3\e[0m=\e[025453;12m%16p\e[0m \e[025453;015mcr4\e[0m=\e[025453;12m%16p\n\e[0m",
-              tf->trapno, cpu_id, thread_self(), tf->err_code, tf->rflags, tf->cs, tf->ds, tf->fs, tf->ss, 
+              tf->trapno, getcpuid(), thread_self(), tf->err_code, tf->rflags, tf->cs, tf->ds, tf->fs, tf->ss, 
               tf->rax, tf->rbx, tf->rcx,
               tf->rdx, tf->rdi, tf->rsi,
               tf->rbp, tf->rsp, tf->r8,
@@ -42,7 +42,7 @@ void dump_tf(tf_t *tf, int halt) {
                "\e[025453;015mr12\e[0m=\e[025453;012m%16p\e[0m r13=\e[025453;12m%16p\e[0m r14=\e[025453;12m%16p\n\e[0m"
                "\e[025453;015mr15\e[0m=%16p \e[025453;015mrip\e[0m=%16p \e[025453;015mcr0\e[0m=%16p\n"
                "\e[025453;015mcr2\e[0m=\e[025453;012m%16p\e[0m cr3=\e[025453;12m%16p\e[0m cr4=\e[025453;12m%16p\n\e[0m",
-               tf->trapno, cpu_id, thread_self(), tf->err_code, tf->rflags, tf->cs, tf->ds, tf->fs, tf->ss,
+               tf->trapno, getcpuid(), thread_self(), tf->err_code, tf->rflags, tf->cs, tf->ds, tf->fs, tf->ss,
                tf->rax, tf->rbx, tf->rcx,
                tf->rdx, tf->rdi, tf->rsi,
                tf->rbp, tf->rsp, tf->r8,

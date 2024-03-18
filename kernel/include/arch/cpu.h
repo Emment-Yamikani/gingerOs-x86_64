@@ -144,9 +144,7 @@ typedef struct cpu {
 #define MAXNCPU             16 // maximum supported cpus
 extern cpu_t                *cpus[MAXNCPU];
 
-#define cpu                 (cpu_getcls())                  // get CPU local structure.
-#define cpu_id              (cpu_local_id())                // local apic.
-#define cpuID               (cpu_id)
+#define cpu                 (getcls())                      // get CPU local structure.
 #define current             (cpu->thread)                   // currently running thread.
 #define simd_thread         (cpu->simd_thread)              // current SIMD/FPU thread.
 #define simdctx             (cpu->math_ctx)                 // current SIMD/FPU context.
@@ -170,9 +168,9 @@ extern void                 cpu_incr_online(void);
 
 extern int                  bootothers(void);
 
-extern cpu_t                *cpu_getcls(void);
-extern void                 cpu_setcls(cpu_t *c);
+extern cpu_t                *getcls(void);
+extern void                 setcls(cpu_t *c);
 
-extern int                  cpu_local_id(void);
+extern int                  getcpuid(void);
 extern int                  enumerate_cpus(void);
 extern void                 cpu_get_features(void);

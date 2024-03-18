@@ -96,6 +96,7 @@ int dopen(dentry_t *dentry);
 void dclose(dentry_t *dentry);
 void dunbind(dentry_t *dentry);
 void drelease(dentry_t *dentry);
+void dconditional_release(dentry_t *dp, int cond);
 int dbind(dentry_t *parent, dentry_t *child);
 int dalloc(const char *name, dentry_t **pdentry);
 int dlookup(dentry_t *dir, const char *name, dentry_t **pchild);

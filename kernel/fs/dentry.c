@@ -34,6 +34,13 @@ void drelease(struct dentry *dp) {
     dunlock(dp);
 }
 
+void dconditional_release(dentry_t *dp, int cond) {
+    dassert_locked(dp);
+    if (cond)
+        drelease(dp);
+    
+}
+
 int drevalidate(struct dentry *dp) {
     dassert_locked(dp);
     return dp->d_inode ? 1 : 0;

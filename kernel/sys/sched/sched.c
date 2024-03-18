@@ -72,7 +72,7 @@ int sched_park(thread_t *thread) {
     int     affini = 0;
     level_t *lvl = NULL;
     cpu_t   *processor = NULL;
-    int     core = cpu_id;
+    int     core = getcpuid();
     thread_sched_t *tsched = NULL;
 
     if (thread == NULL)
@@ -97,7 +97,7 @@ int sched_park(thread_t *thread) {
         }
 
         if (core >= cpu_online()) {
-            core = cpu_id;
+            core = getcpuid();
             tsched->ts_cpu_affinity_set |= BS(core);
         }
     }
@@ -166,7 +166,7 @@ static void sched_self_destruct(void) {
 
     if ((err = sched_putzombie(current))) {
         panic("??FAILED TO ZOMBIE CPU%d:TID:%d, error: %d\n",
-        cpu_id, thread_self(), err);
+        getcpuid(), thread_self(), err);
     }
 
     if (current->t_arch.t_sig_kstack) {
@@ -186,8 +186,13 @@ __noreturn void schedule(void) {
     thread_t        *thread = NULL;
     thread_sched_t  *tsched = NULL;
 
-    if ((err = sched_init()))
-        panic("cpu%d failed to initialize scheduling queues. err: %d\n", cpu_id, err);
+    if ((err = sched_init())) {
+        panic(
+            "cpu%d failed to initialize "
+            "scheduling queues. err: %d\n",
+            getcpuid(), err
+        );
+    }
 
     loop() {
         cpu->ncli   = 0;
@@ -294,7 +299,7 @@ __noreturn void schedule(void) {
             break;
         default:
             panic("??cpu%d tid:%d called sched()"
-                " while thread is in %s state\n", cpu_id,
+                " while thread is in %s state\n", getcpuid(),
                 thread_self(), t_states[current_getstate()]);
         }
     }

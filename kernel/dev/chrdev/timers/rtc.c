@@ -163,7 +163,7 @@ int rtc_probe(void) {
     RTC_CENT = FADT ? FADT->RTC_CENTURY: 0;
 
     pic_enable(IRQ_RTC);
-    ioapic_enable(IRQ_RTC, cpuID);
+    ioapic_enable(IRQ_RTC, getcpuid());
 
     outb(RTC_CMD, 0x8A);
     uint8_t value = inb(RTC_IO);

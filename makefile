@@ -138,3 +138,4 @@ clean_debug:
 
 clean:
 	rm -rf $(KERNEL_OBJS) $(KERNEL_OBJS:.o=.d) $(LINKED_OBJS) $(LINKED_OBJS:.o=.d) $(USR_LIB)/*.o $(USR_LIB)/*.d $(LIBC_SO) $(USR_OBJS) $(USR_LIB)/libc.a $(USR_OBJS:.o=.d) $(APP_DIR)/*.o $(APP_DIR)/*.d ginger.iso $(ISO_DIR)/modules/initrd $(ISO_DIR)/boot/lime.elf $(ISO_DIR)/modules/* serial.log
+

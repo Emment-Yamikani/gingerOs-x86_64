@@ -47,7 +47,7 @@ void gdt_init(void) {
                 mov %%ax, %%gs;\
                 mov %%ax, %%fs;\
                 " ::: "ax");
-    cpu_setcls(c);
+    setcls(c);
 }
 
 void setgate(int gate, int istrap, void (*base)() , uint16_t sel, uint8_t dpl, uint8_t ist) {
