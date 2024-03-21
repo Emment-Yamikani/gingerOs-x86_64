@@ -3,6 +3,9 @@
 #include <sys/thread.h>
 #include <arch/x86_64/context.h>
 #include <arch/traps.h>
+#include <mm/kalloc.h>
+#include <sys/sysproc.h>
+#include <lib/string.h>
 
 const char *signal_str[] = {
     [SIGABRT - 1] = "SIGABRT",
@@ -39,6 +42,7 @@ const char *signal_str[] = {
     [SIGXFSZ - 1] = "SIGXFSZ",
 };
 
+__unused
 static int sig_defaults[] = {
     [SIGABRT - 1] = SIG_TERM_CORE, // | terminate+core
     [SIGALRM - 1] = SIG_TERM,      // | terminate
@@ -74,6 +78,56 @@ static int sig_defaults[] = {
     [SIGXFSZ - 1] = SIG_TERM,      // | teminate or terminate+core
 };
 
+int sig_desc_alloc(sig_desc_t **pdesc) {
+    sig_desc_t  *sigdesc = NULL;
+
+    if (pdesc == NULL)
+        return -EINVAL;
+    
+    if (NULL == (sigdesc = (sig_desc_t *)kmalloc(sizeof (sig_desc_t))))
+        return -ENOMEM;
+    
+    memset(sigdesc, 0, sizeof *sigdesc);
+
+    sigemptyset(&sigdesc->sig_mask);
+    sigdesc->sig_lock = SPINLOCK_INIT();
+
+    for (size_t i = 0; i < NELEM(sigdesc->sig_queue); ++i)
+        sigdesc->sig_queue[i] = QUEUE_INIT();
+    
+    for (size_t i = 0; i < NELEM(sigdesc->sig_action); ++i)
+        sigdesc->sig_action[i].sa_handler = SIG_DFL;
+
+    *pdesc = sigdesc;
+    return 0;
+}
+
+void sig_desc_free(sig_desc_t *sigdesc) {
+    assert(sigdesc, "No signal description\n");
+
+    if (!spin_islocked(&sigdesc->sig_lock))
+        spin_lock(&sigdesc->sig_lock);
+    
+    sigemptyset(&sigdesc->sig_mask);
+    
+    for (size_t i = 0; i < NELEM(sigdesc->sig_queue); ++i) {
+        queue_lock(&sigdesc->sig_queue[i]);
+        // instead of flushing, dequeue and free siginfo_t *.
+        queue_flush(&sigdesc->sig_queue[i]);
+        queue_unlock(&sigdesc->sig_queue[i]);
+    }
+
+    spin_unlock(&sigdesc->sig_lock);
+    kfree(sigdesc);
+}
+
+void sigdequeue_pending(queue_t *queue, siginfo_t **ret) {
+    assert(ret, "No return referecnt poiner for signal info\n");
+
+    queue_assert_locked(queue);
+    dequeue(queue, (void **)ret);
+}
+
 int pause(void) {
     return -ENOSYS;
 }
@@ -89,7 +143,6 @@ unsigned long alarm(unsigned long sec) {
 
     return -ENOSYS;
 }
-
 
 sigfunc_t signal(int signo, sigfunc_t func) {
     sigaction_t act, oact;
@@ -111,24 +164,30 @@ sigfunc_t signal(int signo, sigfunc_t func) {
 }
 
 int sigpending(sigset_t *set) {
+    sig_desc_t *sigdesc = NULL;
+
     if (set == NULL)
         return -EINVAL;
 
     sigemptyset(set);
-    current_tgroup_lock();
+    sigdesc = current->t_sigdesc;
 
+    sigdesc_lock(sigdesc);
     for (int signo = 0; signo < NSIG; ++signo) {
-        if (current_tgroup()->sig_queues[signo])
+        queue_lock(&sigdesc->sig_queue[signo]);
+        if (queue_count(&sigdesc->sig_queue[signo]))
             sigaddset(set, (signo + 1));
+        queue_unlock(&sigdesc->sig_queue[signo]);
     }
+    sigdesc_unlock(sigdesc);
 
-    current_tgroup_unlock();
     return 0;
 }
 
 int pthread_kill(tid_t tid, int signo) {
-    int err = 0;
-    thread_t *thread = NULL;
+    int         err     = 0;
+    siginfo_t   *info   = NULL;
+    thread_t    *thread = NULL;
 
     if (SIGBAD(signo))
         return -EINVAL;
@@ -145,23 +204,41 @@ int pthread_kill(tid_t tid, int signo) {
         return 0;
     }
 
-    if ((err = thread_sigqueue(thread, signo))) {
+    if (NULL == (info = (siginfo_t *)kmalloc(sizeof *info))) {
+        thread_putref(thread);
+        thread_unlock(thread);
+        return -ENOMEM;
+    }
+
+    memset(info, 0, sizeof *info);
+
+    info->si_addr   = NULL;
+    info->si_signo  = signo;
+    info->si_pid    = getpid();
+
+    if ((err = thread_sigqueue(thread, info))) {
+        thread_putref(thread);
         thread_unlock(thread);
         goto error;
     }
 
+    thread_putref(thread);
     thread_unlock(thread);
     return 0;
 error:
+    if (info)
+        kfree(info);
+
     return err;
 }
 
 int sigwait(const sigset_t *restrict set, int *restrict signop) {
-    int err = 0;
-    int signo = 1;
-    sigset_t sset, oset;
+    sigset_t    sset, oset;
+    int         err     = 0;
+    int         signo   = 1;
+    siginfo_t   *info   = NULL;
 
-    printk("FIXME %s:%D: in %S()\n", __FILE__, __LINE__, __func__);
+    printk("FIXME %s:%d: in %s()\n", __FILE__, __LINE__, __func__);
 
     if (set == NULL)
         return -EINVAL;
@@ -173,12 +250,14 @@ int sigwait(const sigset_t *restrict set, int *restrict signop) {
 
     loop() {
         current_lock();
-        if (sigismember(&sset, signo) == 1)
-        {
-            if (current->t_sigqueue[signo - 1])
-            {
-                current->t_sigqueue[signo - 1]--;
+        if (sigismember(&sset, signo) == 1) {
+            queue_lock(&current->t_sigqueue[signo - 1]);
+            sigdequeue_pending(&current->t_sigqueue[signo - 1], &info);
+            queue_unlock(&current->t_sigqueue[signo - 1]);
+
+            if (info != NULL) {
                 current_unlock();
+                kfree(info);
                 break;
             }
         }
@@ -204,26 +283,63 @@ int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict os
 }
 
 int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset) {
-    int err = 0;
-    current_tgroup_lock();
-    err = tgroup_sigprocmask(current_tgroup(), how, set, oset);
-    current_tgroup_unlock();
+    int         err     = 0;
+    sig_desc_t  *sigdesc   = NULL;
+
+    current_lock();
+    sigdesc = current->t_sigdesc;
+    current_unlock();
+
+    sigdesc_lock(sigdesc);
+
+    if (oset)
+        *oset = sigdesc->sig_mask;
+
+    if (set == NULL) {
+        sigdesc_unlock(sigdesc);
+        return 0;
+    }
+
+    if (sigismember(set, SIGKILL) || sigismember(set, SIGSTOP)) {
+        sigdesc_unlock(sigdesc);
+        return -EINVAL;
+    }
+
+    switch (how) {
+    case SIG_BLOCK:
+        sigdesc->sig_mask |= *set;
+        break;
+    case SIG_UNBLOCK:
+        sigdesc->sig_mask &= ~*set;
+        break;
+    case SIG_SETMASK:
+        sigdesc->sig_mask = *set;
+        break;
+    default:
+        err = -EINVAL;
+        break;
+    }
+
+    sigdesc_unlock(sigdesc);
     return err;
 }
 
 int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact) {
-    int err = -EINVAL;
+    int         err     = -EINVAL;
+    sig_desc_t  *sigdesc   = NULL;
 
     if (SIGBAD(signo))
         return -EINVAL;
 
-    current_tgroup_lock();
+    current_lock();
+    sigdesc = current->t_sigdesc;
+    current_unlock();
 
     if (oact)
-        *oact = current_tgroup()->sig_action[signo - 1];
+        *oact = sigdesc->sig_action[signo - 1];
 
     if (act == NULL) {
-        current_tgroup_unlock();
+        sigdesc_unlock(sigdesc);
         return 0;
     }
 
@@ -270,11 +386,11 @@ int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict 
     if ((act->sa_flags & SA_SIGINFO) && (act->sa_sigaction == NULL))
         goto error;
 
-    current_tgroup()->sig_action[signo - 1] = *act;
-    current_tgroup_unlock();
+    sigdesc->sig_action[signo - 1] = *act;
+    sigdesc_unlock(sigdesc);
     return 0;
 error:
-    current_tgroup_unlock();
+    sigdesc_unlock(sigdesc);
     return err;
 }
 
@@ -287,161 +403,4 @@ void signal_dispatch(void) {
     current_unlock();
 }
 
-int signal_handle(tf_t *tf __unused) {
-    int         err         = 0;
-    int         signo       = 0;
-    void        *arg        = NULL;
-    tf_t        *sig_tf     = NULL;
-    sigaction_t act         = {0};
-    sigfunc_t   handler     = NULL;
-    context_t   *sig_ctx    = NULL;
-    uintptr_t   default_act = 0;
-    siginfo_t   *sig_info   = NULL, info = {0};
-    uintptr_t   *sig_stack  = NULL, *stack = NULL;
-    sigset_t    set         = {0}, oset = {0}, tset = {0};
-
-    current_tgroup_lock();
-    current_lock();
-
-    if ((err = signo = thread_sigdequeue(current)) < 0) {
-        current_unlock();
-        current_tgroup_unlock();
-        return err;
-    }
-
-    if (signo > 0)
-        goto block_signal;
-
-    for (signo = 1; signo <= NSIG; ++signo) {
-        if (current_tgroup()->sig_queues[signo - 1]) {
-            if ((err = sigismember(&current->t_sigmask, signo)) == 1) {
-                current_unlock();
-                current_tgroup_unlock();
-                return err;
-            }
-            current_tgroup()->sig_queues[signo - 1]--;
-            break;
-        }
-    }
-
-    if (signo > NSIG) {
-        current_unlock();
-        current_tgroup_unlock();
-        return 0;
-    }
-
-block_signal:
-    /**
-     * Block signo and other signals specified in sigaction->sigmask.
-     * NOTE: This blocks the signal set globally i.e in the tgroup.
-     * but not in the current thread.
-     */
-    sigemptyset(&set);
-    sigaddset(&set, signo);
-    set |= current_tgroup()->sig_mask;
-    thread_sigmask(current, SIG_BLOCK, &set, &tset);
-    tgroup_sigprocmask(current_tgroup(), SIG_BLOCK, &set, &oset);
-
-    arg     = (void *)(uintptr_t)signo--;
-    act     = current_tgroup()->sig_action[signo];
-    handler = (act.sa_flags & SA_SIGINFO ? (sigfunc_t)act.sa_sigaction : (sigfunc_t)act.sa_handler);
-
-    if (handler == SIG_DFL)
-        default_act = sig_defaults[signo];
-
-    switch (default_act) {
-    case SIG_IGNORE:
-        printk("thread[%d]: %s default action: IGNORE\n", thread_self(), signal_str[signo]);
-        thread_sigmask(current, SIG_SETMASK, &tset, NULL);
-        tgroup_sigprocmask(current_tgroup(), SIG_SETMASK, &oset, NULL);
-        current_unlock();
-        current_tgroup_unlock();
-        return 0;
-    case SIG_ABRT:
-        printk("thread[%d]: %s default action: ABORT\n", thread_self(), signal_str[signo]);
-        err = tgroup_terminate(current_tgroup(), &current->t_lock);
-        return err;
-    case SIG_TERM:
-        printk("thread[%d]: %s default action: TERMINATE\n", thread_self(), signal_str[signo]);
-        err = tgroup_terminate(current_tgroup(), &current->t_lock);
-        return err;
-    case SIG_TERM_CORE:
-        printk("thread[%d]: %s default action: TERMINATE+CORE\n", thread_self(), signal_str[signo]);
-        err = tgroup_terminate(current_tgroup(), &current->t_lock);
-        return err;
-    case SIG_STOP:
-        current_unlock();
-        err = tgroup_stop(current_tgroup());
-        printk("%s default action: STOP\n", signal_str[signo]);
-        current_tgroup_unlock();
-        return err;
-    case SIG_CONT:
-        printk("thread[%d]: %s default action: CONTINUE\n", thread_self(), signal_str[signo]);
-        thread_sigmask(current, SIG_SETMASK, &tset, NULL);
-        tgroup_sigprocmask(current_tgroup(), SIG_SETMASK, &oset, NULL);
-        current_unlock();
-        tgroup_continue(current_tgroup());
-        current_tgroup_unlock();
-        return 0;
-    }
-
-    current_tgroup_unlock();
-
-    if (!current_isuser()) {
-        if (NULL == (sig_stack = stack = (uintptr_t *)thread_alloc_kstack(STACKSZMIN))) {
-            thread_sigmask(current, SIG_SETMASK, &tset, NULL);
-            current_unlock();
-            sigprocmask(SIG_SETMASK, &oset, NULL);
-            return -ENOMEM;
-        }
-
-        current->t_arch.t_sig_kstacksz  = STACKSZMIN;
-        current->t_arch.t_sig_kstack    = (uintptr_t)stack;
-
-        sig_stack = (uintptr_t *)ALIGN4K(((uintptr_t)sig_stack + STACKSZMIN));
-
-        if (act.sa_flags & SA_SIGINFO) {
-            sig_info    = (siginfo_t *)((uintptr_t)sig_stack - sizeof *sig_info);
-            arg         = sig_info;
-            sig_stack   = (uintptr_t *)sig_info;
-            *sig_info   = info;
-        }
-
-        *--sig_stack    = (uintptr_t)signal_return;
-        sig_tf          = (tf_t *)((uintptr_t)sig_stack - sizeof *sig_tf);
-
-        sig_tf->ss      = SEG_KDATA64 << 3;
-        sig_tf->rsp     = (uintptr_t)sig_stack;
-        sig_tf->rbp     = sig_tf->rsp;
-        sig_tf->rflags  = LF_IF;
-        sig_tf->cs      = SEG_KCODE64 << 3;
-        sig_tf->rip     = (uintptr_t)handler;
-        sig_tf->rdi     = (uintptr_t)arg;
-        sig_tf->fs      = SEG_KDATA64 << 3;
-
-        sig_stack       = (uintptr_t *)sig_tf;
-        *--sig_stack    = (uintptr_t)trapret;
-        sig_ctx         = (context_t *)((uintptr_t)sig_stack - sizeof *sig_ctx);
-        sig_ctx->rip    = (uintptr_t)signal_dispatch;
-        sig_ctx->rbp    = sig_tf->rsp;
-
-        current->t_arch.t_ctx0 = sig_ctx;
-    }
-
-    current_setflags(THREAD_HANDLING_SIG);
-    swtch(&current->t_arch.t_ctx1, current->t_arch.t_ctx0);
-
-    if (!current_isuser())
-        thread_free_kstack((uintptr_t)stack, STACKSZMIN);
-
-    thread_sigmask(current, SIG_SETMASK, &tset, NULL);
-    current_maskflags(THREAD_HANDLING_SIG);
-    current_unlock();
-
-    /**
-     * restore signo and other signals we blocked earlier.
-     */
-    sigprocmask(SIG_SETMASK, &oset, NULL);
-
-    return 0;
-}
+int signal_handle(tf_t *tf __unused);

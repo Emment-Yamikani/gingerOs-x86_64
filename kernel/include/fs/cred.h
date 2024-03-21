@@ -32,4 +32,6 @@ typedef struct cred_t {
 #define cred_unlock(cr)         ({ cred_assert(cr); spin_unlock(&(cr)->c_lock); })
 #define cred_trylock(cr)        ({ cred_assert(cr); spin_trylock(&(cr)->c_lock); })
 
+int cred_alloc(cred_t **ret);
+void cred_free(cred_t *cred);
 int cred_copy(cred_t *dst, cred_t *src);

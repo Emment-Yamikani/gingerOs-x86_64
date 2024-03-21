@@ -115,7 +115,7 @@ void trap(tf_t *tf) {
         thread_stop(current, sched_stopq);
     current_unlock();
 
-    signal_handle(tf);
+    // signal_handle(tf);
 
     current_lock();
     time = current->t_sched.ts_timeslice;

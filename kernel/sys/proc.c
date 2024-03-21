@@ -146,7 +146,6 @@ int proc_alloc(const char *name, proc_t **pref) {
     proc_t     *proc    = NULL;
     mmap_t     *mmap    = NULL;
     thread_t   *thread  = NULL;
-    tgroup_t   *tgroup  = NULL;
 
     if (name == NULL || pref == NULL)
         return -EINVAL;
@@ -157,13 +156,10 @@ int proc_alloc(const char *name, proc_t **pref) {
     if ((err = mmap_alloc(&mmap)))
         goto error;
 
-    if ((err = tgroup_create(&tgroup)))
+    if ((err = thread_alloc(KSTACKSZ, THREAD_CREATE_USER, &thread)))
         goto error;
 
-    if ((err = thread_alloc(KSTACKSZ, THREAD_USER, &thread)))
-        goto error;
-
-    if ((err = tgroup_add_thread(tgroup, thread)))
+    if ((err = thread_create_group(thread)))
         goto error;
 
     memset(proc, 0, sizeof *proc);
@@ -175,22 +171,25 @@ int proc_alloc(const char *name, proc_t **pref) {
     if ((err = proc_alloc_pid(&proc->pid)))
         goto error;
 
-    proc->refcnt = 1;
-    proc->mmap   = mmap;
-    proc->tgroup = tgroup;
-    proc->pgroup = proc->pid;
-    proc->session= proc->pid;
+    proc->refcnt        = 1;
+    proc->mmap          = mmap;
+    proc->pgroup        = proc->pid;
+    proc->session       = proc->pid;
     proc->child_event   = COND_INIT();
-    proc->lock   = SPINLOCK_INIT();
+    proc->lock          = SPINLOCK_INIT();
+    proc->cred          = thread->t_cred;
+    proc->fctx          = thread->t_fctx;
+    proc->threads       = thread->t_tgroup;
+    proc->sigdesc       = thread->t_sigdesc;
+    proc->main_thread   = thread_getref(thread);
 
-    thread->t_mmap = mmap;
+    thread->t_mmap      = mmap;
     proc_lock(proc);
 
     thread->t_owner = proc_getref(proc);
     mmap_unlock(mmap);
 
     thread_unlock(thread);
-    tgroup_unlock(tgroup);
 
     *pref = proc;
     return 0;
@@ -200,9 +199,6 @@ error:
 
     if (thread)
         thread_free(thread);
-
-    if (tgroup)
-        tgroup_destroy(tgroup);
 
     if (mmap)
         mmap_free(mmap);
@@ -238,9 +234,6 @@ void proc_free(proc_t *proc) {
 
         if (proc_mmap(proc))
             mmap_free(proc_mmap(proc));
-        
-        if (proc->tgroup)
-            tgroup_destroy(proc->tgroup);
         
         if (proc->name)
             kfree(proc->name);
@@ -380,12 +373,8 @@ int proc_init(const char *initpath) {
         goto error;
     }
 
-    proc_tgroup_lock(proc);
-    if ((err = tgroup_getmain(proc_tgroup(proc), &thread))) {
-        proc_tgroup_unlock(proc);
-        goto error;
-    }
-    proc_tgroup_unlock(proc);
+    thread_lock(proc->main_thread);
+    thread = thread_getref(proc->main_thread);
 
     if ((err = thread_execve(proc, thread, proc->entry, argp, envp))) {
         thread_release(thread);
@@ -418,7 +407,7 @@ error:
 
 int proc_copy(proc_t *child, proc_t *parent) {
     int         err     = 0;
-    file_ctx_t *file_ctx= NULL;
+    file_ctx_t *fctx    = NULL;
     cred_t      *cred   = NULL;
 
     if (child == NULL || parent == NULL)
@@ -435,35 +424,31 @@ int proc_copy(proc_t *child, proc_t *parent) {
 
     /// TODO: Do I really need this lock on current thread??
     current_lock();
-    file_ctx = current->t_file_ctx;
-    cred     = current->t_credentials;
-    fctx_lock(file_ctx);
+    fctx = current->t_fctx;
+    cred = current->t_cred;
     current_unlock();
 
-    tgroup_lock(child->tgroup);
-    fctx_lock(&child->tgroup->tg_file_ctx);
+    fctx_lock(fctx);
+    fctx_lock(child->fctx);
 
-    if ((err = file_copy(&child->tgroup->tg_file_ctx, file_ctx))) {
-        fctx_unlock(&child->tgroup->tg_file_ctx);
-        tgroup_unlock(child->tgroup);
-        fctx_unlock(file_ctx);
+    if ((err = file_copy(child->fctx, fctx))) {
+        fctx_unlock(child->fctx);
+        fctx_unlock(fctx);
         goto error;
     }
 
-    fctx_unlock(&child->tgroup->tg_file_ctx);
-    fctx_unlock(file_ctx);
+    fctx_unlock(child->fctx);
+    fctx_unlock(fctx);
 
     cred_lock(cred);
-    cred_lock(&child->tgroup->tg_cred);
-    if ((err = cred_copy(&child->tgroup->tg_cred, cred))) {
-        cred_unlock(&child->tgroup->tg_cred);
+    cred_lock(child->cred);
+    if ((err = cred_copy(child->cred, cred))) {
+        cred_unlock(child->cred);
         cred_unlock(cred);
-        tgroup_unlock(child->tgroup);
         return err;
     }
-    cred_unlock(&child->tgroup->tg_cred);
+    cred_unlock(child->cred);
     cred_unlock(cred);
-    tgroup_unlock(child->tgroup);
 
     child->entry    = parent->entry;
     child->pgroup   = parent->pgroup;

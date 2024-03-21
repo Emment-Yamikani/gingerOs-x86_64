@@ -14,12 +14,12 @@ int sched_sleep(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
     queue_assert(sleep_queue);
     current_assert_locked();
 
-    if ((err = thread_enqueue(sleep_queue, current, &current->sleep_attr.node)))
+    if ((err = thread_enqueue(sleep_queue, current, &current->t_sleep.node)))
         return err;
 
-    current->sleep_attr.guard = lock;
+    current->t_sleep.guard = lock;
     thread_enter_state(current, state);
-    current->sleep_attr.queue = sleep_queue;
+    current->t_sleep.queue = sleep_queue;
 
     if (lock) spin_unlock(lock);
 
@@ -27,8 +27,8 @@ int sched_sleep(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
 
     if (lock) spin_lock(lock);
 
-    current->sleep_attr.node = NULL;
-    current->sleep_attr.queue = NULL;
+    current->t_sleep.node = NULL;
+    current->t_sleep.queue = NULL;
 
     if (thread_iskilled(current))
         return -EINTR;
@@ -48,7 +48,7 @@ int sched_wake1(queue_t *sleep_queue) {
         thread_enter_state(thread, T_READY);
         if (sched_park(thread)) {
             thread_enter_state(thread, state);
-            thread_enqueue(sleep_queue, thread, &thread->sleep_attr.node);
+            thread_enqueue(sleep_queue, thread, &thread->t_sleep.node);
         }
         thread_unlock(thread);
         retval = 0;
@@ -72,7 +72,7 @@ size_t sched_wakeall(queue_t *sleep_queue) {
         thread = node->data;
         thread_lock(thread);
         if ((err = thread_wake(thread)))
-            panic("failed to park thread[%d], err=%d\n", thread_gettid(thread), err);
+            panic("failed to wake thread[%d], err=%d\n", thread_gettid(thread), err);
         thread_unlock(thread);
     }
 

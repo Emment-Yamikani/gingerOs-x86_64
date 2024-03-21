@@ -12,11 +12,21 @@ int load_init(const char *conf_fn);
 __noreturn void kthread_main(void) {
     int err = 0;
 
-    printk("\n\t\t\tWelcome to \'\e[025453;011mGinger OS\e[0m\'.\n\n");
+    printk(
+        "\n\t\t\tWelcome to \'"
+        "\e[025453;011mGinger "
+        "OS\e[0m\'.\n\n"
+    );
+
     builtin_threads_begin(NULL);
 
-    if ((err = load_init("/ramfs/startup.conf")))
-        printk("Failed to read or parse startup.conf\nexit_code: %d\n", err);
+    if ((err = load_init("/ramfs/startup.conf"))) {
+        printk(
+            "Failed to read or"
+            " parse startup.conf"
+            "\nexit_code: %d\n", err
+        );
+    }
 
     loop() thread_join(0, NULL, NULL);
 }
@@ -49,8 +59,11 @@ int load_init(const char *conf_fn) {
         return -EINVAL;
 
     if ((err = open(conf_fn, O_RDONLY, 0)) < 0) {
-        printk("Failed to open startup configuration file,"
-            "failed with err_code: %d\n", err);
+        printk(
+            "Failed to open startup"
+            " configuration file,"
+            "failed with err_code: %d\n", err
+        );
         goto error;
     }
 
@@ -58,15 +71,22 @@ int load_init(const char *conf_fn) {
     lseek(conf_fd, 0, SEEK_SET);
 
     if (NULL == (conf_buf = kcalloc(1, conf_size))) {
-        printk("failed to allocate buf for configuration file\n"
-               "Not enough memory to satisfy request!\n");
+        printk(
+            "failed to allocate buf"
+            " for configuration file\n"
+            "Not enough memory to "
+            "satisfy request!\n"
+        );
         goto error;
     }
 
     if ((ssize_t)(err = read(conf_fd, conf_buf, conf_size)) != (ssize_t)conf_size) {
-        printk("Failed to read startup configuration file\n"
-               "read() returned: %d\n",
-               err);
+        printk(
+            "Failed to read startup"
+            " configuration file\n"
+            "read() returned: "
+            "%d\n", err
+        );
     }
 
     printk("Parsing startup configuration file...\n");

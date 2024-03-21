@@ -151,10 +151,8 @@ static void sched_self_destruct(void) {
     */
     pushcli();
     current_unlock();
-
-    current_tgroup_lock();
-    tgroup_dec_running(current_tgroup());
-    current_tgroup_unlock();
+    
+    // TODO: increment running thread count for a thread group.
 
     current_lock();
 
@@ -170,8 +168,7 @@ static void sched_self_destruct(void) {
     }
 
     if (current->t_arch.t_sig_kstack) {
-        thread_free_kstack(current->t_arch.t_sig_kstack,
-            current->t_arch.t_sig_kstacksz);
+        thread_kstack_free(current->t_arch.t_sig_kstack);
     }
 
     current_unlock();
@@ -228,8 +225,12 @@ __noreturn void schedule(void) {
             if (current_isstopped()) {
                 pushcli();
                 /// TODO: Hope this code is not executed \'ever!\'
-                panic("[\e[0;04mWARNING\e[0m] ???Hmmm this will call sched(), "
-                    "do you know the implications of doing this???");
+                panic(
+                    "[\e[0;04mWARNING\e[0m] "
+                    "???Hmmm this will call "
+                    "sched(), do you know the"
+                    " implications of doing this???\n"
+                );
                 thread_stop(current, sched_stopq);
                 continue;
             }
@@ -283,7 +284,10 @@ __noreturn void schedule(void) {
 
         switch (current_getstate()) {
         case T_EMBRYO:
-            panic("??\e[0;04mT_EMBRYO\e[0m was allowed to run\n");
+            panic(
+                "??\e[0;04mT_EMBRYO\e[0m"
+                " was allowed to run\n"
+            );
             break;
         case T_READY:
             sched_park(current);
@@ -298,9 +302,12 @@ __noreturn void schedule(void) {
             sched_self_destruct();
             break;
         default:
-            panic("??cpu%d tid:%d called sched()"
-                " while thread is in %s state\n", getcpuid(),
-                thread_self(), t_states[current_getstate()]);
+            panic(
+                "??cpu%d tid:%d called sched()"
+                " while thread is in %s state\n",
+                getcpuid(), thread_self(),
+                t_states[current_getstate()]
+            );
         }
     }
 }

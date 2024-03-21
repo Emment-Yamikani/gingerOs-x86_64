@@ -98,6 +98,10 @@ typedef struct file_ctx_t {
 #define fctx_islocked(fctx)      ({ fassert(fctx); spin_islocked(&(fctx)->fc_lock); })
 #define fctx_assert_locked(fctx) ({ fassert(fctx); spin_assert_locked(&(fctx)->fc_lock); })
 
+int fctx_alloc(file_ctx_t**ret);
+
+void fctx_free(file_ctx_t *fctx);
+
 void file_close_all(void);
 int file_copy(file_ctx_t *dst, file_ctx_t *src);
 

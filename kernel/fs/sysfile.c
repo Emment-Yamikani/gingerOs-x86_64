@@ -16,7 +16,7 @@ int     file_get(int fd, file_t **ref) {
     /// TODO: Is this lock on current thread
     /// neccessary just for accessing file_table?
     current_lock();
-    fctx    = current->t_file_ctx;
+    fctx    = current->t_fctx;
     fctx_lock(fctx);
     current_unlock();
 
@@ -41,7 +41,7 @@ int     file_free(int fd) {
     file_ctx_t   *fctx = NULL; // file context
 
     current_lock();
-    fctx = current->t_file_ctx;
+    fctx = current->t_fctx;
     fctx_lock(fctx);
     current_unlock();
 
@@ -69,7 +69,7 @@ int     file_alloc(int *ref, file_t **fref) {
         return err;
 
     current_lock();
-    fctx = current->t_file_ctx;
+    fctx = current->t_fctx;
     fctx_lock(fctx);
     current_unlock();
 
@@ -115,7 +115,7 @@ int     file_dup(int fd1, int fd2) {
     file_t *file = NULL, **tmp = NULL;
 
     current_lock();
-    fctx = current->t_file_ctx;
+    fctx = current->t_fctx;
     fctx_lock(fctx);
     current_unlock();
 
@@ -178,7 +178,7 @@ void file_close_all(void) {
     file_ctx_t *fctx = NULL; // file context
 
     current_lock();
-    fctx = current->t_file_ctx;
+    fctx = current->t_fctx;
     fctx_lock(fctx);
     current_unlock();
 

@@ -10,10 +10,15 @@
 
 void arch_thread_exit(uintptr_t exit_code) {
     current_lock();
+    // current_setflags(THREAD_EXITING);
     current->t_exit = exit_code;
     current_enter_state(T_TERMINATED);
     sched();
-    panic("thread: %d failed to zombie\n", current->t_tid);
+    panic(
+        "thread: %d failed"
+        " to zombie: flags: %X\n",
+        thread_self(), current->t_flags
+    );
     loop();
 }
 
