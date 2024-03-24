@@ -54,8 +54,11 @@ void dump_tf(tf_t *tf, int halt) {
 
 void trap(tf_t *tf) {
     time_t time = 0;
+
+
     switch (tf->trapno) {
     case T_LEG_SYSCALL:
+        assert(current, "No thread.\n");
         current->t_arch.t_tf = tf;
         do_syscall(tf);
         break;

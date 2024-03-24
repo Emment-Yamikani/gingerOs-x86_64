@@ -4,12 +4,14 @@
 #include <arch/x86_64/thread.h>
 #include <lib/stdint.h>
 #include <lib/stddef.h>
+#include <arch/ucontext.h>
 
 typedef struct arch_thread_t {
 #if defined __x86_64__
     tf_t        *t_tf;          // thread's arch specific trapframe.
     context_t   *t_ctx0;        // thread's context.
     context_t   *t_ctx1;        // thread's saved context
+    ucontext_t  *ucontext;      // ucontext.
     tf_t        t_savedtf;      // saved trapframe.
 #endif
     void        *t_priv;        // thread private data.

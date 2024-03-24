@@ -62,3 +62,7 @@ typedef     struct __spinlock_t spinlock_t;
 typedef     enum   tstate_t     tstate_t;
 typedef     void   *(*thread_entry_t)(void *);
 typedef     struct arch_thread_t arch_thread_t;
+
+/*          Signal related          */
+
+typedef struct __ucontext_t ucontext_t;

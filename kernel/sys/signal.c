@@ -6,76 +6,77 @@
 #include <mm/kalloc.h>
 #include <sys/sysproc.h>
 #include <lib/string.h>
+#include <arch/thread.h>
 
 const char *signal_str[] = {
-    [SIGABRT - 1] = "SIGABRT",
-    [SIGALRM - 1] = "SIGALRM",
-    [SIGBUS - 1] = "SIGBUS",
+    [SIGABRT - 1]   = "SIGABRT",
+    [SIGALRM - 1]   = "SIGALRM",
+    [SIGBUS - 1]    = "SIGBUS",
     [SIGCANCEL - 1] = "SIGCANCEL",
-    [SIGCHLD - 1] = "SIGCHLD",
-    [SIGCONT - 1] = "SIGCONT",
-    [SIGEMT - 1] = "SIGEMT",
-    [SIGFPE - 1] = "SIGFPE",
-    [SIGHUP - 1] = "SIGHUP",
-    [SIGILL - 1] = "SIGILL",
-    [SIGINT - 1] = "SIGINT",
-    [SIGIO - 1] = "SIGIO",
-    [SIGIOT - 1] = "SIGIOT",
-    [SIGKILL - 1] = "SIGKILL",
-    [SIGPIPE - 1] = "SIGPIPE",
-    [SIGPROF - 1] = "SIGPROF",
-    [SIGQUIT - 1] = "SIGQUIT",
-    [SIGSEGV - 1] = "SIGSEGV",
-    [SIGSTOP - 1] = "SIGSTOP",
-    [SIGSYS - 1] = "SIGSYS",
-    [SIGTERM - 1] = "SIGTERM",
-    [SIGTRAP - 1] = "SIGTRAP",
-    [SIGTSTP - 1] = "SIGTSTP",
-    [SIGTTIN - 1] = "SIGTTIN",
-    [SIGTTOU - 1] = "SIGTTOU",
-    [SIGURG - 1] = "SIGURG",
-    [SIGUSR1 - 1] = "SIGUSR1",
-    [SIGUSR2 - 1] = "SIGUSR2",
+    [SIGCHLD - 1]   = "SIGCHLD",
+    [SIGCONT - 1]   = "SIGCONT",
+    [SIGEMT - 1]    = "SIGEMT",
+    [SIGFPE - 1]    = "SIGFPE",
+    [SIGHUP - 1]    = "SIGHUP",
+    [SIGILL - 1]    = "SIGILL",
+    [SIGINT - 1]    = "SIGINT",
+    [SIGIO - 1]     = "SIGIO",
+    [SIGIOT - 1]    = "SIGIOT",
+    [SIGKILL - 1]   = "SIGKILL",
+    [SIGPIPE - 1]   = "SIGPIPE",
+    [SIGPROF - 1]   = "SIGPROF",
+    [SIGQUIT - 1]   = "SIGQUIT",
+    [SIGSEGV - 1]   = "SIGSEGV",
+    [SIGSTOP - 1]   = "SIGSTOP",
+    [SIGSYS - 1]    = "SIGSYS",
+    [SIGTERM - 1]   = "SIGTERM",
+    [SIGTRAP - 1]   = "SIGTRAP",
+    [SIGTSTP - 1]   = "SIGTSTP",
+    [SIGTTIN - 1]   = "SIGTTIN",
+    [SIGTTOU - 1]   = "SIGTTOU",
+    [SIGURG - 1]    = "SIGURG",
+    [SIGUSR1 - 1]   = "SIGUSR1",
+    [SIGUSR2 - 1]   = "SIGUSR2",
     [SIGVTALRM - 1] = "SIGVTALRM",
-    [SIGWINCH - 1] = "SIGWINCH",
-    [SIGXCPU - 1] = "SIGXCPU",
-    [SIGXFSZ - 1] = "SIGXFSZ",
+    [SIGWINCH - 1]  = "SIGWINCH",
+    [SIGXCPU - 1]   = "SIGXCPU",
+    [SIGXFSZ - 1]   = "SIGXFSZ",
 };
 
 __unused
 static int sig_defaults[] = {
-    [SIGABRT - 1] = SIG_TERM_CORE, // | terminate+core
-    [SIGALRM - 1] = SIG_TERM,      // | terminate
-    [SIGBUS - 1] = SIG_TERM_CORE,  // | terminate+core
-    [SIGCANCEL - 1] = SIG_IGNORE,  // | ignore
-    [SIGCHLD - 1] = SIG_IGNORE,    // | ignore
-    [SIGCONT - 1] = SIG_CONT,      // | continue/ignore
-    [SIGEMT - 1] = SIG_TERM_CORE,  // | terminate+core
-    [SIGFPE - 1] = SIG_TERM_CORE,  // | terminate+core
-    [SIGHUP - 1] = SIG_TERM,       // | terminate
-    [SIGILL - 1] = SIG_TERM_CORE,  // | terminate+core
-    [SIGINT - 1] = SIG_TERM,       // | terminate
-    [SIGIO - 1] = SIG_TERM,        // | terminate/ignore
-    [SIGIOT - 1] = SIG_TERM_CORE,  // | terminate+core
-    [SIGKILL - 1] = SIG_TERM,      // | terminate
-    [SIGPIPE - 1] = SIG_TERM,      // | terminate
-    [SIGPROF - 1] = SIG_TERM,      // | terminate
-    [SIGQUIT - 1] = SIG_TERM_CORE, // | terminate+core
-    [SIGSEGV - 1] = SIG_TERM_CORE, // | terminate+core
-    [SIGSTOP - 1] = SIG_STOP,      // | stop process
-    [SIGSYS - 1] = SIG_TERM_CORE,  // | terminate+core
-    [SIGTERM - 1] = SIG_TERM,      // | terminate
-    [SIGTRAP - 1] = SIG_TERM_CORE, // | terminate+core
-    [SIGTSTP - 1] = SIG_STOP,      // | stop process
-    [SIGTTIN - 1] = SIG_STOP,      // | stop process
-    [SIGTTOU - 1] = SIG_STOP,      // | stop process
-    [SIGURG - 1] = SIG_IGNORE,     // | ignore
-    [SIGUSR1 - 1] = SIG_TERM,      // | terminate
-    [SIGUSR2 - 1] = SIG_TERM,      // | terminate
-    [SIGVTALRM - 1] = SIG_TERM,    // | terminate
-    [SIGWINCH - 1] = SIG_IGNORE,   // | ignore
-    [SIGXCPU - 1] = SIG_TERM,      // | teminate or terminate+core
-    [SIGXFSZ - 1] = SIG_TERM,      // | teminate or terminate+core
+    [SIGABRT - 1]   = SIG_TERM_CORE,    // | terminate+core
+    [SIGALRM - 1]   = SIG_TERM,         // | terminate
+    [SIGBUS - 1]    = SIG_TERM_CORE,    // | terminate+core
+    [SIGCANCEL - 1] = SIG_IGNORE,       // | ignore
+    [SIGCHLD - 1]   = SIG_IGNORE,       // | ignore
+    [SIGCONT - 1]   = SIG_CONT,         // | continue/ignore
+    [SIGEMT - 1]    = SIG_TERM_CORE,    // | terminate+core
+    [SIGFPE - 1]    = SIG_TERM_CORE,    // | terminate+core
+    [SIGHUP - 1]    = SIG_TERM,         // | terminate
+    [SIGILL - 1]    = SIG_TERM_CORE,    // | terminate+core
+    [SIGINT - 1]    = SIG_TERM,         // | terminate
+    [SIGIO - 1]     = SIG_TERM,         // | terminate/ignore
+    [SIGIOT - 1]    = SIG_TERM_CORE,    // | terminate+core
+    [SIGKILL - 1]   = SIG_TERM,         // | terminate
+    [SIGPIPE - 1]   = SIG_TERM,         // | terminate
+    [SIGPROF - 1]   = SIG_TERM,         // | terminate
+    [SIGQUIT - 1]   = SIG_TERM_CORE,    // | terminate+core
+    [SIGSEGV - 1]   = SIG_TERM_CORE,    // | terminate+core
+    [SIGSTOP - 1]   = SIG_STOP,         // | stop process
+    [SIGSYS - 1]    = SIG_TERM_CORE,    // | terminate+core
+    [SIGTERM - 1]   = SIG_TERM,         // | terminate
+    [SIGTRAP - 1]   = SIG_TERM_CORE,    // | terminate+core
+    [SIGTSTP - 1]   = SIG_STOP,         // | stop process
+    [SIGTTIN - 1]   = SIG_STOP,         // | stop process
+    [SIGTTOU - 1]   = SIG_STOP,         // | stop process
+    [SIGURG - 1]    = SIG_IGNORE,       // | ignore
+    [SIGUSR1 - 1]   = SIG_TERM,         // | terminate
+    [SIGUSR2 - 1]   = SIG_TERM,         // | terminate
+    [SIGVTALRM - 1] = SIG_TERM,         // | terminate
+    [SIGWINCH - 1]  = SIG_IGNORE,       // | ignore
+    [SIGXCPU - 1]   = SIG_TERM,         // | teminate or terminate+core
+    [SIGXFSZ - 1]   = SIG_TERM,         // | teminate or terminate+core
 };
 
 int sig_desc_alloc(sig_desc_t **pdesc) {
@@ -128,6 +129,17 @@ void sigdequeue_pending(queue_t *queue, siginfo_t **ret) {
     dequeue(queue, (void **)ret);
 }
 
+int sigenqueue_pending(queue_t *sigqueue, siginfo_t *info) {
+    int err = 0;
+
+    if (info == NULL || SIGBAD(info->si_signo))
+        return -EINVAL;
+
+    queue_assert_locked(sigqueue);
+    err = enqueue(sigqueue, (void *)info, 1, NULL);
+    return err;
+}
+
 int pause(void) {
     return -ENOSYS;
 }
@@ -163,20 +175,20 @@ sigfunc_t signal(int signo, sigfunc_t func) {
     return (oact.sa_handler);
 }
 
-int sigpending(sigset_t *set) {
+int sigpending(sigset_t *sig_mask) {
     sig_desc_t *sigdesc = NULL;
 
-    if (set == NULL)
+    if (sig_mask == NULL)
         return -EINVAL;
 
-    sigemptyset(set);
+    sigemptyset(sig_mask);
     sigdesc = current->t_sigdesc;
 
     sigdesc_lock(sigdesc);
     for (int signo = 0; signo < NSIG; ++signo) {
         queue_lock(&sigdesc->sig_queue[signo]);
         if (queue_count(&sigdesc->sig_queue[signo]))
-            sigaddset(set, (signo + 1));
+            sigaddset(sig_mask, (signo + 1));
         queue_unlock(&sigdesc->sig_queue[signo]);
     }
     sigdesc_unlock(sigdesc);
@@ -232,7 +244,7 @@ error:
     return err;
 }
 
-int sigwait(const sigset_t *restrict set, int *restrict signop) {
+int sigwait(const sigset_t *restrict sig_mask, int *restrict signop) {
     sigset_t    sset, oset;
     int         err     = 0;
     int         signo   = 1;
@@ -240,10 +252,10 @@ int sigwait(const sigset_t *restrict set, int *restrict signop) {
 
     printk("FIXME %s:%d: in %s()\n", __FILE__, __LINE__, __func__);
 
-    if (set == NULL)
+    if (sig_mask == NULL)
         return -EINVAL;
 
-    sset = *set;
+    sset = *sig_mask;
 
     if ((err = pthread_sigmask(SIG_UNBLOCK, &sset, &oset)))
         return err;
@@ -274,15 +286,15 @@ int sigwait(const sigset_t *restrict set, int *restrict signop) {
     return 0;
 }
 
-int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset) {
+int pthread_sigmask(int how, const sigset_t *restrict sig_mask, sigset_t *restrict oset) {
     int err = 0;
     current_lock();
-    err = thread_sigmask(current, how, set, oset);
+    err = thread_sigmask(current, how, sig_mask, oset);
     current_unlock();
     return err;
 }
 
-int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset) {
+int sigprocmask(int how, const sigset_t *restrict sig_mask, sigset_t *restrict oset) {
     int         err     = 0;
     sig_desc_t  *sigdesc   = NULL;
 
@@ -295,25 +307,25 @@ int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset) 
     if (oset)
         *oset = sigdesc->sig_mask;
 
-    if (set == NULL) {
+    if (sig_mask == NULL) {
         sigdesc_unlock(sigdesc);
         return 0;
     }
 
-    if (sigismember(set, SIGKILL) || sigismember(set, SIGSTOP)) {
+    if (sigismember(sig_mask, SIGKILL) || sigismember(sig_mask, SIGSTOP)) {
         sigdesc_unlock(sigdesc);
         return -EINVAL;
     }
 
     switch (how) {
     case SIG_BLOCK:
-        sigdesc->sig_mask |= *set;
+        sigdesc->sig_mask |= *sig_mask;
         break;
     case SIG_UNBLOCK:
-        sigdesc->sig_mask &= ~*set;
+        sigdesc->sig_mask &= ~*sig_mask;
         break;
     case SIG_SETMASK:
-        sigdesc->sig_mask = *set;
+        sigdesc->sig_mask = *sig_mask;
         break;
     default:
         err = -EINVAL;
@@ -403,4 +415,110 @@ void signal_dispatch(void) {
     current_unlock();
 }
 
-int signal_handle(tf_t *tf __unused);
+int signal_handler(tf_t *tf __unused) {
+    int             err         = 0;
+    int             flags       = 0;
+    sigset_t        set         = 0;
+    sigset_t        oset        = 0;
+    sigset_t        tset        = 0;
+    sigaction_t     act         = {0};
+    sig_desc_t      *desc       = NULL;
+    siginfo_t       *info       = NULL;
+    sigfunc_t       *handler    = NULL;
+    arch_thread_t   *tarch      = NULL;
+
+    // prepare signal masks/
+    sigemptyset(&set);
+    sigemptyset(&oset);
+    sigemptyset(&tset);
+
+    pushcli(); // don't interrupt.
+
+    current_lock();
+    thread_sigdequeue(current, &info);
+    current_unlock();
+
+    sigdesc_lock(desc);
+    if (info) {
+        flags = 1;
+        act = desc->sig_action[info->si_signo - 1];
+        sigdesc_unlock(desc);
+        goto __handle_signal;
+    }
+
+    for (int signo = 0; signo < NSIG; ++signo) {
+        current_lock();
+        err = sigismember(&current->t_sigmask, signo + 1);
+        current_unlock();
+
+        // signal is masked internally in the thread.
+        if (err == 1)
+            continue;
+
+        queue_lock(&desc->sig_queue[signo]);
+        dequeue(&desc->sig_queue[signo], (void **)&info);
+        queue_unlock(&desc->sig_queue[signo]);
+        if (info) {
+            // save this signal mask.
+            oset    = desc->sig_mask;
+            // get the sigaction info for this signal.
+            act     = desc->sig_action[signo];
+            // block recursive signals of this type and those already in sig_mask.
+            sigaddset(&desc->sig_mask, info->si_signo - 1);
+            break;
+        }
+    }
+    sigdesc_unlock(desc);
+
+    if (info == NULL) { // no signal pending...
+        popcli();
+        return 0;
+    }
+
+__handle_signal:
+    if (flags & 1) { // is this an internal signal.
+        sigemptyset(&set);
+        sigaddset(&set, info->si_signo - 1);
+        pthread_sigmask(SIG_BLOCK, &set, &tset);
+    }
+
+    handler = (sigfunc_t) (act.sa_flags & SA_SIGINFO ? act.sa_sigaction : act.sa_handler);
+    if (handler == SIG_DFL) { // perform defualt action?
+        switch (sig_defaults[info->si_signo - 1]) {
+        case SIG_ABRT:
+        case SIG_CONT:
+        case SIG_STOP:
+        case SIG_TERM:
+        case SIG_IGNORE:
+        case SIG_TERM_CORE:
+        }
+    } else if (handler == SIG_IGN) { // ignore this signal?
+        popcli();
+        goto __exit_handler;
+    } else
+        panic("How did we write SIG_ERR in handler?\n");
+    
+    tarch = &current->t_arch;
+    
+    arch_signal_handler_init(
+        tarch,
+        (thread_entry_t)handler,
+        info
+    );
+    
+    current_setflags(THREAD_HANDLING_SIG);
+
+    // do context switch.
+    swtch(&tarch->t_ctx1, tarch->t_ctx0);
+
+    current_maskflags(THREAD_HANDLING_SIG);
+
+    kfree(info); // free siginfo_t *info (struct).
+
+__exit_handler:
+    if (flags & 1) // restore per-thread sig_mask.
+        pthread_sigmask(SIG_SETMASK, &tset, NULL);
+    else // restore global sig_mask.
+        sigprocmask(SIG_SETMASK, &oset, NULL);
+    return 0;
+}

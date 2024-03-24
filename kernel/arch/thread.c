@@ -7,6 +7,12 @@
 #include <sys/_signal.h>
 #include <sys/thread.h>
 
+void arch_thread_exit(uintptr_t exit_code) {
+#if defined (__x86_64__)
+    x86_64_thread_exit(exit_code);
+#endif
+}
+
 int arch_uthread_init(arch_thread_t *arch, thread_entry_t entry, void *arg) {
 #if defined __x86_64__
     return x86_64_uthread_init(arch, entry, arg);

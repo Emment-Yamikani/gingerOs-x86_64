@@ -91,7 +91,7 @@ int thread_alloc(size_t ksz /*kstacksz*/, int __flags, thread_t **ret) {
         .t_thread   = thread,
     };
 
-    thread->t_refcnt                    = 1;
+    thread->t_refcnt                    = 2;
     thread->t_sched.ts_cpu_affinity_set = -1;
     thread->t_tid                       = tid_alloc();
     thread->t_queues                    = QUEUE_INIT();
@@ -115,9 +115,10 @@ int thread_alloc(size_t ksz /*kstacksz*/, int __flags, thread_t **ret) {
 
 int kthread_create(thread_attr_t *__attr, thread_entry_t entry, void *arg, int flags, thread_t **ret) {
     int             err         = 0;
+    thread_attr_t   attr        = {0};
     thread_t        *thread     = NULL;
-    thread_attr_t   attr        = __attr ?
-    *__attr : (thread_attr_t) {
+    
+    attr = __attr ? *__attr : (thread_attr_t) {
         .detachstate = 0,
         .stackaddr   = 0,
         .guardsz     = PAGESZ,
@@ -149,8 +150,11 @@ int kthread_create(thread_attr_t *__attr, thread_entry_t entry, void *arg, int f
         // If so create a thread group and make thread the main thread.
         if ((err = thread_create_group(thread)))
             goto error;
-    } else if ((err = thread_join_group(thread)))
-        goto error;
+    } else {
+        if ((err = thread_join_group(thread)))
+            goto error;
+    }
+
 
     // schedule the newly created thread?
     if (flags & THREAD_CREATE_SCHED) {
@@ -655,12 +659,7 @@ int thread_sigdequeue(thread_t *thread, siginfo_t **ret) {
     return -ENOENT;
 }
 
-int thread_sigmask(
-    thread_t *thread,
-    int how,
-    const sigset_t *restrict set,
-    sigset_t *restrict oset
-) {
+int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset) {
     int err = 0;
     thread_assert_locked(thread);
     
@@ -690,13 +689,7 @@ int thread_sigmask(
     return err;
 }
 
-int thread_execve(
-    proc_t          *proc,
-    thread_t        *thread,
-    thread_entry_t  entry,
-    const char      *argp[],
-    const char      *envp[]
-) {
+int thread_execve(proc_t *proc, thread_t *thread, thread_entry_t entry, const char *argp[], const char *envp[] ) {
     int     err     = 0;
     int     argc    = 0;
     char    **arg   = NULL;

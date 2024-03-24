@@ -197,12 +197,18 @@ typedef struct {
     union sigval    si_value;   /* Signal value */
 } siginfo_t;
 
+typedef struct __uc_stack_t {
+    void    *ss_sp;     /* stack base or pointer */
+    size_t  ss_size;    /* stack size */
+    int     ss_flags;   /* flags */
+} uc_stack_t;
+
 typedef struct {
     void        (*sa_handler)(int); /* addr of signal handler, or SIG_IGN, or SIG_DFL */
     sigset_t    sa_mask;            /* additional signals to block */
     int         sa_flags;           /* signal options, Figure 10.16 */
     /* alternate handler */
-    void        (*sa_sigaction)(int, siginfo_t *, void *);
+    void        (*sa_sigaction)(int, siginfo_t *, void *ucontext);
 } sigaction_t;
 
 struct queue;
@@ -213,19 +219,20 @@ typedef struct __sig_desc_t {
     spinlock_t  sig_lock;           // spinlock to protect this struct.
 } sig_desc_t;
 
-#define sigdesc_assert(desc)              ({ assert(desc, "No signal description."); })
+#define sigdesc_assert(desc)            ({ assert(desc, "No signal description."); })
 #define sigdesc_lock(desc)              ({ sigdesc_assert(desc); spin_lock(&(desc)->sig_lock); })
 #define sigdesc_unlock(desc)            ({ sigdesc_assert(desc); spin_unlock(&(desc)->sig_lock); })
 #define sigdesc_islocked(desc)          ({ sigdesc_assert(desc); spin_islocked(&(desc)->sig_lock); })
 #define sigdesc_assert_locked(desc)     ({ sigdesc_assert(desc); spin_assert_locked(&(desc)->sig_lock); })
 
-extern int sig_desc_alloc(sig_desc_t **pdesc);
 extern void sig_desc_free(sig_desc_t *desc);
+extern int sig_desc_alloc(sig_desc_t **pdesc);
 extern void sigdequeue_pending(queue_t *queue, siginfo_t **ret);
+extern int sigenqueue_pending(queue_t *sigqueue, siginfo_t *info);
 
 extern int pthread_kill(tid_t thread, int signo);
 extern int sigwait(const sigset_t *restrict set, int *restrict signop);
 extern int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 extern int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact);
 
-extern int signal_handle(tf_t *tf __unused);
+extern int signal_handler(tf_t *tf __unused);
