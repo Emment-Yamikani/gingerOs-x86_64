@@ -17,8 +17,7 @@ typedef struct arch_thread_t {
     void        *t_priv;        // thread private data.
     uintptr_t   t_kstack;       // kernel stack for this thread.
     size_t      t_kstacksz;     // size of kernel stack.
-    uintptr_t   t_sig_kstack;   // kernel stack for this thread.
-    size_t      t_sig_kstacksz; // size of kernel stack.
+    sig_stack_t *t_sig_stack;   // signal stack (and chaining).
     thread_t    *t_thread;      // pointer to the thread control block.
     vmr_t       *t_ustack;      // thread user stack.
     vmr_t       *t_altsigstack; // thread alternate signal stack.

@@ -66,3 +66,5 @@ typedef     struct arch_thread_t arch_thread_t;
 /*          Signal related          */
 
 typedef struct __ucontext_t ucontext_t;
+
+typedef struct __sig_stack_t sig_stack_t;

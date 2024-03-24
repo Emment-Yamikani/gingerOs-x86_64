@@ -203,6 +203,15 @@ typedef struct __uc_stack_t {
     int     ss_flags;   /* flags */
 } uc_stack_t;
 
+// struct defining the current signal's stack. 
+typedef struct __sig_stack_t {
+    sig_stack_t *st_link;
+    void        *st_priv;
+    u64         st_addr;
+    size_t      st_size;
+    int         st_flags;
+} sig_stack_t;
+
 typedef struct {
     void        (*sa_handler)(int); /* addr of signal handler, or SIG_IGN, or SIG_DFL */
     sigset_t    sa_mask;            /* additional signals to block */

@@ -84,31 +84,38 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
 }
 
 void x86_64_signal_return(void) {
+    panic("%s()\n", __func__);
+}
 
+void x86_64_signal_start(void) {
+    current_unlock();
 }
 
 int x86_64_sighandler_init(arch_thread_t *thread, thread_entry_t entry, siginfo_t   *info, void *ucontext, sigaction_t *act) {
     int         err         = 0;
     tf_t        *tf         = NULL;
     context_t   *ctx        = NULL;
-    u64         sig_arg     = NULL;
+    ucontext_t  *uctx       = NULL;
+    sig_stack_t *stack      = NULL;
     siginfo_t   *siginfo    = NULL;
     u64         *sig_stack  = NULL;
-    ucontext_t  *uctx       = NULL;
 
     if (!thread || !entry || !info || !act)
         return -EINVAL;
     
-    sig_arg = info->si_signo;
+    if (NULL == (stack = (sig_stack_t *)kmalloc(sizeof *stack)))
+        return -ENOMEM;
 
+    stack->st_link = thread->t_sig_stack;
+    
     if (!thread_isuser(thread->t_thread)) { // set up context of a user thread.
         if ((err = thread_kstack_alloc(KSTACKSZ, &sig_stack)))
             return err;
 
-        thread->t_kstacksz      = KSTACKSZ;
-        thread->t_kstack        = (u64)sig_stack;
+        stack->st_size  = KSTACKSZ;
+        stack->st_addr  = (u64)sig_stack;
         
-        sig_stack = ALIGN4K((u64)sig_stack + KSTACKSZ);
+        sig_stack       = ALIGN4K((u64)sig_stack + KSTACKSZ);
 
         /** ucontext has to be set in case we get a signal chainning scenario*/
         sig_stack = (u64 *)(uctx= (ucontext_t *)((u64)sig_stack - sizeof *uctx));
@@ -168,15 +175,22 @@ int x86_64_sighandler_init(arch_thread_t *thread, thread_entry_t entry, siginfo_
         tf->fs      = SEG_KDATA64 << 3;
         tf->ds      = SEG_KDATA64 << 3;
 
-        sig_stack   = (u64 *)tf;
-        *--sig_stack= (u64)trapret;
-        ctx         = (context_t *)((u64)sig_stack - sizeof *ctx);
-        ctx->rip    = (u64)x86_64_thread_start;
-        ctx->rbp    = tf->rsp;
+    } else { // setup user thread for signal handling...
 
-        thread->t_tf    = tf;
-        thread->t_ctx0  = ctx;
     }
+    
+    /** This is common both to a user and a kernel thread */
+
+    sig_stack           = (u64 *)tf;
+    *--sig_stack        = (u64)trapret;
+    ctx                 = (context_t *)((u64)sig_stack - sizeof *ctx);
+    ctx->rip            = (u64)x86_64_signal_start;
+    ctx->rbp            = tf->rsp;
+    thread->t_tf        = tf;
+    thread->t_ctx0      = ctx;
+    thread->t_sig_stack = stack;
+    
+    return 0;
 }
 
 int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) {
@@ -335,7 +349,7 @@ int x86_64_thread_setkstack(arch_thread_t *thread) {
     if (thread == NULL)
         return -EINVAL;
     
-    if (thread->t_kstack == 0 || thread->t_sig_kstacksz)
+    if (thread->t_kstack == 0 || thread->t_kstacksz)
         return -EFAULT;
     
     kstack = ALIGN4K((thread->t_kstack + thread->t_kstacksz) - sizeof(thread_t));
