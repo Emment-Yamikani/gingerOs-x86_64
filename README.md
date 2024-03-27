@@ -4,10 +4,9 @@
 ![Issues Tracking Badge](https://img.shields.io/badge/issue_track-github-blue?style=flat&label=Issue%20Tracking) 
  [![Contributors](https://img.shields.io/github/contributors/Emment-yamikani/gingerOs-x86_64)](https://github.com/emment-yamikani/gingerOs-x86_64/graphs/contributors)
 
+The Ginger Operating System (Ginger OS) is designed to be a straightforward operating system, aiming for full POSIX compliance and partial Linux compatibility wherever feasible.
 
-Ginger Operating System (Ginger OS) is a simple OS intended to be fully POSIX-compliant and to some extent, though not fully, Linux compatible as much as possible.
-
-Development of ginger Os started late in 2020 as a simple project for learning purposes and somewhere along the lines I found so much zeal and interest in OS-Dev and decided to go full blown and actually dedicate my time and resources into building something of my own. As of 2022, Ginger OS was still no where near being usable but the amount of knowledge I had gained along the way propelled me to my first ever useful, though small, intel x86 OS with a minimal shell and some basic programs like (with credit to UC's xv6 project), sh, cat, echo, grep, wc, pwd, etc. that you can find at the repo [gingerOS](http://github.com/Emment-Yamikani/gingerOs.git).
+Development on Ginger OS commenced in late 2020 as a modest project for educational purposes. However, as the project progressed, my passion for OS development ignited, prompting me to fully commit my time and resources to crafting something unique. By 2022, Ginger OS had yet to reach a functional state, but the wealth of knowledge acquired during its development journey propelled me to achieve a significant milestone: the creation of my first practical Intel x86 OS. This initial iteration featured a rudimentary shell and essential programs, such as sh, cat, echo, grep, wc, pwd, among others (acknowledging the inspiration drawn from UC's xv6 project), all available within the [gingerOS](http://github.com/Emment-Yamikani/gingerOs.git) repository.
 
 ## Screenshots
 
