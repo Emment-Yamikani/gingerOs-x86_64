@@ -6,7 +6,7 @@
 
 The Ginger Operating System (Ginger OS) is designed to be a straightforward operating system, aiming for full POSIX compliance and partial Linux compatibility wherever feasible.
 
-Development on Ginger OS commenced in late 2020 as a modest project for educational purposes. However, as the project progressed, my passion for OS development ignited, prompting me to fully commit my time and resources to crafting something unique. By 2022, Ginger OS had yet to reach a functional state, but the wealth of knowledge acquired during its development journey propelled me to achieve a significant milestone: the creation of my first practical Intel x86 OS. This initial iteration featured a rudimentary shell and essential programs, such as sh, cat, echo, grep, wc, pwd, among others (acknowledging the inspiration drawn from UC's xv6 project), all available within the [gingerOS](http://github.com/Emment-Yamikani/gingerOs.git) repository.
+Development on Ginger OS commenced in late 2020 as a modest project for educational purposes. However, as the project progressed, my passion for OS development ignited, prompting me to fully commit my time and resources to crafting something unique. By 2022, Ginger OS had yet to reach a functional state, but the wealth of knowledge acquired during its development journey propelled me to achieve a significant milestone: the creation of my first practical Intel x86 OS. This initial iteration featured a rudimentary shell and essential programs, such as sh, cat, echo, grep, wc, pwd, among others (acknowledging the inspiration drawn from MIT's xv6 project), all available within the [gingerOS](http://github.com/Emment-Yamikani/gingerOs.git) repository.
 
 ## Screenshots
 
