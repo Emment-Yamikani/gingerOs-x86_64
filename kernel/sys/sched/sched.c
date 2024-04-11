@@ -40,8 +40,8 @@ void sched(void) {
     long ncli = 0, intena = 0;
 
     pushcli();
-    ncli = cpu->ncli;
-    intena = cpu->intena;
+    ncli    = cpu->ncli;
+    intena  = cpu->intena;
     current_assert_locked();
 
     if (current_issetpark() && current_isisleep()) {
@@ -55,8 +55,8 @@ void sched(void) {
     swtch(&current->t_arch.t_ctx0, cpu->ctx);
 
     current_assert_locked();
+    cpu->ncli   = ncli;
     cpu->intena = intena;
-    cpu->ncli = ncli;
     popcli();
 }
 
@@ -68,12 +68,12 @@ void sched_yield(void) {
 }
 
 int sched_park(thread_t *thread) {
-    int     prior = 0;
-    int     affini = 0;
-    level_t *lvl = NULL;
-    cpu_t   *processor = NULL;
-    int     core = getcpuid();
-    thread_sched_t *tsched = NULL;
+    int             prior       = 0;
+    int             affini      = 0;
+    level_t         *lvl        = NULL;
+    cpu_t           *processor  = NULL;
+    int             core        = getcpuid();
+    thread_sched_t  *tsched     = NULL;
 
     if (thread == NULL)
         return -EINVAL;
