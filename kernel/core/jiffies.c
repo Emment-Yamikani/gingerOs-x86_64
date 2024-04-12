@@ -9,24 +9,24 @@
 #include <sync/spinlock.h>
 #include <ginger/jiffies.h>
 
-static struct timespec jiffies_res = {0};
-static spinlock_t *jiffies_res_lock = &SPINLOCK_INIT();
+static struct timespec      jiffies_res = {0};
+static SPINLOCK(jiffies_res_lock);
 
-static jiffies_t jiffies = 0;
-static spinlock_t *jiffies_lock = &SPINLOCK_INIT();
-static queue_t *jiffies_sleep_queue = QUEUE_NEW(/*"jiffies-sleep-queue"*/);
+static jiffies_t            jiffies = 0;
+// static SPINLOCK(jiffies_lock);
+static queue_t              *jiffies_sleep_queue = QUEUE_NEW(/*"jiffies-sleep-queue"*/);
 
 void jiffies_update(void) {
-    spin_lock(jiffies_lock);
-    jiffies++;
-    spin_unlock(jiffies_lock);
+    // spin_lock(jiffies_lock);
+    atomic_inc(&jiffies);
+    // spin_unlock(jiffies_lock);
     sched_wakeall(jiffies_sleep_queue);
 }
 
 jiffies_t jiffies_get(void) {
-    spin_lock(jiffies_lock);
-    jiffies_t jiffy = jiffies;
-    spin_unlock(jiffies_lock);
+    // spin_lock(jiffies_lock);
+    jiffies_t jiffy = atomic_read(&jiffies);
+    // spin_unlock(jiffies_lock);
     return jiffy;
 }
 

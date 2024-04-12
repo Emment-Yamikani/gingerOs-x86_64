@@ -33,18 +33,14 @@ pid_t fork(void) {
 
     mmap_unlock(proc_mmap(curproc));
 
-    pid = child->pid;
-    tgroup_lock(child->tgroup);
-    if ((err = tgroup_getmain(child->tgroup, &thread))) {
-        tgroup_unlock(child->tgroup);
-        goto error;
-    }
-    tgroup_unlock(child->tgroup);
+    pid     = child->pid;
+    thread_lock(child->main_thread);
+    thread  = thread_getref(child->main_thread);
 
     current_lock();
     if ((err = thread_fork(thread, current, child->mmap))) {
         current_unlock();
-        thread_unlock(thread);
+        thread_release(thread);
         goto error;
     }
     current_unlock();

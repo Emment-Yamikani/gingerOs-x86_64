@@ -10,13 +10,20 @@
 int load_init(const char *conf_fn);
 
 __noreturn void kthread_main(void) {
-    int err = 0;
+    int     err     = 0;
 
-    printk("\n\t\t\tWelcome to \'\e[025453;011mGinger OS\e[0m\'.\n\n");
+    printk("\n\t\t\tWelcome to \'"
+        "\e[025453;011mGinger "
+        "OS\e[0m\'.\n\n"
+    );
+
     builtin_threads_begin(NULL);
 
-    if ((err = load_init("/ramfs/startup.conf")))
-        printk("Failed to read or parse startup.conf\nexit_code: %d\n", err);
+    if ((err = load_init("/ramfs/startup.conf"))) {
+        printk("Failed to read or parse startup.conf"
+            "\nexit_code: %d\n", err
+        );
+    }
 
     loop() thread_join(0, NULL, NULL);
 }
@@ -32,7 +39,7 @@ static int conf_find(const char *buf, const char *str, char **ret) {
         return -ENOMEM;
 
     for (at = strtok(cpybuf, "\n\t"); (at = strtok(NULL, "\n\t")); ) {
-        printk("Val: %s\n", at);
+        printk("value: %s\n", at);
     }
 
     return 0;
@@ -50,7 +57,8 @@ int load_init(const char *conf_fn) {
 
     if ((err = open(conf_fn, O_RDONLY, 0)) < 0) {
         printk("Failed to open startup configuration file,"
-            "failed with err_code: %d\n", err);
+            "failed with err_code: %d\n", err
+        );
         goto error;
     }
 
@@ -59,25 +67,23 @@ int load_init(const char *conf_fn) {
 
     if (NULL == (conf_buf = kcalloc(1, conf_size))) {
         printk("failed to allocate buf for configuration file\n"
-               "Not enough memory to satisfy request!\n");
+            "Not enough memory to satisfy request!\n"
+        );
         goto error;
     }
 
     if ((ssize_t)(err = read(conf_fd, conf_buf, conf_size)) != (ssize_t)conf_size) {
         printk("Failed to read startup configuration file\n"
-               "read() returned: %d\n",
-               err);
+            "read() returned: %d\n", err
+        );
     }
 
     printk("Parsing startup configuration file...\n");
-
     conf_find(conf_buf, "![init]", &init_desc);
 
-    printk(
-        "Loading of bootstrap program %s.\n", 
+    printk("Loading of bootstrap program %s.\n", 
         proc_init("/ramfs/test") == 0 ? 
-        "Successful :)":
-        "Unsucessful :("
+        "Successful :)" : "Unsucessful :("
     );
 
     return 0;

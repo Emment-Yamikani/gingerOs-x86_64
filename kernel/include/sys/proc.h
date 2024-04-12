@@ -34,11 +34,16 @@ typedef struct proc {
     long            exit_code;      // process' exit status
     thread_entry_t  entry;          // process' entry point.
     long            refcnt;         // process' reference count.
-    tgroup_t        *tgroup;        // process' thread group.
-    
+
     char            *name;          // process' name.
     mmap_t          *mmap;          // process' memory map(virtual address space).
     
+    file_ctx_t      *fctx;
+    cred_t          *cred;
+    sig_desc_t      *sigdesc;
+    queue_t         *threads;
+
+    thread_t        *main_thread;
     cond_t          child_event;    // process' child wait-event condition.
     queue_t         children;       // process' children queue.
 
@@ -163,14 +168,6 @@ extern proc_t *initproc;
         proc_unlock(p);                    \
     test ? 1 : 0;                          \
 })
-
-#define proc_tgroup(proc)               ({ proc_assert_locked(proc); (proc)->tgroup; })
-
-
-#define proc_tgroup_lock(proc)          ({ tgroup_lock(proc_tgroup(proc)); })
-#define proc_tgroup_unlock(proc)        ({ tgroup_unlock(proc_tgroup(proc)); })
-#define proc_tgroup_islocked(proc)      ({ tgroup_islocked(proc_tgroup(proc)); })
-#define proc_tgroup_assert_locked(proc) ({ tgroup_assert_locked(proc_tgroup(proc)); })
 
 #define proc_mmap(proc)                 ({ proc_assert_locked(proc); (proc)->mmap; })
 #define proc_mmap_lock(proc)            ({ mmap_lock(proc_mmap(proc)); })

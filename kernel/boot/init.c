@@ -114,7 +114,14 @@ int early_init(void) {
     if ((err = vfs_init()))
         panic("Failed to initialize VFS!, error: %d\n", err);
 
-    kthread_create(NULL, (thread_entry_t)kthread_main, NULL, NULL);
+    kthread_create(
+        NULL,
+        (thread_entry_t)kthread_main,
+        NULL,
+        THREAD_CREATE_GROUP |
+        THREAD_CREATE_SCHED,
+        NULL
+    );
 
     schedule();
     assert(0, "scheduler returned :(");

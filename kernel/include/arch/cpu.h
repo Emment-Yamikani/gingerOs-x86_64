@@ -114,10 +114,10 @@ typedef struct cpu {
     uint64_t        flags;
     uint64_t        features;
     uint64_t        timer_ticks;
-    
+
     tss_t           tss;
     gdt_t           gdt;
-    
+
     context_t       *ctx;
     void            *math_ctx;
 

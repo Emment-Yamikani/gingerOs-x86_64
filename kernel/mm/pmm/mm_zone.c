@@ -247,7 +247,6 @@ int physical_memory_init(void) {
 
     size = GiB(2) - PGROUNDUP(zones[MM_ZONE_NORM].size);
 
-    pagemap_binary_lock(&kernel_map);
     if ((long)size > 0) {
         addr = PGROUNDUP(zones[MM_ZONE_NORM].size);
         arch_unmap_n(VMA2HI(addr), size);
@@ -266,7 +265,6 @@ int physical_memory_init(void) {
     arch_map_i(bootinfo.fb.framebuffer_addr, VMA2LO(bootinfo.fb.framebuffer_addr),
         bootinfo.fb.framebuffer_size, PTE_KRW | PTE_PCDWT);
 
-    pagemap_binary_unlock(&kernel_map);
     return 0;
 error:
     return err;

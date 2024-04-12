@@ -1,52 +1,45 @@
 #pragma once
 
 #include <lib/stdint.h>
+#include <lib/types.h>
 
-typedef struct {
-    uintptr_t fs;
-    uintptr_t ds;
+#define x86_64_tf_isuser(tf)    ({((tf)->errno & 0x4) ? 1 : 0; })
 
-    uintptr_t r15;
-    uintptr_t r14;
-    uintptr_t r13;
-    uintptr_t r12;
-    uintptr_t r11;
-    uintptr_t r10;
-    uintptr_t r9;
-    uintptr_t r8;
-
-    uintptr_t rbp;
-    uintptr_t rsi;
-    uintptr_t rdi;
-    uintptr_t rdx;
-    uintptr_t rcx;
-    uintptr_t rbx;
-    uintptr_t rax;
-
-    uintptr_t trapno;
-    uintptr_t err_code;
-    
-    uintptr_t rip;
-    uintptr_t cs;
-    uintptr_t rflags;
-    uintptr_t rsp;
-    uintptr_t ss;
-}tf_t;
-
-#define x86_64_tf_isuser(tf)    ({((tf)->err_code & 0x4) ? 1 : 0; })
-
-typedef struct {
-    uintptr_t r15;
-    uintptr_t r14;
-    uintptr_t r13;
-    uintptr_t r12;
-    uintptr_t r11;
-    uintptr_t r10;
-    uintptr_t r9;
-    uintptr_t rbx;
-    uintptr_t rbp;
-    uintptr_t rip;
+typedef struct __context_t {
+    context_t *link;
+    u64 r15;
+    u64 r14;
+    u64 r13;
+    u64 r12;
+    u64 r11;
+    u64 rbx;
+    u64 rbp;
+    u64 rip;
 } context_t;
+
+// No. of registers in caller-callee context.
+#define NREGCTX ((sizeof (context_t)) / sizeof (uintptr_t))
+
+enum {
+    CXT_LINK,
+#define CTX_LINK CTX_LINK
+    CTX_R15, 
+#define CTX_R15 CTX_R15
+    CTX_R14, 
+#define CTX_R14 CTX_R14
+    CTX_R13, 
+#define CTX_R13 CTX_R13
+    CTX_R12, 
+#define CTX_R12 CTX_R12
+    CTX_R11, 
+#define CTX_R11 CTX_R11
+    CTX_RBX, 
+#define CTX_RBX CTX_RBX
+    CTX_RBP, 
+#define CTX_RBP CTX_RBP
+    CTX_RIP, 
+#define CTX_RIP CTX_RIP
+};
 
 extern void trapret(void);
 extern void signal_exec(void);

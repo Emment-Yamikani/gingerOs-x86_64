@@ -1,14 +1,14 @@
-#include <lib/stdint.h>
-#include <sys/thread.h>
-#include <sys/sched.h>
+#include <arch/thread.h>
 #include <bits/errno.h>
+#include <ginger/jiffies.h>
+#include <lib/stdint.h>
+#include <lib/string.h>
 #include <mm/kalloc.h>
 #include <mm/vmm.h>
-#include <sys/system.h>
-#include <lib/string.h>
-#include <ginger/jiffies.h>
-#include <arch/thread.h>
 #include <sys/proc.h>
+#include <sys/sched.h>
+#include <sys/system.h>
+#include <sys/thread.h>
 
 const char *t_states[] = {
     [T_EMBRYO]      = "EMBRYO",
@@ -17,8 +17,8 @@ const char *t_states[] = {
     [T_ISLEEP]      = "ISLEEP",
     [T_USLEEP]      = "USLEEP",
     [T_STOPPED]     = "STOPPED",
-    [T_TERMINATED]  = "TERMINATED",
     [T_ZOMBIE]      = "ZOMBIE",
+    [T_TERMINATED]  = "TERMINATED",
 };
 
 // convert from tstate_t literal to char *
@@ -32,131 +32,156 @@ static tid_t tid_alloc(void) {
      * to implement a way in which we can reuse tids.
      * use a tree maybe.
      * recycle a tid if and only if the thread group
-     * in which rid was has terminated completely.
+     * in which tid was has terminated completely.
      */
     static atomic_t tids = {0};
     return atomic_inc_fetch(&tids);
 }
 
-uintptr_t thread_alloc_kstack(size_t size) {
-    return (uintptr_t)kmalloc(size);
+int thread_kstack_alloc(size_t size, uintptr_t *ret) {
+    uintptr_t addr = 0;
+
+    if (ret == NULL)
+        return -EINVAL;
+    
+    if (BADSTACKSZ(size))
+        return -ERANGE;
+    
+    if (0 == (addr = (uintptr_t)kmalloc(size)))
+        return -ENOMEM;
+    
+    *ret = addr;
+    return 0;
 }
 
-void thread_free_kstack(uintptr_t addr, size_t size __unused) {
+void thread_kstack_free(uintptr_t addr) {
+    if (addr == 0)
+        return;
     kfree((void *)addr);
 }
 
-int thread_alloc(uintptr_t kstacksz, int flags, thread_t **ref) {
-    int         err         = 0;
-    uintptr_t   kstack      = 0;
-    thread_t    *thread     = NULL;
+/**
+ * @brief allocate a new thread structure.
+ *
+ * @param kstacksz size of the new thread's kernel stack.
+ * @param flags flags used in thread creation, e.g THREAD_USER(if a user thread is intended).
+ * @param ref the new structure is passed by reference through a pointer to a thread pointer.
+ * @return int 0 on success otherwise an error code is passed.
+ */
+int thread_alloc(size_t ksz /*kstacksz*/, int __flags, thread_t **ret) {
+    int         err     = 0;
+    int         flags   = 0;
+    uintptr_t   kstack  = 0;
+    thread_t    *thread = NULL;
 
-    if (ref == NULL)
+    if (ret == NULL)
         return -EINVAL;
-    
-    if (BADSTACKSZ(kstacksz))
-        return -EINVAL;
 
-    if ((kstack = thread_alloc_kstack(kstacksz)) == 0)
-        return -ENOMEM;
-    
-    thread = (thread_t *)ALIGN16((kstack + kstacksz) - sizeof *thread);
+    if ((err = thread_kstack_alloc(ksz, &kstack)))
+        return err;
 
+    thread = (thread_t *)ALIGN16((kstack + ksz) - sizeof *thread);
     memset(thread, 0, sizeof *thread);
-
-    if ((err = queue_alloc(&thread->t_queues)))
-        goto error;
-
     thread->t_lock  = SPINLOCK_INIT();
     thread_lock(thread);
-    
-    thread_enter_state(thread, T_EMBRYO);
-    thread_setflags(thread, THREAD_DETACHED);
-    thread_setflags(thread, BTEST(flags, 0) ? THREAD_USER : 0);
 
-    thread->t_arch  = (arch_thread_t){
-        .t_thread   = thread,
-        .t_kstack   = kstack,
-        .t_kstacksz = kstacksz,
+    thread->t_arch  = (arch_thread_t) {
+        .t_kstack.ss_size   = ksz,
+        .t_thread           = thread,
+        .t_kstack.ss_sp     = (void *)kstack,
     };
 
-    thread->t_refcnt                    = 1;
+    thread->t_refcnt                    = 2;
     thread->t_sched.ts_cpu_affinity_set = -1;
     thread->t_tid                       = tid_alloc();
-    thread->t_wait                      = COND_INIT();
+    thread->t_queues                    = QUEUE_INIT();
     thread->t_sched.ts_ctime            = jiffies_get();
     thread->t_sched.ts_affinity_type    = SCHED_SOFT_AFFINITY;
     thread->t_sched.ts_priority         = SCHED_LOWEST_PRIORITY;
 
-    *ref = thread;
+    // every thread begins as an embryo.
+    thread_enter_state(thread, T_EMBRYO);
+
+    // is thread user thread?
+    flags |= __flags & THREAD_CREATE_USER ? THREAD_USER : 0;
+
+    // is thread self detaching?
+    flags |= __flags & THREAD_CREATE_DETACHED ? THREAD_DETACHED : 0;
+
+    thread_setflags(thread, flags); // set the flags.
+    *ret = thread;
     return 0;
-error:
-    if (kstack) thread_free_kstack(kstack, KSTACKSZ);
-    return err;
 }
 
-int kthread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t **ptp) {
-    int err = 0;
-    thread_t *thread = NULL;
-    tgroup_t *tgroup = NULL;
-
-    thread_attr_t t_attr =
-    attr ? *attr : (thread_attr_t) {
-        .detachstate    = 0,
-        .guardsz        = 0,
-        .stackaddr      = 0,
-        .stacksz        = USTACKSZ,
+int kthread_create(thread_attr_t *__attr, thread_entry_t entry, void *arg, int flags, thread_t **ret) {
+    int             err         = 0;
+    thread_attr_t   attr        = {0};
+    thread_t        *thread     = NULL;
+    
+    attr = __attr ? *__attr : (thread_attr_t) {
+        .detachstate = 0,
+        .stackaddr   = 0,
+        .guardsz     = PAGESZ,
+        .stacksz     = KSTACKSZ
     };
 
-    t_attr.stackaddr    = 0;
-    if ((err = thread_alloc(t_attr.stacksz, 0, &thread)))
+    // this is only used for kernel thread creation.
+    if (flags & THREAD_CREATE_USER)
+        return -EINVAL;
+
+    flags |= current == NULL  ? THREAD_CREATE_GROUP    : 0;
+
+    // create a self detatching thread.
+    flags |= attr.detachstate ? THREAD_CREATE_DETACHED : 0;
+
+    // allocate the thread struct and kernel struct.
+    if ((err = thread_alloc(attr.stacksz, flags, &thread)))
         return err;
-    
+
+    // set the thread's entry point.
+    thread->t_entry  = entry;
+
+    // Initialize the kernel execution context.
     if ((err = arch_kthread_init(&thread->t_arch, entry, arg)))
         goto error;
 
-    if (current_tgroup()) {
-        current_tgroup_lock();
-        if ((err = tgroup_add_thread(current_tgroup(), thread))) {
-            current_tgroup_unlock();
+    // Do we want to create a new thread group?
+    if (flags & THREAD_CREATE_GROUP) {
+        // If so create a thread group and make thread the main thread.
+        if ((err = thread_create_group(thread)))
             goto error;
-        }
-        current_tgroup_unlock();
     } else {
-        if ((err = tgroup_create(&tgroup)))
+        if ((err = thread_join_group(thread)))
             goto error;
-
-        if ((err = tgroup_add_thread(tgroup, thread))) {
-            tgroup_unlock(tgroup);
-            goto error;
-        }
-        tgroup_unlock(tgroup);
     }
 
-    if ((err = thread_schedule(thread)))
-        goto error;
+    // schedule the newly created thread?
+    if (flags & THREAD_CREATE_SCHED) {
+        if ((err = thread_schedule(thread)))
+            goto error;
+    }
 
-    if (ptp)
-        *ptp = thread;
-    else
+    if (ret)
+        *ret = thread;
+    else {
+        thread->t_refcnt--;
         thread_unlock(thread);
+    }
 
     return 0;
 error:
-    if (tgroup)
-        tgroup_destroy(tgroup);
     if (thread)
         thread_free(thread);
     return err;
 }
 
 int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t **pthread) {
-    int err = 0;
-    vmr_t *ustack = NULL;
-    thread_t *thread = NULL;
-    thread_attr_t   t_attr = {0};
-    tgroup_t *tgroup = current_tgroup();
-    
+    int             err         = 0;
+    thread_attr_t   t_attr      = {0};
+    uc_stack_t      uc_stack    = {0};
+    vmr_t           *ustack     = NULL;
+    thread_t        *thread     = NULL;
+
     t_attr = attr ? *attr : (thread_attr_t){
         .detachstate    = 0,
         .stackaddr      = 0,
@@ -164,8 +189,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
         .stacksz        = USTACKSZ,
     };
 
-
-    if (tgroup == NULL || curproc == NULL)
+    if (curproc == NULL)
         return -EINVAL;
 
     if ((err = thread_alloc(KSTACKSZ, THREAD_USER, &thread)))
@@ -195,6 +219,10 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
         }
     }
 
+    uc_stack.ss_size    = __vmr_size(ustack);
+    uc_stack.ss_flags   = __vmr_vflags(ustack);
+    uc_stack.ss_sp      = (void *)__vmr_start(ustack);
+
     thread->t_mmap = proc_mmap(curproc);
     proc_mmap_unlock(curproc);
     proc_unlock(curproc);
@@ -203,18 +231,16 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
     /// TODO: maybe perform a split? But then this will mean
     /// free() and unmap() calls to reverse malloc() and mmap() respectively
     /// for this region may fail. ???
-    thread->t_arch.t_ustack = ustack;
+    thread->t_arch.t_ustack = uc_stack;
+
     thread->t_owner = curproc;
 
     if ((err = arch_uthread_init(&thread->t_arch, entry, arg)))
         goto error;
 
-    tgroup_lock(tgroup);
-    if ((err = tgroup_add_thread(tgroup, thread))) {
-        tgroup_unlock(tgroup);
+    if ((err = thread_join_group(thread))) {
         goto error;
     }
-    tgroup_unlock(tgroup);
 
     if (pthread)
         *pthread = thread;
@@ -223,46 +249,6 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
     return 0;
 error:
     if (thread) thread_free(thread);
-    return err;
-}
-
-int thread_alloc_stack(thread_t *thread, thread_attr_t *attr, mmap_t *mmap) {
-    int             err = 0;
-    vmr_t           *ustack = NULL;
-    thread_attr_t   t_attr = {0};
-
-    if (thread == NULL || mmap == NULL)
-        return -EINVAL;
-
-    t_attr = attr ? *attr : (thread_attr_t){
-        .detachstate    = 0,
-        .guardsz        = 0,
-        .stackaddr      = 0,
-        .stacksz        = USTACKSZ,
-    };
-
-    mmap_assert_locked(mmap);
-
-    if (t_attr.stackaddr == 0) {
-        if ((err = mmap_alloc_stack(mmap, t_attr.stacksz, &ustack)))
-            goto error;
-    } else {
-        err = -EINVAL;
-        if (NULL == (ustack = mmap_find(mmap, t_attr.stackaddr)))
-            goto error;
-
-        if (__isstack(ustack) == 0)
-            goto error;
-    }
-
-    /// TODO: Optmize size of ustack according to attr;
-    /// TODO: maybe perform a split? But then this will mean
-    /// free() and unmap() calls to reverse malloc() and mmap() respectively
-    /// for this region may fail. ???
-    thread->t_arch.t_ustack = ustack;
-
-    return 0;
-error:
     return err;
 }
 
@@ -276,42 +262,33 @@ void thread_free(thread_t *thread) {
     assert(thread_iszombie(thread), "freeing a non zombie thread");
 
     /**
-     * Get rid of all the queue with qhich this thread is associated.
+     * Get rid of all the queues with which this thread is associated.
     */
-    if (thread->t_queues) {
-        queue_lock(thread->t_queues);
-        forlinked(node, thread->t_queues->head, next) {
-            next = node->next;
-            queue = (queue_t *)node->data;
-            // queue_unlock(thread->t_queues);
-            queue_lock(queue);
-            // queue_lock(thread->t_queues);
-            if (queue_remove(queue, thread))
-                panic("failed to remove thread from queue\n");
+    queue_lock(&thread->t_queues);
+    forlinked(node, thread->t_queues.head, next) {
+        next = node->next;
+        queue = (queue_t *)node->data;
+        // queue_unlock(&thread->t_queues);
+        queue_lock(queue);
+        // queue_lock(&thread->t_queues);
+        if (queue_remove(queue, thread))
+            panic("failed to remove thread from queue\n");
 
-            if (queue_remove(thread->t_queues, queue))
-                panic("failed to remove queue from thread-queue\n");
+        if (queue_remove(&thread->t_queues, queue))
+            panic("failed to remove queue from thread-queue\n");
 
-            queue_unlock(queue);
-        }
-        queue_unlock(thread->t_queues);
-        queue_free(thread->t_queues);
+        queue_unlock(queue);
     }
+    queue_unlock(&thread->t_queues);
 
-    assert(thread->t_arch.t_kstack, "??? No kernel stack ???");
+    assert(thread->t_arch.t_kstack.ss_sp, "??? No kernel stack ???");
 
     thread_unlock(thread);
-    thread_free_kstack(thread->t_arch.t_kstack, thread->t_arch.t_kstacksz);
+    thread_kstack_free((uintptr_t)thread->t_arch.t_kstack.ss_sp);
 }
 
 int thread_detach(thread_t *thread) {
-    int err = 0;
-    tgroup_t *tgroup = NULL;
-
-    thread_tgroup_lock(thread);
-    err = tgroup_remove_thread((tgroup = thread_tgroup(thread)), thread);
-    tgroup_unlock(tgroup);
-    return err;
+    return thread_leave_group(thread);
 }
 
 tid_t thread_gettid(thread_t *thread) {
@@ -339,23 +316,23 @@ int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode) {
         return -EINVAL;
 
     queue_lock(queue);
-    queue_lock(thread->t_queues);
+    queue_lock(&thread->t_queues);
 
     if ((err = enqueue(queue, (void *)thread, 1, NULL))) {
-        queue_unlock(thread->t_queues);
+        queue_unlock(&thread->t_queues);
         queue_unlock(queue);
         goto error;
     }
 
-    if ((err = enqueue(thread->t_queues, (void *)queue, 1, NULL))) {
+    if ((err = enqueue(&thread->t_queues, (void *)queue, 1, NULL))) {
         node = NULL;
         queue_remove(queue, (void *)thread);
-        queue_unlock(thread->t_queues);
+        queue_unlock(&thread->t_queues);
         queue_unlock(queue);
         goto error;
     }
 
-    queue_unlock(thread->t_queues);
+    queue_unlock(&thread->t_queues);
     queue_unlock(queue);
 
     if (rnode)
@@ -368,7 +345,7 @@ error:
 }
 
 thread_t *thread_dequeue(queue_t *queue) {
-    int err = 0;
+    int     err = 0;
     thread_t *thread = NULL;
     assert(queue, "no queue");
     queue_assert_locked(queue);
@@ -376,10 +353,10 @@ thread_t *thread_dequeue(queue_t *queue) {
     if ((err = dequeue(queue, (void **)&thread)))
         return NULL;
     thread_lock(thread);
-    queue_lock(thread->t_queues);
-    if ((err = queue_remove(thread->t_queues, (void *)queue)))
+    queue_lock(&thread->t_queues);
+    if ((err = queue_remove(&thread->t_queues, (void *)queue)))
         panic("queue is not on thread[%d]'s threads-queue, error: %d\n", thread_gettid(thread), err);
-    queue_unlock(thread->t_queues);
+    queue_unlock(&thread->t_queues);
     return thread;
 }
 
@@ -388,12 +365,12 @@ int thread_remove_queue(thread_t *thread, queue_t *queue) {
     queue_assert_locked(queue);
     thread_assert_locked(thread);
 
-    queue_lock(thread->t_queues);
-    if ((err = queue_remove(thread->t_queues, (void *)queue))) {
-        queue_unlock(thread->t_queues);
+    queue_lock(&thread->t_queues);
+    if ((err = queue_remove(&thread->t_queues, (void *)queue))) {
+        queue_unlock(&thread->t_queues);
         return err;
     }
-    queue_unlock(thread->t_queues);
+    queue_unlock(&thread->t_queues);
     return queue_remove(queue, (void *)thread);
 }
 
@@ -447,8 +424,8 @@ int thread_kill_n(thread_t *thread, int wait) {
 }
 
 int thread_kill(tid_t tid, int wait) {
-    int err = 0;
-    tgroup_t *tgroup = NULL;
+    int     err     = 0;
+    queue_t *tgroup = NULL;
 
     if (tid < 0)
         return -EINVAL;
@@ -519,22 +496,22 @@ int thread_wake(thread_t *thread) {
     if (thread_issetpark(thread))
         thread_setwake(thread);
 
-    if (thread->sleep_attr.queue == NULL)
+    if (thread->t_sleep.queue == NULL)
         return 0;
 
-    if (thread->sleep_attr.guard && (guard_locked = !spin_islocked(thread->sleep_attr.guard)))
-        spin_lock(thread->sleep_attr.guard);
+    if (thread->t_sleep.guard && (guard_locked = !spin_islocked(thread->t_sleep.guard)))
+        spin_lock(thread->t_sleep.guard);
 
-    if ((q_locked = !queue_islocked(thread->sleep_attr.queue)))
-        queue_lock(thread->sleep_attr.queue);
+    if ((q_locked = !queue_islocked(thread->t_sleep.queue)))
+        queue_lock(thread->t_sleep.queue);
 
-    err = thread_remove_queue(thread, thread->sleep_attr.queue);
+    err = thread_remove_queue(thread, thread->t_sleep.queue);
 
     if (q_locked)
-        queue_unlock(thread->sleep_attr.queue);
+        queue_unlock(thread->t_sleep.queue);
 
-    if (thread->sleep_attr.guard && guard_locked)
-        spin_unlock(thread->sleep_attr.guard);
+    if (thread->t_sleep.guard && guard_locked)
+        spin_unlock(thread->t_sleep.guard);
 
     if (thread_isstopped(thread))
         thread_maskflags(thread, THREAD_STOP);
@@ -579,27 +556,34 @@ int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread) {
     return -ESRCH;
 }
 
-int thread_sigqueue(thread_t *thread, int signo) {
-    int err = 0;
+int thread_sigqueue(thread_t *thread, siginfo_t *info) {
+    int     err = 0;
 
-    if (!thread || SIGBAD(signo))
+    if (!thread || SIGBAD(info->si_signo))
         return -EINVAL;
+
     thread_assert_locked(thread);
 
     if (thread_iszombie(thread) ||
         thread_isterminated(thread))
         return -EINVAL;
 
-    if (thread_isstopped(thread) &&
-        ((signo != SIGKILL) &&
-         (signo != SIGCONT)))
+    if (thread_isstopped(thread) && (
+        (info->si_signo != SIGKILL) &&
+        (info->si_signo != SIGCONT)))
         return -EINVAL;
 
-    switch ((err = sigismember(&thread->t_sigmask, signo))) {
+    switch ((err = sigismember(&thread->t_sigmask, info->si_signo))) {
     case -EINVAL:
         break;
     case 0:
-        thread->t_sigqueue[signo - 1]++;
+        queue_lock(&thread->t_sigqueue[info->si_signo - 1]);
+        enqueue(&thread->t_sigqueue[info->si_signo - 1], info, 1, NULL);
+        queue_lock(&thread->t_sigqueue[info->si_signo - 1]);
+    
+        if (err != 0)
+            return err;
+
         if (current != thread)
             err = thread_wake(thread);
         break;
@@ -610,24 +594,33 @@ int thread_sigqueue(thread_t *thread, int signo) {
     return err;
 }
 
-int thread_sigdequeue(thread_t *thread) {
-    int signo = 0;
-    if (!thread)
+int thread_sigdequeue(thread_t *thread, siginfo_t **ret) {
+    int         signo = 0;
+    siginfo_t   *info = NULL;
+
+    if (!thread || !ret)
         return -EINVAL;
 
     thread_assert_locked(thread);
 
     for ( ; signo < NSIG; ++signo) {
-        if (thread->t_sigqueue[signo] >= 1) {
-            if ((sigismember(&thread->t_sigmask, signo + 1)) == 1)
+        queue_lock(&thread->t_sigqueue[signo]);
+        if (queue_count(&thread->t_sigqueue[signo])) {
+            if ((sigismember(&thread->t_sigmask, signo + 1)) == 1) {
+                queue_unlock(&thread->t_sigqueue[signo]);
                 return -EINVAL;
-            thread->t_sigqueue[signo]--;
-            signo += 1;
-            return signo;
+            }
+            
+            sigdequeue_pending(&thread->t_sigqueue[signo], &info);
+            queue_unlock(&thread->t_sigqueue[signo]);
+            *ret = info;
+            return 0;
         }
+
+        queue_unlock(&thread->t_sigqueue[signo]);
     }
 
-    return 0;
+    return -ENOENT;
 }
 
 int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset) {
@@ -660,14 +653,14 @@ int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigs
     return err;
 }
 
-int thread_execve(proc_t *proc, thread_t *thread,
-    thread_entry_t entry, const char *argp[], const char *envp[]) {
+int thread_execve(proc_t *proc, thread_t *thread, thread_entry_t entry, const char *argp[], const char *envp[] ) {
     int     err     = 0;
     int     argc    = 0;
     char    **arg   = NULL;
     char    **env   = NULL;
-    vmr_t   *stack  = NULL;
-    vmr_t   *tmp_stack = NULL;
+    vmr_t   *ustack  = NULL;
+    uc_stack_t tmp_stack = {0};
+    uc_stack_t uc_stack = {0};
 
     if (proc == NULL || thread == NULL || entry == NULL)
         return -EINVAL;
@@ -679,10 +672,14 @@ int thread_execve(proc_t *proc, thread_t *thread,
 
     tmp_stack = thread->t_arch.t_ustack;
 
-    if ((err = mmap_alloc_stack(proc->mmap, USTACKSZ, &stack)))
+    if ((err = mmap_alloc_stack(proc->mmap, USTACKSZ, &ustack)))
         goto error;
 
-    thread->t_arch.t_ustack = stack;
+    uc_stack.ss_size    = __vmr_size(ustack);
+    uc_stack.ss_flags   = __vmr_vflags(ustack);
+    uc_stack.ss_sp      = (void *)__vmr_start(ustack);
+
+    thread->t_arch.t_ustack = uc_stack;
 
     if ((err = arch_thread_execve(&thread->t_arch, entry, argc,
         (const char **)arg, (const char **)env)))
@@ -694,19 +691,19 @@ error:
 
     //TODO: add here a call to reverse mmap_argenvcpy()
 
-    mmap_remove(proc->mmap, stack);
+    mmap_remove(proc->mmap, ustack);
     return err;
 }
 
 int builtin_threads_begin(size_t *nthreads) {
-    int err = 0;
-    builtin_thread_t *thrd = __builtin_thrds;
-    size_t nr = __builtin_thrds_end - __builtin_thrds;
+    int                 err     = 0;
+    builtin_thread_t    *thrd   = __builtin_thrds;
+    size_t              nr      = __builtin_thrds_end - __builtin_thrds;
 
     for (size_t i = 0; i < nr; ++i, thrd++) {
         if ((err = kthread_create(NULL,
             (thread_entry_t)thrd->thread_entry,
-            thrd->thread_arg, NULL)))
+            thrd->thread_arg, THREAD_CREATE_SCHED, NULL)))
             return err;
     }
 
@@ -721,8 +718,10 @@ int thread_schedule(thread_t *thread) {
 }
 
 int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap) {
-    uintptr_t   sp      = 0;
-    vmr_t       *stack  = NULL;
+    uintptr_t   sp          = 0;
+    uc_stack_t  uc_stack    = {0};
+    vmr_t       *ustack     = NULL;
+    mcontext_t  *mctx       = NULL;
 
     if (dst == NULL || src == NULL)
         return -EINVAL;
@@ -730,7 +729,8 @@ int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap) {
     thread_assert_locked(dst);
     thread_assert_locked(src);
 
-    sp = src->t_arch.t_tf->rsp;
+    mctx = &src->t_arch.t_ucontext->uc_mcontext;
+    sp = mctx->rsp;
 
     dst->t_sched = (thread_sched_t) {
         .ts_priority        = src->t_sched.ts_priority,
@@ -739,10 +739,13 @@ int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap) {
         .ts_affinity_type   = src->t_sched.ts_affinity_type,
     };
 
-    if ((stack = mmap_find(mmap, sp)) == NULL) {
+    if ((ustack = mmap_find(mmap, sp)) == NULL) {
         return -EADDRNOTAVAIL;
     }
 
-    dst->t_arch.t_ustack = stack;
+    uc_stack.ss_size    = __vmr_size(ustack);
+    uc_stack.ss_flags   = __vmr_vflags(ustack);
+    uc_stack.ss_sp      = (void *)__vmr_start(ustack);
+    dst->t_arch.t_ustack = uc_stack;
     return arch_thread_fork(&dst->t_arch, &src->t_arch);
 }

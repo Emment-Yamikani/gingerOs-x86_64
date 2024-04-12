@@ -6,6 +6,33 @@
 #include <mm/kalloc.h>
 #include <fs/cred.h>
 
+int cred_alloc(cred_t **ret) {
+    cred_t *cred = NULL;
+
+    if (ret == NULL)
+        return -EINVAL;
+    
+    if (NULL == (cred = (cred_t *)kmalloc(sizeof *cred)))
+        return -ENOMEM;
+    
+    memset(cred, 0, sizeof *cred);
+    *cred = CRED_DEFAULT();
+
+    *ret = cred;
+
+    return 0;
+}
+
+void cred_free(cred_t *cred) {
+    assert(cred, "No credentials.");
+
+    if (!cred_islocked(cred))
+        cred_lock(cred);
+    
+    cred_unlock(cred);
+    kfree(cred);
+}
+
 int cred_copy(cred_t *dst, cred_t *src) {
     if (dst == NULL || src == NULL)
         return -EINVAL;
@@ -29,7 +56,7 @@ uid_t getuid(void) {
     cred_t  *cred   = NULL;
 
     current_lock();
-    cred = current->t_credentials;
+    cred = current->t_cred;
 
     cred_lock(cred);
     uid = cred->c_uid;
@@ -44,7 +71,7 @@ gid_t getgid(void) {
     cred_t          *cred   = NULL;
 
     current_lock();
-    cred = current->t_credentials;
+    cred = current->t_cred;
 
     cred_lock(cred);
     gid = cred->c_gid;
@@ -60,7 +87,7 @@ uid_t geteuid(void) {
 
     current_lock();
     
-    cred = current->t_credentials;
+    cred = current->t_cred;
     cred_lock(cred);
     uid = cred->c_euid;
     cred_unlock(cred);
@@ -75,7 +102,7 @@ gid_t getegid(void) {
 
     current_lock();
     
-    cred = current->t_credentials;
+    cred = current->t_cred;
 
     cred_lock(cred);
     gid = cred->c_egid;
@@ -91,7 +118,7 @@ int setuid(uid_t uid) {
 
     current_lock();
 
-    cred = current->t_credentials;
+    cred = current->t_cred;
 
     cred_lock(cred);
 
@@ -114,7 +141,7 @@ int setgid(gid_t gid) {
 
     current_lock();
     
-    cred = current->t_credentials;
+    cred = current->t_cred;
     cred_lock(cred);
 
     /*No. permissions.*/
@@ -136,7 +163,7 @@ int seteuid(uid_t euid) {
 
     current_lock();
     
-    cred = current->t_credentials;
+    cred = current->t_cred;
     cred_lock(cred);
 
     /*No. permissions.*/
@@ -158,7 +185,7 @@ int setegid(gid_t egid) {
 
     current_lock();
     
-    cred = current->t_credentials;
+    cred = current->t_cred;
     cred_lock(cred);
 
     /*No. permissions.*/
@@ -179,7 +206,7 @@ mode_t umask(mode_t cmask) {
     cred_t      *cred = NULL;
 
     current_lock();
-    cred = current->t_credentials;
+    cred = current->t_cred;
 
     cred_lock(cred);
     omask = cred->c_umask;
@@ -205,7 +232,7 @@ int getcwd(char *buf, size_t size) {
     
     current_lock();
     
-    file_ctx = current->t_file_ctx;
+    file_ctx = current->t_fctx;
     fctx_lock(file_ctx);
     ret = dretrieve_path(file_ctx->fc_cwd, &path, &len);
     fctx_unlock(file_ctx);
@@ -233,7 +260,7 @@ int chdir(const char *path) {
         return err;
 
     current_lock();
-    file_ctx = current->t_file_ctx;
+    file_ctx = current->t_fctx;
     fctx_lock(file_ctx);
 
     dclose(file_ctx->fc_cwd);

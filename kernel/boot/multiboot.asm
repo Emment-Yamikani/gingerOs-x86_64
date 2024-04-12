@@ -15,7 +15,7 @@ mboot:
     dd FLAGS
     dd CHECKSUM
 
-; section header info(Not of concern)
+; section header info (Not of concern)
 
     dd 0x00
     dd 0x00
@@ -26,8 +26,8 @@ mboot:
 ; gfx parameters
     LFB_GFX     EQU (0)
     EGA_TXT     EQU (1)
-    GFX_WIDTH   EQU (1440)
-    GFX_HEIGHT  EQU (800)
+    GFX_WIDTH   EQU (800)
+    GFX_HEIGHT  EQU (600)
     GFX_DEPTH   EQU (32)
 
     dd LFB_GFX

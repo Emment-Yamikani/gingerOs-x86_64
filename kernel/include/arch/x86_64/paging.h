@@ -3,8 +3,8 @@
 #include <lib/stdint.h>
 #include <lib/stddef.h>
 #include <sys/system.h>
-#include <arch/pagemap.h>
 #include <sync/spinlock.h>
+#include <lib/types.h>
 
 #define PTE_P        (BS(0))             // page is present.
 #define PTE_W        (BS(1))             // page is writtable.
@@ -34,36 +34,36 @@
 
 typedef union pte {
     struct {
-        uint64_t p : 1;
-        uint64_t w : 1;
-        uint64_t u : 1;
-        uint64_t pwt : 1;
-        uint64_t pcd : 1;
-        uint64_t a : 1;
-        uint64_t d : 1;
-        uint64_t ps : 1;
-        uint64_t g : 1;
-        uint64_t ign1 : 2;
-        uint64_t alloc : 1;
-        uint64_t phys : 40;
-        uint64_t ign2 : 12;
+        u64 p : 1;
+        u64 w : 1;
+        u64 u : 1;
+        u64 pwt : 1;
+        u64 pcd : 1;
+        u64 a : 1;
+        u64 d : 1;
+        u64 ps : 1;
+        u64 g : 1;
+        u64 ign1 : 2;
+        u64 alloc : 1;
+        u64 phys : 40;
+        u64 ign2 : 12;
         //011
     };
-    uint64_t raw;
+    u64 raw;
 } __packed pte_t;
 
 extern pte_t _PML4_[512] __aligned(0x1000);
 
 typedef union viraddr {
     struct {
-        uint64_t off : 12;
-        uint64_t pti : 9;
-        uint64_t pdi : 9;
-        uint64_t pdpti : 9;
-        uint64_t pml4i : 9;
-        uint64_t resvd : 16;
+        u64 off : 12;
+        u64 pti : 9;
+        u64 pdi : 9;
+        u64 pdpti : 9;
+        u64 pml4i : 9;
+        u64 resvd : 16;
     };
-    uint64_t raw;
+    u64 raw;
 } __packed viraddr_t;
 
 #define __viraddr(pml4e, pdpte, pde, pte) ((viraddr_t){ \
@@ -93,10 +93,10 @@ typedef union viraddr {
  * PT   -> (0xFFFFFF0000000000)
  */
 
-#define PML4                    ((pte_t *)(0xFFFFFF7FBFDFE000ull))
-#define PDPT(PDPi)              ((pte_t *)(0xFFFFFF7FBFC00000ull + (0x1000ul * ((size_t)PDPi))))
-#define PDT(PDPi, PDi)          ((pte_t *)(0xFFFFFF7F80000000ull + (0x200000ul * ((size_t)PDPi)) + (0x1000ul * ((size_t)PDi)) ))
-#define PT(PDPi, PDi, PTi)      ((pte_t *)(0xFFFFFF0000000000ull + (0x40000000ul * ((size_t)PDPi)) + (0x200000ul * ((size_t)PDi)) + (0x1000ul * ((size_t)PTi))))
+#define PML4                    ({ (pte_t *)(0xFFFFFF7FBFDFE000ull); })
+#define PDPT(PDPi)              ({ (pte_t *)(0xFFFFFF7FBFC00000ull + (0x1000ul * ((usize)PDPi))); })
+#define PDT(PDPi, PDi)          ({ (pte_t *)(0xFFFFFF7F80000000ull + (0x200000ul * ((usize)PDPi)) + (0x1000ul * ((usize)PDi)) ); })
+#define PT(PDPi, PDi, PTi)      ({ (pte_t *)(0xFFFFFF0000000000ull + (0x40000000ul * ((usize)PDPi)) + (0x200000ul * ((usize)PDi)) + (0x1000ul * ((usize)PTi))); })
 
 #define PML4E(i4)               ({ &PML4[i4]; })
 #define PDPTE(i4, i3)           ({ &PDPT(i4)[i3]; })
@@ -148,17 +148,17 @@ void x86_64_unmap(int i4, int i3, int i2, int i1);
 /**
  * 
 */
-void x86_64_unmap_n(uintptr_t v, size_t sz);
+void x86_64_unmap_n(uintptr_t v, usize sz);
 
 /**
  * 
 */
-int x86_64_map_i(uintptr_t v, uintptr_t p, size_t sz, int flags);
+int x86_64_map_i(uintptr_t v, uintptr_t p, usize sz, int flags);
 
 /**
  * 
 */
-int x86_64_map_n(uintptr_t v, size_t sz, int flags);
+int x86_64_map_n(uintptr_t v, usize sz, int flags);
 
 /**
  * 
@@ -179,7 +179,7 @@ void x86_64_unmap_full(void);
  * @brief 
  * 
  */
-int x86_64_mprotect(uintptr_t vaddr, size_t sz, int flags);
+int x86_64_mprotect(uintptr_t vaddr, usize sz, int flags);
 
 /**
  * 
@@ -194,17 +194,17 @@ int x86_64_lazycpy(uintptr_t dst, uintptr_t src);
 /**
  * 
 */
-int x86_64_memcpypp(uintptr_t pdst, uintptr_t psrc, size_t size);
+int x86_64_memcpypp(uintptr_t pdst, uintptr_t psrc, usize size);
 
 /**
  * 
 */
-int x86_64_memcpyvp(uintptr_t p, uintptr_t v, size_t size);
+int x86_64_memcpyvp(uintptr_t p, uintptr_t v, usize size);
 
 /**
  * 
 */
-int x86_64_memcpypv(uintptr_t v, uintptr_t p, size_t size);
+int x86_64_memcpypv(uintptr_t v, uintptr_t p, usize size);
 
 /**
  * 

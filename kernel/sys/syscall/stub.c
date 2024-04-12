@@ -83,20 +83,32 @@ size_t (*syscall[])() = {
     [SYS_CHDIR]             = (void *)sys_chdir,
 };
 
-static int sys_syscall_ni(tf_t *tf) {
-    printk("syscall(%d) not implemented\n", tf->rax);
+static int sys_syscall_ni(ucontext_t *uctx) {
+    mcontext_t *mctx = &uctx->uc_mcontext;
+
+    printk("syscall(%d) not implemented\n", mctx->rax);
     return -ENOSYS;
 }
 
-void do_syscall(tf_t *tf) {
-    if (tf == NULL)
+void do_syscall(ucontext_t *uctx) {
+    mcontext_t  *mctx = &uctx->uc_mcontext;
+
+    if (uctx == NULL)
         return;
 
-    if (tf->rax >= NELEM(syscall))
-        tf->rax = sys_syscall_ni(tf);
-    else if ((long)tf->rax < 0 || !syscall[tf->rax])
-        tf->rax = sys_syscall_ni(tf);
-    else
-        tf->rax = (syscall[tf->rax])(tf->rdi,
-        tf->rsi, tf->rdx, tf->rcx, tf->r8, tf->r9, tf->rsp);
+    if (mctx->rax >= NELEM(syscall))
+        mctx->rax = sys_syscall_ni(uctx);
+    else if ((long)mctx->rax < 0 || !syscall[mctx->rax])
+        mctx->rax = sys_syscall_ni(uctx);
+    else {
+        mctx->rax = (syscall[mctx->rax])(
+            mctx->rdi,
+            mctx->rsi,
+            mctx->rdx,
+            mctx->rcx,
+            mctx->r8,
+            mctx->r9,
+            mctx->rsp
+        );
+    }
 }

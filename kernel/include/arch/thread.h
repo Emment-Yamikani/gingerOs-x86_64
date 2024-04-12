@@ -4,22 +4,29 @@
 #include <arch/x86_64/thread.h>
 #include <lib/stdint.h>
 #include <lib/stddef.h>
+#include <arch/ucontext.h>
 
-typedef struct arch_thread_t {
-#if defined __x86_64__
-    tf_t        *t_tf;          // thread's arch specific trapframe.
-    context_t   *t_ctx0;        // thread's context.
-    context_t   *t_ctx1;        // thread's saved context
-    tf_t        t_savedtf;      // saved trapframe.
-#endif
-    void        *t_priv;        // thread private data.
-    uintptr_t   t_kstack;       // kernel stack for this thread.
-    size_t      t_kstacksz;     // size of kernel stack.
-    uintptr_t   t_sig_kstack;   // kernel stack for this thread.
-    size_t      t_sig_kstacksz; // size of kernel stack.
-    thread_t    *t_thread;      // pointer to the thread control block.
-    vmr_t       *t_ustack;      // thread user stack.
-    vmr_t       *t_altsigstack; // thread alternate signal stack.
+/**
+ * Arch-specific thread structure.
+ * This is what the architecture understands a thread to be.
+ * i.e, thread_t is understood by the multitasking concept in ginger
+ * but arch_thread_t is what it really is underneath.
+ *
+ * NOTE: t_contextand t_ucontext;
+ * t_context: is what is used by the system to switch contexts
+ * by calling swtch() implicitly through sched() or in schedule().
+ * see sys/sched/sched.c
+ * t_ucontext: is the execution context at the time of
+ * interrupts, exceptions, and system calls.
+ */
+typedef struct __arch_thread_t {
+    thread_t    *t_thread;      // pointer to thread control block.
+    context_t   *t_context;     // caller-callee context.
+    ucontext_t  *t_ucontext;    // execution context status
+    flags64_t   t_flags;        // flags.
+    uc_stack_t  t_kstack;       // kernel stack description.
+    uc_stack_t  t_ustack;       // user stack description.
+    uc_stack_t  t_sigaltstack;  // if SA_ONSTACK is set for a signal handler, use this stack.
 } arch_thread_t;
 
 int arch_uthread_init(arch_thread_t *arch_thread, thread_entry_t entry, void *arg);

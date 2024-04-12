@@ -1,33 +1,32 @@
 #pragma once
 
+#include <arch/cpu.h>
 #include <arch/paging.h>
 #include <arch/thread.h>
+#include <bits/errno.h>
+#include <ds/queue.h>
+#include <fs/file.h>
+#include <ginger/jiffies.h>
 #include <lib/stddef.h>
 #include <lib/stdint.h>
 #include <lib/types.h>
-#include <sync/spinlock.h>
-#include <sys/system.h>
-#include <arch/cpu.h>
-#include <ds/queue.h>
-#include <bits/errno.h>
-#include <sync/cond.h>
-#include <sys/_time.h>
-#include <ginger/jiffies.h>
-#include <sys/_signal.h>
-#include <fs/file.h>
-#include <sys/tgroup.h>
 #include <mm/mmap.h>
-#include <fs/file.h>
+#include <sync/cond.h>
+#include <sync/spinlock.h>
+#include <sys/_signal.h>
+#include <sys/system.h>
+#include <sys/tgroup.h>
+#include <sys/_time.h>
 
 typedef enum tstate_t {
-    T_EMBRYO,
-    T_READY,
-    T_RUNNING,
-    T_ISLEEP,
-    T_USLEEP,
-    T_STOPPED,
-    T_TERMINATED,
-    T_ZOMBIE,
+    T_EMBRYO,       // Embryo.
+    T_READY,        // Ready.
+    T_RUNNING,      // Running.
+    T_ISLEEP,       // Interruptable sleep.
+    T_USLEEP,       // Uninterruptable sleep.
+    T_STOPPED,      // Stopped.
+    T_TERMINATED,   // Terminated.
+    T_ZOMBIE,       // Zombie.
 } tstate_t;
 
 extern const char *t_states[];
@@ -37,22 +36,22 @@ typedef struct proc proc_t;
 
 typedef struct thread_attr_t {
     int         detachstate;
-    size_t      guardsz;
+    usize       guardsz;
     uintptr_t   stackaddr;
-    size_t      stacksz;
+    usize       stacksz;
 } thread_attr_t;
 
 typedef struct thread_sched_t {
-    time_t      ts_ctime;              // Thread ceation time.
-    time_t      ts_cpu_time;           // CPU time in jiffies(n seconds = (jiffy * (HZ_TO_ns(SYS_HZ) / seconds_TO_ns(1))) ).
-    time_t      ts_timeslice;          // Quantum of CPU time for which this thread is allowed to run.
-    time_t      ts_total_time;         // Total time this thread has run.
-    time_t      ts_last_sched;         // Last time this thread was scheduled to run.
+    time_t      ts_ctime;               // Thread ceation time.
+    time_t      ts_cpu_time;            // CPU time in jiffies(n seconds = (jiffy * (HZ_TO_ns(SYS_HZ) / seconds_TO_ns(1))) ).
+    time_t      ts_timeslice;           // Quantum of CPU time for which this thread is allowed to run.
+    time_t      ts_total_time;          // Total time this thread has run.
+    time_t      ts_last_sched;          // Last time this thread was scheduled to run.
 
-    cpu_t       *ts_processor;         // Current Processor for which this thread has affinity.
-    uint8_t     ts_affinity_type;      // Type of affinity (SOFT or HARD).
-    flags32_t   ts_cpu_affinity_set;   // cpu set for which thread can have affinity for.
-    atomic_t    ts_priority;           // Thread scheduling Priority.
+    cpu_t       *ts_processor;          // Current Processor for which this thread has affinity.
+    u8          ts_affinity_type;       // Type of affinity (SOFT or HARD).
+    flags32_t   ts_cpu_affinity_set;    // cpu set for which thread can have affinity for.
+    atomic_t    ts_priority;            // Thread scheduling Priority.
 } thread_sched_t;
 
 #define sched_DEFAULT() (thread_sched_t){0}
@@ -64,46 +63,63 @@ typedef struct thread_sched_t {
 #define SCHED_HARD_AFFINITY 1
 
 typedef struct sleep_attr_t {
-    queue_t         *queue; // thread's sleep queue.
-    queue_node_t    *node;  // thread's sleep node.
-    spinlock_t      *guard; // non-null if sleep queue is associated with a guard lock.
+    queue_node_t    *node;              // thread's sleep node.
+    queue_t         *queue;             // thread's sleep queue.
+    spinlock_t      *guard;             // non-null if sleep queue is associated with a guard lock.
 } sleep_attr_t;
 
-typedef struct thread_t {
+typedef struct __thread_shared_t {
+    tid_t           tgid;
+    file_ctx_t      *fctx;
+    cred_t          *cred;
+    queue_t         *threads;
+    sig_desc_t      *sig_desc;
+    spinlock_t      lock;
+} thread_shared_t;
+
+typedef struct __thread_t {
     tid_t           t_tid;              // thread ID.
+    tid_t           t_tgid;
     tid_t           t_ktid;             // killer thread ID for thread that killed this thread.
-    uintptr_t       t_entry;            // thread entry point.
-    tstate_t        t_state;            // thread's execution state.
-    long            t_refcnt;           // thread's reference count.
-    // Misc.
-    tid_t           t_statetid;
-    char            *t_statefile;
-    long            t_stateline;
-    
-    uintptr_t       t_exit;             // thread exit code.
-    atomic_t        t_flags;            // thread's flags.
-    atomic_t        t_spinlocks;
-    uintptr_t       t_errno;            // thread's errno.
+    thread_entry_t  t_entry;            // thread entry point.
+
+    isize           t_refcnt;           // thread's reference count.
+
     proc_t          *t_owner;           // thread's owner process.
 
+    uintptr_t       t_exit;             // thread exit code.
+    tstate_t        t_state;            // thread's execution state.
+    atomic_t        t_flags;            // thread's flags.
+    uintptr_t       t_errno;            // thread's errno.
+
     sigset_t        t_sigmask;          // thread's masked signal set.
-    uint8_t         t_sigqueue[NSIG];   // thread's queue of pending signals.
+    queue_t         t_sigqueue[NSIG];   // queues of siginfo_t * pointers for each pending signal instance.
 
     void            *t_simd_ctx;        // thread's Single Instruction Multiple Data (SIMD) context.
     mmap_t          *t_mmap;            // thread's process virtual address space.
-    sleep_attr_t    sleep_attr;         // struct describing sleep attributes for this thread.
+    sleep_attr_t    t_sleep;            // struct describing sleep attributes for this thread.
     thread_sched_t  t_sched;            // struct describing scheduler attributes for this thread.
 
-    cred_t          *t_credentials;     // credentials for this thread's tgroup.
-    file_ctx_t      *t_file_ctx;        // Pointer to file context for this thread's tgroup.
+    // Shared data among threads of the same group.
 
-    tgroup_t        *t_group;           // thread group.
-    queue_t         *t_queues;          // queues on which this thread resides.
+    cred_t          *t_cred;            // credentials for this thread's tgroup.
+    file_ctx_t      *t_fctx;            // Pointer to file context for this thread's tgroup.
+    queue_t         *t_tgroup;          // queue of all threads in the logical thread group.
+    sig_desc_t      *t_sigdesc;         // thread group wide-signal description.
+
+    ///////////////////////////////////////////////////////////
 
     cond_t          t_wait;             // thread conditional wait variable.
     arch_thread_t   t_arch;             // architecture-specific thread struct.
+    queue_t         t_queues;           // queues on which this thread resides.
 
     spinlock_t      t_lock;             // lock to synchronize access to this struct.
+
+    // Misc. debug information.
+    
+    tid_t           t_statetid;
+    isize           t_stateline;
+    char            *t_statefile;
 } __aligned(16) thread_t;
 
 typedef struct {
@@ -128,6 +144,8 @@ typedef struct {
 #define THREAD_ISLAST                   BS(9)   // thread is the last thread in the troup.
 #define THREAD_CONTINUE                 BS(10)  // thread has been continued from a stopped state.
 #define THREAD_USING_SSE                BS(11)  // thread is using SSE extensions if this flags is set, FPU otherwise.
+#define THREAD_EXITING                  BS(12)  // thread is exiting.
+
 
 #define thread_assert(t)                ({ assert(t, "No thread pointer\n");})
 #define thread_lock(t)                  ({ thread_assert(t); spin_lock(&((t)->t_lock)); })
@@ -135,33 +153,15 @@ typedef struct {
 #define thread_islocked(t)              ({ thread_assert(t); spin_islocked(&((t)->t_lock)); })
 #define thread_assert_locked(t)         ({ thread_assert(t); spin_assert_locked(&((t)->t_lock)); })
 
-#define thread_grabref(thread) ({ \
-    thread_assert_locked(thread); \
-    (thread)->t_refcnt;           \
-})
-
-#define thread_putref(thread) ({  \
-    thread_assert_locked(thread); \
-    (thread)->t_refcnt--;         \
-})
-
-#define thread_getref(thread) ({  \
-    thread_assert_locked(thread); \
-    (thread)->t_refcnt++;         \
-    thread;                       \
-})
-
+#define thread_grabref(thread)          ({ thread_assert_locked(thread); (thread)->t_refcnt; })
+#define thread_putref(thread)           ({ thread_assert_locked(thread); (thread)->t_refcnt--; })
+#define thread_getref(thread)           ({ thread_assert_locked(thread); (thread)->t_refcnt++; thread; })
 /**
  * @brief drop the reference to the thread pointer
  * and release the lock.
  * this doesn't destroy the thread struct is t_refcnt <= 0.
  */
-#define thread_release(thread) ({ \
-    thread_assert_locked(thread); \
-    thread_putref(thread);        \
-    thread_unlock(thread);        \
-})
-
+#define thread_release(thread)          ({thread_assert_locked(thread); thread_putref(thread); thread_unlock(thread); })
 #define thread_isstate(t, state)        ({ thread_assert_locked(t); ((t)->t_state == (state)); })
 #define thread_isembryo(t)              ({ thread_isstate(t, T_EMBRYO); })
 #define thread_isready(t)               ({ thread_isstate(t, T_READY); })
@@ -230,7 +230,7 @@ typedef struct {
     handling;                                                  \
 })
 
-#define thread_tgroup(t)                ({ thread_assert(t); (t)->t_group; })
+#define thread_tgroup(t)                ({ thread_assert(t); (t)->t_tgroup; })
 #define thread_tgroup_lock(t)           ({ tgroup_lock(thread_tgroup(t)); })
 #define thread_tgroup_unlock(t)         ({ tgroup_unlock(thread_tgroup(t)); })
 #define thread_tgroup_locked(t)         ({ tgroup_locked(thread_tgroup(t)); })
@@ -351,25 +351,28 @@ builtin_thread_t __used_section(.__builtin_thrds) \
 #define STACKSZMAX      (KiB(512))
 #define BADSTACKSZ(sz)  ((sz) < STACKSZMIN || (sz) > STACKSZMAX)
 
-int builtin_threads_begin(size_t *nthreads);
+int builtin_threads_begin(usize  *nthreads);
 
-#define thread_debugloc() ({                                                                    \
-    printk("%s:%d in %s(), current[%d] ste: %s:%s @%s:%d "                                      \
-           "by thread[%d], signal: %s, return[%p]\n",                                           \
-           __FILE__, __LINE__, __func__,                                                        \
-           current ? current->t_tid : 0, current ? current_killed() ? "killed" : "n/a" : "n/a", \
-           current ? t_states[current->t_state] : "n/a",                                        \
-           current ? current->t_statefile ? current->t_statefile : "no-file" : "no-file",       \
-           current ? current->t_stateline : -1,                                                 \
-           current ? current->t_statetid : 0,                                                   \
-           current ? current_ishandling() "handling" : "n/a" : "n/a", __retaddr(0));            \
+#define thread_debugloc() ({                                                                 \
+    printk(                                                                                  \
+        "%s:%d in %s(), current[%d] ste: %s:%s @%s:%d "                                      \
+        "by thread[%d], signal: %s, return[%p]\n",                                           \
+        __FILE__, __LINE__, __func__,                                                        \
+        current ? current->t_tid : 0, current ? current_killed() ? "killed" : "n/a" : "n/a", \
+        current ? t_states[current->t_state] : "n/a",                                        \
+        current ? current->t_statefile ? current->t_statefile : "no-file" : "no-file",       \
+        current ? current->t_stateline : -1,                                                 \
+        current ? current->t_statetid : 0,                                                   \
+        current ? current_ishandling() "handling" : "n/a" : "n/a", __retaddr(0));            \
 })
 
-#define THREAD_CREATE_USER      1 // create a user thread.
-#define THREAD_CREATE_SCHED     2 // create and schedule a thread.
+#define THREAD_CREATE_USER      BS(0) // create a user thread.
+#define THREAD_CREATE_SCHED     BS(1) // create and schedule a thread.
+#define THREAD_CREATE_DETACHED  BS(2) // create a detachable thread.
+#define THREAD_CREATE_GROUP     BS(3) // create thread in new thread group.
 
-int thread_sigdequeue(thread_t *thread);
-int thread_sigqueue(thread_t *thread, int signo);
+int thread_sigqueue(thread_t *thread, siginfo_t *info);
+int thread_sigdequeue(thread_t *thread, siginfo_t **ret);
 
 int thread_detach(thread_t *thread);
 
@@ -447,10 +450,18 @@ void thread_exit(uintptr_t exit_code);
 thread_t *thread_dequeue(queue_t *queue);
 
 /**
- * \brief Allocate a kernel stack
- * \param size size of the kernel stack to allocate.
+ * @brief Allocate a kernel stack.
+ * @param size 
+ * @param ret 
+ * @return 
+ */
+int thread_kstack_alloc(usize  size, uintptr_t *ret);
+
+/**
+ * \brief Deallocate the kernel thread stack.
+ * \param addr base address of the kernel stack.
 */
-uintptr_t thread_alloc_kstack(size_t size);
+void thread_kstack_free(uintptr_t addr);
 
 /** \brief Kill thread.
  * \param thread is id of the thread to be killed.
@@ -458,13 +469,6 @@ uintptr_t thread_alloc_kstack(size_t size);
  * \return (int)0 if successful or error on failure. 
 */
 int thread_kill_n(thread_t *thread, int wait);
-
-/**
- * \brief Deallocate the kernel thread stack.
- * \param addr base address of the kernel stack.
- * \param size size of the kernel stack.
-*/
-void thread_free_kstack(uintptr_t addr, size_t size);
 
 /**
  * \brief Remove a thread from a thread queue.
@@ -547,7 +551,7 @@ int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode);
  * \param pthread pointer to a pointer to the newly created kernel thread is passed through pthread.
  * \return (int)0 on success or error on faliure.
  */
-int kthread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t **pthread);
+int kthread_create(thread_attr_t *__attr, thread_entry_t entry, void *arg, int flags, thread_t **ret);
 
 /**
  * \brief Create a thread.
@@ -572,4 +576,7 @@ int thread_stop(thread_t *thread, queue_t *queue);
 int thread_execve(proc_t *proc, thread_t *thread,
     thread_entry_t entry, const char *argp[], const char *envp[]);
 
+int thread_join_group(thread_t *thread);
+int thread_leave_group(thread_t *thread);
+int thread_create_group(thread_t *thread);
 int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap);

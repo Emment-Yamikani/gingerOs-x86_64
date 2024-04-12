@@ -40,8 +40,8 @@ void sched(void) {
     long ncli = 0, intena = 0;
 
     pushcli();
-    ncli = cpu->ncli;
-    intena = cpu->intena;
+    ncli    = cpu->ncli;
+    intena  = cpu->intena;
     current_assert_locked();
 
     if (current_issetpark() && current_isisleep()) {
@@ -52,11 +52,11 @@ void sched(void) {
         }
     }
 
-    swtch(&current->t_arch.t_ctx0, cpu->ctx);
+    swtch(&current->t_arch.t_context, cpu->ctx);
 
     current_assert_locked();
+    cpu->ncli   = ncli;
     cpu->intena = intena;
-    cpu->ncli = ncli;
     popcli();
 }
 
@@ -68,12 +68,12 @@ void sched_yield(void) {
 }
 
 int sched_park(thread_t *thread) {
-    int     prior = 0;
-    int     affini = 0;
-    level_t *lvl = NULL;
-    cpu_t   *processor = NULL;
-    int     core = getcpuid();
-    thread_sched_t *tsched = NULL;
+    int             prior       = 0;
+    int             affini      = 0;
+    level_t         *lvl        = NULL;
+    cpu_t           *processor  = NULL;
+    int             core        = getcpuid();
+    thread_sched_t  *tsched     = NULL;
 
     if (thread == NULL)
         return -EINVAL;
@@ -151,10 +151,8 @@ static void sched_self_destruct(void) {
     */
     pushcli();
     current_unlock();
-
-    current_tgroup_lock();
-    tgroup_dec_running(current_tgroup());
-    current_tgroup_unlock();
+    
+    // TODO: increment running thread count for a thread group.
 
     current_lock();
 
@@ -169,17 +167,12 @@ static void sched_self_destruct(void) {
         getcpuid(), thread_self(), err);
     }
 
-    if (current->t_arch.t_sig_kstack) {
-        thread_free_kstack(current->t_arch.t_sig_kstack,
-            current->t_arch.t_sig_kstacksz);
-    }
-
     current_unlock();
 }
 
 __noreturn void schedule(void) {
     int             err     = 0;
-    uintptr_t       pgdir   = 0;
+    uintptr_t       pdbr   = 0;
     jiffies_t       before  = 0;
     mmap_t          *mmap   = NULL;
     arch_thread_t   *arch   = NULL;
@@ -228,8 +221,12 @@ __noreturn void schedule(void) {
             if (current_isstopped()) {
                 pushcli();
                 /// TODO: Hope this code is not executed \'ever!\'
-                panic("[\e[0;04mWARNING\e[0m] ???Hmmm this will call sched(), "
-                    "do you know the implications of doing this???");
+                panic(
+                    "[\e[0;04mWARNING\e[0m] "
+                    "???Hmmm this will call "
+                    "sched(), do you know the"
+                    " implications of doing this???\n"
+                );
                 thread_stop(current, sched_stopq);
                 continue;
             }
@@ -250,15 +247,17 @@ __noreturn void schedule(void) {
 
         if (mmap) {
             mmap_lock(mmap);
-            mmap_focus(mmap, &pgdir);
+            mmap_focus(mmap, &pdbr);
             mmap_unlock(mmap);
-
             // Make sure a thread running in a seperate address space
             // to that of the kernel must have it's kernel stack pointer
             // set up in the tss.
             // TODO: use tss.ist in later version of this code.
-            arch_thread_setkstack(&current->t_arch);
+            err = arch_thread_setkstack(&current->t_arch);
+            assert_msg(err == 0, "Kernel stack was not set"
+            " for user thread, errno = %d\n", err);
         }
+
 
         // Context switch to the new thread.
         // This will, depending of the stack frame,
@@ -266,7 +265,7 @@ __noreturn void schedule(void) {
         // if the thread is returning from a call to sched()
         // or arch_thread_start() is this is the first
         // time the thread is being run.
-        swtch(&cpu->ctx, arch->t_ctx0);
+        swtch(&cpu->ctx, arch->t_context);
 
         // Do no allow current to return to schedule() without acquiring
         // a lock on itself.
@@ -283,7 +282,10 @@ __noreturn void schedule(void) {
 
         switch (current_getstate()) {
         case T_EMBRYO:
-            panic("??\e[0;04mT_EMBRYO\e[0m was allowed to run\n");
+            panic(
+                "??\e[0;04mT_EMBRYO\e[0m"
+                " was allowed to run\n"
+            );
             break;
         case T_READY:
             sched_park(current);
@@ -298,9 +300,12 @@ __noreturn void schedule(void) {
             sched_self_destruct();
             break;
         default:
-            panic("??cpu%d tid:%d called sched()"
-                " while thread is in %s state\n", getcpuid(),
-                thread_self(), t_states[current_getstate()]);
+            panic(
+                "??cpu%d tid:%d called sched()"
+                " while thread is in %s state\n",
+                getcpuid(), thread_self(),
+                t_states[current_getstate()]
+            );
         }
     }
 }

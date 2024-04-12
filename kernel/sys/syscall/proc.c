@@ -1,6 +1,5 @@
 #include <sys/proc.h>
 
-
 pid_t getpid(void) {
     proc_lock(curproc);
 

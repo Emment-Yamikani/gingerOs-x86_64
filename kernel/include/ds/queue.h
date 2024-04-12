@@ -40,26 +40,19 @@ typedef struct queue {
          node != NULL; node = (typeof(node))((queue_node_t *)node)->next,         \
               item = (type)(node ? ((queue_node_t *)node)->data : NULL))
 
-int queue_alloc(queue_t **pqp);
-
-void queue_flush(queue_t *q);
-
 void queue_free(queue_t *q);
+void queue_flush(queue_t *q);
+int queue_alloc(queue_t **pqp);
 
 size_t queue_count(queue_t *q);
 
 int queue_peek(queue_t *q, int tail, void **pdp);
-
 int queue_contains(queue_t *q, void *data, queue_node_t **pnp);
 
+int dequeue(queue_t *q, void **pdp);
+int dequeue_tail(queue_t *q, void **pdp);
 int enqueue(queue_t *q, void *data, int unique, queue_node_t **pnp);
-
 int enqueue_head(queue_t *q, int unique, void *data, queue_node_t **pnp);
 
-int dequeue(queue_t *q, void **pdp);
-
-int queue_remove_node(queue_t *q, queue_node_t *__node);
-
 int queue_remove(queue_t *q, void *data);
-
-int dequeue_tail(queue_t *q, void **pdp);
+int queue_remove_node(queue_t *q, queue_node_t *__node);

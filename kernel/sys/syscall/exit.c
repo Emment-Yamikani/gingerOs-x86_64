@@ -1,12 +1,12 @@
 #include <lib/printk.h>
 #include <sys/syscall.h>
-#include <arch/x86_64/context.h>
+#include <arch/ucontext.h>
 #include <sys/thread.h>
 #include <sys/proc.h>
 
 void exit(int exit_code) {
-    int     err = 0;
-    proc_t *parent = NULL;
+    int     err     = 0;
+    proc_t *parent  = NULL;
 
     if (curproc == initproc)
         panic("initproc not allowed to exit?!\n");

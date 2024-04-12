@@ -6,6 +6,63 @@
 #include <dev/dev.h>
 #include <fs/fs.h>
 
+int fctx_alloc(file_ctx_t **ret) {
+    int         err         = 0;
+    file_ctx_t  *fctx       = NULL;
+    dentry_t    *cwdir      = NULL;
+    dentry_t    *rootdir    = NULL;
+
+    if (ret == NULL)
+        return -EINVAL;
+    
+    if (NULL == (fctx = (file_ctx_t *)kmalloc(sizeof *fctx)))
+        return -ENOMEM;
+
+    if ((err = vfs_lookup("/", NULL, O_RDONLY, 0, 0, &cwdir)))
+        goto error;
+
+    rootdir = ddup(cwdir);
+    dunlock(cwdir);
+
+    memset(fctx, 0, sizeof *fctx);
+    fctx->fc_fmax   = NFILE;
+    fctx->fc_cwd    = cwdir;
+    fctx->fc_root   = rootdir;
+    fctx->fc_lock   = SPINLOCK_INIT();
+
+    *ret = fctx;
+    return 0;
+error:
+    if (fctx)
+        kfree(fctx);
+    return err;
+}
+
+void fctx_free(file_ctx_t *fctx) {
+    file_t *file = NULL;
+
+    assert(fctx, "No file context\n");
+
+    if (!fctx_islocked(fctx))
+        fctx_lock(fctx);
+    
+    dclose(fctx->fc_cwd);
+    dclose(fctx->fc_root);
+
+    for (int i = 0; i < fctx->fc_nfile; ++i) {
+        file = fctx->fc_files[i];
+        if (file) {
+            flock(file);
+            fclose(file);
+            
+        }
+    }
+
+    kfree(fctx->fc_files);
+    fctx_unlock(fctx);
+    kfree(fctx);
+}
+
 int     falloc(file_t **pfp) {
     file_t *file = NULL;
 

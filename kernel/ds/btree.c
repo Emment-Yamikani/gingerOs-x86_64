@@ -4,8 +4,7 @@
 #include <bits/errno.h>
 #include <mm/kalloc.h>
 
-int btree_alloc(btree_t **pbtree)
-{
+int btree_alloc(btree_t **pbtree) {
     int err = 0;
     btree_t *btree = NULL;
     if (pbtree == NULL)
@@ -22,16 +21,14 @@ error:
     return err;
 }
 
-void btree_free(btree_t *btree)
-{
+void btree_free(btree_t *btree) {
     if (btree == NULL)
         return;
     *btree = (btree_t){0};
     kfree(btree);
 }
 
-btree_node_t *btree_alloc_node(void)
-{
+btree_node_t *btree_alloc_node(void) {
     btree_node_t *node = NULL;
     if ((node = kmalloc(sizeof *node)) == NULL)
         return NULL;
@@ -39,8 +36,7 @@ btree_node_t *btree_alloc_node(void)
     return node;
 }
 
-void btree_free_node(btree_node_t *node)
-{
+void btree_free_node(btree_node_t *node) {
     if (node == NULL)
         return;
     memset(node, 0, sizeof *node);
@@ -48,8 +44,7 @@ void btree_free_node(btree_node_t *node)
     //printf("%s()\n", __func__);
 }
 
-static int btree_insert_node(btree_t *btree, btree_node_t *node)
-{
+static int btree_insert_node(btree_t *btree, btree_node_t *node) {
     btree_node_t *iter = NULL;
 
     if (btree == NULL || node == NULL)
@@ -128,8 +123,7 @@ static void btree_delete_node(btree_t *btree, btree_node_t *node) {
     }
 }
 
-btree_node_t *btree_least_node(btree_t *btree)
-{
+btree_node_t *btree_least_node(btree_t *btree) {
     btree_node_t *node = NULL;
 
     if (btree == NULL)
@@ -141,8 +135,7 @@ btree_node_t *btree_least_node(btree_t *btree)
     return node;
 }
 
-btree_node_t *btree_largest_node(btree_t *btree)
-{
+btree_node_t *btree_largest_node(btree_t *btree) {
     btree_node_t *node = NULL;
 
     if (btree == NULL)
@@ -154,16 +147,14 @@ btree_node_t *btree_largest_node(btree_t *btree)
     return node;
 }
 
-void btree_delete(btree_t *btree, btree_key_t key)
-{
+void btree_delete(btree_t *btree, btree_key_t key) {
     btree_node_t *node = NULL;
     btree_assert_locked(btree);
     node = btree_lookup(btree, key);
     btree_delete_node(btree, node);
 }
 
-int btree_search(btree_t *btree, btree_key_t key, void **pdata)
-{
+int btree_search(btree_t *btree, btree_key_t key, void **pdata) {
     btree_assert_locked(btree);
     btree_node_t *node = btree_lookup(btree, key);
     if (node == NULL) return -ENOENT;
@@ -171,8 +162,7 @@ int btree_search(btree_t *btree, btree_key_t key, void **pdata)
     return 0;
 }
 
-btree_node_t *btree_lookup(btree_t *btree, btree_key_t key)
-{
+btree_node_t *btree_lookup(btree_t *btree, btree_key_t key) {
     if (btree == NULL)
         return NULL;
 
@@ -191,8 +181,7 @@ btree_node_t *btree_lookup(btree_t *btree, btree_key_t key)
     return NULL;
 }
 
-int btree_insert(btree_t *btree, btree_key_t key, void *data)
-{
+int btree_insert(btree_t *btree, btree_key_t key, void *data) {
     int err = 0;
     btree_node_t *node = NULL;
 
