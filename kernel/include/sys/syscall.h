@@ -1,6 +1,6 @@
 #pragma once
 
-#include <arch/x86_64/context.h>
+#include <arch/ucontext.h>
 #include <lib/stddef.h>
 #include <lib/stdint.h>
 #include <sys/thread.h>
@@ -9,7 +9,7 @@
 #include <sys/_time.h>
 #include <sys/_utsname.h>
 
-void do_syscall(tf_t *tf);
+void do_syscall(ucontext_t *uctx);
 
 #define SYS_PUTC                0
 

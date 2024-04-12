@@ -40,7 +40,6 @@ pid_t   setsid(void) {
         return -EPERM;
     }
 
-
     curproc->session        = curproc->pid;
     pid = curproc->pgroup   = curproc->pid;
     proc_unlock(curproc);

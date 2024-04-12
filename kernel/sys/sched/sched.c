@@ -52,7 +52,7 @@ void sched(void) {
         }
     }
 
-    swtch(&current->t_arch.t_ctx0, cpu->ctx);
+    swtch(&current->t_arch.t_context, cpu->ctx);
 
     current_assert_locked();
     cpu->ncli   = ncli;
@@ -258,13 +258,14 @@ __noreturn void schedule(void) {
             " for user thread, errno = %d\n", err);
         }
 
+
         // Context switch to the new thread.
         // This will, depending of the stack frame,
         // unlock the current thread struct in sched()
         // if the thread is returning from a call to sched()
         // or arch_thread_start() is this is the first
         // time the thread is being run.
-        swtch(&cpu->ctx, arch->t_ctx0);
+        swtch(&cpu->ctx, arch->t_context);
 
         // Do no allow current to return to schedule() without acquiring
         // a lock on itself.

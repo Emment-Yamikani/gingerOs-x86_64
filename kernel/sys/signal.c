@@ -406,16 +406,7 @@ error:
     return err;
 }
 
-void signal_return(void) {
-    current_lock();
-    swtch(&current->t_arch.t_ctx0, current->t_arch.t_ctx1);
-}
-
-void signal_dispatch(void) {
-    current_unlock();
-}
-
-int signal_handler(tf_t *tf __unused) {
+int signal_handler(void) {
     int             err         = 0;
     int             flags       = 0;
     sigset_t        set         = 0;
@@ -425,7 +416,7 @@ int signal_handler(tf_t *tf __unused) {
     sig_desc_t      *desc       = NULL;
     siginfo_t       *info       = NULL;
     sigfunc_t       handler     = NULL;
-    arch_thread_t   *tarch      = NULL;
+    __unused arch_thread_t   *tarch      = NULL;
 
     // prepare signal masks/
     sigemptyset(&set);
@@ -506,7 +497,6 @@ __handle_signal:
     current_setflags(THREAD_HANDLING_SIG);
 
     // do context switch.
-    swtch(&tarch->t_ctx1, tarch->t_ctx0);
 
     current_maskflags(THREAD_HANDLING_SIG);
 

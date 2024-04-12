@@ -86,9 +86,9 @@ int thread_alloc(size_t ksz /*kstacksz*/, int __flags, thread_t **ret) {
     thread_lock(thread);
 
     thread->t_arch  = (arch_thread_t) {
-        .t_kstacksz = ksz,
-        .t_kstack   = kstack,
-        .t_thread   = thread,
+        .t_kstack.ss_size   = ksz,
+        .t_thread           = thread,
+        .t_kstack.ss_sp     = (void *)kstack,
     };
 
     thread->t_refcnt                    = 2;
@@ -155,7 +155,6 @@ int kthread_create(thread_attr_t *__attr, thread_entry_t entry, void *arg, int f
             goto error;
     }
 
-
     // schedule the newly created thread?
     if (flags & THREAD_CREATE_SCHED) {
         if ((err = thread_schedule(thread)))
@@ -177,18 +176,18 @@ error:
 }
 
 int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t **pthread) {
-    int             err = 0;
-    thread_attr_t   t_attr = {0};
-    vmr_t           *ustack = NULL;
-    thread_t        *thread = NULL;
-    
+    int             err         = 0;
+    thread_attr_t   t_attr      = {0};
+    uc_stack_t      uc_stack    = {0};
+    vmr_t           *ustack     = NULL;
+    thread_t        *thread     = NULL;
+
     t_attr = attr ? *attr : (thread_attr_t){
         .detachstate    = 0,
         .stackaddr      = 0,
         .guardsz        = PGSZ,
         .stacksz        = USTACKSZ,
     };
-
 
     if (curproc == NULL)
         return -EINVAL;
@@ -220,6 +219,10 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
         }
     }
 
+    uc_stack.ss_size    = __vmr_size(ustack);
+    uc_stack.ss_flags   = __vmr_vflags(ustack);
+    uc_stack.ss_sp      = (void *)__vmr_start(ustack);
+
     thread->t_mmap = proc_mmap(curproc);
     proc_mmap_unlock(curproc);
     proc_unlock(curproc);
@@ -228,7 +231,8 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
     /// TODO: maybe perform a split? But then this will mean
     /// free() and unmap() calls to reverse malloc() and mmap() respectively
     /// for this region may fail. ???
-    thread->t_arch.t_ustack = ustack;
+    thread->t_arch.t_ustack = uc_stack;
+
     thread->t_owner = curproc;
 
     if ((err = arch_uthread_init(&thread->t_arch, entry, arg)))
@@ -245,46 +249,6 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
     return 0;
 error:
     if (thread) thread_free(thread);
-    return err;
-}
-
-int thread_alloc_stack(thread_t *thread, thread_attr_t *attr, mmap_t *mmap) {
-    int             err = 0;
-    vmr_t           *ustack = NULL;
-    thread_attr_t   t_attr = {0};
-
-    if (thread == NULL || mmap == NULL)
-        return -EINVAL;
-
-    t_attr = attr ? *attr : (thread_attr_t){
-        .detachstate    = 0,
-        .guardsz        = 0,
-        .stackaddr      = 0,
-        .stacksz        = USTACKSZ,
-    };
-
-    mmap_assert_locked(mmap);
-
-    if (t_attr.stackaddr == 0) {
-        if ((err = mmap_alloc_stack(mmap, t_attr.stacksz, &ustack)))
-            goto error;
-    } else {
-        err = -EINVAL;
-        if (NULL == (ustack = mmap_find(mmap, t_attr.stackaddr)))
-            goto error;
-
-        if (__isstack(ustack) == 0)
-            goto error;
-    }
-
-    /// TODO: Optmize size of ustack according to attr;
-    /// TODO: maybe perform a split? But then this will mean
-    /// free() and unmap() calls to reverse malloc() and mmap() respectively
-    /// for this region may fail. ???
-    thread->t_arch.t_ustack = ustack;
-
-    return 0;
-error:
     return err;
 }
 
@@ -317,10 +281,10 @@ void thread_free(thread_t *thread) {
     }
     queue_unlock(&thread->t_queues);
 
-    assert(thread->t_arch.t_kstack, "??? No kernel stack ???");
+    assert(thread->t_arch.t_kstack.ss_sp, "??? No kernel stack ???");
 
     thread_unlock(thread);
-    thread_kstack_free(thread->t_arch.t_kstack);
+    thread_kstack_free((uintptr_t)thread->t_arch.t_kstack.ss_sp);
 }
 
 int thread_detach(thread_t *thread) {
@@ -694,8 +658,9 @@ int thread_execve(proc_t *proc, thread_t *thread, thread_entry_t entry, const ch
     int     argc    = 0;
     char    **arg   = NULL;
     char    **env   = NULL;
-    vmr_t   *stack  = NULL;
-    vmr_t   *tmp_stack = NULL;
+    vmr_t   *ustack  = NULL;
+    uc_stack_t tmp_stack = {0};
+    uc_stack_t uc_stack = {0};
 
     if (proc == NULL || thread == NULL || entry == NULL)
         return -EINVAL;
@@ -707,10 +672,14 @@ int thread_execve(proc_t *proc, thread_t *thread, thread_entry_t entry, const ch
 
     tmp_stack = thread->t_arch.t_ustack;
 
-    if ((err = mmap_alloc_stack(proc->mmap, USTACKSZ, &stack)))
+    if ((err = mmap_alloc_stack(proc->mmap, USTACKSZ, &ustack)))
         goto error;
 
-    thread->t_arch.t_ustack = stack;
+    uc_stack.ss_size    = __vmr_size(ustack);
+    uc_stack.ss_flags   = __vmr_vflags(ustack);
+    uc_stack.ss_sp      = (void *)__vmr_start(ustack);
+
+    thread->t_arch.t_ustack = uc_stack;
 
     if ((err = arch_thread_execve(&thread->t_arch, entry, argc,
         (const char **)arg, (const char **)env)))
@@ -722,23 +691,19 @@ error:
 
     //TODO: add here a call to reverse mmap_argenvcpy()
 
-    mmap_remove(proc->mmap, stack);
+    mmap_remove(proc->mmap, ustack);
     return err;
 }
 
 int builtin_threads_begin(size_t *nthreads) {
-    int err = 0;
-    builtin_thread_t *thrd = __builtin_thrds;
-    size_t nr = __builtin_thrds_end - __builtin_thrds;
+    int                 err     = 0;
+    builtin_thread_t    *thrd   = __builtin_thrds;
+    size_t              nr      = __builtin_thrds_end - __builtin_thrds;
 
     for (size_t i = 0; i < nr; ++i, thrd++) {
-        if ((err = 
-            kthread_create(
-            NULL,
+        if ((err = kthread_create(NULL,
             (thread_entry_t)thrd->thread_entry,
-            thrd->thread_arg,
-            THREAD_CREATE_SCHED,
-            NULL)))
+            thrd->thread_arg, THREAD_CREATE_SCHED, NULL)))
             return err;
     }
 
@@ -753,8 +718,10 @@ int thread_schedule(thread_t *thread) {
 }
 
 int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap) {
-    uintptr_t   sp      = 0;
-    vmr_t       *stack  = NULL;
+    uintptr_t   sp          = 0;
+    uc_stack_t  uc_stack    = {0};
+    vmr_t       *ustack     = NULL;
+    mcontext_t  *mctx       = NULL;
 
     if (dst == NULL || src == NULL)
         return -EINVAL;
@@ -762,7 +729,8 @@ int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap) {
     thread_assert_locked(dst);
     thread_assert_locked(src);
 
-    sp = src->t_arch.t_tf->rsp;
+    mctx = &src->t_arch.t_ucontext->uc_mcontext;
+    sp = mctx->rsp;
 
     dst->t_sched = (thread_sched_t) {
         .ts_priority        = src->t_sched.ts_priority,
@@ -771,10 +739,13 @@ int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap) {
         .ts_affinity_type   = src->t_sched.ts_affinity_type,
     };
 
-    if ((stack = mmap_find(mmap, sp)) == NULL) {
+    if ((ustack = mmap_find(mmap, sp)) == NULL) {
         return -EADDRNOTAVAIL;
     }
 
-    dst->t_arch.t_ustack = stack;
+    uc_stack.ss_size    = __vmr_size(ustack);
+    uc_stack.ss_flags   = __vmr_vflags(ustack);
+    uc_stack.ss_sp      = (void *)__vmr_start(ustack);
+    dst->t_arch.t_ustack = uc_stack;
     return arch_thread_fork(&dst->t_arch, &src->t_arch);
 }

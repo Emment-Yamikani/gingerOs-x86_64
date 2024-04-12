@@ -114,6 +114,7 @@ extern trap
     mov     rax, ds
     push    rax
     push    fs
+
 %endmacro
 
 %macro restore_context 0
@@ -141,11 +142,22 @@ extern trap
 stub:
     swapgs
     save_context
+    sub     rsp, 48 ; for uc_link, us_sigmask and us_stack.
 
     mov     rdi, rsp
     call    trap
+
+    add     rsp, 48 ; for uc_link, us_sigmask and us_stack.
+    restore_context
+    swapgs
+    add     rsp, 16
+    iretq
+;
+
 trapret:
     restore_context
     swapgs
     add     rsp, 16
+
+    hlt
     iretq

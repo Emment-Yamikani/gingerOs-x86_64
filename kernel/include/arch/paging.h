@@ -1,6 +1,6 @@
 #pragma once
 
-#include <arch/x86_64/context.h>
+#include <arch/ucontext.h>
 #include <arch/x86_64/paging.h>
 #include <lib/stddef.h>
 #include <lib/stdint.h>
@@ -14,7 +14,7 @@ void arch_dumptable(pte_t *table);
  * @param tf the trapframe to be dumped to screen.
  * @param halt loops forever if non-zero and returns otherwise.
  */
-extern void dump_tf(tf_t *tf, int halt);
+extern void dump_tf(mcontext_t *tf, int halt);
 
 /**
  * @brief default pagefault handler for gingerOs.
@@ -83,7 +83,7 @@ extern int arch_mount(uintptr_t paddr, void **pvp);
  * 
  * @param trapframe 
  */
-extern void arch_do_page_fault(tf_t *trapframe);
+extern void arch_do_page_fault(mcontext_t *trapframe);
 
 /**
  * @brief 

@@ -5,8 +5,8 @@
 #include <sys/_signal.h>
 #include <sys/system.h>
 
+/*machine context*/
 typedef struct __mcontext_t {
-    u64 rsvd[NREGCTX];
     // general purpose registers.
 #if defined (__x86_64__)
     u64 fs;
@@ -40,7 +40,7 @@ typedef struct __mcontext_t {
     u64 rsp;
     u64 ss;
 #endif // #if defined (__x86_64__)
-} __packed mcontext_t;
+} mcontext_t/*Machine context*/;
 
 
 typedef struct __ucontext_t {
@@ -49,6 +49,7 @@ typedef struct __ucontext_t {
     sigset_t    uc_sigmask; /* signals blocked when this context */
                             /* is active */
     uc_stack_t  uc_stack;   /* stack used by this context */
+    i64         uc_flags;   /* flags*/
     mcontext_t  uc_mcontext;/* machine-specific representation of */
                             /* saved context */
 } ucontext_t;

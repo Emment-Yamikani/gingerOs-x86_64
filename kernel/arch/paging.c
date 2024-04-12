@@ -155,16 +155,14 @@ void arch_tlbshootdown(uintptr_t pdbr, uintptr_t vaddr) {
 #endif
 }
 
-void arch_do_page_fault(tf_t *trapframe) {
+void arch_do_page_fault(mcontext_t *trapframe) {
     int         err             = 0;
     vm_fault_t  fault           = {0};
     mmap_t      *mmap           = NULL;
     vmr_t       *vmr            = NULL;
 
-    pushcli(); // temporarily get rid of interrupts.
-
     fault.addr         = rdcr2();
-    fault.err_code     = trapframe->err_code;
+    fault.err_code     = trapframe->errno;
 #if defined (__x86_64__) // get x86_64 specific
     fault.user         = x86_64_tf_isuser(trapframe);
 #endif
@@ -235,7 +233,6 @@ void arch_do_page_fault(tf_t *trapframe) {
 
     mmap_unlock(mmap);
 done:
-    popcli(); // get interrupts back online.
     return;
 
 kernel_fault:
@@ -330,10 +327,11 @@ int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
 #endif
             } else {
                 // TODO: send SIGSEGV(return -EFAULT)
-                panic("page fault: %s:%ld: %s() @[\e[025453;04m0x%p\e[0m],"
-                      " err_code: %x, from '%s' space\n",
-                      __FILE__, __LINE__, __func__, fault->addr,
-                      fault->err_code, fault->user ? "user" : "kernel");
+                panic(
+                    "page fault: %s:%ld: %s() @[\e[025453;04m0x%p\e[0m],"
+                    " err_code: %x, from '%s' space\n",
+                    __FILE__, __LINE__, __func__, fault->addr,
+                    fault->err_code, fault->user ? "user" : "kernel");
             }
             return 0;
         }
