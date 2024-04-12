@@ -2,8 +2,6 @@ global swtch
 swtch:
     push    rbp
     push    rbx
-    push    r9
-    push    r10
     push    r11
     push    r12
     push    r13
@@ -18,8 +16,6 @@ swtch:
     pop     r13
     pop     r12
     pop     r11
-    pop     r10
-    pop     r9
     pop     rbx
     pop     rbp
 

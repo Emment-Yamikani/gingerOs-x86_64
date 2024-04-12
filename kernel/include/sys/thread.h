@@ -1,23 +1,22 @@
 #pragma once
 
+#include <arch/cpu.h>
 #include <arch/paging.h>
 #include <arch/thread.h>
+#include <bits/errno.h>
+#include <ds/queue.h>
+#include <fs/file.h>
+#include <ginger/jiffies.h>
 #include <lib/stddef.h>
 #include <lib/stdint.h>
 #include <lib/types.h>
-#include <sync/spinlock.h>
-#include <sys/system.h>
-#include <arch/cpu.h>
-#include <ds/queue.h>
-#include <bits/errno.h>
-#include <sync/cond.h>
-#include <sys/_time.h>
-#include <ginger/jiffies.h>
-#include <sys/_signal.h>
-#include <fs/file.h>
-#include <sys/tgroup.h>
 #include <mm/mmap.h>
-#include <fs/file.h>
+#include <sync/cond.h>
+#include <sync/spinlock.h>
+#include <sys/_signal.h>
+#include <sys/system.h>
+#include <sys/tgroup.h>
+#include <sys/_time.h>
 
 typedef enum tstate_t {
     T_EMBRYO,       // Embryo.
@@ -37,9 +36,9 @@ typedef struct proc proc_t;
 
 typedef struct thread_attr_t {
     int         detachstate;
-    size_t      guardsz;
+    usize       guardsz;
     uintptr_t   stackaddr;
-    size_t      stacksz;
+    usize       stacksz;
 } thread_attr_t;
 
 typedef struct thread_sched_t {
@@ -50,7 +49,7 @@ typedef struct thread_sched_t {
     time_t      ts_last_sched;          // Last time this thread was scheduled to run.
 
     cpu_t       *ts_processor;          // Current Processor for which this thread has affinity.
-    uint8_t     ts_affinity_type;       // Type of affinity (SOFT or HARD).
+    u8          ts_affinity_type;       // Type of affinity (SOFT or HARD).
     flags32_t   ts_cpu_affinity_set;    // cpu set for which thread can have affinity for.
     atomic_t    ts_priority;            // Thread scheduling Priority.
 } thread_sched_t;
@@ -84,7 +83,7 @@ typedef struct __thread_t {
     tid_t           t_ktid;             // killer thread ID for thread that killed this thread.
     thread_entry_t  t_entry;            // thread entry point.
 
-    long            t_refcnt;           // thread's reference count.
+    isize           t_refcnt;           // thread's reference count.
 
     proc_t          *t_owner;           // thread's owner process.
 
@@ -119,7 +118,7 @@ typedef struct __thread_t {
     // Misc. debug information.
     
     tid_t           t_statetid;
-    long            t_stateline;
+    isize           t_stateline;
     char            *t_statefile;
 } __aligned(16) thread_t;
 
@@ -352,7 +351,7 @@ builtin_thread_t __used_section(.__builtin_thrds) \
 #define STACKSZMAX      (KiB(512))
 #define BADSTACKSZ(sz)  ((sz) < STACKSZMIN || (sz) > STACKSZMAX)
 
-int builtin_threads_begin(size_t *nthreads);
+int builtin_threads_begin(usize  *nthreads);
 
 #define thread_debugloc() ({                                                                 \
     printk(                                                                                  \
@@ -456,7 +455,7 @@ thread_t *thread_dequeue(queue_t *queue);
  * @param ret 
  * @return 
  */
-int thread_kstack_alloc(size_t size, uintptr_t *ret);
+int thread_kstack_alloc(usize  size, uintptr_t *ret);
 
 /**
  * \brief Deallocate the kernel thread stack.

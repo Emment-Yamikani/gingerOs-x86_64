@@ -89,7 +89,7 @@ debug:
 	objdump -d $(ISO_DIR)/boot/lime.elf -M intel > lime.asm
 
 run:
-	qemu-system-x86_64 -smp 1 \
+	qemu-system-x86_64 -smp  \
 	-m size=512M -cdrom ginger.iso \
 	-no-reboot -no-shutdown -vga std \
 	-chardev stdio,id=char0,logfile=serial.log,signal=off \
@@ -98,7 +98,6 @@ run:
 ######################################
 #			 USER RULES			     #
 ###################################### 
-
 
 # Shared library rules
 $(USR_LIB)/%.o: $(USR_LIB)/%.c

@@ -6,8 +6,12 @@
 #include <sys/system.h>
 
 typedef struct __mcontext_t {
+    u64 rsvd[NREGCTX];
     // general purpose registers.
 #if defined (__x86_64__)
+    u64 fs;
+    u64 ds;
+
     u64 r15;
     u64 r14;
     u64 r13;
@@ -16,6 +20,7 @@ typedef struct __mcontext_t {
     u64 r10;
     u64 r9;
     u64 r8;
+
     u64 rbp;
     u64 rsi;
     u64 rdi;
@@ -24,7 +29,8 @@ typedef struct __mcontext_t {
     u64 rbx;
     u64 rax;
 
-    u64 ds, gs, fs;
+    // TODO: include cr2 and other necessary registers.
+
     u64 trapno;
     u64 errno;
 
@@ -34,7 +40,7 @@ typedef struct __mcontext_t {
     u64 rsp;
     u64 ss;
 #endif // #if defined (__x86_64__)
-} mcontext_t;
+} __packed mcontext_t;
 
 
 typedef struct __ucontext_t {

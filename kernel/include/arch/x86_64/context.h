@@ -42,12 +42,13 @@ typedef struct {
     u64 r13;
     u64 r12;
     u64 r11;
-    u64 r10;
-    u64 r9;
     u64 rbx;
     u64 rbp;
     u64 rip;
 } context_t;
+
+// No. of registers in caller-callee context.
+#define NREGCTX ((sizeof (context_t)) / sizeof (uintptr_t))
 
 extern void trapret(void);
 extern void signal_exec(void);

@@ -172,7 +172,7 @@ static void sched_self_destruct(void) {
 
 __noreturn void schedule(void) {
     int             err     = 0;
-    uintptr_t       pgdir   = 0;
+    uintptr_t       pdbr   = 0;
     jiffies_t       before  = 0;
     mmap_t          *mmap   = NULL;
     arch_thread_t   *arch   = NULL;
@@ -247,7 +247,7 @@ __noreturn void schedule(void) {
 
         if (mmap) {
             mmap_lock(mmap);
-            mmap_focus(mmap, &pgdir);
+            mmap_focus(mmap, &pdbr);
             mmap_unlock(mmap);
             // Make sure a thread running in a seperate address space
             // to that of the kernel must have it's kernel stack pointer

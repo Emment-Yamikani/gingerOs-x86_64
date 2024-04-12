@@ -144,8 +144,6 @@ stub:
 
     mov     rdi, rsp
     call    trap
-
-
 trapret:
     restore_context
     swapgs

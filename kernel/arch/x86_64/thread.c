@@ -250,14 +250,14 @@ int x86_64_thread_setkstack(arch_thread_t *thread) {
     u64 kstack = 0;
     if (thread == NULL)
         return -EINVAL;
-    
+
     if (thread->t_kstack == 0 || thread->t_kstacksz == 0)
         return -EFAULT;
-    
+
     kstack = ALIGN4K((thread->t_kstack + thread->t_kstacksz) - sizeof(thread_t));
 
     tss_set(kstack, SEG_KDATA64 << 3);
-    
+
     return 0;
 }
 

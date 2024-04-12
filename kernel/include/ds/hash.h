@@ -50,12 +50,12 @@ typedef struct hash_node_t {
 
 #define HASH_NEW(ctx)   (HASH_INIT(ctx))
 
-int hash_free(hash_table_t *ht);
-void hash_destroy(hash_table_t *ht);
-void hash_init(hash_table_t *ht, hash_ctx_t *ctx);
-int hash_traverse(hash_table_t *ht, queue_t *queue);
-int hash_alloc(hash_ctx_t *ctx, hash_table_t **phtp);
-int hash_insert(hash_table_t *ht, void *key, void *data);
-int hash_delete(hash_table_t *ht, void *key, int isstring);
-int hash_traverse_btree_node(btree_node_t *tree, queue_t *queue);
-int hash_search(hash_table_t *ht, void *key, int isstring, void **pdp);
+extern int  hash_free(hash_table_t *ht);
+extern void hash_destroy(hash_table_t *ht);
+extern void hash_init(hash_table_t *ht, hash_ctx_t *ctx);
+extern int  hash_traverse(hash_table_t *ht, queue_t *queue);
+extern int  hash_alloc(hash_ctx_t *ctx, hash_table_t **phtp);
+extern int  hash_insert(hash_table_t *ht, void *key, void *data);
+extern int  hash_delete(hash_table_t *ht, void *key, int isstring);
+extern int  hash_traverse_btree_node(btree_node_t *tree, queue_t *queue);
+extern int  hash_search(hash_table_t *ht, void *key, int isstring, void **pdp);
