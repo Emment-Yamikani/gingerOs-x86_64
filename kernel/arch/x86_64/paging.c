@@ -8,13 +8,6 @@
 #include <mm/vmm.h>
 #include <sys/thread.h>
 
-spinlock_t kmap_lk = SPINLOCK_INIT();
-pagemap_t kernel_map = {
-    .flags = 0,
-    .lock = SPINLOCK_INIT(),
-    .pdbr = (void *)VMA2LO(_PML4_),
-};
-
 #define x86_64_CLR(t) ({           \
     for (int i = 0; i < NPTE; ++i) \
         ((pte_t *)(t))[i].raw = 0; \
@@ -309,15 +302,15 @@ done:
     }
 }
 
-void x86_64_unmap_n(uintptr_t vaddr, size_t sz) {
-    for (size_t nr = NPAGE(sz); nr; --nr, vaddr += PGSZ)
+void x86_64_unmap_n(uintptr_t vaddr, usize sz) {
+    for (usize nr = NPAGE(sz); nr; --nr, vaddr += PGSZ)
         x86_64_unmap(PML4I(vaddr), PDPTI(vaddr), PDI(vaddr), PTI(vaddr));
 }
 
-int x86_64_map_i(uintptr_t vaddr, uintptr_t paddr, size_t sz, int flags) {
+int x86_64_map_i(uintptr_t vaddr, uintptr_t paddr, usize sz, int flags) {
     int err = 0;
     uintptr_t vr = vaddr;
-    size_t nr = NPAGE(sz);
+    usize nr = NPAGE(sz);
 
     for (; nr; --nr, paddr += PGSZ, vaddr += PGSZ) {
         if ((err = x86_64_map(paddr, PML4I(vaddr),
@@ -332,11 +325,11 @@ error:
     return err;
 }
 
-int x86_64_mprotect(uintptr_t vaddr, size_t sz, int flags) {
+int x86_64_mprotect(uintptr_t vaddr, usize sz, int flags) {
     int     err     = 0;
     int     mask    = 0;
     pte_t   *pte    = NULL;
-    size_t  nr      = NPAGE(sz);
+    usize  nr      = NPAGE(sz);
     vaddr   = PGROUND(vaddr);
     flags   = extract_vmflags(flags);
 
@@ -364,11 +357,11 @@ int x86_64_mprotect(uintptr_t vaddr, size_t sz, int flags) {
     return 0;
 }
 
-int x86_64_map_n(uintptr_t vaddr, size_t sz, int flags) {
+int x86_64_map_n(uintptr_t vaddr, usize sz, int flags) {
     int         err = 0;
     uintptr_t   paddr   = 0;
     uintptr_t   vr  = vaddr;
-    size_t      nr  = NPAGE(sz);
+    usize      nr  = NPAGE(sz);
     gfp_mask_t  gfp_mask = GFP_NORMAL | (_iszero(flags) ? GFP_ZERO : 0);
 
     for (; nr; --nr, vaddr += PGSZ) {
@@ -414,7 +407,7 @@ void x86_64_unmount(uintptr_t vaddr) {
 }
 
 void x86_64_unmap_full(void) {
-    size_t i4 = 0, i3 = 0, i2 = 0, i1 = 0;
+    usize i4 = 0, i3 = 0, i2 = 0, i1 = 0;
     for (i4 = 0; i4 < PML4I(USTACK); ++i4) {
         if (!pte_ispresent(PML4E(i4)))
             continue;
@@ -458,7 +451,7 @@ static int x86_64_kvmcpy(uintptr_t dstp) {
         return err;
 
     /// TODO: lock higer vmmap and kernel pDBr.
-    for (size_t i = PML4I(USTACK); i < NPTE; ++i)
+    for (usize i = PML4I(USTACK); i < NPTE; ++i)
         dstv[i] = PML4[i];
     
     dstv[510].raw = dstp | PTE_KRW | PTE_PCDWT;
@@ -471,7 +464,7 @@ static int x86_64_kvmcpy(uintptr_t dstp) {
 int x86_64_lazycpy(uintptr_t dst, uintptr_t src) {
     int         err     = 0;
     uintptr_t   oldpdbr = 0;
-    size_t      i4      = 0, i3 = 0, i2 = 0, i1 = 0;
+    usize      i4      = 0, i3 = 0, i2 = 0, i1 = 0;
     pte_t       *pml4   = NULL, *pdpt = NULL, *pdt = NULL, *pt = NULL;
 
     if (dst == 0 || src == 0)
@@ -590,9 +583,9 @@ error:
     return err;
 }
 
-int x86_64_memcpypp(uintptr_t pdst, uintptr_t psrc, size_t size) {
+int x86_64_memcpypp(uintptr_t pdst, uintptr_t psrc, usize size) {
     int         err     = 0;
-    size_t      len     = 0;
+    usize      len     = 0;
     uintptr_t   vdst    = 0, vsrc = 0;
 
     for (; size; size -= len, psrc += len, pdst += len) {
@@ -615,9 +608,9 @@ int x86_64_memcpypp(uintptr_t pdst, uintptr_t psrc, size_t size) {
     return 0;
 }
 
-int x86_64_memcpyvp(uintptr_t paddr, uintptr_t vaddr, size_t size) {
+int x86_64_memcpyvp(uintptr_t paddr, uintptr_t vaddr, usize size) {
     int         err     = 0;
-    size_t      len     = 0;
+    usize      len     = 0;
     uintptr_t   vdst    = 0;
     
     for (; size; size -= len, paddr += len, vaddr += len) {
@@ -632,9 +625,9 @@ int x86_64_memcpyvp(uintptr_t paddr, uintptr_t vaddr, size_t size) {
     return 0;
 }
 
-int x86_64_memcpypv(uintptr_t vaddr, uintptr_t paddr, size_t size) {
+int x86_64_memcpypv(uintptr_t vaddr, uintptr_t paddr, usize size) {
     int         err     = 0;
-    size_t      len     = 0;
+    usize      len     = 0;
     uintptr_t   vsrc    = 0;
     
     for (; size; size -= len, paddr += len, vaddr += len) {

@@ -12,6 +12,13 @@ typedef     short               i16;
 typedef     int                 i32;
 typedef     long                i64;
 
+typedef     unsigned long       off_t;
+typedef     long                isize;
+typedef     unsigned long       usize;
+
+typedef     float               f32;
+typedef     double              f64;
+
 typedef     unsigned char       flags8_t;    // 8-bit flags.
 typedef     unsigned short      flags16_t;   // 16-bit flags.
 typedef     unsigned int        flags32_t;   // 32-bit flags.
@@ -20,11 +27,12 @@ typedef     unsigned long       flags64_t;   // 64-bit flags.
 typedef     int                 pid_t;
 typedef     int                 tid_t;
 
-typedef     unsigned long       off_t;
 typedef     int                 uid_t;
 typedef     int                 gid_t;
 typedef     int                 ino_t;
 typedef     int                 mode_t;
+
+
 typedef     long                time_t;
 typedef     long                timer_t;
 typedef     long                clock_t;

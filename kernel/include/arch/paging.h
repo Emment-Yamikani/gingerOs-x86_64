@@ -1,9 +1,9 @@
 #pragma once
 
-#include <lib/stdint.h>
-#include <lib/stddef.h>
-#include <arch/x86_64/paging.h>
 #include <arch/x86_64/context.h>
+#include <arch/x86_64/paging.h>
+#include <lib/stddef.h>
+#include <lib/stdint.h>
 #include <lib/types.h>
 
 void arch_dumptable(pte_t *table);
@@ -91,13 +91,13 @@ extern void arch_do_page_fault(tf_t *trapframe);
  * @param vaddr 
  * @param sz 
  */
-extern void arch_unmap_n(uintptr_t vaddr, size_t sz);
+extern void arch_unmap_n(uintptr_t vaddr, usize sz);
 
 /**
  * @brief
  *
  */
-int arch_mprotect(uintptr_t vaddr, size_t sz, int flags);
+int arch_mprotect(uintptr_t vaddr, usize sz, int flags);
 
 /**
  * @brief 
@@ -105,7 +105,7 @@ int arch_mprotect(uintptr_t vaddr, size_t sz, int flags);
  * @param vaddr 
  * @param sz 
  */
-extern void arch_pagefree(uintptr_t vaddr, size_t sz);
+extern void arch_pagefree(uintptr_t vaddr, usize sz);
 
 /**
  * 
@@ -119,16 +119,11 @@ extern int arch_lazycpy(uintptr_t dst, uintptr_t src);
  * @param addr 
  * @return int 
  */
-extern int arch_pagealloc(size_t sz, uintptr_t *addr);
+extern int arch_pagealloc(usize sz, uintptr_t *addr);
 
 /**
- * @brief 
  * 
- * @param i4 
- * @param i3 
- * @param i2 
- * @param i1 
- */
+*/
 extern void arch_unmap(int i4, int i3, int i2, int i1);
 
 /**
@@ -156,7 +151,7 @@ extern int arch_getmapping(uintptr_t addr, pte_t **pte);
  * @param flags 
  * @return int 
  */
-extern int arch_map_n(uintptr_t vaddr, size_t sz, int flags);
+extern int arch_map_n(uintptr_t vaddr, usize sz, int flags);
 
 /**
  * @brief 
@@ -166,7 +161,7 @@ extern int arch_map_n(uintptr_t vaddr, size_t sz, int flags);
  * @param size 
  * @return int 
  */
-extern int arch_memcpyvp(uintptr_t paddr, uintptr_t vaddr, size_t size);
+extern int arch_memcpyvp(uintptr_t paddr, uintptr_t vaddr, usize size);
 
 /**
  * @brief 
@@ -176,7 +171,7 @@ extern int arch_memcpyvp(uintptr_t paddr, uintptr_t vaddr, size_t size);
  * @param size 
  * @return int 
  */
-extern int arch_memcpypv(uintptr_t vaddr, uintptr_t paddr, size_t size);
+extern int arch_memcpypv(uintptr_t vaddr, uintptr_t paddr, usize size);
 
 /**
  * @brief 
@@ -187,7 +182,7 @@ extern int arch_memcpypv(uintptr_t vaddr, uintptr_t paddr, size_t size);
  * @param flags 
  * @return int 
  */
-extern int arch_map_i(uintptr_t vaddr, uintptr_t paddr, size_t sz, int flags);
+extern int arch_map_i(uintptr_t vaddr, uintptr_t paddr, usize sz, int flags);
 
 /**
  * @brief 
@@ -197,7 +192,7 @@ extern int arch_map_i(uintptr_t vaddr, uintptr_t paddr, size_t sz, int flags);
  * @param size 
  * @return int 
  */
-extern int arch_memcpypp(uintptr_t pdst, uintptr_t psrc, size_t size);
+extern int arch_memcpypp(uintptr_t pdst, uintptr_t psrc, usize size);
 
 /**
  * @brief 

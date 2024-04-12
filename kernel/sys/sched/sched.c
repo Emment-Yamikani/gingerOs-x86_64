@@ -167,10 +167,6 @@ static void sched_self_destruct(void) {
         getcpuid(), thread_self(), err);
     }
 
-    if (current->t_arch.t_sig_kstack) {
-        thread_kstack_free(current->t_arch.t_sig_kstack);
-    }
-
     current_unlock();
 }
 
@@ -253,12 +249,13 @@ __noreturn void schedule(void) {
             mmap_lock(mmap);
             mmap_focus(mmap, &pgdir);
             mmap_unlock(mmap);
-
             // Make sure a thread running in a seperate address space
             // to that of the kernel must have it's kernel stack pointer
             // set up in the tss.
             // TODO: use tss.ist in later version of this code.
-            arch_thread_setkstack(&current->t_arch);
+            err = arch_thread_setkstack(&current->t_arch);
+            assert_msg(err == 0, "Kernel stack was not set"
+            " for user thread, errno = %d\n", err);
         }
 
         // Context switch to the new thread.

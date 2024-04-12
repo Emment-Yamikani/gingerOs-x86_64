@@ -23,8 +23,16 @@ typedef struct __mcontext_t {
     u64 rcx;
     u64 rbx;
     u64 rax;
-    u64 rsp;
+
+    u64 ds, gs, fs;
+    u64 trapno;
+    u64 errno;
+
     u64 rip;
+    u64 cs;
+    u64 rflags;
+    u64 rsp;
+    u64 ss;
 #endif // #if defined (__x86_64__)
 } mcontext_t;
 

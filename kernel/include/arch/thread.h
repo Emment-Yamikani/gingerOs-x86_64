@@ -23,6 +23,15 @@ typedef struct arch_thread_t {
     vmr_t       *t_altsigstack; // thread alternate signal stack.
 } arch_thread_t;
 
+typedef struct __arch_thread_t {
+    thread_t    *t_thread;      // pointer to thread control block.
+    ucontext_t  *t_context;     // execution context status
+    flags64_t   t_flags;        // flags.
+    uc_stack_t  t_kstack;       // kernel stack description.
+    uc_stack_t  t_ustack;       // user stack description.
+    uc_stack_t  t_sigaltstack;  // if SA_ONSTACK is set for a signal handler, use this stack.
+} xarch_thread_t;
+
 int arch_uthread_init(arch_thread_t *arch_thread, thread_entry_t entry, void *arg);
 
 /**

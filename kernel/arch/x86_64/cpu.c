@@ -28,45 +28,45 @@ void setcls(cpu_t *c) {
     wrmsr(IA32_KERNEL_GS_BASE, (uintptr_t)c);
 }
 
-void cr0mask(uint64_t bits) {
-    uint64_t cr0 = rdcr0();
+void cr0mask(u64 bits) {
+    u64 cr0 = rdcr0();
     cr0 &= (~bits) | 1 | (1 << 31); // never disable paging and protected mode
     wrcr0(cr0);
 }
 
-void cr0set(uint64_t bits) {
-    uint64_t cr0 = rdcr0();
+void cr0set(u64 bits) {
+    u64 cr0 = rdcr0();
     cr0 |= bits;
     wrcr0(cr0);
 }
 
-uint64_t cr0test(uint64_t bits) {
-    uint64_t cr0 = rdcr0();
+u64 cr0test(u64 bits) {
+    u64 cr0 = rdcr0();
     return cr0 & bits;
 }
 
-uint64_t cr4test(uint64_t bits) {
-    uint64_t cr4 = rdcr4();
+u64 cr4test(u64 bits) {
+    u64 cr4 = rdcr4();
     return cr4 & bits;
 }
 
-void cr4mask(uint64_t bits) {
-    uint64_t cr4 = rdcr4();
+void cr4mask(u64 bits) {
+    u64 cr4 = rdcr4();
     cr4 &= (~bits) | CR4_PAE;
     wrcr4(cr4);
 }
 
-void cr4set(uint64_t bits) {
-    uint64_t cr4 = rdcr4();
+void cr4set(u64 bits) {
+    u64 cr4 = rdcr4();
     cr4 |= bits;
     wrcr4(cr4);
 }
 
 void cpu_get_features(void) {
-    uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+    u32 eax = 0, ebx = 0, ecx = 0, edx = 0;
 
-    cpuid(0, 0, &eax, (uint32_t *)&cpu->vendor[0],
-        (uint32_t *)&cpu->vendor[8], (uint32_t *)&cpu->vendor[4]);
+    cpuid(0, 0, &eax, (u32 *)&cpu->vendor[0],
+        (u32 *)&cpu->vendor[8], (u32 *)&cpu->vendor[4]);
     
     cpuid(0x80000008, 0, &eax, &ebx, &ecx, &edx);
     cpu->phys_addrsz = eax & 0xFF;
@@ -77,8 +77,8 @@ void cpu_get_features(void) {
     cpu->features |= BTEST(edx, 29) ? CPU_LM : 0;
     cpu->features |= BTEST(edx, 20) ? CPU_XD : 0;
 
-    cpuid(0x1, 0, (uint32_t *)&cpu->version, &ebx, &ecx, &edx);
-    cpu->features |= ((uint64_t)edx << 32) | ecx;
+    cpuid(0x1, 0, (u32 *)&cpu->version, &ebx, &ecx, &edx);
+    cpu->features |= ((u64)edx << 32) | ecx;
 
     cpuid(0x80000002, 0, (void *)&cpu->brand_string[0], (void *)&cpu->brand_string[4],
           (void *)&cpu->brand_string[8], (void *)&cpu->brand_string[12]);
@@ -167,7 +167,7 @@ int cpu_rsel(void) {
 }
 
 int getcpuid(void) {
-    uint32_t a = 0, b = 0, c = 0, d = 0;
+    u32 a = 0, b = 0, c = 0, d = 0;
     cpuid(0x1, 0, &a, &b, &c, &d);
     return ((b >> 24) & 0xFF);
 }
@@ -177,11 +177,11 @@ int enumerate_cpus(void) {
     acpiMADT_t *MADT = NULL;
 
     struct {
-        uint8_t     type;
-        uint8_t     len;
-        uint8_t     acpi_id;
-        uint8_t     apicID;
-        uint32_t    flags;
+        u8     type;
+        u8     len;
+        u8     acpi_id;
+        u8     apicID;
+        u32    flags;
     } *apic = NULL;
 
     memset(cpus, 0, sizeof cpus);
@@ -233,7 +233,7 @@ int bootothers(void) {
         *((uintptr_t *)VMA2HI(&ap_trampoline[4024])) = rdcr3();
         *((uintptr_t *)VMA2HI(&ap_trampoline[4032])) = (uintptr_t)stack;
         *((uintptr_t *)VMA2HI(&ap_trampoline[4040])) = (uintptr_t)ap_init;
-        lapic_startup(cpus[i]->apicID, (uint16_t)((uintptr_t)ap_trampoline));
+        lapic_startup(cpus[i]->apicID, (u16)((uintptr_t)ap_trampoline));
         while (!(atomic_read(&cpus[i]->flags) & CPU_ONLINE));
     }
 

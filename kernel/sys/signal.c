@@ -424,7 +424,7 @@ int signal_handler(tf_t *tf __unused) {
     sigaction_t     act         = {0};
     sig_desc_t      *desc       = NULL;
     siginfo_t       *info       = NULL;
-    sigfunc_t       *handler    = NULL;
+    sigfunc_t       handler     = NULL;
     arch_thread_t   *tarch      = NULL;
 
     // prepare signal masks/
@@ -482,7 +482,7 @@ __handle_signal:
         pthread_sigmask(SIG_BLOCK, &set, &tset);
     }
 
-    handler = (sigfunc_t) (act.sa_flags & SA_SIGINFO ? act.sa_sigaction : act.sa_handler);
+    handler = (act.sa_flags & SA_SIGINFO ? (sigfunc_t)act.sa_sigaction : act.sa_handler);
     if (handler == SIG_DFL) { // perform defualt action?
         switch (sig_defaults[info->si_signo - 1]) {
         case SIG_ABRT:
@@ -491,6 +491,7 @@ __handle_signal:
         case SIG_TERM:
         case SIG_IGNORE:
         case SIG_TERM_CORE:
+        break;
         }
     } else if (handler == SIG_IGN) { // ignore this signal?
         popcli();
@@ -500,11 +501,7 @@ __handle_signal:
     
     tarch = &current->t_arch;
     
-    arch_signal_handler_init(
-        tarch,
-        (thread_entry_t)handler,
-        info
-    );
+    // TODO: init signal handler context.
     
     current_setflags(THREAD_HANDLING_SIG);
 

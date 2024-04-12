@@ -37,7 +37,7 @@
 #define UDATA_SEG       DATA_SEG(DPL_USR)
 
 typedef struct {
-    uint32_t rsvd0;
+    u32 rsvd0;
     uintptr_t rsp0;
     uintptr_t rsp1;
     uintptr_t rsp2;
@@ -50,49 +50,49 @@ typedef struct {
     uintptr_t ist6;
     uintptr_t ist7;
     uintptr_t rsvd2;
-    uint32_t rsvd3 : 16;
-    uint32_t iomap : 16;
+    u32 rsvd3 : 16;
+    u32 iomap : 16;
 } __packed tss_t;
 
 typedef struct {
-    uint16_t limit0;
-    uint16_t base0;
-    uint16_t base1 : 8;
-    uint16_t accel : 4;
-    uint16_t flags0 : 4;
-    uint16_t limit1 : 4;
-    uint16_t flags1 : 4;
-    uint16_t base2 : 8;
+    u16 limit0;
+    u16 base0;
+    u16 base1 : 8;
+    u16 accel : 4;
+    u16 flags0 : 4;
+    u16 limit1 : 4;
+    u16 flags1 : 4;
+    u16 base2 : 8;
 } __packed segdesc_t;
 
 typedef struct {
-    uint16_t limit0;
-    uint16_t base0;
-    uint16_t base1 : 8;
-    uint16_t accel : 4;
-    uint16_t flags0 : 4;
-    uint16_t limit1 : 4;
-    uint16_t flags1 : 4;
-    uint16_t base2 : 8;
-    uint32_t base3;
-    uint32_t rsvd;
+    u16 limit0;
+    u16 base0;
+    u16 base1 : 8;
+    u16 accel : 4;
+    u16 flags0 : 4;
+    u16 limit1 : 4;
+    u16 flags1 : 4;
+    u16 base2 : 8;
+    u32 base3;
+    u32 rsvd;
 } __packed tssdesc_t;
 
 #define TSS(base, limit, access, flags) ((tssdesc_t){ \
-    .limit0 = (uint16_t)(limit),                      \
-    .base0 = (uint16_t)(base),                        \
-    .base1 = (uint8_t)((base) >> 16),                 \
-    .accel = ((access)&0xF),                          \
-    .flags0 = ((flags)&0xF),                          \
+    .limit0 = (u16)(limit),                           \
+    .base0 = (u16)(base),                             \
+    .base1 = (u8)((base) >> 16),                      \
+    .accel = ((access) & 0xF),                        \
+    .flags0 = ((flags) & 0xF),                        \
     .limit1 = ((limit) >> 16) & 0xF,                  \
     .flags1 = ((flags) >> 4) & 0xF,                   \
-    .base2 = (uint8_t)((base) >> 24),                 \
-    .base3 = (uint32_t)((base) >> 32),                \
+    .base2 = (u8)((base) >> 24),                      \
+    .base3 = (u32)((base) >> 32),                     \
     .rsvd = 0,                                        \
 })
 
 typedef struct {
-    uint16_t limit;
+    u16 limit;
     uintptr_t base;
 } __packed descptr_t;
 
@@ -117,14 +117,14 @@ typedef struct {
 })
 
 typedef struct {
-    uint32_t base0 : 16;
-    uint32_t sel : 16;
-    uint32_t _ist : 8;
-    uint32_t type : 4;
-    uint32_t attr : 4;
-    uint32_t base1 : 16;
-    uint32_t base2;
-    uint32_t rsvd;
+    u32 base0 : 16;
+    u32 sel : 16;
+    u32 _ist : 8;
+    u32 type : 4;
+    u32 attr : 4;
+    u32 base1 : 16;
+    u32 base2;
+    u32 rsvd;
 } __packed idt_desc_t;
 
 #define NIDT 256
@@ -133,13 +133,13 @@ typedef struct {
 } __packed idt_t;
 
 #define TRAP_GATE(istrap, base, sel, dpl, ist) ((idt_desc_t){ \
-    .base0 = (uint16_t)(base),                                \
-    .sel = (uint16_t)(sel),                                   \
+    .base0 = (u16)(base),                                \
+    .sel = (u16)(sel),                                   \
     ._ist = ((ist)&7),                                        \
     .type = ((istrap) ? 0xf : 0xe),                           \
     .attr = (BS(3) | SHL((dpl), 1)),                          \
-    .base1 = (uint16_t)(SHR((base), 16)),                     \
-    .base2 = (uint32_t)(SHR((base), 32)),                     \
+    .base1 = (u16)(SHR((base), 16)),                     \
+    .base2 = (u32)(SHR((base), 32)),                     \
     .rsvd = 0,                                                \
 })
 
@@ -151,6 +151,6 @@ extern void loadgs_base(uintptr_t base);
 extern void loadgdt64(descptr_t *, int cs, int gs, int ss);
 
 extern void loadidt(descptr_t *);
-extern void loadtr(uint64_t sel);
+extern void loadtr(u64 sel);
 
-extern void tss_set(uintptr_t kstack, uint16_t desc);
+extern void tss_set(uintptr_t kstack, u16 desc);

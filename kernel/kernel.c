@@ -39,7 +39,7 @@ static int conf_find(const char *buf, const char *str, char **ret) {
         return -ENOMEM;
 
     for (at = strtok(cpybuf, "\n\t"); (at = strtok(NULL, "\n\t")); ) {
-        printk("Val: %s\n", at);
+        printk("value: %s\n", at);
     }
 
     return 0;
