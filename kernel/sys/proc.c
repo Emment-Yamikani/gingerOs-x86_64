@@ -4,7 +4,6 @@
 #include <mm/kalloc.h>
 #include <sys/proc.h>
 #include <sys/elf/elf.h>
-#include <sys/session.h>
 
 static struct binfmt {
     int (*check)(inode_t *binary);

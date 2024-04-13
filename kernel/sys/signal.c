@@ -1,12 +1,12 @@
-#include <sys/_signal.h>
-#include <lib/stddef.h>
-#include <sys/thread.h>
-#include <arch/x86_64/context.h>
+#include <arch/signal.h>
+#include <arch/thread.h>
 #include <arch/traps.h>
+#include <lib/stddef.h>
+#include <lib/string.h>
 #include <mm/kalloc.h>
 #include <sys/sysproc.h>
-#include <lib/string.h>
-#include <arch/thread.h>
+#include <sys/_signal.h>
+#include <sys/thread.h>
 
 const char *signal_str[] = {
     [SIGABRT - 1]   = "SIGABRT",
@@ -406,9 +406,9 @@ error:
     return err;
 }
 
-int signal_handler(void) {
+int dispatch_signal(void) {
     int             err         = 0;
-    int             flags       = 0;
+    flags32_t       flags       = 0;
     sigset_t        set         = 0;
     sigset_t        oset        = 0;
     sigset_t        tset        = 0;
@@ -416,16 +416,15 @@ int signal_handler(void) {
     sig_desc_t      *desc       = NULL;
     siginfo_t       *info       = NULL;
     sigfunc_t       handler     = NULL;
-    __unused arch_thread_t   *tarch      = NULL;
+    arch_thread_t   *tarch      = NULL;
 
     // prepare signal masks/
     sigemptyset(&set);
     sigemptyset(&oset);
     sigemptyset(&tset);
 
-    pushcli(); // don't interrupt.
-
     current_lock();
+    desc = current->t_sigdesc;
     thread_sigdequeue(current, &info);
     current_unlock();
 
@@ -462,7 +461,6 @@ int signal_handler(void) {
     sigdesc_unlock(desc);
 
     if (info == NULL) { // no signal pending...
-        popcli();
         return 0;
     }
 
@@ -485,20 +483,19 @@ __handle_signal:
         break;
         }
     } else if (handler == SIG_IGN) { // ignore this signal?
-        popcli();
         goto __exit_handler;
     } else
         panic("How did we write SIG_ERR in handler?\n");
     
     tarch = &current->t_arch;
-    
-    // TODO: init signal handler context.
-    
-    current_setflags(THREAD_HANDLING_SIG);
+    err = arch_signal_dispatch(
+        tarch,
+        (void *)handler,
+        info,
+        &act, (flags & 1) ? tset : oset
+    );
 
-    // do context switch.
-
-    current_maskflags(THREAD_HANDLING_SIG);
+    assert(err == 0, "Failed to initialize signal handler");
 
     kfree(info); // free siginfo_t *info (struct).
 

@@ -118,3 +118,13 @@ extern void _kernel_start();
 
 extern int copy_to_user(void *udst, void *ksrc, size_t size);
 extern int copy_from_user(void *kdst, void * usrc, size_t size);
+
+void    swapi8(char  *dst, char *src);
+void    swapi64(long *dst, long *src);
+void    swapi32(int  *dst, int  *src);
+void    swapi16(short *dst, short *src);
+
+void    swapu8(unsigned char  *dst, unsigned char *src);
+void    swapu64(unsigned long *dst, unsigned long *src);
+void    swapu32(unsigned int  *dst, unsigned int  *src);
+void    swapu16(unsigned short *dst, unsigned short *src);

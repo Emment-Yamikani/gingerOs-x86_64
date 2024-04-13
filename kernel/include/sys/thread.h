@@ -235,7 +235,16 @@ typedef struct {
 #define thread_tgroup_unlock(t)         ({ tgroup_unlock(thread_tgroup(t)); })
 #define thread_tgroup_locked(t)         ({ tgroup_locked(thread_tgroup(t)); })
 
-#define thread_isuser(t)                ({ thread_testflags((t), THREAD_USER); })
+#define thread_isuser(t) ({                    \
+    int locked = 0, user = 0;                  \
+    if ((locked = !thread_islocked(t)))        \
+        thread_lock(t);                        \
+    user = thread_testflags((t), THREAD_USER); \
+    if (locked)                                \
+        thread_unlock(t);                      \
+    user;                                      \
+})
+
 #define thread_isdetached(t)            ({ thread_testflags((t), THREAD_DETACHED); })
 #define thread_issetwake(t)             ({ thread_testflags((t), THREAD_WAKE); })
 #define thread_issetpark(t)             ({ thread_testflags((t), THREAD_PARK); })

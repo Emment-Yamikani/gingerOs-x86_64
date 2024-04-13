@@ -105,15 +105,15 @@
 #define CR4_SMAP            BS(21)   // SMAP-Enable Bit.
 
 typedef struct cpu {
-    long            ncli;
-    long            intena;
-    uint64_t        version;
+    i64            ncli;
+    i64            intena;
+    u64            version;
 
-    long            apicID;
-    long            freq;
-    uint64_t        flags;
-    uint64_t        features;
-    uint64_t        timer_ticks;
+    i64            apicID;
+    i64            freq;
+    u64            flags;
+    u64            features;
+    u64            timer_ticks;
 
     tss_t           tss;
     gdt_t           gdt;
@@ -125,11 +125,11 @@ typedef struct cpu {
     thread_t        *simd_thread;
     sched_queue_t    queueq;
 
-    uint8_t         phys_addrsz;
-    uint8_t         virt_addrsz;
+    u8              phys_addrsz;
+    u8              virt_addrsz;
 
-    char            vendor[16];
-    char            brand_string[64];
+    i8              vendor[16];
+    i8              brand_string[64];
 } cpu_t;
 
 
@@ -141,7 +141,7 @@ typedef struct cpu {
 
 #define CPU_PANICED         BS(31)  // cpu has paniced.
 
-#define MAXNCPU             16 // maximum supported cpus
+#define MAXNCPU             16      // maximum supported cpus
 extern cpu_t                *cpus[MAXNCPU];
 
 #define cpu                 (getcls())                      // get CPU local structure.
