@@ -8,6 +8,7 @@
 #include <sys/thread.h>
 #include <sys/proc.h>
 #include <arch/ucontext.h>
+#include <arch/x86_64/system.h>
 
 void x86_64_thread_exit(u64 exit_code) {
     current_lock();
@@ -27,6 +28,8 @@ void x86_64_thread_exit(u64 exit_code) {
 static void x86_64_thread_start(void) {
     current_unlock();
 
+    // assert(0, current->t_arch.t_context);
+
     if (curproc) {
         // printk("%s(); pid=%d\n", __func__, curproc->pid);
         proc_lock(curproc);
@@ -40,7 +43,6 @@ static void x86_64_thread_stop(void) {
     u64 rax = rdrax();
     x86_64_thread_exit(rax);
 }
-
 
 /***********************************************************************************
  *                      x86_64 specific thread library functions.                  *
@@ -91,8 +93,47 @@ void x86_64_signal_start(void) {
     current_unlock();
 }
 
-int x86_64_signal_init() {
-    return -ENOSYS;
+int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
+    siginfo_t *info, sigaction_t *sigact, sigset_t sigmask
+) {
+    __unused int         err     = 0;
+    __unused i64         ncli    = 0;
+    __unused i64         intena  = 0;
+    __unused context_t   *ctx    = NULL;
+    __unused mcontext_t  *mctx   = NULL;
+    __unused ucontext_t  *uctx   = NULL;
+    __unused u64         *kstack = NULL;
+    __unused u64         *ustack = NULL;
+
+    (void)thread;
+    (void)entry;
+    (void)info;
+    (void)sigact;
+    (void)sigmask;
+
+    if (thread == NULL || entry == NULL ||
+        info   == NULL || sigact== NULL)
+        return -EINVAL;
+    
+    if (thread->t_thread == NULL)
+        return -EINVAL;
+
+
+    ctx->link           = thread->t_context;
+    thread->t_context   = ctx;
+
+    current_setflags(THREAD_HANDLING_SIG);
+
+    swapi64(&intena, &cpu->intena);
+    swapi64(&ncli, &cpu->ncli);
+
+    context_switch(&thread->t_context);
+
+    swapi64(&cpu->ncli, &ncli);
+    swapi64(&cpu->intena, &intena);
+
+    current_maskflags(THREAD_HANDLING_SIG);
+    return 0;
 }
 
 int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) {

@@ -52,7 +52,8 @@ void sched(void) {
         }
     }
 
-    swtch(&current->t_arch.t_context, cpu->ctx);
+    // swtch(&current->t_arch.t_context, cpu->ctx);
+    context_switch(&current->t_arch.t_context);
 
     current_assert_locked();
     cpu->ncli   = ncli;
@@ -263,9 +264,23 @@ __noreturn void schedule(void) {
         // This will, depending of the stack frame,
         // unlock the current thread struct in sched()
         // if the thread is returning from a call to sched()
-        // or arch_thread_start() is this is the first
+        // or arch_thread_start() if this is the first
         // time the thread is being run.
-        swtch(&cpu->ctx, arch->t_context);
+        //swtch(&cpu->ctx, arch->t_context);
+
+        printk("0: cpu%d, tid: %d, "
+            "ctx: %p, ctx->link: %p\n",
+            getcpuid(), thread_gettid(current), arch->t_context,
+            arch->t_context->link
+        );
+        
+        context_switch(&arch->t_context);
+        
+        printk("1: cpu%d, tid: %d, "
+            "ctx: %p, ctx->link: %p\n",
+            getcpuid(), thread_gettid(current), arch->t_context,
+            arch->t_context->link
+        );
 
         // Do no allow current to return to schedule() without acquiring
         // a lock on itself.

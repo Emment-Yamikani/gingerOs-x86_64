@@ -60,13 +60,15 @@ void dump_tf(mcontext_t *mctx, int halt) {
 
 void trap(ucontext_t *uctx) {
     time_t      time    = 0;
-    mcontext_t  *mctx   = NULL;
-
-    mctx   = &uctx->uc_mcontext;
+    mcontext_t  *mctx   = &uctx->uc_mcontext;
 
     if (current) {
+        uctx->uc_stack  =
+            current_isuser() ?
+            current->t_arch.t_kstack :
+            current->t_arch.t_ustack;
+        
         pushcli();
-        uctx->uc_stack  = current->t_arch.t_kstack;
         uctx->uc_link   = current->t_arch.t_ucontext;
         current->t_arch.t_ucontext = uctx;
         popcli();
@@ -134,7 +136,9 @@ void trap(ucontext_t *uctx) {
         thread_stop(current, sched_stopq);
     current_unlock();
 
-    // signal_handle();
+    pushcli();
+    dispatch_signal();
+    popcli();
 
     current_lock();
     time = current->t_sched.ts_timeslice;
