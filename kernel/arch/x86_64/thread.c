@@ -50,11 +50,11 @@ static void x86_64_thread_stop(void) {
 #if defined __x86_64__
 
 int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) {
-    mcontext_t  *mctx   = NULL;
     context_t   *ctx    = NULL;
+    mcontext_t  *mctx   = NULL;
     u64         *kstack = NULL;
 
-    if (!thread)
+    if (thread == NULL || entry == NULL)
         return -EINVAL;
 
     kstack = (u64 *)ALIGN4K((thread->t_kstack.ss_sp +
@@ -90,26 +90,45 @@ void x86_64_signal_return(void) {
 }
 
 void x86_64_signal_start(void) {
+    context_t       *scheduler_ctx      = NULL;
+    context_t       *sched_ctx_link     = NULL;
+    context_t       *signal_handler_ctx = NULL;
+    arch_thread_t   *arch               = &current->t_arch;
+   
+    /**
+     * Swap contexts otherwise context_switch()
+     * in sched() will exit
+     * the signal handler prematurely.
+     * 
+     * Therefore by doing this we for the
+     * sched() to return to the context prior to
+     * acquisition on this signal(i.e the scheduler_ctx' context)
+     * Thus the thread will execute normally
+     * as though it's not handling any signal.
+    */
+
+    signal_handler_ctx  = arch->t_context;      // signal_handler();
+    scheduler_ctx       = signal_handler_ctx->link; // schedule();
+    sched_ctx_link      = scheduler_ctx->link;
+
+    scheduler_ctx->link = signal_handler_ctx;
+    signal_handler_ctx->link =  sched_ctx_link;
+    arch->t_context     = scheduler_ctx;
+
     current_unlock();
 }
 
 int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
-    siginfo_t *info, sigaction_t *sigact, sigset_t sigmask
+    siginfo_t *info, sigaction_t *sigact
 ) {
     __unused int         err     = 0;
-    __unused i64         ncli    = 0;
-    __unused i64         intena  = 0;
-    __unused context_t   *ctx    = NULL;
-    __unused mcontext_t  *mctx   = NULL;
+    i64         ncli    = 1;
+    i64         intena  = 0;
+    context_t   *ctx    = NULL;
+    mcontext_t  *mctx   = NULL;
     __unused ucontext_t  *uctx   = NULL;
-    __unused u64         *kstack = NULL;
+    u64         *kstack = NULL;
     __unused u64         *ustack = NULL;
-
-    (void)thread;
-    (void)entry;
-    (void)info;
-    (void)sigact;
-    (void)sigmask;
 
     if (thread == NULL || entry == NULL ||
         info   == NULL || sigact== NULL)
@@ -117,9 +136,50 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
     
     if (thread->t_thread == NULL)
         return -EINVAL;
+    
+    kstack = (u64 *)thread->t_rsvdspace;
+    *--kstack = (u64)x86_64_signal_return;
+    mctx = (mcontext_t *)((u64)kstack - sizeof *mctx);
+    memset(mctx, 0, sizeof *mctx);
 
+    mctx->rflags    = LF_IF;
+    mctx->rip       = (u64)entry;
 
-    ctx->link           = thread->t_context;
+    if (!current_isuser()) {
+        mctx->ss    = SEG_KDATA64 << 3;
+        mctx->rbp   = mctx->rsp = (u64)kstack;
+        mctx->cs    = SEG_KCODE64 << 3;
+        mctx->fs    = SEG_KDATA64 << 3;
+        mctx->ds    = SEG_KDATA64 << 3;
+    } else {
+
+    } 
+
+    // first argument of signal handler.
+    mctx->rdi   = (u64)info->si_signo;
+    //  Pass 2nd and 3rd argument of sa_sigaction(); ?
+    if (sigact->sa_flags & SA_SIGINFO) {
+        /**
+         * If this is a kernel thread
+         * we don't need any special manipulations
+         * Just pass the two arguments as they are
+         * since these are kernel pointers.
+         * so that shouldn't be a problem.
+        */
+        if (!current_isuser()) {
+            mctx->rsi   = (u64)info;
+            mctx->rdx   = (u64)thread->t_ucontext;
+        } else { // this is a user thread and need special care.
+
+        }
+    }
+
+    kstack      = (u64 *)mctx;
+    *--kstack   = (u64)trapret;
+    ctx         = (context_t *)((u64)kstack - sizeof *ctx);
+    ctx->rip    = (u64)x86_64_signal_start;
+    ctx->rbp    = mctx->rsp;
+    ctx->link   = thread->t_context; // -> interrupted ctx.
     thread->t_context   = ctx;
 
     current_setflags(THREAD_HANDLING_SIG);
@@ -138,12 +198,12 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
 
 int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) {
     int         err     = 0;
-    mcontext_t  *mctx   = NULL;
     context_t   *ctx    = NULL;
+    mcontext_t  *mctx   = NULL;
     u64         *kstack = NULL;
     u64         *ustack = NULL;
 
-    if (!thread)
+    if (thread == NULL || entry == NULL)
         return -EINVAL;
 
     if ((ustack = (u64 *)(thread->t_ustack.ss_sp +
@@ -199,7 +259,7 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
     context_t *ctx = NULL;
     u64 *kstack = NULL;
 
-    if (!thread)
+    if (thread == NULL || entry == NULL)
         return -EINVAL;
 
     if ((ustack = (u64 *)(thread->t_ustack.ss_sp +
@@ -255,7 +315,6 @@ int x86_64_thread_setkstack(arch_thread_t *thread) {
 
     kstack = ALIGN4K((thread->t_kstack.ss_sp +
         thread->t_kstack.ss_size) - sizeof(thread_t));
-
     tss_set(kstack, SEG_KDATA64 << 3);
     return 0;
 }
@@ -273,17 +332,16 @@ int x86_64_thread_fork(arch_thread_t *dst, arch_thread_t *src) {
 
     *--kstack = (u64)x86_64_thread_stop;
 
-    mctx          = (mcontext_t *)(((u64)kstack) - sizeof *mctx);
-    *mctx         = src->t_ucontext->uc_mcontext;
-    mctx->rax     = 0;
+    mctx        = (mcontext_t *)(((u64)kstack) - sizeof *mctx);
+    *mctx       = src->t_ucontext->uc_mcontext;
+    mctx->rax   = 0;
 
     kstack      = (u64 *)mctx;
     *--kstack   = (u64)trapret;
     ctx         = (context_t *)(((u64)kstack) - sizeof *ctx);
     ctx->rip    = (u64)x86_64_thread_start;
     ctx->rbp    = ALIGN4K((dst->t_kstack.ss_sp +
-        dst->t_kstack.ss_size) - sizeof(thread_t)
-    );
+                    dst->t_kstack.ss_size) - sizeof(thread_t));
 
     dst->t_context = ctx;
     return 0;

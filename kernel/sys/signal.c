@@ -347,6 +347,8 @@ int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict 
     sigdesc = current->t_sigdesc;
     current_unlock();
 
+    sigdesc_lock(sigdesc);
+
     if (oact)
         *oact = sigdesc->sig_action[signo - 1];
 
@@ -355,12 +357,11 @@ int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict 
         return 0;
     }
 
-    if (((signo == SIGSTOP) ||
-        (signo == SIGKILL)) &&
-        (act->sa_handler || act->sa_handler))
+    if (((signo == SIGSTOP) || (signo == SIGKILL)) &&
+        (!act->sa_handler && act->sa_sigaction))
             goto error;
 
-    if (!act->sa_handler && !act->sa_handler)
+    if (!act->sa_handler && !act->sa_sigaction)
         goto error;
 
     switch ((uintptr_t)act->sa_handler) {
@@ -484,16 +485,23 @@ __handle_signal:
         }
     } else if (handler == SIG_IGN) { // ignore this signal?
         goto __exit_handler;
-    } else
-        panic("How did we write SIG_ERR in handler?\n");
+    }
     
+    assert(handler != SIG_ERR, "How did we write SIG_ERR in handler?");
+
+    current_lock();
+
     tarch = &current->t_arch;
+    tarch->t_ucontext->uc_sigmask = (flags & 1) ? tset : oset;
+
     err = arch_signal_dispatch(
         tarch,
         (void *)handler,
         info,
-        &act, (flags & 1) ? tset : oset
+        &act
     );
+
+    current_unlock();
 
     assert(err == 0, "Failed to initialize signal handler");
 

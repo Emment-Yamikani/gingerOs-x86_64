@@ -89,6 +89,8 @@ int thread_alloc(size_t ksz /*kstacksz*/, int __flags, thread_t **ret) {
         .t_kstack.ss_size   = ksz,
         .t_thread           = thread,
         .t_kstack.ss_sp     = (void *)kstack,
+        .t_sstack.ss_sp     = (void *)thread,
+        .t_sstack.ss_size   = (sizeof (mcontext_t) + sizeof (context_t)),
     };
 
     thread->t_refcnt                    = 2;
@@ -579,7 +581,7 @@ int thread_sigqueue(thread_t *thread, siginfo_t *info) {
     case 0:
         queue_lock(&thread->t_sigqueue[info->si_signo - 1]);
         enqueue(&thread->t_sigqueue[info->si_signo - 1], info, 1, NULL);
-        queue_lock(&thread->t_sigqueue[info->si_signo - 1]);
+        queue_unlock(&thread->t_sigqueue[info->si_signo - 1]);
     
         if (err != 0)
             return err;

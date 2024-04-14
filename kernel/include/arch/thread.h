@@ -1,9 +1,9 @@
 #pragma once
 
-#include <arch/x86_64/thread.h>
-#include <lib/stdint.h>
-#include <lib/stddef.h>
 #include <arch/ucontext.h>
+#include <arch/x86_64/thread.h>
+#include <lib/stddef.h>
+#include <lib/stdint.h>
 #include <sys/_signal.h>
 
 /**
@@ -22,12 +22,13 @@
 typedef struct __arch_thread_t {
     thread_t    *t_thread;      // pointer to thread control block.
     context_t   *t_context;     // caller-callee context.
-    ucontext_t  *t_ucontext;    // execution context status
+    ucontext_t  *t_ucontext;    // execution context status.
+    void        *t_rsvdspace;   // reserved space on kstack, incase of interrupt chaining.
     flags64_t   t_flags;        // flags.
     uc_stack_t  t_sstack;       // scratch stack for when executing for the first time.
     uc_stack_t  t_kstack;       // kernel stack description.
     uc_stack_t  t_ustack;       // user stack description.
-    uc_stack_t  t_sigaltstack;  // if SA_ONSTACK is set for a signal handler, use this stack.
+    uc_stack_t  t_altstack;     // if SA_ONSTACK is set for a signal handler, use this stack.
 } arch_thread_t;
 
 /**
@@ -46,14 +47,12 @@ void arch_thread_exit(uintptr_t exit_code);
 int arch_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg);
 int arch_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg);
 int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
-    siginfo_t *info, sigaction_t *sigact, sigset_t sigmask
-);
+    siginfo_t *info, sigaction_t *sigact);
 
 void arch_exec_free_copy(char ***arg_env);
 char ***arch_execve_copy(char *_argp[], char *_envp[]);
 int arch_thread_execve(arch_thread_t *thread, thread_entry_t entry,
-    int argc, const char *argp[], const char *envp[]
-);
+    int argc, const char *argp[], const char *envp[]);
 
 int arch_thread_setkstack(arch_thread_t *arch);
 int arch_thread_fork(arch_thread_t *dst, arch_thread_t *src);

@@ -128,3 +128,5 @@ void    swapu8(unsigned char  *dst, unsigned char *src);
 void    swapu64(unsigned long *dst, unsigned long *src);
 void    swapu32(unsigned int  *dst, unsigned int  *src);
 void    swapu16(unsigned short *dst, unsigned short *src);
+
+void    swapptr(void **p0, void **p1);

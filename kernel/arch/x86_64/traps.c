@@ -58,20 +58,23 @@ void dump_tf(mcontext_t *mctx, int halt) {
     }
 }
 
-void trap(ucontext_t *uctx) {
-    time_t      time    = 0;
-    mcontext_t  *mctx   = &uctx->uc_mcontext;
+void trap(ucontext_t *rctx) {
+    time_t          time    = 0;
+    arch_thread_t   *arch   = NULL;
+    ucontext_t      *uctx   = rctx->uc_link;
+    mcontext_t      *mctx   = &uctx->uc_mcontext;
 
     if (current) {
-        uctx->uc_stack  =
-            current_isuser() ?
-            current->t_arch.t_kstack :
-            current->t_arch.t_ustack;
-        
+        arch                = &current->t_arch;
+        arch->t_rsvdspace   = rctx;
+        uctx->uc_stack      = current_isuser() ?
+            arch->t_kstack : arch->t_ustack;
         pushcli();
-        uctx->uc_link   = current->t_arch.t_ucontext;
-        current->t_arch.t_ucontext = uctx;
+        uctx->uc_link       = arch->t_ucontext;
+        arch->t_ucontext    = uctx;
         popcli();
+        uctx->uc_flags      = 0;
+        sigemptyset(&uctx->uc_sigmask);
     }
 
     switch (mctx->trapno) {
@@ -152,5 +155,5 @@ void trap(ucontext_t *uctx) {
     if (current_iskilled())
         thread_exit(-EINTR);
 
-    current->t_arch.t_ucontext = uctx->uc_link;
+    arch->t_ucontext = uctx->uc_link;
 }

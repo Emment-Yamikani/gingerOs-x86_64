@@ -142,22 +142,33 @@ extern trap
 stub:
     swapgs
     save_context
-    sub     rsp, 48 ; for uc_link, us_sigmask and us_stack.
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ; complete the ucontext_t struct.
+    ; by reserving space for
+    ; for uc_link, us_sigmask and us_stack
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    sub     rsp, 48
+
+    mov     rdi, rsp
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ; Reserve space on kstack in case of
+    ; interrupt chaining. mov qword[rsp], rdi
+    ; causes this rsvd space to point to the
+    ; currently interrupted state.
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    sub     rsp, 512
+    mov     qword[rsp], rdi
 
     mov     rdi, rsp
     call    trap
 
-    add     rsp, 48 ; for uc_link, us_sigmask and us_stack.
-    restore_context
-    swapgs
-    add     rsp, 16
-    iretq
-;
+    add     rsp, 512; restore rsp by removing rsvd space.
 
+    add     rsp, 48 ; for uc_link, us_sigmask and us_stack.
 trapret:
     restore_context
     swapgs
     add     rsp, 16
-
-    hlt
     iretq

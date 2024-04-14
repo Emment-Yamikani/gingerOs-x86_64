@@ -42,6 +42,5 @@ enum {
 };
 
 extern void trapret(void);
-extern void signal_exec(void);
 extern void swtch(context_t **old, context_t *new);
 extern void context_switch(context_t **pcontext);

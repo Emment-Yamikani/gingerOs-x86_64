@@ -1,33 +1,26 @@
 #include <bits/errno.h>
 #include <ds/btree.h>
 #include <ds/queue.h>
+#include <ginger/jiffies.h>
 #include <lib/printk.h>
 #include <sync/cond.h>
-#include <sys/thread.h>
-#include <sys/sched.h>
-#include <sys/_time.h>
 #include <sync/spinlock.h>
-#include <ginger/jiffies.h>
+#include <sys/sched.h>
+#include <sys/thread.h>
+#include <sys/_time.h>
 
-static struct timespec      jiffies_res = {0};
-static SPINLOCK(jiffies_res_lock);
-
-static jiffies_t            jiffies = 0;
-// static SPINLOCK(jiffies_lock);
-static queue_t              *jiffies_sleep_queue = QUEUE_NEW(/*"jiffies-sleep-queue"*/);
+static SPINLOCK(res_lock);
+static jiffies_t        jiffies     = 0;
+static struct timespec  jiffies_res = {0};
+static queue_t          *sleep_queue= QUEUE_NEW();
 
 void jiffies_update(void) {
-    // spin_lock(jiffies_lock);
     atomic_inc(&jiffies);
-    // spin_unlock(jiffies_lock);
-    sched_wakeall(jiffies_sleep_queue);
+    sched_wakeall(sleep_queue);
 }
 
 jiffies_t jiffies_get(void) {
-    // spin_lock(jiffies_lock);
-    jiffies_t jiffy = atomic_read(&jiffies);
-    // spin_unlock(jiffies_lock);
-    return jiffy;
+    return (jiffies_t)atomic_read(&jiffies);
 }
 
 void jiffies_timed_wait(double s) {
@@ -40,7 +33,7 @@ jiffies_t jiffies_sleep(jiffies_t jiffy) {
     jiffy += jiffies_get();
     while (time_before((now = jiffies_get()), jiffy)) {
         current_lock();
-        if ((sched_sleep(jiffies_sleep_queue, T_ISLEEP, NULL))) {
+        if ((sched_sleep(sleep_queue, T_ISLEEP, NULL))) {
             current_unlock();
             break;
         }
@@ -52,18 +45,16 @@ jiffies_t jiffies_sleep(jiffies_t jiffy) {
 int jiffies_getres(struct timespec *res) {
     if (!res)
         return -EINVAL;
-
-    spin_lock(jiffies_res_lock);
+    spin_lock(res_lock);
     *res = jiffies_res;
-    spin_unlock(jiffies_res_lock);
-
+    spin_unlock(res_lock);
     return 0;
 }
 
 int jiffies_gettime(struct timespec *tp __unused) {
-    return 0;
+    return -ENOSYS;
 }
 
 int jiffies_settime(const struct timespec *tp __unused) {
-    return 0;
+    return -ENOSYS;
 }

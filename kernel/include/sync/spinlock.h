@@ -109,7 +109,7 @@ typedef struct __spinlock_t {
         (self && (lk)->s_lock),                                            \
         "%s:%d: current[tid: %d, cpu: %d]"                                 \
         "Spinlock not held"                                                \
-        " state[tid: %d, cpu: %d, %s at %s:%d: ret -> %p]",                \
+        " state[tid: %d, cpu: %d, %s at %s:%d: ret -> %p]\n",                \
         __FILE__, __LINE__, thread_self(), getcpuid(),                     \
         (lk)->s_tid, (lk)->s_apicid, (lk)->s_lock ? "locked" : "unlocked", \
         (lk)->s_file ? (lk)->s_file : "n/a", (lk)->s_line, __retaddr(0));  \
