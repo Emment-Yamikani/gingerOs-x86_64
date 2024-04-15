@@ -52,8 +52,8 @@ void sched(void) {
         }
     }
 
-    // swtch(&current->t_arch.t_context, cpu->ctx);
-    context_switch(&current->t_arch.t_context);
+    // swtch(&current->t_arch.t_ctx, cpu->ctx);
+    context_switch(&current->t_arch.t_ctx);
 
     current_assert_locked();
     cpu->ncli   = ncli;
@@ -253,7 +253,7 @@ __noreturn void schedule(void) {
             // Make sure a thread running in a seperate address space
             // to that of the kernel must have it's kernel stack pointer
             // set up in the tss.
-            // TODO: use tss.ist in later version of this code.
+            // TODO: use tss.ist in later versions of this code.
             err = arch_thread_setkstack(&current->t_arch);
             assert_msg(err == 0, "Kernel stack was not set"
             " for user thread, errno = %d\n", err);
@@ -266,21 +266,21 @@ __noreturn void schedule(void) {
         // if the thread is returning from a call to sched()
         // or arch_thread_start() if this is the first
         // time the thread is being run.
-        //swtch(&cpu->ctx, arch->t_context);
+        //swtch(&cpu->ctx, arch->t_ctx);
 
-        printk("0: cpu%d, tid: %d, "
-            "ctx: %p, ctx->link: %p\n",
-            getcpuid(), thread_gettid(current), arch->t_context,
-            arch->t_context->link
-        );
+        // printk("0: cpu%d, tid: %d, "
+        //     "ctx: %p, ctx->link: %p\n",
+        //     getcpuid(), thread_gettid(current), arch->t_ctx,
+        //     arch->t_ctx->link
+        // );
         
-        context_switch(&arch->t_context);
+        context_switch(&arch->t_ctx);
         
-        printk("1: cpu%d, tid: %d, "
-            "ctx: %p, ctx->link: %p\n",
-            getcpuid(), thread_gettid(current), arch->t_context,
-            arch->t_context->link
-        );
+        // printk("1: cpu%d, tid: %d, "
+        //     "ctx: %p, ctx->link: %p\n",
+        //     getcpuid(), thread_gettid(current), arch->t_ctx,
+        //     arch->t_ctx->link
+        // );
 
         // Do no allow current to return to schedule() without acquiring
         // a lock on itself.

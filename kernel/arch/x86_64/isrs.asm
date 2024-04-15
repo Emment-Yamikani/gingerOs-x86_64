@@ -142,22 +142,20 @@ extern trap
 stub:
     swapgs
     save_context
-    sub     rsp, 48 ; for uc_link, us_sigmask and us_stack.
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ; complete the ucontext_t struct.
+    ; by reserving space for
+    ; for uc_link, us_sigmask and us_stack
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    sub     rsp, 48
 
     mov     rdi, rsp
     call    trap
 
     add     rsp, 48 ; for uc_link, us_sigmask and us_stack.
-    restore_context
-    swapgs
-    add     rsp, 16
-    iretq
-;
-
 trapret:
     restore_context
     swapgs
     add     rsp, 16
-
-    hlt
     iretq

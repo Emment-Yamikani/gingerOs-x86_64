@@ -18,15 +18,17 @@
 void dump_tf(mcontext_t *mctx, int halt) {
     if (halt) {
         panic(
-            "\n\e[025453;014mTRAP:%d\e[0m CPU%d TID:%d: ERR:%X rflags=%8X cs=%X ds=%X fs=%X ss=%X\n"
-            "\e[025453;015mrax\e[0m=\e[025453;016m%16p\e[0m \e[025453;015mrbx\e[0m=\e[025453;12m%16p\e[0m \e[025453;015mrcx\e[0m=\e[025453;12m%16p\n\e[0m"
+            "\n\e[025453;014mTRAP:%d\e[0m TF: %p CPU%d TID:%d\n"
+            "ERR:%X rflags=%X cs=%X ds=%X fs=%X ss=%X\n"
+            "\e[025453;015mrax\e[0m=\e[025453;016m%16p\e[0m \e[025453;015mrbx\e[0m=\e[025453;12m%16p\e[0m \e[025453;015mrcx\e[0m=\e[025453;12m%16p\e[0m\n"
             "\e[025453;015mrdx\e[0m=%16p \e[025453;015mrdi\e[0m=%16p \e[025453;015mrsi\e[0m=%16p\n"
-            "\e[025453;03mrbp\e[0m=\e[025453;03m%16p\e[0m \e[025453;03mrsp\e[0m=\e[025453;03m%16p\e[0m \e[025453;015mr8\e[0m =\e[025453;12m%16p\n\e[0m"
+            "\e[025453;03mrbp\e[0m=\e[025453;03m%16p\e[0m \e[025453;03mrsp\e[0m=\e[025453;03m%16p\e[0m \e[025453;015mr8\e[0m =\e[025453;12m%16p\e[0m\n"
             "\e[025453;015mr9\e[0m =%16p \e[025453;015mr10\e[0m=%16p \e[025453;015mr11\e[0m=%16p\n"
-            "\e[025453;015mr12\e[0m=\e[025453;012m%16p\e[0m \e[025453;015mr13\e[0m=\e[025453;12m%16p\e[0m \e[025453;015mr14\e[0m=\e[025453;12m%16p\n\e[0m"
+            "\e[025453;015mr12\e[0m=\e[025453;012m%16p\e[0m \e[025453;015mr13\e[0m=\e[025453;12m%16p\e[0m \e[025453;015mr14\e[0m=\e[025453;12m%16p\e[0m\n"
             "\e[025453;015mr15\e[0m=%16p \e[025453;015mrip\e[0m=\e[025453;016m%16p\e[0m \e[025453;015mcr0\e[0m=%16p\n"
-            "\e[025453;015mcr2\e[0m=\e[025453;016m%16p\e[0m \e[025453;015mcr3\e[0m=\e[025453;12m%16p\e[0m \e[025453;015mcr4\e[0m=\e[025453;12m%16p\n\e[0m",
-            mctx->trapno, getcpuid(), thread_self(), mctx->errno, mctx->rflags, mctx->cs, mctx->ds, mctx->fs, mctx->ss, 
+            "\e[025453;015mcr2\e[0m=\e[025453;016m%16p\e[0m \e[025453;015mcr3\e[0m=\e[025453;12m%16p\e[0m \e[025453;015mcr4\e[0m=\e[025453;12m%16p\e[0m\n",
+            mctx->trapno, mctx, getcpuid(), thread_self(),
+            mctx->errno, mctx->rflags, mctx->cs, mctx->ds, mctx->fs, mctx->ss, 
             mctx->rax, mctx->rbx, mctx->rcx,
             mctx->rdx, mctx->rdi, mctx->rsi,
             mctx->rbp, mctx->rsp, mctx->r8,
@@ -38,15 +40,17 @@ void dump_tf(mcontext_t *mctx, int halt) {
     }
     else {
         printk(
-            "\n\e[025453;014mTRAP:%d\e[0m CPU%d TID:%d: ERR:%X rflags=%8X cs=%X ds=%X fs=%X ss=%X\n"
-            "\e[025453;015mrax\e[0m=\e[025453;012m%16p\e[0m rbx=\e[025453;12m%16p\e[0m rcx=\e[025453;12m%16p\n\e[0m"
+            "\n\e[025453;014mTRAP:%d\e[0m TF: %p CPU%d TID:%d\n"
+            "ERR:%X rflags=%X cs=%X ds=%X fs=%X ss=%X\n"
+            "\e[025453;015mrax\e[0m=\e[025453;012m%16p\e[0m rbx=\e[025453;12m%16p\e[0m rcx=\e[025453;12m%16p\e[0m\n"
             "\e[025453;015mrdx\e[0m=%16p \e[025453;015mrdi\e[0m=%16p \e[025453;015mrsi\e[0m=%16p\n"
-            "\e[025453;015mrbp\e[0m=\e[025453;012m%16p\e[0m rsp=\e[025453;12m%16p\e[0m r8 =\e[025453;12m%16p\n\e[0m"
+            "\e[025453;015mrbp\e[0m=\e[025453;012m%16p\e[0m rsp=\e[025453;12m%16p\e[0m r8 =\e[025453;12m%16p\e[0m\n"
             "\e[025453;015mr9\e[0m =%16p \e[025453;015mr10\e[0m=%16p \e[025453;015mr11\e[0m=%16p\n"
-            "\e[025453;015mr12\e[0m=\e[025453;012m%16p\e[0m r13=\e[025453;12m%16p\e[0m r14=\e[025453;12m%16p\n\e[0m"
+            "\e[025453;015mr12\e[0m=\e[025453;012m%16p\e[0m r13=\e[025453;12m%16p\e[0m r14=\e[025453;12m%16p\e[0m\n"
             "\e[025453;015mr15\e[0m=%16p \e[025453;015mrip\e[0m=%16p \e[025453;015mcr0\e[0m=%16p\n"
-            "\e[025453;015mcr2\e[0m=\e[025453;012m%16p\e[0m cr3=\e[025453;12m%16p\e[0m cr4=\e[025453;12m%16p\n\e[0m",
-            mctx->trapno, getcpuid(), thread_self(), mctx->errno, mctx->rflags, mctx->cs, mctx->ds, mctx->fs, mctx->ss,
+            "\e[025453;015mcr2\e[0m=\e[025453;012m%16p\e[0m cr3=\e[025453;12m%16p\e[0m cr4=\e[025453;12m%16p\e[0m\n",
+            mctx->trapno, mctx, getcpuid(), thread_self(),
+            mctx->errno, mctx->rflags, mctx->cs, mctx->ds, mctx->fs, mctx->ss,
             mctx->rax, mctx->rbx, mctx->rcx,
             mctx->rdx, mctx->rdi, mctx->rsi,
             mctx->rbp, mctx->rsp, mctx->r8,
@@ -58,20 +62,43 @@ void dump_tf(mcontext_t *mctx, int halt) {
     }
 }
 
+void dump_ctx(context_t *ctx, int halt) {
+    if (halt) {
+        panic(
+            "\nctx: %p lnk: %p r11: %p\n"
+            "r12: %p r13: %p r14: %p\n"
+            "r15: %p rbp: %p rbx: %p rip: %p\n",
+            ctx, ctx->link, ctx->r11,
+            ctx->r12, ctx->r13, ctx->r14,
+            ctx->r15, ctx->rbp, ctx->rbx, ctx->rip
+        );
+    } else {
+        printk(
+            "\nctx: %p lnk: %p r11: %p\n"
+            "r12: %p r13: %p r14: %p\n"
+            "r15: %p rbp: %p rbx: %p rip: %p\n",
+            ctx, ctx->link, ctx->r11,
+            ctx->r12, ctx->r13, ctx->r14,
+            ctx->r15, ctx->rbp, ctx->rbx, ctx->rip
+        );
+    }
+}
+
 void trap(ucontext_t *uctx) {
-    time_t      time    = 0;
-    mcontext_t  *mctx   = &uctx->uc_mcontext;
+    time_t          time    = 0;
+    arch_thread_t   *arch   = NULL;
+    mcontext_t      *mctx   = &uctx->uc_mcontext;
 
     if (current) {
-        uctx->uc_stack  =
-            current_isuser() ?
-            current->t_arch.t_kstack :
-            current->t_arch.t_ustack;
-        
+        arch                = &current->t_arch;
+        uctx->uc_stack      = current_isuser() ?
+            arch->t_kstack : arch->t_ustack;
         pushcli();
-        uctx->uc_link   = current->t_arch.t_ucontext;
-        current->t_arch.t_ucontext = uctx;
+        uctx->uc_link       = arch->t_uctx;
+        arch->t_uctx        = uctx;
         popcli();
+        uctx->uc_flags      = 0;
+        sigemptyset(&uctx->uc_sigmask);
     }
 
     switch (mctx->trapno) {
@@ -152,5 +179,5 @@ void trap(ucontext_t *uctx) {
     if (current_iskilled())
         thread_exit(-EINTR);
 
-    current->t_arch.t_ucontext = uctx->uc_link;
+    arch->t_uctx = uctx->uc_link;
 }

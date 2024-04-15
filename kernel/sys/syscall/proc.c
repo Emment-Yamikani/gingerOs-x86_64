@@ -1,6 +1,9 @@
 #include <sys/proc.h>
 
 pid_t getpid(void) {
+    if (curproc == 0)
+        return 0;
+
     proc_lock(curproc);
 
     pid_t pid = curproc->pid;

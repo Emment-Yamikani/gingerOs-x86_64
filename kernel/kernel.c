@@ -19,6 +19,7 @@ __noreturn void kthread_main(void) {
 
     builtin_threads_begin(NULL);
 
+    loop();
     if ((err = load_init("/ramfs/startup.conf"))) {
         printk("Failed to read or parse startup.conf"
             "\nexit_code: %d\n", err

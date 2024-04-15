@@ -7,14 +7,12 @@ swtch:
     push    r13
     push    r14
     push    r15
-    
-    sub     rsp, 8 ; For link.    
 
-    mov     qword[rdi], rsp
-    mov     rsp, rsi
+    sub     rsp, 8          ; For link.
+    mov     qword[rdi], rsp ;
+    mov     rsp, rsi        ;
+    add     rsp, 8          ; For link.
 
-    add     rsp, 8 ; For link.
-    
     pop     r15
     pop     r14
     pop     r13
@@ -22,7 +20,6 @@ swtch:
     pop     r11
     pop     rbx
     pop     rbp
-
     retq
 
 global context_switch
@@ -36,12 +33,15 @@ context_switch:
     push    r14
     push    r15
 
-    mov     rax, qword[rdi] ; rax = ctx
-    push    qword[rax]      ; ctx->link
-    mov     qword[rdi], rsp
-
-    mov     rsp, rax        ; new context
-    add     rsp, 8          ; ctx->link.
+                            ; rdi = &arch->t_ctx
+    mov     rax, qword[rdi] ; rax = arch->t_ctx (i.e context we're swtching to)
+    push    qword[rax]      ; push arch->t_ctx->link
+    mov     qword[rdi], rsp ; &arch->t_ctx = saved ctx
+    mov     rdi, rsp        ; pass rsp as an argument
+                            ; to function pointed to
+                            ; by rip of new context.
+    mov     rsp, rax        ; rsp = arch->t_ctx (i.e context we're swtching to)
+    add     rsp, 8          ; skip arch->t_ctx->link.
 
     pop     r15
     pop     r14
@@ -51,4 +51,6 @@ context_switch:
     pop     rbx
     pop     rbp
 
+    mov     rsi, rsp
+    add     rsi, 16
     retq

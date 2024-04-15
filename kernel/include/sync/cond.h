@@ -11,6 +11,7 @@ typedef struct cond {
 
 #define COND_INIT()     ((cond_t){0})
 #define COND_NEW()      (&COND_INIT())
+#define COND_VAR(name)  cond_t *name = COND_NEW()
 
 int cond_new(cond_t **ref);
 int cond_wait(cond_t *cond);

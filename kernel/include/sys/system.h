@@ -70,6 +70,12 @@
 #define ALIGN16(x)              (AND((uintptr_t)(x), NOT(0xf)))
 #define ALIGN4K(x)              (AND((uintptr_t)(x), NOT(PGMASK)))
 #define PGALIGN(x)              (ALIGN4K(x))
+#define is_aligned2(p)          ((((u64)p) & 1) == 0)
+#define is_aligned4(p)          ((((u64)p) & 3) == 0)
+#define is_aligned8(p)          ((((u64)p) & 7) == 0)
+#define is_aligned16(p)         ((((u64)p) & 0xf) == 0)
+#define is_aligned32(p)         ((((u64)p) & 0x1f) == 0)
+#define is_aligned64(p)         ((((u64)p) & 0x3f) == 0)
 
 #define MEMMDEV                 ((uintptr_t)0xFE000000ul)
 
@@ -111,6 +117,7 @@
 
 #define ALIGN4KUP(p)            (PGROUNDUP(p))
 
+
 #define NELEM(x)                ((size_t)(sizeof ((x)) / sizeof ((x)[0])))
 
 extern void _kernel_end();
@@ -128,3 +135,5 @@ void    swapu8(unsigned char  *dst, unsigned char *src);
 void    swapu64(unsigned long *dst, unsigned long *src);
 void    swapu32(unsigned int  *dst, unsigned int  *src);
 void    swapu16(unsigned short *dst, unsigned short *src);
+
+void    swapptr(void **p0, void **p1);

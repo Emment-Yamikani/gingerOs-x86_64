@@ -1,17 +1,17 @@
+#include <arch/cpu.h>
+#include <arch/traps.h>
+#include <arch/x86_64/isr.h>
 #include <arch/x86_64/mmu.h>
 #include <lib/printk.h>
-#include <arch/cpu.h>
-#include <arch/x86_64/isr.h>
-#include <sys/system.h>
-#include <arch/traps.h>
 #include <lib/string.h>
+#include <sys/system.h>
 
 static idt_t idt = {0};
 
 void tss_set(uintptr_t kstack, uint16_t desc __unused) {
-    cpu->gdt.tss = TSS(((uintptr_t)&cpu->tss), (sizeof(cpu->tss) - 1), TSS_SEG, 0x8E);
+    cpu->gdt.tss    = TSS(((uintptr_t)&cpu->tss), (sizeof(cpu->tss) - 1), TSS_SEG, 0x8E);
     memset(&cpu->tss, 0, sizeof cpu->tss);
-    cpu->tss.rsp0 = kstack;
+    cpu->tss.rsp0   = kstack;
 }
 
 void gdt_init(void) {
@@ -23,41 +23,43 @@ void gdt_init(void) {
 
     memset(&cpu->gdt, 0, sizeof cpu->gdt);
 
-    cpu->gdt.null = SEG(0, 0, 0, 0);
-    cpu->gdt.kcode64 = SEG(0, -1, SEG_CODE, KCODE_SEG);
-    cpu->gdt.kdata64 = SEG(0, -1, SEG_DATA, KDATA_SEG);
-    cpu->gdt.ucode64 = SEG(0, -1, SEG_CODE, UCODE_SEG64);
-    cpu->gdt.udata64 = SEG(0, -1, SEG_DATA, UDATA_SEG);
-    cpu->gdt.tss = TSS(((uintptr_t)&cpu->tss), (sizeof (cpu->tss) - 1), TSS_SEG, 0x8E);
+    cpu->gdt.null       = SEG(0, 0, 0, 0);
+    cpu->gdt.kcode64    = SEG(0, -1, SEG_CODE, KCODE_SEG);
+    cpu->gdt.kdata64    = SEG(0, -1, SEG_DATA, KDATA_SEG);
+    cpu->gdt.ucode64    = SEG(0, -1, SEG_CODE, UCODE_SEG64);
+    cpu->gdt.udata64    = SEG(0, -1, SEG_DATA, UDATA_SEG);
+    cpu->gdt.tss        = TSS(((uintptr_t)&cpu->tss), (sizeof (cpu->tss) - 1), TSS_SEG, 0x8E);
 
     descptr_t ptr = (descptr_t) {
-        .base = (uintptr_t)&cpu->gdt,
-        .limit = sizeof cpu->gdt - 1,
+        .base   = (uintptr_t)&cpu->gdt,
+        .limit  = sizeof cpu->gdt - 1,
     };
 
-    ptr.base = (uintptr_t)&cpu->gdt;
-    ptr.limit = sizeof(gdt_t) - 1;
+    ptr.base    = (uintptr_t)&cpu->gdt;
+    ptr.limit   = sizeof(gdt_t) - 1;
     asm volatile("lgdt (%%rax)" :: "a"(&ptr) : "memory");
-    asm volatile("ltr %%ax" :: "a"(SEG_TSS64 << 3));
+    asm volatile("ltr %%ax"     :: "a"(SEG_TSS64 << 3));
     asm volatile("swapgs;\
-                mov $0x10, %%ax;\
-                mov %%ax, %%ds;\
-                mov %%ax, %%ss;\
-                mov $0x0, %%ax;\
-                mov %%ax, %%gs;\
-                mov %%ax, %%fs;\
-                " ::: "ax");
+        mov $0x10, %%ax;\
+        mov %%ax, %%ds;\
+        mov %%ax, %%ss;\
+        mov $0x0, %%ax;\
+        mov %%ax, %%gs;\
+        mov %%ax, %%fs;\
+        " ::: "ax");
     setcls(c);
 }
 
 void setgate(int gate, int istrap, void (*base)() , uint16_t sel, uint8_t dpl, uint8_t ist) {
-    idt.entry[gate] = TRAP_GATE(istrap, (uintptr_t)base, sel, dpl, ist);
+    idt.entry[gate] = TRAP_GATE(
+        istrap, (uintptr_t)base,
+        sel, dpl, ist);
 }
 
 void idt_init(void) {
     descptr_t ptr = (descptr_t){
-        .base = (uintptr_t)&idt,
-        .limit = sizeof idt - 1,
+        .base   = (uintptr_t)&idt,
+        .limit  = sizeof idt - 1,
     };
     loadidt(&ptr);
 }
