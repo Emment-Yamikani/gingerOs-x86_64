@@ -485,12 +485,15 @@ __handle_signal:
     tarch = &current->t_arch;
     tarch->t_uctx->uc_sigmask = oset;
 
+    // dump_tf(&tarch->t_uctx->uc_mcontext, 0);
     err = arch_signal_dispatch(
         tarch,
         (void *)handler,
         info,
         &act
     );
+    // dump_tf(&tarch->t_uctx->uc_mcontext, 0);
+
     assert(err == 0, "Failed to dispatch signal handler");
     current_unlock();
 

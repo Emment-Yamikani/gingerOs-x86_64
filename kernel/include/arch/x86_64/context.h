@@ -42,5 +42,6 @@ enum {
 };
 
 extern void trapret(void);
+extern void dump_ctx(context_t *ctx, int halt);
 extern void swtch(context_t **old, context_t *new);
 extern void context_switch(context_t **pcontext);

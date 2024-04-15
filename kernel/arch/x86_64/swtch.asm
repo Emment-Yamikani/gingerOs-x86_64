@@ -21,7 +21,6 @@ swtch:
     pop     rbx
     pop     rbp
     retq
-nop
 
 global context_switch
 ;context_switch(&arch.t_context);
@@ -55,4 +54,3 @@ context_switch:
     mov     rsi, rsp
     add     rsi, 16
     retq
-nop

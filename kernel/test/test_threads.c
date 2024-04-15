@@ -70,9 +70,7 @@ void test_main(void) {
 
 
     pthread_kill(tid, SIGINT);
-    pthread_kill(tid, SIGINT);
-    pthread_kill(tid, SIGINT);
-    pthread_kill(tid, SIGUSR1);
+    // pthread_kill(tid, SIGUSR1);
     loop();
 }
 

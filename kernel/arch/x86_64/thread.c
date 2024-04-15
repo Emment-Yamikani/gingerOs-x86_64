@@ -57,24 +57,23 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     if (thread == NULL || entry == NULL)
         return -EINVAL;
 
-    kstack = (u64 *)thread->t_sstack.ss_sp;
+    mctx = (mcontext_t *)(thread->t_sstack.ss_sp - sizeof *mctx);
+    memset(mctx, 0, sizeof *mctx);
+
+    kstack = (u64 *)thread->t_rsvd;
     assert(kstack, "Invalid Kernel stack.");
     assert(is_aligned16(kstack),
            "Kernel stack is not 16bytes aligned!");
-
     *--kstack = (u64)x86_64_thread_stop;
     
-    mctx = (mcontext_t *)((u64)kstack - sizeof *mctx);
-    memset(mctx, 0, sizeof *mctx);
-    
-    mctx->ss      = SEG_KDATA64 << 3;
+    mctx->ss      = (SEG_KDATA64 << 3);
     mctx->rbp     = mctx->rsp = (u64)kstack;
     mctx->rflags  = LF_IF;
-    mctx->cs      = SEG_KCODE64 << 3;
+    mctx->cs      = (SEG_KCODE64 << 3);
     mctx->rip     = (u64)entry;
     mctx->rdi     = (u64)arg;
-    mctx->fs      = SEG_KDATA64 << 3;
-    mctx->ds      = SEG_KDATA64 << 3;
+    mctx->fs      = (SEG_KDATA64 << 3);
+    mctx->ds      = (SEG_KDATA64 << 3);
 
     kstack        = (u64 *)mctx;
     *--kstack     = (u64)trapret;
@@ -115,7 +114,6 @@ void x86_64_signal_return(void) {
     arch->t_ctx         = signal_handler_ctx;
 
     context_switch(&arch->t_ctx);
-
 }
 
 void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
@@ -135,12 +133,20 @@ void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
      * as though it's not handling any signal.
      */
 
+
     signal_handler_ctx  = arch->t_ctx;      // signal_handler();
     scheduler_ctx       = signal_handler_ctx->link; // schedule();
     
     signal_handler_ctx->link =  scheduler_ctx->link;
     scheduler_ctx->link = signal_handler_ctx;
+
+    // printk(
+        // "kstack: %p\nmctx:   %p\n"
+        // "ctx:    %p\nuctx:   %p\n",
+        // kstack, mctx, arch->t_ctx, arch->t_uctx
+    // );
     arch->t_ctx         = scheduler_ctx;
+    assert((void *)kstack <= (void *)mctx, "Stack overun detected!");
 
     kstack = (void *)ALIGN16(kstack);
     current->t_arch.t_rsvd = kstack;
@@ -190,11 +196,11 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
     mctx->rip       = (u64)entry;
 
     if (!current_isuser()) {
-        mctx->ss    = SEG_KDATA64 << 3;
+        mctx->ss    = (SEG_KDATA64 << 3);
         mctx->rbp   = mctx->rsp = (u64)kstack;
-        mctx->cs    = SEG_KCODE64 << 3;
-        mctx->fs    = SEG_KDATA64 << 3;
-        mctx->ds    = SEG_KDATA64 << 3;
+        mctx->cs    = (SEG_KCODE64 << 3);
+        mctx->fs    = (SEG_KDATA64 << 3);
+        mctx->ds    = (SEG_KDATA64 << 3);
     } else {
 
     } 
@@ -240,6 +246,17 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
     rsvd_stack = thread->t_rsvd;
 
     context_switch(&thread->t_ctx);
+
+    /**
+     * thread->t_ctx at this point points to
+     * context_t saved by calling context_switch()
+     * in x86_64_signal_return(): see above.
+     * 
+     * Therefore we need to restore thread->t_ctx
+     * to the value it had prior to calling
+     * this functino (x86_64_signal_dispatch()).
+    */
+    thread->t_ctx = thread->t_ctx->link;
 
     thread->t_rsvd = rsvd_stack;
 
@@ -373,7 +390,7 @@ int x86_64_thread_setkstack(arch_thread_t *thread) {
         return -EOVERFLOW;
 
     kstack = (u64)thread->t_rsvd;
-    tss_set(kstack, SEG_KDATA64 << 3);
+    tss_set(kstack, (SEG_KDATA64 << 3));
     return 0;
 }
 
