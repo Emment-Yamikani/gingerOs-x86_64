@@ -38,6 +38,9 @@ context_switch:
     mov     rax, qword[rdi] ; rax = arch->t_ctx (i.e context we're swtching to)
     push    qword[rax]      ; push arch->t_ctx->link
     mov     qword[rdi], rsp ; &arch->t_ctx = saved ctx
+    mov     rdi, rsp        ; pass rsp as an argument
+                            ; to function pointed to
+                            ; by rip of new context.
     mov     rsp, rax        ; rsp = arch->t_ctx (i.e context we're swtching to)
     add     rsp, 8          ; skip arch->t_ctx->link.
 
@@ -48,5 +51,8 @@ context_switch:
     pop     r11
     pop     rbx
     pop     rbp
+
+    mov     rsi, rsp
+    add     rsi, 16
     retq
 nop

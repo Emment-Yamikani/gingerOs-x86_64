@@ -1,11 +1,13 @@
 #include <sys/thread.h>
 #include <lib/printk.h>
 #include <sys/_signal.h>
+#include <ginger/jiffies.h>
 
 void signal_handler(int signo) {
     
     printk("signo %d occured\n", signo);
-    loop();
+
+    jiffies_timed_wait(3);
 }
 
 void sa_sigaction(int signo, siginfo_t *info, void *context) {
@@ -43,11 +45,8 @@ void test (cond_t *cv) {
     assert_msg(!(err = sigaction(SIGUSR1, &act, NULL)),
         "sigaction failed, err = %d", err);
 
-    sigaddset(&set, SIGINT);
-    pthread_sigmask(SIG_BLOCK,&set, NULL);
-
     cond_signal(cv);
-
+    
     loop();
 }
 

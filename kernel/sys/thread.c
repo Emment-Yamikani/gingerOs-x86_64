@@ -90,7 +90,13 @@ int thread_alloc(size_t ksz /*kstacksz*/, int __flags, thread_t **ret) {
         .t_thread           = thread,
         .t_kstack.ss_sp     = (void *)kstack,
         .t_sstack.ss_sp     = (void *)thread,
-        .t_sstack.ss_size   = (sizeof (mcontext_t) + sizeof (context_t)),
+        /**
+         * 1Kib should be large enough
+         * to act as a scratch space for
+         * executing thread for the first time.
+        */
+        .t_sstack.ss_size   = KiB(1),
+        .t_rsvd             = ((void *)thread) - KiB(1)
     };
 
     thread->t_refcnt                    = 2;
@@ -615,6 +621,7 @@ int thread_sigdequeue(thread_t *thread, siginfo_t **ret) {
             
             sigdequeue_pending(&thread->t_sigqueue[signo], &info);
             queue_unlock(&thread->t_sigqueue[signo]);
+            sigaddset(&thread->t_sigmask, signo + 1);
             *ret = info;
             return 0;
         }
@@ -731,7 +738,7 @@ int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap) {
     thread_assert_locked(dst);
     thread_assert_locked(src);
 
-    mctx = &src->t_arch.t_ucontext->uc_mcontext;
+    mctx = &src->t_arch.t_uctx->uc_mcontext;
     sp = mctx->rsp;
 
     dst->t_sched = (thread_sched_t) {

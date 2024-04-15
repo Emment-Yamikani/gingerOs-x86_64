@@ -28,7 +28,7 @@ void x86_64_thread_exit(u64 exit_code) {
 static void x86_64_thread_start(void) {
     current_unlock();
 
-    // assert(0, current->t_arch.t_context);
+    // assert(0, current->t_arch.t_ctx);
 
     if (curproc) {
         // printk("%s(); pid=%d\n", __func__, curproc->pid);
@@ -57,8 +57,10 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     if (thread == NULL || entry == NULL)
         return -EINVAL;
 
-    kstack = (u64 *)ALIGN4K((thread->t_kstack.ss_sp +
-        thread->t_kstack.ss_size) - sizeof (thread_t));
+    kstack = (u64 *)thread->t_sstack.ss_sp;
+    assert(kstack, "Invalid Kernel stack.");
+    assert(is_aligned16(kstack),
+           "Kernel stack is not 16bytes aligned!");
 
     *--kstack = (u64)x86_64_thread_stop;
     
@@ -81,46 +83,82 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     ctx->rbp      = mctx->rsp;
     ctx->link     = NULL; // starts with no link to old context.
 
-    thread->t_context = ctx;
+    thread->t_ctx = ctx;
     return 0;
 }
 
 void x86_64_signal_return(void) {
-    panic("%s()\n", __func__);
-}
-
-void x86_64_signal_start(void) {
     context_t       *scheduler_ctx      = NULL;
-    context_t       *sched_ctx_link     = NULL;
     context_t       *signal_handler_ctx = NULL;
-    arch_thread_t   *arch               = &current->t_arch;
-   
+    arch_thread_t   *arch               = NULL;
+
+    current_lock();
+    arch = &current->t_arch;
+
     /**
      * Swap contexts otherwise context_switch()
      * in sched() will exit
      * the signal handler prematurely.
-     * 
-     * Therefore by doing this we for the
+     *
+     * Therefore by doing this we intend for
      * sched() to return to the context prior to
      * acquisition on this signal(i.e the scheduler_ctx' context)
      * Thus the thread will execute normally
      * as though it's not handling any signal.
-    */
+     */
 
-    signal_handler_ctx  = arch->t_context;      // signal_handler();
+    scheduler_ctx       = arch->t_ctx; // schedule();
+    signal_handler_ctx  = scheduler_ctx->link;      // signal_handler();
+    
+    scheduler_ctx->link = signal_handler_ctx->link;
+    signal_handler_ctx->link = scheduler_ctx;
+    arch->t_ctx         = signal_handler_ctx;
+
+    context_switch(&arch->t_ctx);
+
+}
+
+void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
+    context_t       *scheduler_ctx      = NULL;
+    context_t       *signal_handler_ctx = NULL;
+    arch_thread_t   *arch               = &current->t_arch;
+
+    /**
+     * Swap contexts otherwise context_switch()
+     * in sched() will exit
+     * the signal handler prematurely.
+     *
+     * Therefore by doing this we intend for
+     * sched() to return to the context prior to
+     * acquisition on this signal(i.e the scheduler_ctx' context)
+     * Thus the thread will execute normally
+     * as though it's not handling any signal.
+     */
+
+    signal_handler_ctx  = arch->t_ctx;      // signal_handler();
     scheduler_ctx       = signal_handler_ctx->link; // schedule();
-    sched_ctx_link      = scheduler_ctx->link;
-
+    
+    signal_handler_ctx->link =  scheduler_ctx->link;
     scheduler_ctx->link = signal_handler_ctx;
-    signal_handler_ctx->link =  sched_ctx_link;
-    arch->t_context     = scheduler_ctx;
+    arch->t_ctx         = scheduler_ctx;
+
+    kstack = (void *)ALIGN16(kstack);
+    current->t_arch.t_rsvd = kstack;
+    assert(is_aligned16(kstack),
+           "Kernel stack is not 16bytes aligned!");
+
+    *--kstack = (u64)x86_64_signal_return;
+
+    if (!current_isuser())
+        mctx->rsp = mctx->rbp = (u64)kstack;
+    else
+        x86_64_thread_setkstack(&current->t_arch);
 
     current_unlock();
 }
 
 int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
-    siginfo_t *info, sigaction_t *sigact
-) {
+    siginfo_t *info, sigaction_t *sigact) {
     __unused int         err     = 0;
     i64         ncli    = 1;
     i64         intena  = 0;
@@ -129,6 +167,8 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
     __unused ucontext_t  *uctx   = NULL;
     u64         *kstack = NULL;
     __unused u64         *ustack = NULL;
+    flags64_t   was_handling   = 0;
+    void        *rsvd_stack = NULL;
 
     if (thread == NULL || entry == NULL ||
         info   == NULL || sigact== NULL)
@@ -136,8 +176,12 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
     
     if (thread->t_thread == NULL)
         return -EINVAL;
-    
-    kstack = (u64 *)thread->t_rsvdspace;
+
+    kstack = (u64 *)thread->t_sstack.ss_sp;
+    assert(kstack, "Invalid Kernel stack.");
+    assert(is_aligned16(kstack),
+           "Kernel stack is not 16bytes aligned!");
+
     *--kstack = (u64)x86_64_signal_return;
     mctx = (mcontext_t *)((u64)kstack - sizeof *mctx);
     memset(mctx, 0, sizeof *mctx);
@@ -168,7 +212,7 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
         */
         if (!current_isuser()) {
             mctx->rsi   = (u64)info;
-            mctx->rdx   = (u64)thread->t_ucontext;
+            mctx->rdx   = (u64)thread->t_uctx;
         } else { // this is a user thread and need special care.
 
         }
@@ -177,22 +221,34 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
     kstack      = (u64 *)mctx;
     *--kstack   = (u64)trapret;
     ctx         = (context_t *)((u64)kstack - sizeof *ctx);
+
+    assert((void *)ctx > (thread->t_sstack.ss_sp -
+                          thread->t_sstack.ss_size),
+           "Kernel stack overflow detected!");
+
     ctx->rip    = (u64)x86_64_signal_start;
     ctx->rbp    = mctx->rsp;
-    ctx->link   = thread->t_context; // -> interrupted ctx.
-    thread->t_context   = ctx;
+    ctx->link   = thread->t_ctx; // -> interrupted ctx.
+    thread->t_ctx   = ctx;
 
+    was_handling = current_ishandling();
     current_setflags(THREAD_HANDLING_SIG);
 
     swapi64(&intena, &cpu->intena);
     swapi64(&ncli, &cpu->ncli);
 
-    context_switch(&thread->t_context);
+    rsvd_stack = thread->t_rsvd;
+
+    context_switch(&thread->t_ctx);
+
+    thread->t_rsvd = rsvd_stack;
 
     swapi64(&cpu->ncli, &ncli);
     swapi64(&cpu->intena, &intena);
 
-    current_maskflags(THREAD_HANDLING_SIG);
+    if (was_handling == 0)
+        current_maskflags(THREAD_HANDLING_SIG);
+
     return 0;
 }
 
@@ -214,8 +270,10 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
         PGSZ, PGSZ, thread->t_ustack.ss_flags)))
         return err;
 
-    kstack = (u64 *)ALIGN4K((thread->t_kstack.ss_sp +
-        thread->t_kstack.ss_size) - sizeof(thread_t));
+    kstack = (u64 *)thread->t_sstack.ss_sp;
+    assert(kstack, "Invalid Kernel stack.");
+    assert(is_aligned16(kstack),
+           "Kernel stack is not 16bytes aligned!");
 
     *--kstack   = (u64)x86_64_thread_stop;
     *--ustack   = -1ull; // push dummy return address.
@@ -240,7 +298,7 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     ctx->rbp      = mctx->rsp;
     ctx->link     = NULL; // starts with no link to old context.
 
-    thread->t_context   = ctx;
+    thread->t_ctx   = ctx;
     return 0;
 }
 
@@ -270,8 +328,10 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
         PGSZ, PGSZ, thread->t_ustack.ss_flags)))
         return err;
 
-    kstack = (u64 *)ALIGN4K((thread->t_kstack.ss_sp +
-        thread->t_kstack.ss_size) - sizeof(thread_t));
+    kstack = (u64 *)thread->t_sstack.ss_sp;
+    assert(kstack, "Invalid Kernel stack.");
+    assert(is_aligned16(kstack),
+           "Kernel stack is not 16bytes aligned!");
 
     *--kstack = (u64)x86_64_thread_stop;
     *--ustack = -1ull; // push dummy return address.
@@ -300,7 +360,7 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
     ctx->rbp      = mctx->rsp;
     ctx->link     = NULL; // starts with no link to old context.
 
-    thread->t_context = ctx;
+    thread->t_ctx = ctx;
     return 0;
 }
 
@@ -309,12 +369,10 @@ int x86_64_thread_setkstack(arch_thread_t *thread) {
     if (thread == NULL)
         return -EINVAL;
 
-    if ((thread->t_kstack.ss_sp == NULL) ||
-        (thread->t_kstack.ss_size == 0))
-        return -EFAULT;
+    if (thread->t_rsvd < thread->t_kstack.ss_sp)
+        return -EOVERFLOW;
 
-    kstack = ALIGN4K((thread->t_kstack.ss_sp +
-        thread->t_kstack.ss_size) - sizeof(thread_t));
+    kstack = (u64)thread->t_rsvd;
     tss_set(kstack, SEG_KDATA64 << 3);
     return 0;
 }
@@ -327,23 +385,24 @@ int x86_64_thread_fork(arch_thread_t *dst, arch_thread_t *src) {
     if (dst == NULL || src == NULL)
         return -EINVAL;
 
-    kstack = (u64 *)ALIGN4K((dst->t_kstack.ss_sp +
-        dst->t_kstack.ss_size) - sizeof(thread_t));
+    kstack = (u64 *)dst->t_sstack.ss_sp;
+    assert(kstack, "Invalid Kernel stack.");
+    assert(is_aligned16(kstack),
+           "Kernel stack is not 16bytes aligned!");
 
     *--kstack = (u64)x86_64_thread_stop;
 
     mctx        = (mcontext_t *)(((u64)kstack) - sizeof *mctx);
-    *mctx       = src->t_ucontext->uc_mcontext;
+    *mctx       = src->t_uctx->uc_mcontext;
     mctx->rax   = 0;
 
     kstack      = (u64 *)mctx;
     *--kstack   = (u64)trapret;
     ctx         = (context_t *)(((u64)kstack) - sizeof *ctx);
     ctx->rip    = (u64)x86_64_thread_start;
-    ctx->rbp    = ALIGN4K((dst->t_kstack.ss_sp +
-                    dst->t_kstack.ss_size) - sizeof(thread_t));
-
-    dst->t_context = ctx;
+    ctx->rbp    = (u64)dst->t_rsvd;
+    ctx->link   = NULL;
+    dst->t_ctx  = ctx;
     return 0;
 }
 

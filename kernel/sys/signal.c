@@ -410,9 +410,7 @@ error:
 int dispatch_signal(void) {
     int             err         = 0;
     flags32_t       flags       = 0;
-    sigset_t        set         = 0;
     sigset_t        oset        = 0;
-    sigset_t        tset        = 0;
     sigaction_t     act         = {0};
     sig_desc_t      *desc       = NULL;
     siginfo_t       *info       = NULL;
@@ -420,11 +418,10 @@ int dispatch_signal(void) {
     arch_thread_t   *tarch      = NULL;
 
     // prepare signal masks/
-    sigemptyset(&set);
     sigemptyset(&oset);
-    sigemptyset(&tset);
 
     current_lock();
+    oset = current->t_sigmask;
     desc = current->t_sigdesc;
     thread_sigdequeue(current, &info);
     current_unlock();
@@ -466,12 +463,6 @@ int dispatch_signal(void) {
     }
 
 __handle_signal:
-    if (flags & 1) { // is this an internal signal.
-        sigemptyset(&set);
-        sigaddset(&set, info->si_signo - 1);
-        pthread_sigmask(SIG_BLOCK, &set, &tset);
-    }
-
     handler = (act.sa_flags & SA_SIGINFO ? (sigfunc_t)act.sa_sigaction : act.sa_handler);
     if (handler == SIG_DFL) { // perform defualt action?
         switch (sig_defaults[info->si_signo - 1]) {
@@ -492,7 +483,7 @@ __handle_signal:
     current_lock();
 
     tarch = &current->t_arch;
-    tarch->t_ucontext->uc_sigmask = (flags & 1) ? tset : oset;
+    tarch->t_uctx->uc_sigmask = oset;
 
     err = arch_signal_dispatch(
         tarch,
@@ -500,16 +491,14 @@ __handle_signal:
         info,
         &act
     );
-
+    assert(err == 0, "Failed to dispatch signal handler");
     current_unlock();
-
-    assert(err == 0, "Failed to initialize signal handler");
 
     kfree(info); // free siginfo_t *info (struct).
 
 __exit_handler:
     if (flags & 1) // restore per-thread sig_mask.
-        pthread_sigmask(SIG_SETMASK, &tset, NULL);
+        pthread_sigmask(SIG_SETMASK, &oset, NULL);
     else // restore global sig_mask.
         sigprocmask(SIG_SETMASK, &oset, NULL);
     return 0;
