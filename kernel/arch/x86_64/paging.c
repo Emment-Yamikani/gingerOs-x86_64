@@ -358,11 +358,11 @@ int x86_64_mprotect(uintptr_t vaddr, usize sz, int flags) {
 }
 
 int x86_64_map_n(uintptr_t vaddr, usize sz, int flags) {
-    int         err = 0;
+    int         err     = 0;
     uintptr_t   paddr   = 0;
-    uintptr_t   vr  = vaddr;
-    usize      nr  = NPAGE(sz);
-    gfp_mask_t  gfp_mask = GFP_NORMAL | (_iszero(flags) ? GFP_ZERO : 0);
+    uintptr_t   vr      = vaddr;
+    usize       nr      = NPAGE(sz);
+    gfp_mask_t  gfp_mask= GFP_NORMAL | (_iszero(flags) ? GFP_ZERO : 0);
 
     for (; nr; --nr, vaddr += PGSZ) {
         if ((paddr = pmman.get_page(gfp_mask)) == 0) {

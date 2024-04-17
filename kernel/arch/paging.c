@@ -194,10 +194,7 @@ void arch_do_page_fault(mcontext_t *trapframe) {
             }
         }
 
-        current_lock();
-        mmap = current->t_mmap;
-        /// TODO: increase the reference count on mmap;
-        current_unlock();
+        mmap = current->t_mmap; /// TODO: increase the reference count on mmap;
     }
 
     if (mmap == NULL)

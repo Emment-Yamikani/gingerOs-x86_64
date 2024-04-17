@@ -200,7 +200,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
     if (curproc == NULL)
         return -EINVAL;
 
-    if ((err = thread_alloc(KSTACKSZ, THREAD_USER, &thread)))
+    if ((err = thread_alloc(KSTACKSZ, THREAD_CREATE_USER, &thread)))
         return err;
 
     proc_lock(curproc);

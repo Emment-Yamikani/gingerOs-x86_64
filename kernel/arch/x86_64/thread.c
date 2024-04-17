@@ -140,11 +140,6 @@ void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
     signal_handler_ctx->link =  scheduler_ctx->link;
     scheduler_ctx->link = signal_handler_ctx;
 
-    // printk(
-        // "kstack: %p\nmctx:   %p\n"
-        // "ctx:    %p\nuctx:   %p\n",
-        // kstack, mctx, arch->t_ctx, arch->t_uctx
-    // );
     arch->t_ctx         = scheduler_ctx;
     assert((void *)kstack <= (void *)mctx, "Stack overun detected!");
 
@@ -165,16 +160,18 @@ void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
 
 int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
     siginfo_t *info, sigaction_t *sigact) {
-    __unused int         err     = 0;
-    i64         ncli    = 1;
-    i64         intena  = 0;
-    context_t   *ctx    = NULL;
-    mcontext_t  *mctx   = NULL;
-    __unused ucontext_t  *uctx   = NULL;
-    u64         *kstack = NULL;
-    __unused u64         *ustack = NULL;
-    flags64_t   was_handling   = 0;
-    void        *rsvd_stack = NULL;
+    __unused int         err             = 0;
+    i64         ncli            = 1;
+    i64         intena          = 0;
+    flags64_t   was_handling    = 0;
+    siginfo_t   *siginfo        = NULL;
+    context_t   *ctx            = NULL;
+    mcontext_t  *mctx           = NULL;
+    ucontext_t  *uctx           = NULL;
+    ucontext_t  *uctx_tmp       = NULL;
+    u64         *kstack         = NULL;
+    u64         *ustack         = NULL;
+    void        *rsvd_stack     = NULL;
 
     if (thread == NULL || entry == NULL ||
         info   == NULL || sigact== NULL)
@@ -197,12 +194,41 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
 
     if (!current_isuser()) {
         mctx->ss    = (SEG_KDATA64 << 3);
-        mctx->rbp   = mctx->rsp = (u64)kstack;
-        mctx->cs    = (SEG_KCODE64 << 3);
+        mctx->rbp   = mctx->rsp = (u64)kstack; // FIXME: this will still be overwritten.
+        mctx->cs    = (SEG_KCODE64 << 3); 
         mctx->fs    = (SEG_KDATA64 << 3);
         mctx->ds    = (SEG_KDATA64 << 3);
     } else {
+        uctx_tmp    = thread->t_uctx;
+        ustack      = (u64 *)ALIGN16(uctx_tmp->uc_mcontext.rsp);
+        if (sigact->sa_flags & SA_SIGINFO) {
+            while (uctx_tmp) {
+                ustack  = (u64 *)((u64)ustack - sizeof *uctx_tmp);
+                uctx_tmp= uctx_tmp->uc_link;
+            }
 
+            uctx_tmp    = thread->t_uctx;
+            uctx        = (ucontext_t *)ustack;
+
+            while(uctx_tmp) {
+                *uctx   = *uctx_tmp;
+                uctx    = uctx->uc_link =
+                    uctx_tmp->uc_link ? &uctx[1] : NULL;
+                uctx_tmp= uctx_tmp->uc_link;
+            }
+
+            uctx        = (ucontext_t *)ustack;
+            siginfo     = (siginfo_t *)(ustack = (u64 *)((u64)ustack - sizeof *info));
+            *siginfo    = *info;
+        }
+
+        *--ustack   = -1ull;
+
+        mctx->ss    = SEG_UDATA64 << 3 | DPL_USR;
+        mctx->rbp   = mctx->rsp = (u64)ustack;
+        mctx->cs    = SEG_UCODE64 << 3 | DPL_USR;
+        mctx->fs    = SEG_UDATA64 << 3 | DPL_USR;
+        mctx->ds    = SEG_UDATA64 << 3 | DPL_USR;
     } 
 
     // first argument of signal handler.
@@ -220,7 +246,8 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
             mctx->rsi   = (u64)info;
             mctx->rdx   = (u64)thread->t_uctx;
         } else { // this is a user thread and need special care.
-
+            mctx->rsi   = (u64)siginfo;
+            mctx->rdx   = (u64)uctx;
         }
     }
 
@@ -235,7 +262,7 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
     ctx->rip    = (u64)x86_64_signal_start;
     ctx->rbp    = mctx->rsp;
     ctx->link   = thread->t_ctx; // -> interrupted ctx.
-    thread->t_ctx   = ctx;
+    thread->t_ctx= ctx;
 
     was_handling = current_ishandling();
     current_setflags(THREAD_HANDLING_SIG);
@@ -252,7 +279,7 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
      * context_t saved by calling context_switch()
      * in x86_64_signal_return(): see above.
      * 
-     * Therefore we need to restore thread->t_ctx
+     * Therefore, we need to restore thread->t_ctx
      * to the value it had prior to calling
      * this functino (x86_64_signal_dispatch()).
     */
@@ -321,20 +348,16 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
 
 int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
                        int argc, const char *argp[], const char *envp[]) {
-    int err = 0;
+    int         err     = 0;
+    mcontext_t  *mctx   = NULL;
+    u64         *ustack = NULL;
+    context_t   *ctx    = NULL;
+    u64         *kstack = NULL;
 
     if (thread == NULL || entry == NULL)
         return -EINVAL;
     
     if (argc && argp == NULL)
-        return -EINVAL;
-
-    mcontext_t *mctx = NULL;
-    u64 *ustack = NULL;
-    context_t *ctx = NULL;
-    u64 *kstack = NULL;
-
-    if (thread == NULL || entry == NULL)
         return -EINVAL;
 
     if ((ustack = (u64 *)(thread->t_ustack.ss_sp +

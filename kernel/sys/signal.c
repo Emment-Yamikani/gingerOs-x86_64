@@ -494,7 +494,11 @@ __handle_signal:
     );
     // dump_tf(&tarch->t_uctx->uc_mcontext, 0);
 
-    assert(err == 0, "Failed to dispatch signal handler");
+    assert_msg(
+        err == 0,
+        "Failed to dispatch signal handler, err: %d\n",
+        err
+    );
     current_unlock();
 
     kfree(info); // free siginfo_t *info (struct).

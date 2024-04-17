@@ -19,7 +19,8 @@ __noreturn void kthread_main(void) {
 
     builtin_threads_begin(NULL);
 
-    loop();
+    // loop() thread_yield();
+
     if ((err = load_init("/ramfs/startup.conf"))) {
         printk("Failed to read or parse startup.conf"
             "\nexit_code: %d\n", err
@@ -83,7 +84,7 @@ int load_init(const char *conf_fn) {
     conf_find(conf_buf, "![init]", &init_desc);
 
     printk("Loading of bootstrap program %s.\n", 
-        proc_init("/ramfs/test") == 0 ? 
+        proc_init("/ramfs/test1") == 0 ? 
         "Successful :)" : "Unsucessful :("
     );
 

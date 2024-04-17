@@ -4,9 +4,7 @@
 #include <ginger/jiffies.h>
 
 void signal_handler(int signo) {
-    
     printk("signo %d occured\n", signo);
-
     jiffies_timed_wait(3);
 }
 
@@ -20,9 +18,7 @@ void sa_sigaction(int signo, siginfo_t *info, void *context) {
         context
     );
     loop();
-}
-
-
+} 
 
 void test (cond_t *cv) {
     int err = 0;
@@ -46,8 +42,8 @@ void test (cond_t *cv) {
         "sigaction failed, err = %d", err);
 
     cond_signal(cv);
-    
-    loop();
+
+    loop() thread_yield();
 }
 
 COND_VAR(cv);
@@ -66,12 +62,11 @@ void test_main(void) {
 
     cond_wait(cv);
 
-    printk("test_main continued\n");
-
-
     pthread_kill(tid, SIGINT);
-    // pthread_kill(tid, SIGUSR1);
-    loop();
+    pthread_kill(tid, SIGUSR1);
+    pthread_kill(tid, SIGINT);
+    pthread_kill(tid, SIGINT);
+    loop() thread_yield();
 }
 
-BUILTIN_THREAD(test_main, test_main, NULL);
+// BUILTIN_THREAD(test_main, test_main, NULL);
