@@ -16,14 +16,11 @@ void sa_sigaction(int signo, siginfo_t *info, void *context) {
     printf(
         "signo %d\n"
         "info: %p\n"
-        "context: %p\n",
+        "ctx:  %p\n",
+        "pid:  %d\n",
         signo,
         info,
-        context
-    );
-
-    printf(
-        "signaling pid: %d\n",
+        context,
         info->si_pid
     );
     loop();
@@ -60,17 +57,19 @@ void *test(void *arg) {
 }
 
 
-    spinlock_t *lk = SPINLOCK_NEW();
+spinlock_t *lk = SPINLOCK_NEW();
+
 void main (void) {
     tid_t tid = 0;
 
-    sys_thread_create(&tid, NULL, test, lk);
-    sys_sleep(2);
     spin_lock((spinlock_t *)lk);
+    sys_thread_create(&tid, NULL, test, lk);
 
     sys_pthread_kill(tid, SIGINT);
     sys_pthread_kill(tid, SIGUSR1);
     sys_pthread_kill(tid, SIGINT);
     sys_pthread_kill(tid, SIGINT);
+
+    spin_unlock(lk);
     loop();
 }
