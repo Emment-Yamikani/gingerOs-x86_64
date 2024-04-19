@@ -337,8 +337,8 @@ int sigprocmask(int how, const sigset_t *restrict sig_mask, sigset_t *restrict o
 }
 
 int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact) {
-    int         err     = -EINVAL;
-    sig_desc_t  *sigdesc   = NULL;
+    sig_desc_t  *sigdesc    = NULL;
+    int         err         = -EINVAL;
 
     if (SIGBAD(signo))
         return -EINVAL;
@@ -357,8 +357,7 @@ int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict 
         return 0;
     }
 
-    if (((signo == SIGSTOP) || (signo == SIGKILL)) &&
-        (!act->sa_handler && act->sa_sigaction))
+    if ((signo == SIGSTOP) || (signo == SIGKILL))
             goto error;
 
     if (!act->sa_handler && !act->sa_sigaction)
@@ -486,21 +485,16 @@ __handle_signal:
     tarch->t_uctx->uc_sigmask = oset;
 
     // dump_tf(&tarch->t_uctx->uc_mcontext, 0);
-    err = arch_signal_dispatch(
-        tarch,
-        (void *)handler,
-        info,
-        &act
+    // debugloc();
+    assert_msg(0 == (err =
+        arch_signal_dispatch(
+        tarch, (void *)handler, info, &act)),
+        "Failed to dispatch signal handler, err: %d\n", err
     );
     // dump_tf(&tarch->t_uctx->uc_mcontext, 0);
+    // debugloc();
 
-    assert_msg(
-        err == 0,
-        "Failed to dispatch signal handler, err: %d\n",
-        err
-    );
     current_unlock();
-
     kfree(info); // free siginfo_t *info (struct).
 
 __exit_handler:

@@ -87,19 +87,19 @@ int sched_park(thread_t *thread) {
 
     tsched  = &thread->t_sched;
     prior   = tsched->ts_priority;
-    affini  = tsched->ts_affinity_type;
+    affini  = tsched->ts_affinity.type;
 
-    if (affini == SCHED_HARD_AFFINITY) {
+    if (affini == HARD_AFFINITY) {
         /// test cpus for affinity
         /// if thread has hard affinity scheduling enabled.
         for (core = 0; core < cpu_online(); core++) {
-            if (BTEST(tsched->ts_cpu_affinity_set, core))
+            if (BTEST(tsched->ts_affinity.cpu_set, core))
                 break;
         }
 
         if (core >= cpu_online()) {
             core = getcpuid();
-            tsched->ts_cpu_affinity_set |= BS(core);
+            tsched->ts_affinity.cpu_set |= BS(core);
         }
     }
 

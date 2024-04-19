@@ -69,10 +69,12 @@ void thread_kstack_free(uintptr_t addr) {
  * @return int 0 on success otherwise an error code is passed.
  */
 int thread_alloc(size_t ksz /*kstacksz*/, int __flags, thread_t **ret) {
-    int         err     = 0;
-    int         flags   = 0;
-    uintptr_t   kstack  = 0;
-    thread_t    *thread = NULL;
+    int             err     = 0;
+    int             flags   = 0;
+    uintptr_t       kstack  = 0;
+    arch_thread_t   *arch   = NULL;
+    thread_t        *thread = NULL;
+    thread_sched_t  *sched  = NULL;
 
     if (ret == NULL)
         return -EINVAL;
@@ -85,27 +87,29 @@ int thread_alloc(size_t ksz /*kstacksz*/, int __flags, thread_t **ret) {
     thread->t_lock  = SPINLOCK_INIT();
     thread_lock(thread);
 
-    thread->t_arch  = (arch_thread_t) {
-        .t_kstack.ss_size   = ksz,
-        .t_thread           = thread,
-        .t_kstack.ss_sp     = (void *)kstack,
-        .t_sstack.ss_sp     = (void *)thread,
-        /**
-         * 1Kib should be large enough
-         * to act as a scratch space for
-         * executing thread for the first time.
-        */
-        .t_sstack.ss_size   = KiB(1),
-        .t_rsvd             = ((void *)thread) - KiB(1)
-    };
+    sched                   = &thread->t_sched;
+    arch                    = &thread->t_arch;
 
-    thread->t_refcnt                    = 2;
-    thread->t_sched.ts_cpu_affinity_set = -1;
-    thread->t_tid                       = tid_alloc();
-    thread->t_queues                    = QUEUE_INIT();
-    thread->t_sched.ts_ctime            = jiffies_get();
-    thread->t_sched.ts_affinity_type    = SCHED_SOFT_AFFINITY;
-    thread->t_sched.ts_priority         = SCHED_LOWEST_PRIORITY;
+    arch->t_kstack.ss_size  = ksz;
+    arch->t_thread          = thread;
+    arch->t_kstack.ss_sp    = (void *)kstack;
+    arch->t_sstack.ss_sp    = (void *)thread;
+    /**
+     * 1Kib should be large enough
+     * to act as a scratch space for
+     * executing thread for the first time.
+    */
+    arch->t_sstack.ss_size  = (usize)KiB(1);
+    arch->t_rsvd            = (void *)thread - KiB(1);
+
+    thread->t_refcnt        = 2;
+    thread->t_tid           = tid_alloc();
+    thread->t_queues        = QUEUE_INIT();
+    
+    sched->ts_affinity.cpu_set = -1;
+    sched->ts_ctime            = jiffies_get();
+    sched->ts_affinity.type    = SOFT_AFFINITY;
+    sched->ts_priority         = SCHED_LOWEST_PRIORITY;
 
     // every thread begins as an embryo.
     thread_enter_state(thread, T_EMBRYO);
@@ -621,7 +625,7 @@ int thread_sigdequeue(thread_t *thread, siginfo_t **ret) {
             
             sigdequeue_pending(&thread->t_sigqueue[signo], &info);
             queue_unlock(&thread->t_sigqueue[signo]);
-            sigaddset(&thread->t_sigmask, signo + 1);
+            // sigaddset(&thread->t_sigmask, signo + 1);
             *ret = info;
             return 0;
         }
@@ -745,7 +749,7 @@ int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap) {
         .ts_priority        = src->t_sched.ts_priority,
         .ts_processor       = src->t_sched.ts_processor,
         .ts_timeslice       = src->t_sched.ts_timeslice,
-        .ts_affinity_type   = src->t_sched.ts_affinity_type,
+        .ts_affinity.type   = src->t_sched.ts_affinity.type,
     };
 
     if ((ustack = mmap_find(mmap, sp)) == NULL) {

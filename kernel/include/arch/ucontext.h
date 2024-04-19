@@ -49,6 +49,7 @@ typedef struct __ucontext_t {
     sigset_t    uc_sigmask; /* signals blocked when this context */
                             /* is active */
     uc_stack_t  uc_stack;   /* stack used by this context */
+    i32         uc_resvd;
     i64         uc_flags;   /* flags*/
     mcontext_t  uc_mcontext;/* machine-specific representation of */
                             /* saved context */

@@ -200,7 +200,7 @@ typedef struct {
 typedef struct __uc_stack_t {
     void    *ss_sp;     /* stack base or pointer */
     size_t  ss_size;    /* stack size */
-    i64     ss_flags;   /* flags */
+    i32     ss_flags;   /* flags */
 } __packed uc_stack_t;
 
 typedef struct {

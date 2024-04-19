@@ -89,7 +89,7 @@ debug:
 	objdump -d $(ISO_DIR)/boot/lime.elf -M intel > lime.asm
 
 run:
-	qemu-system-x86_64 -smp 1 \
+	qemu-system-x86_64 -smp 4 \
 	-m size=512M -cdrom ginger.iso \
 	-no-reboot -no-shutdown -vga std \
 	-chardev stdio,id=char0,logfile=serial.log,signal=off \
@@ -137,4 +137,5 @@ clean_debug:
 
 clean:
 	rm -rf $(KERNEL_OBJS) $(KERNEL_OBJS:.o=.d) $(LINKED_OBJS) $(LINKED_OBJS:.o=.d) $(USR_LIB)/*.o $(USR_LIB)/*.d $(LIBC_SO) $(USR_OBJS) $(USR_LIB)/libc.a $(USR_OBJS:.o=.d) $(APP_DIR)/*.o $(APP_DIR)/*.d ginger.iso $(ISO_DIR)/modules/initrd $(ISO_DIR)/boot/lime.elf $(ISO_DIR)/modules/* serial.log
+
 

@@ -42,25 +42,24 @@ typedef struct thread_attr_t {
 } thread_attr_t;
 
 typedef struct thread_sched_t {
-    time_t      ts_ctime;               // Thread ceation time.
-    time_t      ts_cpu_time;            // CPU time in jiffies(n seconds = (jiffy * (HZ_TO_ns(SYS_HZ) / seconds_TO_ns(1))) ).
-    time_t      ts_timeslice;           // Quantum of CPU time for which this thread is allowed to run.
-    time_t      ts_total_time;          // Total time this thread has run.
-    time_t      ts_last_sched;          // Last time this thread was scheduled to run.
-
-    cpu_t       *ts_processor;          // Current Processor for which this thread has affinity.
-    u8          ts_affinity_type;       // Type of affinity (SOFT or HARD).
-    flags32_t   ts_cpu_affinity_set;    // cpu set for which thread can have affinity for.
+    time_t      ts_ctime;       // Thread ceation time.
+    time_t      ts_cpu_time;    // CPU time in jiffies(n seconds = (jiffy * (HZ_TO_ns(SYS_HZ) / seconds_TO_ns(1))) ).
+    time_t      ts_timeslice;   // Quantum of CPU time for which this thread is allowed to run.
+    time_t      ts_total_time;  // Total time this thread has run.
+    time_t      ts_last_sched;  // Last time this thread was scheduled to run.
+    cpu_t       *ts_processor;  // Current Processor for which this thread has affinity.
+    struct {
+        enum{
+            SOFT_AFFINITY = 0,  /*soft affinity for the cpu*/
+            HARD_AFFINITY = 1,  /*hard affinity for the cpu*/
+        } type;                 // Type of affinity (SOFT or HARD).
+        flags32_t   cpu_set;    // cpu set for which thread can have affinity for.
+    } ts_affinity;
     atomic_t    ts_priority;            // Thread scheduling Priority.
 } thread_sched_t;
 
 #define sched_DEFAULT() (thread_sched_t){0}
 
-/*soft affinity for the cpu*/
-#define SCHED_SOFT_AFFINITY 0
-
-/*hard affinity for the cpu*/
-#define SCHED_HARD_AFFINITY 1
 
 typedef struct sleep_attr_t {
     queue_node_t    *node;              // thread's sleep node.
