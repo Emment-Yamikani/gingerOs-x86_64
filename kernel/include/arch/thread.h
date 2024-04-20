@@ -6,6 +6,8 @@
 #include <lib/stdint.h>
 #include <sys/_signal.h>
 
+#define ARCH_EXEC_ONSTACK    BS(0)
+
 /**
  * Arch-specific thread structure.
  * This is what the architecture understands a thread to be.

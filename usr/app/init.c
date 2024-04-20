@@ -1,3 +1,4 @@
+#include "../include/api.h"
 #include <api.h>
 
 void signal_handler(int signo) {
@@ -50,22 +51,26 @@ void *test(tid_t tid) {
     loop();
 }
 
-void main (void) {
-    tid_t   tid = 0;
 
+void startxxx(void) {
+    tid_t   tid = 0;
     sys_thread_create(
         &tid, NULL, (void *)test,
-        (void *)((long)sys_thread_self())
-    );
+        (void *)((long)sys_thread_self()));
 
     sys_park();
 
+    sys_pthread_kill(tid, SIGINT);
+    sys_pthread_kill(tid, SIGINT);
     sys_pthread_kill(tid, SIGTRAP);
     sys_pthread_kill(tid, SIGUSR1);
-    sys_pthread_kill(tid, SIGINT);
     sys_pthread_kill(tid, SIGUSR2);
-    sys_pthread_kill(tid, SIGINT);
 
     printf("At the end of main();\n");
+
+}
+
+void main (void) {
+    
     loop();
 }

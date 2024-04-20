@@ -233,7 +233,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
 
     uc_stack.ss_size    = __vmr_size(ustack);
     uc_stack.ss_flags   = __vmr_vflags(ustack);
-    uc_stack.ss_sp      = (void *)__vmr_start(ustack);
+    uc_stack.ss_sp      = (void *)__vmr_upper_bound(ustack);
 
     thread->t_mmap = proc_mmap(curproc);
     proc_mmap_unlock(curproc);
@@ -625,7 +625,7 @@ int thread_sigdequeue(thread_t *thread, siginfo_t **ret) {
             
             sigdequeue_pending(&thread->t_sigqueue[signo], &info);
             queue_unlock(&thread->t_sigqueue[signo]);
-            // sigaddset(&thread->t_sigmask, signo + 1);
+            sigaddset(&thread->t_sigmask, signo + 1);
             *ret = info;
             return 0;
         }
@@ -690,7 +690,7 @@ int thread_execve(proc_t *proc, thread_t *thread, thread_entry_t entry, const ch
 
     uc_stack.ss_size    = __vmr_size(ustack);
     uc_stack.ss_flags   = __vmr_vflags(ustack);
-    uc_stack.ss_sp      = (void *)__vmr_start(ustack);
+    uc_stack.ss_sp      = (void *)__vmr_upper_bound(ustack);
 
     thread->t_arch.t_ustack = uc_stack;
 
@@ -758,7 +758,7 @@ int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap) {
 
     uc_stack.ss_size    = __vmr_size(ustack);
     uc_stack.ss_flags   = __vmr_vflags(ustack);
-    uc_stack.ss_sp      = (void *)__vmr_start(ustack);
+    uc_stack.ss_sp      = (void *)__vmr_upper_bound(ustack);
     dst->t_arch.t_ustack = uc_stack;
     return arch_thread_fork(&dst->t_arch, &src->t_arch);
 }

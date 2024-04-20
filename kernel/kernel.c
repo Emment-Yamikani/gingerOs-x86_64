@@ -84,7 +84,7 @@ int load_init(const char *conf_fn) {
     conf_find(conf_buf, "![init]", &init_desc);
 
     printk("Loading of bootstrap program %s.\n", 
-        proc_init("/ramfs/test1") == 0 ? 
+        proc_init("/ramfs/init") == 0 ? 
         "Successful :)" : "Unsucessful :("
     );
 

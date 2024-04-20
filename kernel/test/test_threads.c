@@ -69,4 +69,4 @@ void test_main(void) {
     loop() thread_yield();
 }
 
-// BUILTIN_THREAD(test_main, test_main, NULL);
+BUILTIN_THREAD(test_main, test_main, NULL);

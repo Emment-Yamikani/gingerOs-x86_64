@@ -4,6 +4,7 @@
 #include <lib/types.h>
 #include <sys/_signal.h>
 #include <sys/system.h>
+#include <arch/x86_64/mmu.h>
 
 /*machine context*/
 typedef struct __mcontext_t {
@@ -54,3 +55,5 @@ typedef struct __ucontext_t {
     mcontext_t  uc_mcontext;/* machine-specific representation of */
                             /* saved context */
 } ucontext_t;
+
+#define uctx_isuser(ctx)    ({ ((ctx)->uc_mcontext.cs == (((SEG_UCODE64 << 3) | DPL_USR))) ? 1 : 0; })

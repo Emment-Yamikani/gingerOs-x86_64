@@ -118,7 +118,6 @@ void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
      * as though it's not handling any signal.
      */
 
-
     signal_handler_ctx  = arch->t_ctx;      // signal_handler();
     scheduler_ctx       = signal_handler_ctx->link; // schedule();
     
@@ -145,17 +144,17 @@ void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
 
 int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
     siginfo_t *info, sigaction_t *sigact) {
-    __unused int         err             = 0;
     i64         ncli            = 1;
     i64         intena          = 0;
     flags64_t   was_handling    = 0;
-    siginfo_t   *siginfo        = NULL;
+    uc_stack_t  stack           = {0};
     context_t   *ctx            = NULL;
     mcontext_t  *mctx           = NULL;
     ucontext_t  *uctx           = NULL;
-    ucontext_t  *tmpctx       = NULL;
+    ucontext_t  *tmpctx         = NULL;
     u64         *kstack         = NULL;
     u64         *ustack         = NULL;
+    siginfo_t   *siginfo        = NULL;
     void        *rsvd_stack     = NULL;
 
     if (thread == NULL || entry == NULL ||
@@ -165,93 +164,123 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
     if (thread->t_thread == NULL)
         return -EINVAL;
 
+    kstack      = (u64 *)ALIGN16(thread->t_sstack.ss_sp);
+    *--kstack   = (u64)x86_64_signal_return;
 
-    kstack = (u64 *)thread->t_sstack.ss_sp;
-    assert(kstack, "Invalid Kernel stack.");
-    assert(is_aligned16(kstack),
-           "Kernel stack is not 16bytes aligned!");
-
-    *--kstack = (u64)x86_64_signal_return;
-    
-    mctx = (mcontext_t *)((u64)kstack - sizeof *mctx);
+    kstack      = (u64 *)(mctx = (mcontext_t *)((u64)kstack - sizeof *mctx));
     memset(mctx, 0, sizeof *mctx);
 
-    mctx->rflags    = LF_IF;
-    mctx->rip       = (u64)entry;
-    // first argument of signal handler.
-    mctx->rdi       = (u64)info->si_signo;
+    if (current_isuser()) {
+        if (sigact->sa_flags & SA_ONSTACK) {
+            stack   = thread->t_altstack;
+            stack.ss_sp = ((thread->t_flags & ARCH_EXEC_ONSTACK) ?
+                (void *)ALIGN16(thread->t_uctx->uc_mcontext.rsp) :
+                thread->t_altstack.ss_sp);
+            stack.ss_size = thread->t_altstack.ss_size - 
+                (thread->t_altstack.ss_sp - stack.ss_sp);
+            stack.ss_flags = thread->t_altstack.ss_flags;
+        } else {
+            stack.ss_sp     = (void *)ALIGN16(thread->t_uctx->uc_mcontext.rsp);
+            stack.ss_size   = thread->t_ustack.ss_size - 
+                (thread->t_ustack.ss_sp - stack.ss_sp);
+            stack.ss_flags  = thread->t_ustack.ss_flags;
+        }
 
-    if (!current_isuser()) {
-        mctx->ss    = (SEG_KDATA64 << 3);
-        mctx->rbp   = mctx->rsp = (u64)kstack; // FIXME: this will still be overwritten.
-        mctx->cs    = (SEG_KCODE64 << 3); 
-        mctx->fs    = (SEG_KDATA64 << 3);
-        mctx->ds    = (SEG_KDATA64 << 3);
-        mctx->rsi   = (u64)info;
-        mctx->rdx   = (u64)thread->t_uctx;
-    } else {
-        ustack      = (u64 *)ALIGN16(thread->t_uctx->uc_mcontext.rsp);
+        ustack  = stack.ss_sp;
+
         if (sigact->sa_flags & SA_SIGINFO) {
-            uctx    = (ucontext_t *)ustack;
             for (tmpctx = thread->t_uctx; tmpctx; tmpctx = tmpctx->uc_link)
-                --uctx;
+                ustack  = (u64 *)((u64)ustack - sizeof *uctx);
 
-            ustack  = (u64 *)uctx;
+            uctx        = (ucontext_t *)ustack;
+
+            assert(((void *)uctx - 0) >= 
+                (stack.ss_sp - stack.ss_size),
+                "User stack overflow detected!!!\n"
+            );
+
             for (tmpctx = thread->t_uctx; tmpctx; tmpctx = tmpctx->uc_link) {
                 uctx->uc_flags      = tmpctx->uc_flags;
+                uctx->uc_resvd      = tmpctx->uc_resvd;
                 uctx->uc_stack      = tmpctx->uc_stack;
                 uctx->uc_sigmask    = tmpctx->uc_sigmask;
                 uctx->uc_mcontext   = tmpctx->uc_mcontext;
                 uctx = uctx->uc_link= tmpctx->uc_link ? (uctx + 1) : NULL;
-                // uctx                = tmpctx->uc_link ? (uctx + 1) : NULL;
             }
-            uctx    = (ucontext_t *)ustack;
 
-            siginfo = (siginfo_t *)((u64)ustack - sizeof *siginfo);
+            uctx        = (ucontext_t *)ustack;
+            siginfo     = (siginfo_t *)((u64)ustack - sizeof *siginfo);
+
+            assert(((void *)siginfo - 0) >= 
+                (stack.ss_sp - stack.ss_size),
+                "User stack overflow detected!!!\n"
+            );
+
             siginfo->si_pid     = info->si_pid;
             siginfo->si_uid     = info->si_uid;
             siginfo->si_addr    = info->si_addr;
             siginfo->si_code    = info->si_code;
-            siginfo->si_signo   = info->si_signo;
             siginfo->si_value   = info->si_value;
+            siginfo->si_signo   = info->si_signo;
             siginfo->si_status  = info->si_status;
 
-            ustack = (u64 *)siginfo;
-            // printk("%s:%d: info: %p, signo: %d\n", __FILE__, __LINE__, siginfo, siginfo->si_signo);
+            ustack      = (u64 *)siginfo;
         }
 
         *--ustack   = -1ull;
+    
+        assert(((void *)ustack - 0) >= 
+            (stack.ss_sp - stack.ss_size),
+            "User stack overflow detected!!!\n"
+        );
+
         mctx->ss    = (SEG_UDATA64 << 3) | DPL_USR;
-        mctx->rbp   = mctx->rsp = (u64)ustack;
+        mctx->rbp   = (u64)ustack;
+        mctx->rsp   = (u64)ustack;
         mctx->cs    = (SEG_UCODE64 << 3) | DPL_USR;
         mctx->fs    = (SEG_UDATA64 << 3) | DPL_USR;
         mctx->ds    = (SEG_UDATA64 << 3) | DPL_USR;
-        mctx->rsi   = (u64)siginfo;
-        mctx->rdx   = (u64)uctx;
+    } else {
+        mctx->ss = (SEG_KDATA64 << 3);
+        mctx->cs = (SEG_KCODE64 << 3);
+        mctx->ds = (SEG_KDATA64 << 3);
+        mctx->fs = (SEG_KDATA64 << 3);
+        /**
+         * @brief mctx->rsp and mctx->rbp
+         * are set in x86_64_signal_start() above.
+         */
     }
 
-    kstack      = (u64 *)mctx;
-    *--kstack   = (u64)trapret;
-    ctx         = (context_t *)((u64)kstack - sizeof *ctx);
+    mctx->rflags    = LF_IF;
+    mctx->rip       = (u64)entry;
+    mctx->rdi       = (u64)info->si_signo;
+    
+    if (sigact->sa_flags & SA_SIGINFO) {
+        mctx->rsi   = (u64) (current_isuser() ? siginfo : info);
+        mctx->rdx   = (u64) (current_isuser() ? uctx : thread->t_uctx);
+    }
 
-    assert((void *)ctx > (thread->t_sstack.ss_sp -
-                       thread->t_sstack.ss_size),
-        "Kernel stack overflow detected!");
+    *--kstack       = (u64)trapret;
+    ctx             = (context_t *)((u64)kstack - sizeof *ctx);
+    ctx->rip        = (u64)x86_64_signal_start;
+    ctx->rbp        = (u64)kstack;
+    ctx->link       = thread->t_ctx;
+    thread->t_ctx   = ctx;
 
-    ctx->rip    = (u64)x86_64_signal_start;
-    ctx->rbp    = mctx->rsp;
-    ctx->link   = thread->t_ctx; // -> interrupted ctx.
-    thread->t_ctx= ctx;
-
-    was_handling = current_ishandling();
+    rsvd_stack      = thread->t_rsvd;
+    was_handling    = current_ishandling();
     current_setflags(THREAD_HANDLING_SIG);
 
     swapi64(&intena, &cpu->intena);
     swapi64(&ncli, &cpu->ncli);
 
-    rsvd_stack = thread->t_rsvd;
-
     context_switch(&thread->t_ctx);
+
+    swapi64(&cpu->ncli, &ncli);
+    swapi64(&cpu->intena, &intena);
+
+    if (was_handling == 0)
+        current_maskflags(THREAD_HANDLING_SIG);
 
     /**
      * thread->t_ctx at this point points to
@@ -262,14 +291,8 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
      * to the value it had prior to calling
      * this functino (x86_64_signal_dispatch()).
     */
-    thread->t_ctx = thread->t_ctx->link;
-    thread->t_rsvd = rsvd_stack;
-
-    swapi64(&cpu->ncli, &ncli);
-    swapi64(&cpu->intena, &intena);
-
-    if (was_handling == 0)
-        current_maskflags(THREAD_HANDLING_SIG);
+    thread->t_ctx   = thread->t_ctx->link;
+    thread->t_rsvd  = rsvd_stack;
 
     return 0;
 }
@@ -284,8 +307,7 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     if (thread == NULL || entry == NULL)
         return -EINVAL;
 
-    if ((ustack = (u64 *)(thread->t_ustack.ss_sp +
-        thread->t_ustack.ss_size)) == NULL)
+    if ((ustack = (u64 *)ALIGN16(thread->t_ustack.ss_sp)) == NULL)
         return -EINVAL;
 
     if ((err = arch_map_n(((u64)ustack) -
@@ -338,8 +360,7 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
     if (argc && argp == NULL)
         return -EINVAL;
 
-    if ((ustack = (u64 *)(thread->t_ustack.ss_sp +
-        thread->t_ustack.ss_size)) == NULL)
+    if ((ustack = (u64 *)ALIGN16(thread->t_ustack.ss_sp)) == NULL)
         return -EINVAL;
 
     if ((err = arch_map_n(((u64)ustack) -

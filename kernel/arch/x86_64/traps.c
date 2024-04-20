@@ -164,8 +164,10 @@ void trap(ucontext_t *uctx) {
     current_unlock();
 
     pushcli();
-    dispatch_signal();
+    if ((current_isuser() && uctx_isuser(uctx)) || !current_isuser())
+        dispatch_signal();
     popcli();
+
 
     current_lock();
     time = current->t_sched.ts_timeslice;
