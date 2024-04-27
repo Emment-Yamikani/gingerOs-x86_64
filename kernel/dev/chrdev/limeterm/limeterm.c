@@ -21,6 +21,8 @@
 #include <mm/vmm.h>
 #include <video/color_code.h>
 
+void limeterm_drawcursor(void);
+
 typedef struct limeterm_ctx {
     int         op;             // foreground opacity.
     int         cc;             // character col.
@@ -42,15 +44,17 @@ typedef struct limeterm_ctx {
     spinlock_t lock;            // ctx lock.
 } limeterm_ctx_t;
 
-limeterm_ctx_t ctx;
-inode_t *limeterm = NULL;
-inode_t *limeterm_img = NULL;
-volatile int use_limeterm_cons = 0;
-volatile int limeterm_esc = 0;
-__unused static int cbufi = 0;
-__unused static char cbuf[PGSZ] = {0};
-static stack_t *limeterm_chars = STACK_NEW();
-static stack_t *limeterm_themes = STACK_NEW();
+limeterm_ctx_t      ctx;
+timeval_t           tv                  = {0};
+static   clockid_t  limeterm_clkid      = 0;
+static   int        cbufi               = 0;
+static   char       cbuf[PGSZ]          = {0};
+inode_t             *limeterm           = NULL;
+volatile int        limeterm_esc        = 0;
+inode_t             *limeterm_img       = NULL;
+volatile int        use_limeterm_cons   = 0;
+static   stack_t    *limeterm_chars     = STACK_NEW();
+static   stack_t    *limeterm_themes    = STACK_NEW();
 
 const char *wallpaper_path[] = {
     "snow_800x600.jpg",
@@ -102,16 +106,16 @@ void limeterm_fill_rect(uint32_t **scanline, int x, int y, int w, int h, int col
 }
 
 int limeterm_init(void) {
-    int err = -ENOMEM;
+    int         err     = -ENOMEM;
 
     memset(&ctx, 0, sizeof ctx);
    
-    ctx.op              = 200;
     ctx.cursor_char     = '|';
-    ctx.cursor_timeout  = 150;
-    ctx.fg_color        = RGB_dark_cyan;
+    ctx.op              = 200;
+    ctx.cursor_timeout  = 100000;
     ctx.bg_color        = RGB_black;
     ctx.bg_color        = 0x00002b2b;
+    ctx.fg_color        = RGB_dark_cyan;
     ctx.lock            = SPINLOCK_INIT();
 
     if ((err = fontctx_alloc(&ctx.font)))
@@ -139,6 +143,18 @@ int limeterm_init(void) {
 
     use_limeterm_cons = 1;
     limeterm_clrscrn();
+
+    tv.tv_sec  = 0;
+    tv.tv_usec = ctx.cursor_timeout;
+
+    err = clock_set(&tv,
+        (void *)limeterm_drawcursor,
+        NULL,
+        CLK_RESET,
+        &limeterm_clkid
+    );
+
+    assert(err == 0, "Failed to set clock\n");
 
     printk(cbuf);
     return 0;
@@ -272,8 +288,7 @@ void ctx_putchar(struct limeterm_ctx *ctx, int c) {
 }
 
 void ctx_puts(struct limeterm_ctx *ctx, char *str) {
-    while (*str)
-        ctx_putchar(ctx, *str++);
+    while (*str) ctx_putchar(ctx, *str++);
 }
 
 void limeterm_clrscrn(void) {
@@ -428,23 +443,20 @@ void limeterm_sputc(int c) {
 
 size_t limeterm_puts(const char *s) {
     char *S = (char *)s;
-    while (*S)
-        ctx_putchar(&ctx, *S++);
+    while (*S) ctx_putchar(&ctx, *S++);
     return S - s;
 }
 
-static void limeterm_cursor(void *arg __unused) {
+void limeterm_drawcursor(void) {
+    static u8 cursor = ' ', tmp = '\0';
     if (use_limeterm_cons == 0)
-        thread_exit(-ENOENT);
-    loop() {
-        spin_lock(&ctx.lock);
-        font_putc(ctx.cursor_char, &ctx, ctx.cc, ctx.cr);
-        spin_unlock(&ctx.lock);
-        jiffies_sleep(ms_TO_jiffies(ctx.cursor_timeout));
-        spin_lock(&ctx.lock);
-        font_putc(' ', &ctx, ctx.cc, ctx.cr);
-        spin_unlock(&ctx.lock);
-        jiffies_sleep(ms_TO_jiffies(ctx.cursor_timeout));
-    }
+        return;
+
+    spin_lock(&ctx.lock);
+    font_putc(cursor, &ctx, ctx.cc, ctx.cr);
+    tmp     = cursor;
+    cursor  = ctx.cursor_char;
+    ctx.cursor_char = tmp;
+    spin_unlock(&ctx.lock);
+
 }
-BUILTIN_THREAD(limeterm_text, limeterm_cursor, NULL);

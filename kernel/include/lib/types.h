@@ -3,6 +3,16 @@
 #include <arch/types.h>
 #include <lib/stdint.h>
 
+typedef     unsigned char           uchar;
+typedef     unsigned short          ushort;
+typedef     unsigned int            uint;
+typedef     unsigned long           ulong;
+
+typedef     signed char             schar;
+typedef     signed short            sshort;
+typedef     signed int              sint;
+typedef     signed long             slong;
+
 typedef     unsigned char           u8;
 typedef     unsigned short          u16;
 typedef     unsigned int            u32;
@@ -33,12 +43,24 @@ typedef     int                     gid_t;
 typedef     int                     ino_t;
 typedef     int                     mode_t;
 
+typedef     union __pixel_t {
+    struct {
+        u8 r;
+        u8 g;
+        u8 b;
+        u8 a;
+    };
+    u32 packed;
+} pixel_t;
+
 
 typedef     long                    time_t;
 typedef     long                    timer_t;
 typedef     long                    clock_t;
 typedef     long                    clockid_t;
 typedef     int                     susseconds_t;
+typedef     struct timeval          timeval_t;
+typedef     struct timespec         timespec_t;
 
 struct devid {
     uint8_t     major;

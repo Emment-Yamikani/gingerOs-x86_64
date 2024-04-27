@@ -7,8 +7,10 @@
 #include <ds/queue.h>
 
 #ifndef foreach
-#define foreach(elem, list) \
-    for (typeof(*list) *tmp = list, elem = *tmp; elem; elem = *++tmp)
+#define foreach(elem, list)                         \
+    for (typeof(*list) *tmp = list,                 \
+        elem = (typeof(elem))(tmp ? *tmp : NULL);   \
+        elem; elem = *++tmp)
 #endif // foreach
 
 #ifndef forlinked
@@ -20,8 +22,7 @@ typedef uintptr_t btree_key_t;
 
 struct btree;
 
-typedef struct btree_node
-{
+typedef struct btree_node {
     btree_key_t          key;
     void                *data;
     struct btree_node   *left;
@@ -30,24 +31,28 @@ typedef struct btree_node
     struct btree        *btree;
 } btree_node_t;
 
-typedef struct btree
-{
-    btree_node_t *root;
-    size_t      nr_nodes;
-    spinlock_t lock;
+typedef struct btree {
+    btree_node_t    *root;
+    size_t          nr_nodes;
+    spinlock_t      lock;
 } btree_t;
 
-#define btree_assert(btree)         ({assert(btree, "No Btree");})
-#define btree_lock(btree)           ({btree_assert(btree); spin_lock(&btree->lock);})
-#define btree_unlock(btree)         ({btree_assert(btree); spin_unlock(&btree->lock);})
-#define btree_islocked(btree)       ({btree_assert(btree); spin_islocked(&btree->lock);})
-#define btree_assert_locked(btree)  ({btree_assert(btree); spin_assert_locked(&btree->lock);})
+#define BTREE_INIT() ((btree_t){0})
 
-#define btree_nr_nodes(btree)   ({btree_assert_locked(btree); (btree->nr_nodes); })
-#define btree_isempty(btree)    ({ btree_assert_locked(btree); (btree->root == NULL);})
+#define BTREE_NEW()                 (&BTREE_INIT())
+#define BTREE(name)                 btree_t *name = BTREE_NEW()
 
-#define btree_node_isleft(node)     ({ node->parent ? node->parent->left == node ? 1 : 0 : 0;})
-#define btree_node_isright(node)    ({ node->parent ? node->parent->right == node ? 1 : 0 : 0;})
+#define btree_assert(btree)         ({ assert(btree, "No Btree"); })
+#define btree_lock(btree)           ({ btree_assert(btree); spin_lock(&(btree)->lock); })
+#define btree_unlock(btree)         ({ btree_assert(btree); spin_unlock(&(btree)->lock); })
+#define btree_islocked(btree)       ({ btree_assert(btree); spin_islocked(&(btree)->lock); })
+#define btree_assert_locked(btree)  ({ btree_assert(btree); spin_assert_locked(&(btree)->lock); })
+
+#define btree_nr_nodes(btree)       ({ btree_assert_locked(btree); ((btree)->nr_nodes); })
+#define btree_isempty(btree)        ({ btree_assert_locked(btree); ((btree)->root == NULL); })
+
+#define btree_node_isleft(node)     ({ (node)->parent ? ((node)->parent->left == (node)) ? 1 : 0 : 0; })
+#define btree_node_isright(node)    ({ (node)->parent ? ((node)->parent->right == (node)) ? 1 : 0 : 0; })
 
 void btree_free(btree_t *btree);
 int btree_alloc(btree_t **pbtree);

@@ -57,7 +57,7 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     if (thread == NULL || entry == NULL)
         return -EINVAL;
 
-    mctx = (mcontext_t *)(thread->t_sstack.ss_sp - sizeof *mctx);
+    mctx = (mcontext_t *)ALIGN16(thread->t_sstack.ss_sp - sizeof *mctx);
     memset(mctx, 0, sizeof *mctx);
 
     kstack      = (u64 *)ALIGN16(thread->t_rsvd);
@@ -85,26 +85,26 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
 }
 
 void x86_64_signal_return(void) {
-    context_t       *scheduler_ctx      = NULL;
-    context_t       *signal_handler_ctx = NULL;
-    arch_thread_t   *arch               = NULL;
+    context_t       *scheduler      = NULL;
+    context_t       *dispatcher     = NULL;
+    arch_thread_t   *arch           = NULL;
 
     current_lock();
-    arch                = &current->t_arch;
-    scheduler_ctx       = arch->t_ctx;              // schedule();
-    signal_handler_ctx  = scheduler_ctx->link;      // signal_handler();
+    arch        = &current->t_arch;
+    scheduler   = arch->t_ctx;              // schedule();
+    dispatcher  = scheduler->link;      // signal_handler();
     
-    scheduler_ctx->link = signal_handler_ctx->link;
-    signal_handler_ctx->link = scheduler_ctx;
-    arch->t_ctx         = signal_handler_ctx;
+    scheduler->link = dispatcher->link;
+    dispatcher->link= scheduler;
+    arch->t_ctx     = dispatcher;
 
     context_switch(&arch->t_ctx);
 }
 
 void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
-    context_t       *scheduler_ctx      = NULL;
-    context_t       *signal_handler_ctx = NULL;
-    arch_thread_t   *arch               = &current->t_arch;
+    context_t       *scheduler      = NULL;
+    context_t       *dispatcher     = NULL;
+    arch_thread_t   *arch           = &current->t_arch;
 
     /**
      * Swap contexts otherwise context_switch()
@@ -113,18 +113,18 @@ void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
      *
      * Therefore by doing this we intend for
      * sched() to return to the context prior to
-     * acquisition on this signal(i.e the scheduler_ctx' context)
+     * acquisition on this signal(i.e the scheduler' context)
      * Thus the thread will execute normally
      * as though it's not handling any signal.
      */
 
-    signal_handler_ctx  = arch->t_ctx;      // signal_handler();
-    scheduler_ctx       = signal_handler_ctx->link; // schedule();
+    dispatcher  = arch->t_ctx;      // signal_handler();
+    scheduler   = dispatcher->link; // schedule();
     
-    signal_handler_ctx->link =  scheduler_ctx->link;
-    scheduler_ctx->link = signal_handler_ctx;
+    dispatcher->link    =  scheduler->link;
+    scheduler->link     = dispatcher;
 
-    arch->t_ctx         = scheduler_ctx;
+    arch->t_ctx         = scheduler;
     assert((void *)kstack <= (void *)mctx, "Stack overun detected!");
 
     kstack = (void *)ALIGN16(kstack);
@@ -164,10 +164,7 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
     if (thread->t_thread == NULL)
         return -EINVAL;
 
-    kstack      = (u64 *)ALIGN16(thread->t_sstack.ss_sp);
-    *--kstack   = (u64)x86_64_signal_return;
-
-    kstack      = (u64 *)(mctx = (mcontext_t *)((u64)kstack - sizeof *mctx));
+    mctx = (mcontext_t *)(thread->t_sstack.ss_sp - sizeof *mctx);
     memset(mctx, 0, sizeof *mctx);
 
     if (current_isuser()) {
@@ -260,6 +257,7 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
         mctx->rdx   = (u64) (current_isuser() ? uctx : thread->t_uctx);
     }
 
+    kstack          = (u64 *)mctx;
     *--kstack       = (u64)trapret;
     ctx             = (context_t *)((u64)kstack - sizeof *ctx);
     ctx->rip        = (u64)x86_64_signal_start;

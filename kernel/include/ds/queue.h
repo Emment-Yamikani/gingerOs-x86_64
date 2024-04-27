@@ -18,14 +18,16 @@ typedef struct queue {
     spinlock_t      q_lock;
 } queue_t;
 
+#define QUEUE_INIT()    ((queue_t){0})
+#define QUEUE_NEW()     (&QUEUE_INIT())
+#define QUEUE(name)     queue_t *name = QUEUE_NEW()
+
 #define queue_assert(q)         ({ assert((q), "No queue"); })
 #define queue_lock(q)           ({ queue_assert(q); spin_lock(&(q)->q_lock); })
 #define queue_unlock(q)         ({ queue_assert(q); spin_unlock(&(q)->q_lock); })
 #define queue_islocked(q)       ({ queue_assert(q); spin_islocked(&(q)->q_lock); })
 #define queue_assert_locked(q)  ({ queue_assert(q); spin_assert_locked(&(q)->q_lock); })
 
-#define QUEUE_INIT() ((queue_t){0})
-#define QUEUE_NEW() (&QUEUE_INIT())
 
 #define INIT_QUEUE(q) ({           \
     queue_assert(q);               \

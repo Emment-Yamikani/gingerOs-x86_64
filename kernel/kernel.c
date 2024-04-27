@@ -9,6 +9,8 @@
 
 int load_init(const char *conf_fn);
 
+static char *init_path = "/ramfs/init";
+
 __noreturn void kthread_main(void) {
     int     err     = 0;
 
@@ -18,8 +20,6 @@ __noreturn void kthread_main(void) {
     );
 
     builtin_threads_begin(NULL);
-
-    // loop() thread_yield();
 
     if ((err = load_init("/ramfs/startup.conf"))) {
         printk("Failed to read or parse startup.conf"
@@ -59,8 +59,7 @@ int load_init(const char *conf_fn) {
 
     if ((err = open(conf_fn, O_RDONLY, 0)) < 0) {
         printk("Failed to open startup configuration file,"
-            "failed with err_code: %d\n", err
-        );
+            "failed with err_code: %d\n", err);
         goto error;
     }
 
@@ -69,23 +68,25 @@ int load_init(const char *conf_fn) {
 
     if (NULL == (conf_buf = kcalloc(1, conf_size))) {
         printk("failed to allocate buf for configuration file\n"
-            "Not enough memory to satisfy request!\n"
-        );
+            "Not enough memory to satisfy request!\n");
         goto error;
     }
 
     if ((ssize_t)(err = read(conf_fd, conf_buf, conf_size)) != (ssize_t)conf_size) {
         printk("Failed to read startup configuration file\n"
-            "read() returned: %d\n", err
-        );
+            "read() returned: %d\n", err);
     }
 
     printk("Parsing startup configuration file...\n");
     conf_find(conf_buf, "![init]", &init_desc);
 
-    printk("Loading of bootstrap program %s.\n", 
-        proc_init("/ramfs/init") == 0 ? 
-        "Successful :)" : "Unsucessful :("
+    printk("[exec] %s...\n", init_path);
+    err = proc_init(init_path);
+    printk(
+        "[%s] %s \"%s\".\n",
+        err ? "\e[025453;03mFAIL\e[0m" : "\e[025453;03mOK\e[0m",
+        err ? "couldn't load" : "started",
+        init_path
     );
 
     return 0;

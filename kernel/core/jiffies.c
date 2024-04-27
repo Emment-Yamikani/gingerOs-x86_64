@@ -8,6 +8,7 @@
 #include <sys/sched.h>
 #include <sys/thread.h>
 #include <sys/_time.h>
+#include <dev/clocks.h>
 
 static SPINLOCK(res_lock);
 static jiffies_t        jiffies     = 0;
@@ -16,6 +17,7 @@ static queue_t          *sleep_queue= QUEUE_NEW();
 
 void jiffies_update(void) {
     atomic_inc(&jiffies);
+    clock_trigger();
     sched_wakeall(sleep_queue);
 }
 

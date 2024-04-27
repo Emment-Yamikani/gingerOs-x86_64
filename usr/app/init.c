@@ -1,4 +1,3 @@
-#include "../include/api.h"
 #include <api.h>
 
 void signal_handler(int signo) {
