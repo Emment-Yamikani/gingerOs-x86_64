@@ -128,11 +128,13 @@ int thread_leave_group(thread_t *thread) {
 }
 
 int tgroup_get_thread(queue_t *tgroup, tid_t tid, tstate_t state, thread_t **pthread) {
-    thread_t *thread = NULL;
-    queue_node_t *next = NULL;
+    thread_t        *thread = NULL;
+    queue_node_t    *next   = NULL;
 
     if (!pthread)
         return -EINVAL;
+
+    queue_assert_locked(tgroup);
 
     forlinked(node, tgroup->head, next) {
         next = node->next;
@@ -141,12 +143,12 @@ int tgroup_get_thread(queue_t *tgroup, tid_t tid, tstate_t state, thread_t **pth
         thread_lock(thread);
 
         if (tid == 0 && thread_isstate(thread, state)) {
-            *pthread = thread;
+            *pthread = thread_getref(thread);
             return 0;
         }
 
         if (thread->t_tid == tid || tid == -1) {
-            *pthread = thread;
+            *pthread = thread_getref(thread);
             return 0;
         }
 
@@ -157,8 +159,10 @@ int tgroup_get_thread(queue_t *tgroup, tid_t tid, tstate_t state, thread_t **pth
 }
 
 int tgroup_terminate(queue_t *tgroup, spinlock_t *lock) {
-    int err = 0;
+    int     err = 0;
+    
     tgroup_assert_locked(tgroup);
+    
     if (lock)
         spin_unlock(lock);
 

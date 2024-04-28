@@ -448,15 +448,15 @@ size_t limeterm_puts(const char *s) {
 }
 
 void limeterm_drawcursor(void) {
-    static u8 cursor = ' ', tmp = '\0';
+    static u8 cursor = ' ', next = '\0';
+
     if (use_limeterm_cons == 0)
         return;
 
     spin_lock(&ctx.lock);
     font_putc(cursor, &ctx, ctx.cc, ctx.cr);
-    tmp     = cursor;
-    cursor  = ctx.cursor_char;
-    ctx.cursor_char = tmp;
+    next            = cursor;
+    cursor          = ctx.cursor_char;
+    ctx.cursor_char = next;
     spin_unlock(&ctx.lock);
-
 }

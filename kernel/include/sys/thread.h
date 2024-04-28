@@ -588,3 +588,4 @@ int thread_join_group(thread_t *thread);
 int thread_leave_group(thread_t *thread);
 int thread_create_group(thread_t *thread);
 int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap);
+int thread_get(tid_t tid, thread_t **ppthread);

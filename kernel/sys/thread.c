@@ -1,5 +1,6 @@
 #include <arch/thread.h>
 #include <bits/errno.h>
+#include <ds/queue.h>
 #include <ginger/jiffies.h>
 #include <lib/stdint.h>
 #include <lib/string.h>
@@ -9,6 +10,8 @@
 #include <sys/sched.h>
 #include <sys/system.h>
 #include <sys/thread.h>
+
+static QUEUE(threads_queue);
 
 const char *t_states[] = {
     [T_EMBRYO]      = "EMBRYO",
@@ -75,6 +78,7 @@ int thread_alloc(size_t ksz /*kstacksz*/, int __flags, thread_t **ret) {
     arch_thread_t   *arch   = NULL;
     thread_t        *thread = NULL;
     thread_sched_t  *sched  = NULL;
+    typeof(sched->ts_affinity) *affinity = NULL;
 
     if (ret == NULL)
         return -EINVAL;
@@ -87,13 +91,15 @@ int thread_alloc(size_t ksz /*kstacksz*/, int __flags, thread_t **ret) {
     thread->t_lock  = SPINLOCK_INIT();
     thread_lock(thread);
 
-    sched                   = &thread->t_sched;
     arch                    = &thread->t_arch;
+    sched                   = &thread->t_sched;
+    affinity                = &sched->ts_affinity;
 
     arch->t_kstack.ss_size  = ksz;
     arch->t_thread          = thread;
     arch->t_kstack.ss_sp    = (void *)kstack;
     arch->t_sstack.ss_sp    = (void *)thread;
+
     /**
      * 1Kib should be large enough
      * to act as a scratch space for
@@ -105,11 +111,11 @@ int thread_alloc(size_t ksz /*kstacksz*/, int __flags, thread_t **ret) {
     thread->t_refcnt        = 2;
     thread->t_tid           = tid_alloc();
     thread->t_queues        = QUEUE_INIT();
-    
-    sched->ts_affinity.cpu_set = -1;
-    sched->ts_ctime            = jiffies_get();
-    sched->ts_affinity.type    = SOFT_AFFINITY;
-    sched->ts_priority         = SCHED_LOWEST_PRIORITY;
+
+    affinity->cpu_set       = -1;
+    affinity->type          = SOFT_AFFINITY;
+    sched->ts_ctime         = jiffies_get();
+    sched->ts_priority      = SCHED_LOWEST_PRIORITY;
 
     // every thread begins as an embryo.
     thread_enter_state(thread, T_EMBRYO);
@@ -121,6 +127,11 @@ int thread_alloc(size_t ksz /*kstacksz*/, int __flags, thread_t **ret) {
     flags |= __flags & THREAD_CREATE_DETACHED ? THREAD_DETACHED : 0;
 
     thread_setflags(thread, flags); // set the flags.
+
+    err = thread_enqueue(threads_queue, thread, NULL);
+    assert(err == 0, "Thread not enqueued!!!");
+    thread_getref(thread);
+
     *ret = thread;
     return 0;
 }
@@ -702,7 +713,7 @@ int thread_execve(proc_t *proc, thread_t *thread, thread_entry_t entry, const ch
 error:
     thread->t_arch.t_ustack = tmp_stack;
 
-    //TODO: add here a call to reverse mmap_argenvcpy()
+    //TODO: add here, a call to reverse mmap_argenvcpy()
 
     mmap_remove(proc->mmap, ustack);
     return err;
@@ -761,4 +772,37 @@ int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap) {
     uc_stack.ss_sp      = (void *)__vmr_upper_bound(ustack);
     dst->t_arch.t_ustack = uc_stack;
     return arch_thread_fork(&dst->t_arch, &src->t_arch);
+}
+
+int thread_get(tid_t tid, thread_t **ppthread) {
+    int      err     = 0;
+    thread_t *thread = NULL;
+
+    if (ppthread == NULL)
+        return -EINVAL;
+
+    current_tgroup_lock();
+    err = tgroup_get_thread(current_tgroup(), tid, 0, &thread);
+    current_tgroup_unlock();
+
+    if (err == 0) {
+        *ppthread = thread;
+        return 0;
+    }
+
+    if (!current_isuser()) {
+        queue_lock(threads_queue);
+        queue_foreach(thread_t *, thread, threads_queue) {
+            thread_lock(thread);
+            if (thread_gettid(thread) == tid) {
+                *ppthread = thread_getref(thread);
+                queue_unlock(threads_queue);
+                return 0;
+            }
+            thread_unlock(thread);
+        }
+        queue_unlock(threads_queue);
+    }
+    
+    return -ESRCH;
 }
