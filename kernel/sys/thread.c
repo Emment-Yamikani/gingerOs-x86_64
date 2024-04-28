@@ -332,9 +332,9 @@ void thread_yield(void) {
 }
 
 int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode) {
-    int err = 0;
-    queue_node_t *node = NULL;
-    
+    int             err     = 0;
+    queue_node_t    *node   = NULL;
+
     if (!thread)
         return -EINVAL;
 

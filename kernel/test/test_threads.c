@@ -20,7 +20,7 @@ void test_signal(void) {
     assert(err == 0, "Failed to set signal action!!!");
 
     cond_signal(condvar);
-    loop() thread_yield();
+    loop();
 }
 
 void test_main(void) {

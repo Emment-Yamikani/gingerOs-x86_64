@@ -204,12 +204,8 @@ int pthread_kill(tid_t tid, int signo) {
     if (SIGBAD(signo))
         return -EINVAL;
 
-    current_tgroup_lock();
-    if ((err = tgroup_get_thread(current_tgroup(), tid, 0, &thread))) {
-        current_tgroup_unlock();
+    if ((err = thread_get(tid, &thread)))
         return err;
-    }
-    current_tgroup_unlock();
 
     if (signo == 0) {
         thread_unlock(thread);

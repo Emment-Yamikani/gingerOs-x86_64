@@ -157,17 +157,11 @@ void trap(ucontext_t *uctx) {
 
     if (current_iskilled())
         thread_exit(-EINTR);
-
-    current_lock();
-    if (current_testflags(THREAD_STOP))
-        thread_stop(current, sched_stopq);
-    current_unlock();
-
+    
     pushcli();
     if ((current_isuser() && uctx_isuser(uctx)) || !current_isuser())
         dispatch_signal();
     popcli();
-
 
     current_lock();
     time = current->t_sched.ts_timeslice;
