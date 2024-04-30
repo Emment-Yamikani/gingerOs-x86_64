@@ -774,7 +774,7 @@ int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap) {
     return arch_thread_fork(&dst->t_arch, &src->t_arch);
 }
 
-int thread_get(tid_t tid, thread_t **ppthread) {
+int thread_get(tid_t tid, tstate_t state, thread_t **ppthread) {
     int      err     = 0;
     thread_t *thread = NULL;
 
@@ -782,7 +782,7 @@ int thread_get(tid_t tid, thread_t **ppthread) {
         return -EINVAL;
 
     current_tgroup_lock();
-    err = tgroup_get_thread(current_tgroup(), tid, 0, &thread);
+    err = tgroup_get_thread(current_tgroup(), tid, state, &thread);
     current_tgroup_unlock();
 
     if (err == 0) {
@@ -794,6 +794,11 @@ int thread_get(tid_t tid, thread_t **ppthread) {
         queue_lock(threads_queue);
         queue_foreach(thread_t *, thread, threads_queue) {
             thread_lock(thread);
+            if (tid == 0 && thread_isstate(thread, state)) {
+                *ppthread = thread_getref(thread);
+                return 0;
+            }
+
             if (thread_gettid(thread) == tid) {
                 *ppthread = thread_getref(thread);
                 queue_unlock(threads_queue);
@@ -803,6 +808,5 @@ int thread_get(tid_t tid, thread_t **ppthread) {
         }
         queue_unlock(threads_queue);
     }
-    
     return -ESRCH;
 }
