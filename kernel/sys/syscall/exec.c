@@ -15,7 +15,7 @@ int argenv_cpy(char *__argv[], char *__envp[], argvenvp_t *ppargs) {
     usize   cnt     = 0;
     char    **argp  = NULL, **envp  = NULL, **tmp = NULL;
 
-    if (__argv == NULL || __envp == NULL || ppargs == NULL)
+    if (ppargs == NULL)
         return -EINVAL;
 
     foreach(arg, __argv) {
@@ -68,6 +68,7 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
     if ((err = tgroup_suspend(current_tgroup())))
         return err;
     
+    err = -ENOMEM;
     // copy the filename of the new process image.
     if (NULL == (fncpy = strdup(pathname)))
         goto error;
