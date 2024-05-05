@@ -67,6 +67,8 @@ extern pid_t    sys_waitpid(pid_t __pid, int *__stat_loc, int __options);
 extern void     sys_exit(int exit_code);
 extern pid_t    sys_getpid(void);
 extern pid_t    sys_getppid(void);
+extern int      sys_execve(const char *pathname, char *const argv[],
+                  char *const envp[]);
 
 extern long     sys_sleep(long seconds);
 extern tid_t    sys_gettid(void);

@@ -98,6 +98,8 @@ void do_syscall(ucontext_t *uctx);
 #define SYS_CHDIR               75  // int sys_chdir(const char *path);
 #define SYS_OPENAT              76  // int sys_openat(int fd, const char *pathname, int oflags, mode_t mode)
 
+#define SYS_EXECVE              77  // int sys_execve(const char *pathname, char *const argv[], char *const envp[]);
+
 extern void     sys_putc(int c);
 
 extern int      sys_close(int fd);
@@ -151,6 +153,8 @@ extern void     sys_exit(int exit_code);
 extern long     sys_sleep(long seconds);
 extern pid_t    sys_waitpid(pid_t __pid, int *__stat_loc, int __options);
 extern pid_t    sys_wait(int *stat_loc);
+extern int      sys_execve(const char *pathname, char *const argv[],
+                  char *const envp[]);
 
 extern tid_t    sys_gettid(void);
 extern void     sys_thread_exit(int exit_code);

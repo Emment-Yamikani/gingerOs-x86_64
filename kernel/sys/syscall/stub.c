@@ -26,10 +26,10 @@ size_t (*syscall[])() = {
     [SYS_GETATTR]           = (void *)sys_getattr,
     [SYS_SETATTR]           = (void *)sys_setattr,
 
-    [SYS_FSTAT]             =  (void *)sys_fstat,
-    [SYS_STAT]              =  (void *)sys_stat,
-    [SYS_LSTAT]             =  (void *)sys_lstat,
-    [SYS_FSTATAT]           =  (void *)sys_fstatat,
+    [SYS_FSTAT]             = (void *)sys_fstat,
+    [SYS_STAT]              = (void *)sys_stat,
+    [SYS_LSTAT]             = (void *)sys_lstat,
+    [SYS_FSTATAT]           = (void *)sys_fstatat,
 
     [SYS_PARK]              = (void *)sys_park,
     [SYS_UNPARK]            = (void *)sys_unpark,
@@ -40,6 +40,7 @@ size_t (*syscall[])() = {
     [SYS_GETPPID]           = (void *)sys_getppid,
     [SYS_WAITPID]           = (void *)sys_waitpid,
     [SYS_WAIT]              = (void *)sys_wait,
+    [SYS_EXECVE]            = (void *)sys_execve,
 
     [SYS_GETSID]            = (void *)sys_getsid,
     [SYS_SETSID]            = (void *)sys_setsid,

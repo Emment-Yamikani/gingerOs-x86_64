@@ -21,15 +21,15 @@
 #define forlinked(elem, list, iter) \
     for (typeof(list) elem = list; elem; elem = iter)
 
-#define foreach(elem, list)                         \
-    for (typeof(*list) *tmp = list,                 \
-        elem = (typeof(elem))(tmp ? *tmp : NULL);   \
-        elem; elem = *++tmp)
+#define foreach(elem, list)                                             \
+    for (typeof(*list) *__tmp__foreach = list,                          \
+        elem = (typeof(elem))(__tmp__foreach ? *__tmp__foreach : NULL); \
+        elem; elem = *++__tmp__foreach)
 
-#define foreach_reverse(elem, list)                 \
-    for (typeof(*list) *tmp = list,                 \
-        elem = (typeof(elem))(tmp ? *tmp : NULL);   \
-        elem; elem = *--tmp)
+#define foreach_reverse(elem, list)                                     \
+    for (typeof(*list) *__tmp__foreach = list,                          \
+        elem = (typeof(elem))(__tmp__foreach ? *__tmp__foreach : NULL); \
+        elem; elem = *--__tmp__foreach)
 
 #ifndef container_of
 #define container_of(ptr, type, member) ({ \

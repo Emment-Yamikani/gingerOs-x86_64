@@ -41,7 +41,7 @@ static tid_t tid_alloc(void) {
     return atomic_inc_fetch(&tids);
 }
 
-int thread_kstack_alloc(size_t size, uintptr_t *ret) {
+int thread_kstack_alloc(usize size, uintptr_t *ret) {
     uintptr_t addr = 0;
 
     if (ret == NULL)
@@ -71,7 +71,7 @@ void thread_kstack_free(uintptr_t addr) {
  * @param ref the new structure is passed by reference through a pointer to a thread pointer.
  * @return int 0 on success otherwise an error code is passed.
  */
-int thread_alloc(size_t ksz /*kstacksz*/, int __flags, thread_t **ret) {
+int thread_alloc(usize ksz /*kstacksz*/, int __flags, thread_t **ret) {
     int             err     = 0;
     int             flags   = 0;
     uintptr_t       kstack  = 0;
@@ -677,14 +677,14 @@ int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigs
     return err;
 }
 
-int thread_execve(proc_t *proc, thread_t *thread, thread_entry_t entry, const char *argp[], const char *envp[] ) {
-    int     err     = 0;
-    int     argc    = 0;
-    char    **arg   = NULL;
-    char    **env   = NULL;
-    vmr_t   *ustack  = NULL;
-    uc_stack_t tmp_stack = {0};
-    uc_stack_t uc_stack = {0};
+int thread_execve(proc_t *proc, thread_t *thread, thread_entry_t entry, const char *argp[], const char *envp[]) {
+    int         err         = 0;
+    int         argc        = 0;
+    char        **arg       = NULL;
+    char        **env       = NULL;
+    vmr_t       *ustack     = NULL;
+    uc_stack_t  uc_stack    = {0};
+    uc_stack_t  tmp_stack   = {0};
 
     if (proc == NULL || thread == NULL || entry == NULL)
         return -EINVAL;
@@ -719,12 +719,12 @@ error:
     return err;
 }
 
-int builtin_threads_begin(size_t *nthreads) {
+int builtin_threads_begin(usize *nthreads) {
     int                 err     = 0;
     builtin_thread_t    *thrd   = __builtin_thrds;
-    size_t              nr      = __builtin_thrds_end - __builtin_thrds;
+    usize              nr       = __builtin_thrds_end - __builtin_thrds;
 
-    for (size_t i = 0; i < nr; ++i, thrd++) {
+    for (usize i = 0; i < nr; ++i, thrd++) {
         if ((err = kthread_create(NULL,
             (thread_entry_t)thrd->thread_entry,
             thrd->thread_arg, THREAD_CREATE_SCHED, NULL)))

@@ -84,8 +84,31 @@ void dump_ctx(context_t *ctx, int halt) {
     }
 }
 
+static void thread_handle_event(ucontext_t *uctx) {
+    jiffies_t time = 0;
+
+    if (current_iskilled())
+        thread_exit(-EINTR);
+
+    pushcli();
+    if ((current_isuser() && uctx_isuser(uctx)) || !current_isuser())
+        dispatch_signal();
+    popcli();
+
+    current_lock();
+    time = current->t_sched.ts_timeslice;
+    if (current_testflags(THREAD_STOP))
+        thread_stop(current, sched_stopq);
+    current_unlock();
+
+    if (time <= 0)
+        thread_yield();
+
+    if (current_iskilled())
+        thread_exit(-EINTR);
+}
+
 void trap(ucontext_t *uctx) {
-    time_t          time    = 0;
     arch_thread_t   *arch   = NULL;
     mcontext_t      *mctx   = &uctx->uc_mcontext;
 
@@ -103,6 +126,7 @@ void trap(ucontext_t *uctx) {
 
     switch (mctx->trapno) {
     case T_LEG_SYSCALL:
+        thread_handle_event(uctx);
         do_syscall(uctx);
         break;
     case IRQ(0):
@@ -155,25 +179,7 @@ void trap(ucontext_t *uctx) {
     if (!current)
         return;
 
-    if (current_iskilled())
-        thread_exit(-EINTR);
-    
-    pushcli();
-    if ((current_isuser() && uctx_isuser(uctx)) || !current_isuser())
-        dispatch_signal();
-    popcli();
-
-    current_lock();
-    time = current->t_sched.ts_timeslice;
-    if (current_testflags(THREAD_STOP))
-        thread_stop(current, sched_stopq);
-    current_unlock();
-
-    if (time <= 0)
-        thread_yield();
-
-    if (current_iskilled())
-        thread_exit(-EINTR);
+    thread_handle_event(uctx);
 
     arch->t_uctx = uctx->uc_link;
 }

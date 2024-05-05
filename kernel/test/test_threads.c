@@ -1,11 +1,13 @@
 #include <sys/thread.h>
 #include <sys/_signal.h>
 #include <sync/cond.h>
+#include <sys/sysproc.h>
 
 cond_t *condvar = COND_NEW();
 
 void sa_sigaction(int signo, siginfo_t *info, void *ctx) {
-    printk("signo: %d, info: %p, context: %p\n", signo, info, ctx);
+    printk("thread[%d:%d]: signo: %d, info: %p, context: %p\n", getpid(), thread_self(), signo, info, ctx);
+    thread_exit(0);
 }
 
 void test_signal(void) {
@@ -20,7 +22,7 @@ void test_signal(void) {
     assert(err == 0, "Failed to set signal action!!!");
 
     cond_signal(condvar);
-    loop();
+    loop() thread_yield();
 }
 
 void test_main(void) {
@@ -47,4 +49,4 @@ void test_main(void) {
 
     assert_msg(err == 0,
         "Failed to send signal to thread[%d], errno: %d\n", tid, err);
-} //BUILTIN_THREAD(test_main, test_main, NULL);
+} // BUILTIN_THREAD(test_main, test_main, NULL);

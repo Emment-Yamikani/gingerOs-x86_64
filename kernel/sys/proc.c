@@ -7,7 +7,7 @@
 
 static struct binfmt {
     int (*check)(inode_t *binary);
-    int (*load)(inode_t *binary, proc_t *proc);
+    int (*load)(inode_t *binary, mmap_t *mmap, thread_entry_t *entry);
 } binfmt[] = {
     { // ELF loader
         .check = binfmt_elf_check,
@@ -251,14 +251,13 @@ void proc_free(proc_t *proc) {
     proc_unlock(proc);
 }
 
-int proc_load(const char *pathname, proc_t *proc, proc_t **ref) {
+int proc_load(const char *pathname, mmap_t *mmap, thread_entry_t *entry) {
     int         err     = 0;
     uintptr_t   pdbr    = 0;
-    int         newproc = !proc;
     inode_t     *binary = NULL;
     dentry_t    *dentry = NULL;
 
-    if (proc == NULL && ref == NULL)
+    if (mmap == NULL || entry == NULL)
         return -EINVAL;
 
     if ((err = vfs_lookup(pathname, NULL, O_EXEC | O_RDONLY, 0, 0, &dentry)))
@@ -289,24 +288,7 @@ int proc_load(const char *pathname, proc_t *proc, proc_t **ref) {
         iunlock(binary);
         goto error; 
     }
-    iunlock(binary);
 
-    if (newproc) {
-        if ((err = proc_alloc(pathname, &proc)))
-            goto error;
-
-        proc_mmap_lock(proc);
-        if ((err = mmap_focus(proc_mmap(proc), &pdbr))) {
-            proc_mmap_unlock(proc);
-            goto error;
-        }
-    } else {
-        if ((err = thread_kill_all()))
-            goto error;
-        proc_mmap_assert_locked(proc);
-    }
-
-    ilock(binary);
     for (size_t i = 0; i <= NELEM(binfmt); ++i) {
         /// check the binary image to make sure it is a valid program file.
         if ((err = binfmt[i].check(binary))) {
@@ -315,33 +297,21 @@ int proc_load(const char *pathname, proc_t *proc, proc_t **ref) {
         }
 
         /// load the binary image into memory in readiness for execution.
-        if ((err = binfmt[i].load(binary, proc)) == 0)
+        if ((err = binfmt[i].load(binary, mmap, entry)) == 0)
             goto commit;
     }
 
     /// binary file not loaded ???.
     iunlock(binary);
     goto error;
-
 commit:
     iunlock(binary);
-
-    /// switch back to the previous PDBR.
-    arch_swtchvm(pdbr, NULL);
-
-    /// mmap was lock in this function and so must be release.
-    if (newproc)
-        proc_mmap_unlock(proc);
-
     /**
      * @brief close this dentry.
      * dentry->d_inode must have been opened.
      * To remain persistent.
      */
     dclose(dentry);
-
-    if (ref) *ref = proc;
-
     return 0;
 error:
     if (pdbr)
@@ -354,20 +324,23 @@ error:
 }
 
 int proc_init(const char *initpath) {
-    int         err     = 0;
-    uintptr_t   pdbr    = 0;
-    proc_t      *proc   = NULL;
-    thread_t    *thread = NULL;
+    int             err     = 0;
+    uintptr_t       pdbr    = 0;
+    proc_t          *proc   = NULL;
+    thread_t        *thread = NULL;
+    const char *argp[]  = { initpath, NULL };
+    const char *envp[]  = { "MOUNT=/mnt/", "PATH=/mnt/ramfs/", "ROOT=/", "TMPFS=/tmp/", NULL };
 
-    const char *argp[] = { initpath, NULL };
-    const char *envp[] = { "MOUNT=/mnt/", "PATH=/mnt/ramfs/", "ROOT=/", "TMPFS=/tmp/", NULL };
-
-    if ((err = proc_load(initpath, NULL, &proc)))
+    if ((err = proc_alloc(initpath, &proc)))
         goto error;
 
     proc_mmap_lock(proc);
-
     if ((err = mmap_focus(proc_mmap(proc), &pdbr))) {
+        proc_mmap_unlock(proc);
+        goto error;
+    }
+
+    if ((err = proc_load(initpath, proc_mmap(proc), &proc->entry))) {
         proc_mmap_unlock(proc);
         goto error;
     }
@@ -421,11 +394,8 @@ int proc_copy(proc_t *child, proc_t *parent) {
     if ((err = mmap_copy(child->mmap, parent->mmap)))
         goto error;
 
-    /// TODO: Do I really need this lock on current thread??
-    current_lock();
     fctx = current->t_fctx;
     cred = current->t_cred;
-    current_unlock();
 
     fctx_lock(fctx);
     fctx_lock(child->fctx);

@@ -144,7 +144,7 @@ typedef struct {
 #define THREAD_CONTINUE                 BS(10)  // thread has been continued from a stopped state.
 #define THREAD_USING_SSE                BS(11)  // thread is using SSE extensions if this flags is set, FPU otherwise.
 #define THREAD_EXITING                  BS(12)  // thread is exiting.
-
+#define THREAD_SUSPEND                 BS(13)  // flag to suspend thread execution.
 
 #define thread_assert(t)                ({ assert(t, "No thread pointer\n");})
 #define thread_lock(t)                  ({ thread_assert(t); spin_lock(&((t)->t_lock)); })

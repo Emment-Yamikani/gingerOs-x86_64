@@ -96,3 +96,5 @@ int tgroup_stop(queue_t *tgroup);
 int tgroup_continue(queue_t *tgroup);
 int tgroup_terminate(queue_t *tgroup, spinlock_t *lock);
 int tgroup_getmain(queue_t *tgroup, thread_t **ptp);
+
+int tgroup_suspend(queue_t *tgroup);
