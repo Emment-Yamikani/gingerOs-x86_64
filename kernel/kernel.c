@@ -83,10 +83,10 @@ int load_init(const char *conf_fn) {
     printk("[exec] %s...\n", init_path);
     err = proc_init(init_path);
     printk(
-        "[%s] %s \"%s\".\n",
+        "[%s] %s \"%s\", error: %d.\n",
         err ? "\e[025453;03mFAIL\e[0m" : "\e[025453;03mOK\e[0m",
         err ? "couldn't load" : "started",
-        init_path
+        init_path, err
     );
 
     return 0;

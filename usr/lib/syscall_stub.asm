@@ -97,6 +97,8 @@ sys_%2:
 %define SYS_CHDIR           75
 %define SYS_OPENAT          76
 
+%define SYS_EXECVE          77
+
 stub SYS_PUTC, putc
 stub SYS_CLOSE, close
 stub SYS_UNLINK, unlink
@@ -134,6 +136,7 @@ stub SYS_ISATTY, isatty
 stub SYS_PARK, park
 stub SYS_UNPARK, unpark
 
+stub SYS_EXECVE, execve
 stub SYS_FORK, fork
 stub SYS_WAITPID, waitpid
 stub SYS_WAIT, wait

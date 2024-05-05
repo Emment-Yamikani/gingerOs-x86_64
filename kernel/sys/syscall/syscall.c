@@ -238,6 +238,11 @@ pid_t    sys_getppid(void) {
     return getppid();
 }
 
+int sys_execve(const char *pathname, char *const argv[],
+           char *const envp[]) {
+    return execve(pathname, argv, envp);
+}
+
 pid_t   sys_getsid(pid_t pid) {
     return getsid(pid);
 }

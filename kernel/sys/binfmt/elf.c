@@ -3,7 +3,6 @@
 #include <lib/string.h>
 #include <mm/kalloc.h>
 #include <mm/mmap.h>
-#include <sys/proc.h>
 #include <sys/elf.h>
 #include <sys/system.h>
 
@@ -29,7 +28,7 @@ int binfmt_elf_check(inode_t *binary) {
     return 0;
 }
 
-int binfmt_elf_load(inode_t *binary, proc_t *proc) {
+int binfmt_elf_load(inode_t *binary, mmap_t *mmap, thread_entry_t *entry) {
     int         err     = 0;
     int         prot    = 0;
     int         flags   = 0;
@@ -39,7 +38,7 @@ int binfmt_elf_load(inode_t *binary, proc_t *proc) {
     vmr_t       *vmr    = NULL; 
     Elf64_Phdr  *phdr   = NULL;
 
-    if (binary == NULL)
+    if (binary == NULL || entry == NULL)
         return -EINVAL;
     
     iassert_locked(binary);
@@ -76,7 +75,7 @@ int binfmt_elf_load(inode_t *binary, proc_t *proc) {
                     (hdr->p_flags & PF_R ? PROT_R: 0);
             flags = MAP_PRIVATE | MAP_DONTEXPAND | MAP_FIXED;
 
-            if ((err = mmap_map_region(proc->mmap,
+            if ((err = mmap_map_region(mmap,
                 ALIGN4K(hdr->p_vaddr), memsz, prot, flags, &vmr))){
                 printk("%s:%d: Failed in ELF\n", __FILE__, __LINE__);
                 goto error;
@@ -91,13 +90,13 @@ int binfmt_elf_load(inode_t *binary, proc_t *proc) {
     // mmap_dump_list(*proc->mmap);
 
     kfree(phdr);
-    proc->entry = (thread_entry_t)elf.e_entry;
+    *entry = (thread_entry_t)elf.e_entry;
     return 0;
 error:
     if (phdr)
         kfree(phdr);
 
-    mmap_clean(proc->mmap);
+    mmap_clean(mmap);
 
     printk("error: %d occured while trying to load elf-file\n", err);
     return err;

@@ -179,10 +179,11 @@ extern int procQ_remove(proc_t *proc);
 extern int procQ_search_bypid(pid_t pid, proc_t **ref);
 extern int procQ_search_bypgid(pid_t pgid, proc_t **ref);
 
-extern int proc_init(const char *initpath);
 extern void proc_free(proc_t *proc);
-extern int  proc_alloc(const char *name, proc_t **pref);
+extern int proc_init(const char *initpath);
 extern int proc_copy(proc_t *child, proc_t *parent);
+extern int proc_alloc(const char *name, proc_t **pref);
+extern int proc_load(const char *pathname, mmap_t *mmap, thread_entry_t *entry);
 
 /**
  * @brief Describes flags to search for the child.

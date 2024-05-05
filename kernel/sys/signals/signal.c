@@ -204,7 +204,7 @@ int pthread_kill(tid_t tid, int signo) {
     if (SIGBAD(signo))
         return -EINVAL;
 
-    if ((err = thread_get(tid, &thread)))
+    if ((err = thread_get(tid, 0, &thread)))
         return err;
 
     if (signo == 0) {
