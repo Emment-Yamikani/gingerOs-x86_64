@@ -288,9 +288,7 @@ int proc_load(const char *pathname, mmap_t *mmap, thread_entry_t *entry) {
         iunlock(binary);
         goto error; 
     }
-    iunlock(binary);
 
-    ilock(binary);
     for (size_t i = 0; i <= NELEM(binfmt); ++i) {
         /// check the binary image to make sure it is a valid program file.
         if ((err = binfmt[i].check(binary))) {
@@ -330,7 +328,6 @@ int proc_init(const char *initpath) {
     uintptr_t       pdbr    = 0;
     proc_t          *proc   = NULL;
     thread_t        *thread = NULL;
-    thread_entry_t  entry   = 0;
     const char *argp[]  = { initpath, NULL };
     const char *envp[]  = { "MOUNT=/mnt/", "PATH=/mnt/ramfs/", "ROOT=/", "TMPFS=/tmp/", NULL };
 
@@ -343,8 +340,10 @@ int proc_init(const char *initpath) {
         goto error;
     }
 
-    if ((err = proc_load(initpath, proc_mmap(proc), &entry)))
+    if ((err = proc_load(initpath, proc_mmap(proc), &proc->entry))) {
+        proc_mmap_unlock(proc);
         goto error;
+    }
 
     thread_lock(proc->main_thread);
     thread = thread_getref(proc->main_thread);
@@ -369,7 +368,6 @@ int proc_init(const char *initpath) {
     }
 
     initproc = proc;
-    proc->entry = entry;
     proc_unlock(proc);
 
     return 0;
