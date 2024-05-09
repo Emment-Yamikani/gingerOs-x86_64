@@ -10,7 +10,7 @@ typedef struct {
     char **envp;
 } argvenvp_t;
 
-int argenv_cpy(char *__argv[], char *__envp[], argvenvp_t *ppargs) {
+int copy_argsenv(char *__argv[], char *__envp[], argvenvp_t *ppargs) {
     int     err     = 0;
     usize   cnt     = 0;
     char    **argp  = NULL, **envp  = NULL, **tmp = NULL;
@@ -57,7 +57,9 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
     thread_entry_t  entry       = 0;
     mmap_t          *mmap       = NULL;
     char            *fncpy      = NULL;
-    argvenvp_t      argv_envp   = {0};
+    arch_thread_t   *arch       = NULL;
+    arch_thread_t   arch_cpy    = {0};
+    argvenvp_t      args        = {0};
 
     /**
      * Suspend execution of other threads in this process
@@ -77,7 +79,7 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
      * copy argv and envp
      * before switching to different address space.
     */
-    if ((err = argenv_cpy((char **)argv, (char **)envp, &argv_envp)))
+    if ((err = copy_argsenv((char **)argv, (char **)envp, &args)))
         goto error;
 
     // allocate new address space.
@@ -91,10 +93,30 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
     if ((err = proc_load(fncpy, mmap, &entry)))
         goto error;
 
+    arch = &current->t_arch;
+    memcpy(&arch_cpy, arch, sizeof *arch);    
+
+    current_lock();
+    current->t_mmap      = mmap;
+    err = thread_execve(
+        current,
+        entry,
+        (const char **)args.argv,
+        (const char **)args.envp);
+    
+    if (err != 0) {
+        current->t_mmap = curproc->mmap;
+        current_unlock();
+        goto error;
+    }
+    current_unlock();
+
+    proc_lock(curproc);
     curproc->entry       = entry;
     curproc->mmap        = mmap;
     curproc->main_thread = current;
     curproc->flags      |= PROC_EXECED;
+    proc_unlock(curproc);
 
     return 0;
 error0:

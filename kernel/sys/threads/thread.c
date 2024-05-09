@@ -677,7 +677,8 @@ int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigs
     return err;
 }
 
-int thread_execve(proc_t *proc, thread_t *thread, thread_entry_t entry, const char *argp[], const char *envp[]) {
+int thread_execve(thread_t *thread, thread_entry_t entry,
+    const char *argp[], const char *envp[]) {
     int         err         = 0;
     int         argc        = 0;
     char        **arg       = NULL;
@@ -686,17 +687,20 @@ int thread_execve(proc_t *proc, thread_t *thread, thread_entry_t entry, const ch
     uc_stack_t  uc_stack    = {0};
     uc_stack_t  tmp_stack   = {0};
 
-    if (proc == NULL || thread == NULL || entry == NULL)
+    if (thread == NULL || entry == NULL)
         return -EINVAL;
 
+    thread_assert_locked(thread);
+
     // TODO: implement a function to reverse this.
-    if ((err = mmap_argenvcpy(proc->mmap, (const char **)argp,
+    if ((err = mmap_argenvcpy(thread->t_mmap, (const char **)argp,
         (const char **)envp, &arg, &argc, &env)))
         return err;
 
+
     tmp_stack = thread->t_arch.t_ustack;
 
-    if ((err = mmap_alloc_stack(proc->mmap, USTACKSZ, &ustack)))
+    if ((err = mmap_alloc_stack(thread->t_mmap, USTACKSZ, &ustack)))
         goto error;
 
     uc_stack.ss_size    = __vmr_size(ustack);
@@ -715,7 +719,7 @@ error:
 
     //TODO: add here, a call to reverse mmap_argenvcpy()
 
-    mmap_remove(proc->mmap, ustack);
+    mmap_remove(thread->t_mmap, ustack);
     return err;
 }
 

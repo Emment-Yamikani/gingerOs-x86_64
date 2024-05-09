@@ -354,9 +354,6 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
 
     if (thread == NULL || entry == NULL)
         return -EINVAL;
-    
-    if (argc && argp == NULL)
-        return -EINVAL;
 
     if ((ustack = (u64 *)ALIGN16(thread->t_ustack.ss_sp)) == NULL)
         return -EINVAL;

@@ -328,8 +328,13 @@ int proc_init(const char *initpath) {
     uintptr_t       pdbr    = 0;
     proc_t          *proc   = NULL;
     thread_t        *thread = NULL;
-    const char *argp[]  = { initpath, NULL };
-    const char *envp[]  = { "MOUNT=/mnt/", "PATH=/mnt/ramfs/", "ROOT=/", "TMPFS=/tmp/", NULL };
+    const char *argp[]      = { initpath, NULL };
+    const char *envp[]      = { "MOUNT=/mnt/",
+                                "PATH=/mnt/ramfs/",
+                                "ROOT=/",
+                                "TMPFS=/tmp/",
+                                NULL
+    };
 
     if ((err = proc_alloc(initpath, &proc)))
         goto error;
@@ -348,7 +353,7 @@ int proc_init(const char *initpath) {
     thread_lock(proc->main_thread);
     thread = thread_getref(proc->main_thread);
 
-    if ((err = thread_execve(proc, thread, proc->entry, argp, envp))) {
+    if ((err = thread_execve(thread, proc->entry, argp, envp))) {
         thread_release(thread);
         goto error;
     }
