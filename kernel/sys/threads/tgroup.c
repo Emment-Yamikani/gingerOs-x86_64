@@ -93,22 +93,19 @@ error:
 
 int thread_join_group(thread_t *thread) {
     int         err   = 0;
-
     if ((err = thread_enqueue(current->t_tgroup,     thread, NULL)))
         return err;
 
-    thread->t_cred          = current->t_cred;
-    thread->t_fctx          = current->t_fctx;
-    thread->t_tgid          = current->t_tgid;
-    thread->t_tgroup        = current->t_tgroup;   
-    thread->t_sigdesc       = current->t_sigdesc;
-
+    thread->t_cred      = current->t_cred;
+    thread->t_fctx      = current->t_fctx;
+    thread->t_tgid      = current->t_tgid;
+    thread->t_tgroup    = current->t_tgroup;   
+    thread->t_sigdesc   = current->t_sigdesc;
     return 0;
 }
 
 int thread_leave_group(thread_t *thread) {
     int err = 0;
-
     thread_assert_locked(thread);
 
     queue_lock(thread->t_tgroup);
@@ -122,7 +119,6 @@ int thread_leave_group(thread_t *thread) {
 
     thread_unlock(thread);
     queue_unlock(thread->t_tgroup);
-
     assert_msg(err == 0, "tid: %d, Failed to leave group\n", thread_gettid(thread));
     return 0;
 }
@@ -133,15 +129,13 @@ int tgroup_get_thread(queue_t *tgroup, tid_t tid, tstate_t state, thread_t **pth
 
     if (!pthread)
         return -EINVAL;
-
     queue_assert_locked(tgroup);
 
     forlinked(node, tgroup->head, next) {
-        next = node->next;
+        next   = node->next;
         thread = node->data;
 
         thread_lock(thread);
-
         if (tid == 0 && thread_isstate(thread, state)) {
             *pthread = thread_getref(thread);
             return 0;
@@ -151,16 +145,13 @@ int tgroup_get_thread(queue_t *tgroup, tid_t tid, tstate_t state, thread_t **pth
             *pthread = thread_getref(thread);
             return 0;
         }
-
         thread_unlock(thread);
     }
-
     return -ESRCH;
 }
 
 int tgroup_terminate(queue_t *tgroup, spinlock_t *lock) {
-    int     err = 0;
-    
+    int     err = 0; 
     tgroup_assert_locked(tgroup);
     
     if (lock)
@@ -168,8 +159,7 @@ int tgroup_terminate(queue_t *tgroup, spinlock_t *lock) {
 
     if ((err = tgroup_kill_thread(tgroup, -1, 0)))
         printk("ERROR OCCURED: %d\n", err);
-    if (current_tgroup() == tgroup)
-    {
+    if (current_tgroup() == tgroup) {
         tgroup_unlock(tgroup);
         thread_exit(-EINTR);
     }
@@ -178,19 +168,16 @@ int tgroup_terminate(queue_t *tgroup, spinlock_t *lock) {
 
 int tgroup_continue(queue_t *tgroup) {
     tgroup_assert_locked(tgroup);
-
     queue_foreach(thread_t *, thread, tgroup) {
         thread_lock(thread);
         thread_wake(thread);
         thread_unlock(thread);
     }
-
     return 0;
 }
 
 int tgroup_stop(queue_t *tgroup) {
     tgroup_assert_locked(tgroup);
-
     queue_foreach(thread_t *, thread, tgroup) {
         thread_lock(thread);
         thread_setflags(thread, THREAD_STOP);
@@ -205,7 +192,6 @@ int tgroup_getmain(queue_t *tgroup, thread_t **ptp) {
         return -EINVAL;
     
     tgroup_assert_locked(tgroup);
-
     queue_foreach(thread_t *, thread, tgroup) {
         thread_lock(thread);
         if (thread_ismain(thread)) {
@@ -214,6 +200,5 @@ int tgroup_getmain(queue_t *tgroup, thread_t **ptp) {
         }
         thread_unlock(thread);
     }
-
     return -ESRCH;
 }

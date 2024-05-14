@@ -625,7 +625,6 @@ int thread_sigdequeue(thread_t *thread, siginfo_t **ret) {
         return -EINVAL;
 
     thread_assert_locked(thread);
-
     for ( ; signo < NSIG; ++signo) {
         queue_lock(&thread->t_sigqueue[signo]);
         if (queue_count(&thread->t_sigqueue[signo])) {
@@ -633,17 +632,14 @@ int thread_sigdequeue(thread_t *thread, siginfo_t **ret) {
                 queue_unlock(&thread->t_sigqueue[signo]);
                 return -EINVAL;
             }
-            
             sigdequeue_pending(&thread->t_sigqueue[signo], &info);
             queue_unlock(&thread->t_sigqueue[signo]);
             sigaddset(&thread->t_sigmask, signo + 1);
             *ret = info;
             return 0;
         }
-
         queue_unlock(&thread->t_sigqueue[signo]);
     }
-
     return -ENOENT;
 }
 
@@ -681,11 +677,11 @@ int thread_execve(thread_t *thread, thread_entry_t entry,
     const char *argp[], const char *envp[]) {
     int         err         = 0;
     int         argc        = 0;
+    uc_stack_t  uc_stack    = {0};
+    uc_stack_t  tmp_stack   = {0};
     char        **arg       = NULL;
     char        **env       = NULL;
     vmr_t       *ustack     = NULL;
-    uc_stack_t  uc_stack    = {0};
-    uc_stack_t  tmp_stack   = {0};
 
     if (thread == NULL || entry == NULL)
         return -EINVAL;
@@ -696,7 +692,6 @@ int thread_execve(thread_t *thread, thread_entry_t entry,
     if ((err = mmap_argenvcpy(thread->t_mmap, (const char **)argp,
         (const char **)envp, &arg, &argc, &env)))
         return err;
-
 
     tmp_stack = thread->t_arch.t_ustack;
 
@@ -712,7 +707,6 @@ int thread_execve(thread_t *thread, thread_entry_t entry,
     if ((err = arch_thread_execve(&thread->t_arch, entry, argc,
         (const char **)arg, (const char **)env)))
         goto error;
-
     return 0;
 error:
     thread->t_arch.t_ustack = tmp_stack;
@@ -771,9 +765,9 @@ int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap) {
         return -EADDRNOTAVAIL;
     }
 
-    uc_stack.ss_size    = __vmr_size(ustack);
-    uc_stack.ss_flags   = __vmr_vflags(ustack);
-    uc_stack.ss_sp      = (void *)__vmr_upper_bound(ustack);
+    uc_stack.ss_size     = __vmr_size(ustack);
+    uc_stack.ss_flags    = __vmr_vflags(ustack);
+    uc_stack.ss_sp       = (void *)__vmr_upper_bound(ustack);
     dst->t_arch.t_ustack = uc_stack;
     return arch_thread_fork(&dst->t_arch, &src->t_arch);
 }

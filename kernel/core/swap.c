@@ -3,17 +3,16 @@
 #include <lib/printk.h>
 #include <lib/stdint.h>
 #include <lib/types.h>
+#include <sync/atomic.h>
 
 int copy_to_user(void *udst, void *ksrc, size_t size) {
     if (udst == NULL || ksrc == NULL)
         return -EFAULT;
-
     if (size == 0)
         return -ERANGE;
 
     if (memcpy(udst, ksrc, size) != udst)
         return -EINVAL;
-
     return 0;
 }
 

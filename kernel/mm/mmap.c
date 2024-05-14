@@ -935,6 +935,7 @@ int mmap_clean(mmap_t *mmap) {
         return err;
 
     arch_fullvm_unmap(mmap->pgdir);
+
     pgdir = mmap->pgdir;
 
     mmap->refs          = 0;

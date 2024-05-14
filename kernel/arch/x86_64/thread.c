@@ -91,7 +91,7 @@ void x86_64_signal_return(void) {
 
     current_lock();
     arch        = &current->t_arch;
-    scheduler   = arch->t_ctx;              // schedule();
+    scheduler   = arch->t_ctx;          // schedule();
     dispatcher  = scheduler->link;      // signal_handler();
     
     scheduler->link = dispatcher->link;
@@ -120,17 +120,15 @@ void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
 
     dispatcher  = arch->t_ctx;      // signal_handler();
     scheduler   = dispatcher->link; // schedule();
-    
-    dispatcher->link    =  scheduler->link;
-    scheduler->link     = dispatcher;
 
+    dispatcher->link    = scheduler->link;
+    scheduler->link     = dispatcher;
     arch->t_ctx         = scheduler;
     assert((void *)kstack <= (void *)mctx, "Stack overun detected!");
 
     kstack = (void *)ALIGN16(kstack);
     current->t_arch.t_rsvd = kstack;
-    assert(is_aligned16(kstack),
-           "Kernel stack is not 16bytes aligned!");
+    assert(is_aligned16(kstack), "Kernel stack is not 16bytes aligned!");
 
     *--kstack = (u64)x86_64_signal_return;
 
@@ -173,9 +171,9 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
             stack.ss_sp = ((thread->t_flags & ARCH_EXEC_ONSTACK) ?
                 (void *)ALIGN16(thread->t_uctx->uc_mcontext.rsp) :
                 thread->t_altstack.ss_sp);
-            stack.ss_size = thread->t_altstack.ss_size - 
+            stack.ss_size   = thread->t_altstack.ss_size - 
                 (thread->t_altstack.ss_sp - stack.ss_sp);
-            stack.ss_flags = thread->t_altstack.ss_flags;
+            stack.ss_flags  = thread->t_altstack.ss_flags;
         } else {
             stack.ss_sp     = (void *)ALIGN16(thread->t_uctx->uc_mcontext.rsp);
             stack.ss_size   = thread->t_ustack.ss_size - 
@@ -346,11 +344,11 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
 
 int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
                        int argc, const char *argp[], const char *envp[]) {
-    int         err     = 0;
-    mcontext_t  *mctx   = NULL;
-    u64         *ustack = NULL;
-    context_t   *ctx    = NULL;
-    u64         *kstack = NULL;
+    int         err         = 0;
+    context_t   *ctx        = NULL;
+    mcontext_t  *mctx       = NULL;
+    u64         *ustack     = NULL;
+    u64         *kstack     = NULL;
 
     if (thread == NULL || entry == NULL)
         return -EINVAL;
@@ -364,8 +362,7 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
 
     kstack = (u64 *)thread->t_sstack.ss_sp;
     assert(kstack, "Invalid Kernel stack.");
-    assert(is_aligned16(kstack),
-           "Kernel stack is not 16bytes aligned!");
+    assert(is_aligned16(kstack), "Kernel stack is not 16bytes aligned!");
 
     *--kstack = (u64)x86_64_thread_stop;
     *--ustack = -1ull; // push dummy return address.
@@ -393,7 +390,7 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
     ctx->rip      = (u64)x86_64_thread_start;
     ctx->rbp      = mctx->rsp;
     ctx->link     = NULL; // starts with no link to old context.
-
+    
     thread->t_ctx = ctx;
     return 0;
 }

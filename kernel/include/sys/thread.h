@@ -60,7 +60,6 @@ typedef struct thread_sched_t {
 
 #define sched_DEFAULT() (thread_sched_t){0}
 
-
 typedef struct sleep_attr_t {
     queue_node_t    *node;              // thread's sleep node.
     queue_t         *queue;             // thread's sleep queue.
@@ -174,7 +173,7 @@ typedef struct {
 #define thread_setflags(t, flags)       ({ thread_assert_locked(t); atomic_fetch_or(&((t)->t_flags), (flags)); })
 #define thread_maskflags(t, flags)      ({ thread_assert_locked(t); atomic_fetch_and(&((t)->t_flags), ~(flags)); })
 #define thread_getstate(t)              ({ thread_assert_locked(t); (t)->t_state; })
-#define thread_enter_state(t, state) ({           \
+#define thread_enter_state(t, state)    ({        \
     thread_assert_locked(t);                      \
     int err = 0;                                  \
     if ((state) < T_EMBRYO || (state) > T_ZOMBIE) \
@@ -266,6 +265,8 @@ typedef struct {
         thread_unlock(t);                \
 })
 
+#define thread_set_suspend(t)           ({ thread_assert_locked(t); thread_setflags(t, THREAD_SUSPEND); })
+
 #define thread_setuser(t)               ({ thread_setflags((t), THREAD_USER); })
 #define thread_setdetached(t)           ({ thread_setflags((t), THREAD_DETACHED); })
 #define thread_setwake(t)               ({ thread_setflags((t), THREAD_WAKE); })
@@ -298,6 +299,7 @@ typedef struct {
 #define current_setwake()               ({ thread_setwake(current); })
 #define current_setpark()               ({ thread_setpark(current); })
 #define current_set_park_wake()         ({ thread_set_park_wake(current); })
+#define current_set_suspend()           ({ thread_set_suspend(current); })
 
 #define current_maskdetached()          ({ thread_maskdetached(current); })
 #define current_maskwake()              ({ thread_maskwake(current); })
