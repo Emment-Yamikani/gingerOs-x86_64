@@ -458,7 +458,7 @@ int thread_kill(tid_t tid, int wait) {
     current_unlock();
 
     tgroup_lock(tgroup);
-    err = tgroup_kill_thread(tgroup, tid, wait);
+    err = tgroup_kill_thread(tgroup, tid, 0, wait);
     tgroup_unlock(tgroup);
 
     return err;
@@ -500,7 +500,7 @@ int thread_kill_all(void) {
     int err = 0;
     current_assert();
     tgroup_lock(current_tgroup());
-    err = tgroup_kill_thread(current_tgroup(), -1, 1);
+    err = tgroup_kill_thread(current_tgroup(), -1, 0, 1);
     tgroup_unlock(current_tgroup());
     return err;
 }

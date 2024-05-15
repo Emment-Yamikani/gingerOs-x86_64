@@ -50,10 +50,11 @@ void tgroup_destroy(queue_t *tgroup);
  *  Is the absolute threadID of thread to kill, if tid == -1, then kills all threads.
  * However, if 'current' is in this group and tid == -1, then all thread except 'current' will be killed
  * and 'current' becomes the main thread of this tgroup.
+ * Further, if except_flags are set, any thread with a flags bit set in except_flags will be skipped.
  * \param wait wait for thread to die?
  * \returns (int)0, on success and err on failure.
  **/
-int tgroup_kill_thread(queue_t *tgroup, tid_t tid, int wait);
+int tgroup_kill_thread(queue_t *tgroup, tid_t tid, i32 except_flags, int wait);
 
 /**
  * \brief Create a new thread tgroup.

@@ -59,7 +59,7 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
     thread_entry_t  entry       = 0;
     atomic_t        flags       = 0;
     argvenvp_t      args        = {0};
-    arch_thread_t   arch        = {0};
+    thread_t        *thread     = NULL;
     char            *binary     = NULL;
     mmap_t          *mmap       = NULL;
     queue_t         *sigqueue   = NULL;
@@ -100,48 +100,44 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
     if ((err = proc_load(binary, mmap, &entry)))
         goto error;
 
-    arch    = current->t_arch;
+    /**
+     * @brief Construct a thread
+     * new process image will run in a new thread.
+     * POSIX says "the thread ID of the initial thread in
+     * the new process image is undefined".
+     * So, new thread will become the main thread in the process.
+     */
+    if ((err = thread_alloc(KSTACKSZ, THREAD_CREATE_USER, &thread)))
+        goto error;
 
-    current_lock();
-    swapptr((void **)&current->t_mmap, (void **)&mmap);
-    err = thread_execve(
-        current,
-        entry,
+    thread->t_mmap = mmap;
+    thread_setmain(thread);
+    thread_setlast(thread);
+    thread_set_killexcept(thread);
+    assert_msg(0 == (err = thread_join_group(thread)),
+        "%s:%d: Failed to joing tgroup. error: %d\n", __FILE__, __LINE__, err);
+
+    thread->t_entry  = entry;
+    thread->t_sched  = current->t_sched;
+    sigdesc          = current->t_sigdesc;
+    thread->t_sigmask= current->t_sigmask;
+
+    if ((err = thread_execve(
+        thread, entry,
         (const char **)args.argv,
         (const char **)args.envp
-    );
-
-    if (err != 0) {
-        swapptr((void **)&current->t_mmap, (void **)&mmap);
-        current_unlock();
-        goto error;
-    }
+    ))) goto error;
 
     proc_lock(curproc);
+    curproc->mmap       = mmap;
     curproc->entry      = entry;
-    curproc->main_thread= current;
+    curproc->main_thread= thread;
     curproc->flags     |= PROC_EXECED;
-    curproc->mmap       = current->t_mmap;
     proc_unlock(curproc);
 
-    mmap_unlock(current->t_mmap);
+    mmap_unlock(mmap);
 
-    if (current_issimd_dirty())
-        kfree(current->t_simd_ctx);
-
-    // reset thread-local signals.
-    sigqueue    = current->t_sigqueue;
-    for (int signo = 0; signo < NSIG; ++signo) {
-        queue_lock(&sigqueue[signo]);
-        queue_foreach(siginfo_t *, siginfo, &sigqueue[signo]) {
-            kfree(siginfo); // free the pending signal description.
-        }
-        queue_unlock(&sigqueue[signo]);
-    }
-    sigemptyset(&current->t_sigmask);
-    
     // reset global signals.
-    sigdesc = current->t_sigdesc;
     sigdesc_lock(sigdesc);
     sigqueue = sigdesc->sig_queue;
     for (int signo = 0; signo < NSIG; ++signo) {
@@ -164,13 +160,26 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
     sigemptyset(&sigdesc->sig_mask);
     sigdesc_unlock(sigdesc);
 
-    current->t_simd_ctx = NULL;
-    current->t_flags    = current->t_flags & THREAD_USER;
-    current->t_flags    |= THREAD_ISMAIN | THREAD_ISLAST;
 
-    // arch.t_ctx here points to scheduler ctx.
-    context_switch(&arch.t_ctx);
-    current_unlock();
+    thread_unlock(thread);
+
+    /**
+     * @brief Kill all suspended threads
+     * except current and those with at least except_flags set.
+     */
+    current_tgroup_lock();
+    assert_msg(0 == (err = tgroup_kill_thread(
+                         current->t_tgroup, -1, THREAD_KILLEXCEPT, 1)),
+               "%s%d: Failed to kill suspended threads. error: %d.\n", __FILE__, __LINE__, err);
+    current_tgroup_unlock();
+
+    thread_lock(thread);
+    assert_msg(0 == (err = thread_schedule(thread)),
+        "%s:%d: thread_schedule() failed, error: %d\n", __FILE__, __LINE__, err);
+    thread_unset_killexcept(thread);
+    thread_unlock(thread);
+
+    thread_exit(0);
 
     return 0;
 error0:

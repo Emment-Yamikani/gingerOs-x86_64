@@ -143,7 +143,8 @@ typedef struct {
 #define THREAD_CONTINUE                 BS(10)  // thread has been continued from a stopped state.
 #define THREAD_USING_SSE                BS(11)  // thread is using SSE extensions if this flags is set, FPU otherwise.
 #define THREAD_EXITING                  BS(12)  // thread is exiting.
-#define THREAD_SUSPEND                 BS(13)  // flag to suspend thread execution.
+#define THREAD_SUSPEND                  BS(13)  // flag to suspend thread execution.
+#define THREAD_KILLEXCEPT               BS(14)
 
 #define thread_assert(t)                ({ assert(t, "No thread pointer\n");})
 #define thread_lock(t)                  ({ thread_assert(t); spin_lock(&((t)->t_lock)); })
@@ -266,6 +267,11 @@ typedef struct {
 })
 
 #define thread_set_suspend(t)           ({ thread_assert_locked(t); thread_setflags(t, THREAD_SUSPEND); })
+#define thread_unset_suspend(t)         ({ thread_assert_locked(t); thread_maskflags(t, THREAD_SUSPEND); })
+#define thread_issuspend(t)             ({ thread_assert_locked(t); thread_testflags(t, THREAD_SUSPEND); })
+#define thread_set_killexcept(t)        ({ thread_assert_locked(t); thread_setflags(t, THREAD_KILLEXCEPT); })
+#define thread_unset_killexcept(t)      ({ thread_assert_locked(t); thread_maskflags(t, THREAD_KILLEXCEPT); })
+#define thread_iskillexcept(t)          ({ thread_assert_locked(t); thread_testflags(t, THREAD_KILLEXCEPT); })
 
 #define thread_setuser(t)               ({ thread_setflags((t), THREAD_USER); })
 #define thread_setdetached(t)           ({ thread_setflags((t), THREAD_DETACHED); })

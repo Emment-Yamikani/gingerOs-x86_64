@@ -7,17 +7,22 @@
 #include <fs/fs.h>
 
 
-int tgroup_kill_thread(queue_t *tgroup, tid_t tid, int wait) {
-    int             err     = 0;
+int tgroup_kill_thread(queue_t *tgroup, tid_t tid, i32 except_flags, int wait) {
+    int err = 0;
 
     tgroup_assert_locked(tgroup);
 
-    if (tid == -1) {
+    if ((tid == -1)) {
         queue_foreach(thread_t *, thread, tgroup) {
             if (thread == current)
                 continue;
 
             thread_lock(thread);
+            if (thread_testflags(thread, except_flags)) {
+                thread_unlock(thread);
+                continue;
+            }
+
             tgroup_unlock(tgroup);
 
             if ((err = thread_kill_n(thread, wait))) {
@@ -30,6 +35,8 @@ int tgroup_kill_thread(queue_t *tgroup, tid_t tid, int wait) {
 
         if (current_tgroup() == tgroup)
             thread_setmain(current);
+    } else if (tid == -2){
+
     } else {
 
     }
@@ -99,6 +106,7 @@ int thread_join_group(thread_t *thread) {
     thread->t_cred      = current->t_cred;
     thread->t_fctx      = current->t_fctx;
     thread->t_tgid      = current->t_tgid;
+    thread->t_owner     = current->t_owner;
     thread->t_tgroup    = current->t_tgroup;   
     thread->t_sigdesc   = current->t_sigdesc;
     return 0;
@@ -157,7 +165,7 @@ int tgroup_terminate(queue_t *tgroup, spinlock_t *lock) {
     if (lock)
         spin_unlock(lock);
 
-    if ((err = tgroup_kill_thread(tgroup, -1, 0)))
+    if ((err = tgroup_kill_thread(tgroup, -1, 0, 0)))
         printk("ERROR OCCURED: %d\n", err);
     if (current_tgroup() == tgroup) {
         tgroup_unlock(tgroup);
