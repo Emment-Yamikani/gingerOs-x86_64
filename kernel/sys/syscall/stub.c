@@ -82,6 +82,8 @@ size_t (*syscall[])() = {
     [SYS_SETEGID]           = (void *)sys_setegid,
     [SYS_GETCWD]            = (void *)sys_getcwd,
     [SYS_CHDIR]             = (void *)sys_chdir,
+
+    [SYS_UNAME]             = (void *)sys_uname
 };
 
 static int sys_syscall_ni(ucontext_t *uctx) {

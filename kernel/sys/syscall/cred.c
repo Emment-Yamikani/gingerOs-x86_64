@@ -221,8 +221,8 @@ mode_t umask(mode_t cmask) {
 int getcwd(char *buf, size_t size) {
     int ret     = 0;
     char *path  = NULL;
-    file_ctx_t  *file_ctx = NULL;
     size_t      len = 0;
+    file_ctx_t  *file_ctx = NULL;
 
     if (buf == NULL)
         return -EFAULT;

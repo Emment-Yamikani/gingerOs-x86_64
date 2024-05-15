@@ -10,7 +10,7 @@ int uname (utsname_t *utsname __unused) {
     snprintf(utsname->machine, _UTSNAME_LENGTH, "ginger-os-test kit");
     snprintf(utsname->nodename, _UTSNAME_LENGTH, "n/a");
     snprintf(utsname->release, _UTSNAME_LENGTH, "0.0");
-    snprintf(utsname->sysname, _UTSNAME_LENGTH, "ginger Os");
+    snprintf(utsname->sysname, _UTSNAME_LENGTH, "gingerOs");
     snprintf(utsname->version, _UTSNAME_LENGTH, "0.0");
 
     return 0;
