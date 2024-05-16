@@ -117,6 +117,7 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
     assert_msg(0 == (err = thread_join_group(thread)),
         "%s:%d: Failed to joing tgroup. error: %d\n", __FILE__, __LINE__, err);
 
+
     thread->t_entry  = entry;
     thread->t_sched  = current->t_sched;
     sigdesc          = current->t_sigdesc;
@@ -178,6 +179,9 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
     thread_unset_killexcept(thread);
     thread_unlock(thread);
 
+    mmap_lock(current->t_mmap);
+    mmap_focus(current->t_mmap, NULL);
+    mmap_unlock(current->t_mmap);
     thread_exit(0);
     return 0;
 error0:
