@@ -160,7 +160,6 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
     sigemptyset(&sigdesc->sig_mask);
     sigdesc_unlock(sigdesc);
 
-
     thread_unlock(thread);
 
     /**
@@ -180,7 +179,6 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
     thread_unlock(thread);
 
     thread_exit(0);
-
     return 0;
 error0:
     mmap_focus(curproc->mmap, NULL);

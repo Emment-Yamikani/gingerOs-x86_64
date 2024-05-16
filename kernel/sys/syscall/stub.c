@@ -49,22 +49,24 @@ size_t (*syscall[])() = {
     [SYS_GETPGID]           = (void *)sys_getpgid,
     [SYS_SETPGID]           = (void *)sys_setpgid,
 
-    [SYS_SLEEP]             = (void *)sys_sleep,
     [SYS_GETTID]            = (void *)sys_gettid,
     [SYS_THREAD_EXIT]       = (void *)sys_thread_exit,
     [SYS_THREAD_CREATE]     = (void *)sys_thread_create,
     [SYS_THREAD_JOIN]       = (void *)sys_thread_join,
-    [SYS_PAUSE]             = (void *)sys_pause,
+    [SYS_PTHREAD_KILL]      = (void *)sys_pthread_kill,
+    [SYS_PTHREAD_SIGMASK]   = (void *)sys_pthread_sigmask,
+    [SYS_THREAD_SELF]       = (void *)sys_thread_self,
+
     [SYS_KILL]              = (void *)sys_kill,
+    [SYS_PAUSE]             = (void *)sys_pause,
+    [SYS_SLEEP]             = (void *)sys_sleep,
     [SYS_ALARM]             = (void *)sys_alarm,
     [SYS_SIGNAL]            = (void *)sys_signal,
     [SYS_SIGPROCMASK]       = (void *)sys_sigprocmask,
     [SYS_SIGPENDING]        = (void *)sys_sigpending,
     [SYS_SIGACTION]         = (void *)sys_sigaction,
-    [SYS_PTHREAD_KILL]      = (void *)sys_pthread_kill,
     [SYS_SIGWAIT]           = (void *)sys_sigwait,
-    [SYS_PTHREAD_SIGMASK]   = (void *)sys_pthread_sigmask,
-    [SYS_THREAD_SELF]       = (void *)sys_thread_self,
+
     [SYS_MMAP]              = (void *)sys_mmap,
     [SYS_UNMAP]             = (void *)sys_munmap,
     [SYS_MPROTECT]          = (void *)sys_mprotect,
@@ -80,6 +82,7 @@ size_t (*syscall[])() = {
     [SYS_SETGID]            = (void *)sys_setgid,
     [SYS_SETEUID]           = (void *)sys_seteuid,
     [SYS_SETEGID]           = (void *)sys_setegid,
+
     [SYS_GETCWD]            = (void *)sys_getcwd,
     [SYS_CHDIR]             = (void *)sys_chdir,
 
@@ -110,8 +113,7 @@ void do_syscall(ucontext_t *uctx) {
             mctx->rdx,
             mctx->rcx,
             mctx->r8,
-            mctx->r9,
-            mctx->rsp
+            mctx->r9
         );
     }
 }

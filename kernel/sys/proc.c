@@ -16,8 +16,7 @@ static struct binfmt {
 };
 
 proc_t *initproc = NULL;
-
-queue_t *procQ = QUEUE_NEW();
+queue_t *procQ   = QUEUE_NEW();
 
 // bucket to hold free'd PIDs.
 static queue_t *procIDs = QUEUE_NEW();
@@ -216,7 +215,6 @@ void proc_free(proc_t *proc) {
     
     if (!proc_islocked(proc))
         proc_lock(proc);
-    
 
     proc->refcnt--;
 
@@ -233,7 +231,7 @@ void proc_free(proc_t *proc) {
 
         if (proc_mmap(proc))
             mmap_free(proc_mmap(proc));
-        
+
         if (proc->name)
             kfree(proc->name);
 

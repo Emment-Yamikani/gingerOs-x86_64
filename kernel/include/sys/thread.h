@@ -99,12 +99,33 @@ typedef struct __thread_t {
     thread_sched_t  t_sched;            // struct describing scheduler attributes for this thread.
 
     // Shared data among threads of the same group.
+    pid_t           *t_pid;             // process ID.
+    pid_t           *t_ppid;            // process' parent process ID.
+    pid_t           *t_pgroup;          // process' process group ID.
+    pid_t           *t_session;         // process' session ID.
+
+    enum {
+        PEMBROY,
+        PRUNNING,
+        PSTOPPED,
+        PCONTINUED,
+        PTERMINATED,
+        PZOMBIE,
+    }               *t_pstate;          // process' state.
+    flags64_t       *t_pflags;          // process' flags.
+    char            *t_pname;           // process' path to binary image.
+    thread_entry_t  *t_pentry;          // process' entry point.
+    long            *t_pexit_code;      // process' exit code.
+
+    queue_t         *t_children;        // process' children process IDs.
+    thread_t        **t_mainthread;     // process' main thread.
+    cond_t          *t_child_events;    // process' child-event conditional variable.
+    spinlock_t      *t_plock;           // process' lock for synchroneous access the above process-wide data.
 
     cred_t          *t_cred;            // credentials for this thread's tgroup.
     file_ctx_t      *t_fctx;            // Pointer to file context for this thread's tgroup.
     queue_t         *t_tgroup;          // queue of all threads in the logical thread group.
     sig_desc_t      *t_sigdesc;         // thread group wide-signal description.
-
     ///////////////////////////////////////////////////////////
 
     cond_t          t_wait;             // thread conditional wait variable.
@@ -160,7 +181,7 @@ typedef struct {
  * and release the lock.
  * this doesn't destroy the thread struct is t_refcnt <= 0.
  */
-#define thread_release(thread)          ({thread_assert_locked(thread); thread_putref(thread); thread_unlock(thread); })
+#define thread_release(thread)          ({ thread_assert_locked(thread); thread_putref(thread); thread_unlock(thread); })
 #define thread_isstate(t, state)        ({ thread_assert_locked(t); ((t)->t_state == (state)); })
 #define thread_isembryo(t)              ({ thread_isstate(t, T_EMBRYO); })
 #define thread_isready(t)               ({ thread_isstate(t, T_READY); })
@@ -507,7 +528,7 @@ int thread_reap(thread_t *thread, int reap, thread_info_t *info, void **retval);
 /**
  * \brief Wait for thread to terminate.
  * \param tid thread to be waited upon.
- * * if tid == 0, then any thread is joined provided it has terminated otherwise the function returns immediately.
+ * if tid == 0, then any thread is joined provided it has terminated otherwise the function returns immediately.
  * \param info if non-null brief info about the state of the thread at termination is passed.
  * \param retval return value of the thread that is being joined.
  * \return (int)0 on success or error on faliure.
