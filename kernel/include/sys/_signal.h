@@ -235,4 +235,4 @@ extern int sigwait(const sigset_t *restrict set, int *restrict signop);
 extern int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 extern int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact);
 
-extern int dispatch_signal(void);
+extern int signal_dispatch(void);

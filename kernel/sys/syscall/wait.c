@@ -27,12 +27,11 @@ pid_t waitpid(pid_t pid, int *stat_loc, int opt) {
             // printk("searching...\n");
             queue_lock(procQ);
             queue_foreach(proc_t *, proc, procQ) {
-
                 if (proc == curproc)
                     continue;
 
                 proc_lock(proc);
-                if (proc->pgroup == ABSi(pid)) {
+                if (proc->pgid == ABSi(pid)) {
                     // printk("looping through...\n");
                     if (proc->parent != curproc) {
                         proc_unlock(proc);
@@ -158,14 +157,14 @@ pid_t waitpid(pid_t pid, int *stat_loc, int opt) {
             queue_unlock(&curproc->children);
 
             goto wait_group;
-        } else if (pid == 0) { // Retrieve status info of child process in the same pgroup as ourselves.
+        } else if (pid == 0) { // Retrieve status info of child process in the same pgid as ourselves.
             queue_lock(procQ);
             queue_foreach(proc_t *, proc, procQ) {
                 if (proc == curproc)
                     continue;
 
                 proc_lock(proc);
-                if (proc->pgroup == getpgrp()) {
+                if (proc->pgid == getpgrp()) {
                     if (proc->parent != curproc) {
                         proc_unlock(proc);
                         continue;

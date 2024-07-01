@@ -75,6 +75,16 @@ typedef struct __thread_shared_t {
     spinlock_t      lock;
 } thread_shared_t;
 
+typedef enum
+{
+    PEMBROY,
+    PRUNNING,
+    PSTOPPED,
+    PCONTINUED,
+    PTERMINATED,
+    PZOMBIE,
+} pstate_t;
+
 typedef struct __thread_t {
     tid_t           t_tid;              // thread ID.
     tid_t           t_tgid;
@@ -98,35 +108,12 @@ typedef struct __thread_t {
     sleep_attr_t    t_sleep;            // struct describing sleep attributes for this thread.
     thread_sched_t  t_sched;            // struct describing scheduler attributes for this thread.
 
-    // Shared data among threads of the same group.
-    pid_t           *t_pid;             // process ID.
-    pid_t           *t_ppid;            // process' parent process ID.
-    pid_t           *t_pgroup;          // process' process group ID.
-    pid_t           *t_session;         // process' session ID.
-
-    enum {
-        PEMBROY,
-        PRUNNING,
-        PSTOPPED,
-        PCONTINUED,
-        PTERMINATED,
-        PZOMBIE,
-    }               *t_pstate;          // process' state.
-    flags64_t       *t_pflags;          // process' flags.
-    char            *t_pname;           // process' path to binary image.
-    thread_entry_t  *t_pentry;          // process' entry point.
-    long            *t_pexit_code;      // process' exit code.
-
-    queue_t         *t_children;        // process' children process IDs.
-    thread_t        **t_mainthread;     // process' main thread.
-    cond_t          *t_child_events;    // process' child-event conditional variable.
-    spinlock_t      *t_plock;           // process' lock for synchroneous access the above process-wide data.
-
+    // Shared data among threads of the same group //////////////////////////////////////////
     cred_t          *t_cred;            // credentials for this thread's tgroup.
     file_ctx_t      *t_fctx;            // Pointer to file context for this thread's tgroup.
     queue_t         *t_tgroup;          // queue of all threads in the logical thread group.
     sig_desc_t      *t_sigdesc;         // thread group wide-signal description.
-    ///////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////
 
     cond_t          t_wait;             // thread conditional wait variable.
     arch_thread_t   t_arch;             // architecture-specific thread struct.

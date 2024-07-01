@@ -92,7 +92,7 @@ static void thread_handle_event(ucontext_t *uctx) {
 
     pushcli();
     if ((current_isuser() && uctx_isuser(uctx)) || !current_isuser())
-        dispatch_signal();
+        signal_dispatch();
     popcli();
 
     current_lock();

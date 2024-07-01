@@ -103,20 +103,6 @@ int thread_join_group(thread_t *thread) {
     if ((err = thread_enqueue(current->t_tgroup,     thread, NULL)))
         return err;
 
-    thread->t_pid           = current->t_pid;
-    thread->t_ppid          = current->t_ppid;
-    thread->t_pname         = current->t_pname;
-    thread->t_pgroup        = current->t_pgroup;
-    thread->t_pstate        = current->t_pstate;
-    thread->t_pflags        = current->t_pflags;
-    thread->t_pentry        = current->t_pentry;
-    thread->t_session       = current->t_session;
-    thread->t_children      = current->t_children;
-    thread->t_mainthread    = current->t_mainthread;
-    thread->t_child_events  = current->t_child_events;
-    
-    thread->t_plock         = current->t_plock;
-
     thread->t_cred      = current->t_cred;
     thread->t_fctx      = current->t_fctx;
     thread->t_tgid      = current->t_tgid;
