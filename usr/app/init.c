@@ -1,26 +1,22 @@
 #include <ginger/unistd.h>
 
-int fork1(void) {
-    pid_t   pid     = 0;
-    int     staloc  = 0;
+void handler(int);
 
-    if ((pid = fork())) {
-        return waitpid(pid, &staloc, 0);
-    } else if (pid < 0) {
-        panic("Failed to fork() a child process\n");
+void main(void) {
+    pid_t pid = fork();
+
+    if (pid != 0) {
+        kill(pid, SIGINT);
+    } else if (pid == 0) {
+        loop();
     }
-    return 0;
+
+    printf("Okay done sending signal\n");
+    loop();
 }
 
 
-void main(void) {
-    int     err = 0;
-
-    loop () {
-        if (fork1() == 0)
-            break;
-    }
-
-    if ((err = execve("/ramfs/test", NULL, NULL)))
-        panic("Failed to exec() = %d\n", err);
+void handler(int signo) {
+    printf("%s:%d: caught signal(%d)\n",
+    __FILE__, __LINE__, signo);
 }

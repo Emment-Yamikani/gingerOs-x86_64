@@ -11,9 +11,6 @@
 #include <sync/spinlock.h>
 #include <sys/thread.h>
 
-struct session;
-struct pgroup;
-
 typedef enum status_t {
     P_EMBROY,
     P_RUNNING,
@@ -25,10 +22,10 @@ typedef enum status_t {
 
 typedef struct proc {
     pid_t           pid;            // process' ID.
-    pid_t           pgroup;         // process' group
-    pid_t           session;        // process' session
+    pid_t           sid;            // process' sid
+    pid_t           pgid;           // process' group
     struct proc     *parent;        // process' parent.
-    
+
     status_t        state;          // process' status.
     unsigned long   flags;          // process' ho   
     long            exit_code;      // process' exit status
@@ -50,13 +47,14 @@ typedef struct proc {
     spinlock_t      lock;           // lock to protect this structure.
 } proc_t;
 
+#define NPROC                   (32786)
+
 #define PROC_USER               BS(0)   // process is a user process.
 #define PROC_EXECED             BS(1)   // process has executed exec().
 #define PROC_KILLED             BS(2)   // process killed.
 #define PROC_ORPHANED           BS(3)   // process was orphaned by parent.
 #define PROC_REAP               BS(5)   // process struct marked for reaping.
 
-#define NPROC                   (32786)
 #define curproc                 ({ current ? current->t_owner : (proc_t *)NULL; })                //
 
 extern queue_t *procQ;

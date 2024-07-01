@@ -124,7 +124,7 @@ int procQ_search_bypgid(pid_t pgid, proc_t **ref) {
     forlinked(node, procQ->head, node->next) {
         proc = node->data;
         proc_lock(proc);
-        if (proc->pgroup == pgid) {
+        if (proc->pgid == pgid) {
             if (ref)
                 *ref = proc_getref(proc);
             else
@@ -171,8 +171,8 @@ int proc_alloc(const char *name, proc_t **pref) {
 
     proc->refcnt        = 1;
     proc->mmap          = mmap;
-    proc->pgroup        = proc->pid;
-    proc->session       = proc->pid;
+    proc->pgid          = proc->pid;
+    proc->sid           = proc->pid;
     proc->child_event   = COND_INIT();
     proc->lock          = SPINLOCK_INIT();
     proc->cred          = thread->t_cred;
@@ -423,8 +423,8 @@ int proc_copy(proc_t *child, proc_t *parent) {
     cred_unlock(cred);
 
     child->entry    = parent->entry;
-    child->pgroup   = parent->pgroup;
-    child->session  = parent->session;
+    child->pgid     = parent->pgid;
+    child->sid  = parent->sid;
     child->exit_code= parent->exit_code;
     child->parent   = proc_getref(curproc);
 

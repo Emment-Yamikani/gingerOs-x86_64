@@ -7,7 +7,7 @@ pid_t getsid(pid_t pid) {
     proc_t  *proc   = NULL;
 
     proc_lock(curproc);
-    mysess = curproc->session;
+    mysess = curproc->sid;
     proc_unlock(curproc);
 
     if (pid == 0)
@@ -16,10 +16,10 @@ pid_t getsid(pid_t pid) {
     if ((err = procQ_search_bypid(curproc->pid, &proc)))
         return err;
 
-    if (mysess != proc->session)
+    if (mysess != proc->sid)
         pid = -EPERM;
     else
-        pid = proc->session;
+        pid = proc->sid;
 
     proc_release(proc);
     return pid;
@@ -35,13 +35,13 @@ pid_t   setsid(void) {
     
     proc_lock(curproc);
 
-    if (curproc->pid == curproc->pgroup) {
+    if (curproc->pid == curproc->pgid) {
         proc_unlock(curproc);
         return -EPERM;
     }
 
-    curproc->session        = curproc->pid;
-    pid = curproc->pgroup   = curproc->pid;
+    curproc->sid        = curproc->pid;
+    pid = curproc->pgid   = curproc->pid;
     proc_unlock(curproc);
     return pid;
 }
@@ -49,7 +49,7 @@ pid_t   setsid(void) {
 pid_t getpgrp(void) {
     pid_t pid = 0;
     proc_lock(curproc);
-    pid = curproc->pgroup;
+    pid = curproc->pgid;
     proc_unlock(curproc);
     return pid;
 }
@@ -73,7 +73,7 @@ pid_t getpgid(pid_t pid) {
     
     if (proc != curproc) {
         proc_lock(curproc);
-        if (proc->session != curproc->session) {
+        if (proc->sid != curproc->sid) {
             proc_unlock(curproc);
             proc_release(proc);
             return -EPERM;
@@ -81,7 +81,7 @@ pid_t getpgid(pid_t pid) {
         proc_unlock(curproc);
     }
 
-    pid = proc->pgroup;
+    pid = proc->pgid;
 
     proc_release(proc);
     return pid;
@@ -129,9 +129,9 @@ int   setpgid(pid_t pid, pid_t pgid) {
         /**The  value of the pid argument matches
          * the process ID of a child process
          * of the calling process and the child
-         * process is not in the same session as
+         * process is not in the same sid as
          * the calling process.*/
-        if (proc->session != curproc->session) {
+        if (proc->sid != curproc->sid) {
             proc_unlock(curproc);
             proc_release(proc);
             return -EPERM;
@@ -140,8 +140,8 @@ int   setpgid(pid_t pid, pid_t pgid) {
     }
 
     /**The process indicated by the pid
-     * argument is a session leader.*/
-    if (proc->pid == proc->session) {
+     * argument is a sid leader.*/
+    if (proc->pid == proc->sid) {
         proc_release(proc);
         return -EPERM;
     }
@@ -154,7 +154,7 @@ int   setpgid(pid_t pid, pid_t pgid) {
             continue;
         }
         proc_lock(leader);
-        if (leader->pgroup == pgid) {
+        if (leader->pgid == pgid) {
             proc_getref(leader);
             break;
         }
@@ -168,7 +168,7 @@ int   setpgid(pid_t pid, pid_t pgid) {
      * process indicated by the pid argument and
      * there is  no  process with a process group ID
      * that matches the value of the pgid argument
-     * in the same session as the calling process.*/
+     * in the same sid as the calling process.*/
     if (proc->pid != pgid && leader == NULL) {
         proc_release(proc);
         return -EPERM;
@@ -177,7 +177,7 @@ int   setpgid(pid_t pid, pid_t pgid) {
     if (leader) {
         if (leader != curproc) {
             proc_lock(curproc);
-            if (leader->session != curproc->session) {
+            if (leader->sid != curproc->sid) {
                 proc_release(leader);
                 proc_unlock(curproc);
                 return -EPERM;
@@ -186,12 +186,11 @@ int   setpgid(pid_t pid, pid_t pgid) {
         }
     }
     
-    proc->pgroup = pgid;
+    proc->pgid = pgid;
 
     if (leader)
         proc_release(leader);
 
     proc_release(proc);
-
     return 0;
 }
