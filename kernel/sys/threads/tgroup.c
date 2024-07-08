@@ -107,8 +107,9 @@ int thread_join_group(thread_t *thread) {
     thread->t_fctx      = current->t_fctx;
     thread->t_tgid      = current->t_tgid;
     thread->t_owner     = current->t_owner;
-    thread->t_tgroup    = current->t_tgroup;   
+    thread->t_tgroup    = current->t_tgroup;
     thread->t_sigdesc   = current->t_sigdesc;
+
     return 0;
 }
 

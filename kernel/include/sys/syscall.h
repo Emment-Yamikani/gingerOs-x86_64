@@ -48,7 +48,7 @@ void do_syscall(ucontext_t *uctx);
 
 #define SYS_PAUSE               30  // int sys_pause(void);
 #define SYS_KILL                31  // int sys_kill(pid_t pid, int signo);
-#define SYS_ALARM               32  // unsigned long sys_alarm(unsigned long sec);
+#define SYS_ALARM               32  // unsigned sys_alarm(unsigned sec);
 #define SYS_SIGNAL              33  // sigfunc_t sys_signal(int signo, sigfunc_t func);
 #define SYS_SIGPROCMASK         34  // int sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 #define SYS_SIGPENDING          35  // int sys_sigpending(sigset_t *set);
@@ -183,7 +183,7 @@ extern int      sys_chdir(const char *path);
 
 extern int      sys_pause(void);
 extern int      sys_kill(pid_t pid, int signo);
-extern unsigned long sys_alarm(unsigned long sec);
+extern unsigned sys_alarm(unsigned sec);
 extern sigfunc_t sys_signal(int signo, sigfunc_t func);
 extern int      sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 extern int      sys_sigpending(sigset_t *set);

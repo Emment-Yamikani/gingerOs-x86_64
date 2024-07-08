@@ -95,7 +95,6 @@ int kill(pid_t pid, int signo) {
     int     err     = 0;
     proc_t  *proc   = NULL;
 
-
     if (pid > 0) { // send to process whose process ID == pid.
         if (pid == getpid()) { // self signal was implied.
             proc_lock(curproc);

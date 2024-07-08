@@ -3,15 +3,11 @@
 void handler(int);
 
 void main(void) {
-    pid_t pid = fork();
 
-    if (pid != 0) {
-        kill(pid, SIGINT);
-    } else if (pid == 0) {
-        loop();
-    }
+    signal(SIGALRM, handler);
+    
+    alarm(5);
 
-    printf("Okay done sending signal\n");
     loop();
 }
 

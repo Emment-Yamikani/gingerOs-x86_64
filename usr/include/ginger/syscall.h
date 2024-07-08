@@ -82,7 +82,7 @@ extern void     sys_thread_yield();
 
 extern int      sys_pause(void);
 extern int      sys_kill(pid_t pid, int signo);
-extern unsigned long sys_alarm(unsigned long sec);
+extern unsigned sys_alarm(unsigned sec);
 extern sigfunc_t sys_signal(int signo, sigfunc_t func);
 extern int      sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 extern int      sys_sigpending(sigset_t *set);

@@ -510,7 +510,7 @@ int thread_wake(thread_t *thread) {
     thread_assert_locked(thread);
 
     if (current == thread)
-    return 0;
+        return 0;
 
     if (thread_iszombie(thread) ||
         thread_isterminated(thread))
@@ -522,11 +522,13 @@ int thread_wake(thread_t *thread) {
     if (thread->t_sleep.queue == NULL)
         return 0;
 
-    if (thread->t_sleep.guard && (guard_locked = !spin_islocked(thread->t_sleep.guard)))
+    if (thread->t_sleep.guard && 
+            (guard_locked = !spin_islocked(thread->t_sleep.guard)))
         spin_lock(thread->t_sleep.guard);
 
     if ((q_locked = !queue_islocked(thread->t_sleep.queue)))
         queue_lock(thread->t_sleep.queue);
+
 
     err = thread_remove_queue(thread, thread->t_sleep.queue);
 

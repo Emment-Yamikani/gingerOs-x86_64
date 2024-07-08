@@ -319,7 +319,7 @@ int sys_kill(pid_t pid, int signo) {
     return kill(pid, signo);
 }
 
-unsigned long sys_alarm(unsigned long sec) {
+unsigned sys_alarm(unsigned sec) {
     return alarm(sec);
 }
 

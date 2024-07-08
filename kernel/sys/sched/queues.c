@@ -4,10 +4,9 @@
 #include <lib/stdint.h>
 #include <bits/errno.h>
 
-queue_t *sched_stopq = QUEUE_NEW(/*"stopped-queue"*/);
-static queue_t *embryo_queue = QUEUE_NEW(/*"embryo-threads-queue"*/);
-static queue_t *zombie_queue = QUEUE_NEW(/*"zombie-threads-queue"*/);
-
+queue_t *sched_stopq            = QUEUE_NEW(/*"stopped-queue"*/);
+static queue_t *embryo_queue    = QUEUE_NEW(/*"embryo-threads-queue"*/);
+static queue_t *zombie_queue    = QUEUE_NEW(/*"zombie-threads-queue"*/);
 
 int sched_sleep(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
     int err = 0;
@@ -27,8 +26,9 @@ int sched_sleep(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
 
     if (lock) spin_lock(lock);
 
-    current->t_sleep.node = NULL;
-    current->t_sleep.queue = NULL;
+    current->t_sleep.node   = NULL;
+    current->t_sleep.queue  = NULL;
+    current->t_sleep.guard  = NULL;
 
     if (thread_iskilled(current))
         return -EINTR;
@@ -59,17 +59,17 @@ int sched_wake1(queue_t *sleep_queue) {
 }
 
 size_t sched_wakeall(queue_t *sleep_queue) {
-    int err = 0;
-    size_t count = 0;
-    thread_t *thread = NULL;
-    queue_node_t *next = NULL;
+    int             err     = 0;
+    size_t          count   = 0;
+    queue_node_t    *next   = NULL;
+    thread_t        *thread = NULL;
 
     queue_lock(sleep_queue);
     count = queue_count(sleep_queue);
 
     forlinked(node, sleep_queue->head, next) {
-        next = node->next;
-        thread = node->data;
+        next    = node->next;
+        thread  = node->data;
         thread_lock(thread);
         if ((err = thread_wake(thread)))
             panic("failed to wake thread[%d], err=%d\n", thread_gettid(thread), err);

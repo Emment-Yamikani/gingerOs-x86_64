@@ -201,12 +201,10 @@ int queue_remove_node(queue_t *q, queue_node_t *__node) {
     if (q == NULL || __node == NULL)
         return -EINVAL;
 
-    forlinked(node, q->head, next)
-    {
+    forlinked(node, q->head, next) {
         next = node->next;
         prev = node->prev;
-        if (__node == node)
-        {
+        if (__node == node) {
             if (prev)
                 prev->next = next;
             if (next)
@@ -287,4 +285,48 @@ int dequeue_tail(queue_t *q, void **pdp) {
     }
 
     return -ENOENT;
+}
+
+int queue_rellocate(queue_t *q, void *data, int head) {
+    int err = 0;
+    queue_node_t *next = NULL, *node = NULL, *prev = NULL;
+
+    queue_assert_locked(q);
+    if ((err = queue_contains(q, data, &node)))
+        return err;
+    
+    prev = node->prev;
+    next = node->next;
+
+    if (next)
+        next->prev = prev;
+    if (prev)
+        prev->next = next;
+    if (q->head == node)
+        q->head = next;
+    if (q->tail == node)
+        q->tail = prev;
+
+    node->prev = NULL;
+    node->next = NULL;
+
+    if (head == 0) { // relloc to tail.
+        if (q->head == NULL)
+            q->head = node;
+        else {
+            q->tail->next = node;
+            node->prev = q->tail;
+        }
+        q->tail = node;
+    } else { // relloc to head
+        if (q->head == NULL) {
+            q->tail = node;
+        } else {
+            q->head->prev = node;
+            node->next = q->head;
+        }
+        q->head = node;
+    }
+
+    return 0;
 }

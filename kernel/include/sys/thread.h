@@ -75,8 +75,7 @@ typedef struct __thread_shared_t {
     spinlock_t      lock;
 } thread_shared_t;
 
-typedef enum
-{
+typedef enum {
     PEMBROY,
     PRUNNING,
     PSTOPPED,
@@ -92,7 +91,6 @@ typedef struct __thread_t {
     thread_entry_t  t_entry;            // thread entry point.
 
     isize           t_refcnt;           // thread's reference count.
-
     proc_t          *t_owner;           // thread's owner process.
 
     uintptr_t       t_exit;             // thread exit code.
