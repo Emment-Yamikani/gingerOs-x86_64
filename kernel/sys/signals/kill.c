@@ -9,41 +9,54 @@
 #include <sys/thread.h>
 
 int signal_perm(proc_t *proc, uid_t *ppuid) {
-    uid_t uid = 0;
+    uid_t uid   = 0;
+    uid_t gid   = 0;
+    uid_t euid  = 0;
+    uid_t egid  = 0;
+
+    if (proc == NULL)
+        goto __not_granted;
 
     proc_assert_locked(proc);
-    proc_assert_locked(curproc);
 
-    if (proc != curproc) {
-        cred_lock(curproc->cred);
-        if ((curproc->pid == 0) ||
-            ((uid = curproc->cred->c_uid) == 0) ||
-            (curproc->cred->c_euid == 0) ||
-            (curproc->cred->c_gid == 0) ||
-            (curproc->cred->c_egid == 0)) {
-            cred_unlock(curproc->cred);
-            if (ppuid)
-                *ppuid = uid;
-            return 0;
-        }
-
-        cred_lock(proc->cred);
-        if ((proc->cred->c_uid != (uid = curproc->cred->c_uid)) &&
-            (proc->cred->c_euid != curproc->cred->c_euid) &&
-            (proc->cred->c_gid != curproc->cred->c_gid) &&
-            (proc->cred->c_egid != curproc->cred->c_egid)) {
-            cred_unlock(proc->cred);
-            cred_unlock(curproc->cred);
-            return -EPERM;
-        }
-
-        cred_unlock(proc->cred);
-        cred_unlock(curproc->cred);
+    if (current == NULL)
+        goto __granted;
+    
+    cred_lock(current->t_cred);
+    uid = current->t_cred->c_uid;
+    
+    if (curproc == proc) {
+        cred_unlock(current->t_cred);
+        goto __granted;
     }
 
+    gid  = current->t_cred->c_gid;
+    euid = current->t_cred->c_euid;
+    egid = current->t_cred->c_egid;
+    cred_unlock(current->t_cred);
+
+    if (proc != curproc) {
+        if (!getpid()   || (uid == 0)  || (euid == 0) ||
+            (gid == 0)  || (egid == 0))
+            goto __granted;
+
+        cred_lock(proc->cred);
+        if ((proc->cred->c_uid  != uid) &&
+            (proc->cred->c_euid != euid) &&
+            (proc->cred->c_gid  != gid) &&
+            (proc->cred->c_egid != egid)) {
+            cred_unlock(proc->cred);
+            goto __not_granted;
+        }
+        cred_unlock(proc->cred);
+    }
+
+__granted:
     if (ppuid)
         *ppuid = uid;
     return 0;
+__not_granted:
+    return -EPERM;
 }
 
 int signal_send(proc_t *proc, int signo) {
@@ -56,7 +69,6 @@ int signal_send(proc_t *proc, int signo) {
         return -EINVAL;
 
     proc_assert_locked(proc);
-    proc_assert_locked(curproc);
 
     if ((err = signal_perm(proc, &uid)))
         return err;
@@ -71,10 +83,8 @@ int signal_send(proc_t *proc, int signo) {
     info->si_uid    = uid;
     info->si_addr   = NULL;
     info->si_signo  = signo;
-    info->si_pid    = curproc->pid;
-    info->si_value  = (union sigval) {
-        .sigval_int = signo
-    };
+    info->si_value  = (union sigval) { .sigval_int = signo };
+    info->si_pid    = proc != curproc ? getpid() : curproc->pid;
 
     sigdesc = proc->sigdesc;
     sigdesc_lock(sigdesc);
@@ -94,88 +104,23 @@ int signal_send(proc_t *proc, int signo) {
 int kill(pid_t pid, int signo) {
     int     err     = 0;
     proc_t  *proc   = NULL;
-
-    if (pid > 0) { // send to process whose process ID == pid.
-        if (pid == getpid()) { // self signal was implied.
-            proc_lock(curproc);
-            proc = curproc; // get a reference to self
-        } else if ((err = procQ_search_bypid(pid, &proc)))
+    
+    if (pid > 0) {
+        if ((err = procQ_search_bypid(pid, &proc)))
             return err;
-
-        // Not sending to self so lock current process struct.
-        if (proc != curproc)
-            proc_lock(curproc);
         
-        // send the signal to the process in question
         if ((err = signal_send(proc, signo))) {
-            // FIXME: consider divating to an error: lable.
-            if (proc != curproc)
-                proc_unlock(curproc);
             proc_unlock(proc);
             return err;
         }
 
-        if (proc != curproc)
-            proc_unlock(curproc);
-        
         proc_unlock(proc);
+    } else if (pid == 0) {
 
-    } else if (pid == 0) { // send to all processes whose pgid == that of sending process' pgid
-        proc_lock(curproc);
-        // foreach proc, send a signal if it's pgid match sending proc's pgid
-        queue_foreach(proc_t *, proc, procQ) {
-            // skip the current proc
-            if (proc == curproc)
-                continue;
-            
-            proc_lock(proc);
-            if (proc->pgid == curproc->pgid) {
-                if ((err = signal_send(proc, signo))) {
-                    // FIXME: consider divating to an error: lable.
-                    proc_unlock(proc);
-                    proc_unlock(curproc);
-                    return err;
-                }
-            }
-            proc_unlock(proc);
-        }
-        proc_unlock(curproc);
-    } else if (pid == -1) { // send to all process, except an unspecified set of sysprocs.
-        proc_lock(curproc);
-        queue_foreach(proc_t *, proc, procQ) {
-            if (proc == curproc) // skip current proc.
-                continue;
-            
-            proc_lock(proc);
-            if ((err = signal_send(proc, signo))) {
-                // FIXME: consider divating to an error: lable.
-                proc_unlock(proc);
-                proc_unlock(curproc);
-                return err;
-            }
-            proc_unlock(proc);
-        }
-        proc_unlock(curproc);
-    } else { // PID < -1, send to all processes whose PGID == ABS(pid).
-        proc_lock(curproc);
-        // foreach proc, send a signal if it's pgid match sending proc's pgid
-        queue_foreach(proc_t *, proc, procQ) {
-            // skip the current proc
-            if (proc == curproc)
-                continue;
-            
-            proc_lock(proc);
-            if (proc->pgid == ABSi(pid)) {
-                if ((err = signal_send(proc, signo))) {
-                    // FIXME: consider divating to an error: lable.
-                    proc_unlock(proc);
-                    proc_unlock(curproc);
-                    return err;
-                }
-            }
-            proc_unlock(proc);
-        }
-        proc_unlock(curproc);
+    } else if (pid == -1) {
+
+    } else {
+
     }
 
     return 0;

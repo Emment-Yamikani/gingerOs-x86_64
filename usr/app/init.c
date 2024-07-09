@@ -6,13 +6,12 @@ void main(void) {
 
     signal(SIGALRM, handler);
     
-    alarm(5);
+    alarm(2);
 
     loop();
 }
 
 
 void handler(int signo) {
-    printf("%s:%d: caught signal(%d)\n",
-    __FILE__, __LINE__, signo);
+    printf("%s:%d: caught signal(%d)\n", __FILE__, __LINE__, signo);
 }

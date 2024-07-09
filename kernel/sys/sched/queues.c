@@ -10,14 +10,18 @@ static queue_t *zombie_queue    = QUEUE_NEW(/*"zombie-threads-queue"*/);
 
 int sched_sleep(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
     int err = 0;
+
+    if (sleep_queue == NULL)
+        return -EINVAL;
+
     queue_assert(sleep_queue);
     current_assert_locked();
 
     if ((err = thread_enqueue(sleep_queue, current, &current->t_sleep.node)))
         return err;
 
+    current_enter_state(state);
     current->t_sleep.guard = lock;
-    thread_enter_state(current, state);
     current->t_sleep.queue = sleep_queue;
 
     if (lock) spin_unlock(lock);
@@ -30,10 +34,59 @@ int sched_sleep(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
     current->t_sleep.queue  = NULL;
     current->t_sleep.guard  = NULL;
 
-    if (thread_iskilled(current))
+    if (current_iskilled())
         return -EINTR;
 
     return 0;
+}
+
+int sched_sleep_r(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
+    int     err = 0;
+    
+    if (sleep_queue == NULL)
+        return -EINVAL;
+    
+    current_assert_locked();
+
+    if ((err = thread_enqueue(sleep_queue, current, &current->t_sleep.node)))
+        return err;
+
+    current_enter_state(state);
+    current->t_sleep.guard = lock;
+    current->t_sleep.queue = sleep_queue;
+
+    /**
+     * @brief Rellocate the thread to the head of the tgroup queue.
+     * @FIXME: Do we need to do this for all kinds of sleep state,
+     * or do we only need it for interruptable sleep states?
+     */
+    if ((err = queue_rellocate(current->t_tgroup, (void *)current, 1)))
+        goto error;
+
+    if (lock != NULL)
+        spin_unlock(lock);
+    
+    sched();    // jmp back to the scheduler.
+
+    if (lock != NULL)
+        spin_lock(lock);
+    
+    current->t_sleep.guard = NULL;
+    current->t_sleep.queue = NULL;
+    current->t_sleep.node  = NULL;
+
+    if (current_iskilled())
+        return -EINTR;
+    return 0;
+error:
+    current->t_sleep.node  = NULL;
+    current->t_sleep.guard = NULL;
+    current->t_sleep.queue = NULL;
+
+    thread_remove_queue(current, sleep_queue);
+
+    printk("%s:%d: failed to put thread to sleep. error_code: %d\n", __FILE__, __LINE__, err);
+    return err;
 }
 
 int sched_wake1(queue_t *sleep_queue) {

@@ -465,10 +465,8 @@ int thread_kill(tid_t tid, int wait) {
 }
 
 int thread_join(tid_t tid, thread_info_t *info, void **retval) {
-    int err = 0;
-    thread_t *thread = NULL;
-
-    current_assert();
+    int         err     = 0;
+    thread_t    *thread = NULL;
 
     if (current_iskilled())
         return -EINTR;

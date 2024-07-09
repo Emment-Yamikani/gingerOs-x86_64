@@ -288,10 +288,19 @@ int dequeue_tail(queue_t *q, void **pdp) {
 }
 
 int queue_rellocate(queue_t *q, void *data, int head) {
-    int err = 0;
-    queue_node_t *next = NULL, *node = NULL, *prev = NULL;
+    int          err   = 0;
+    queue_node_t *next = NULL;
+    queue_node_t *node = NULL;
+    queue_node_t *prev = NULL;
+
+    if (q == NULL)
+        return -EINVAL;
 
     queue_assert_locked(q);
+    
+    // FIXME: may need to keep a queue node ptr to quicken the rellocation
+    // as hat will eliminate the need for iteration on the queue searching
+    // for the data item.    
     if ((err = queue_contains(q, data, &node)))
         return err;
     

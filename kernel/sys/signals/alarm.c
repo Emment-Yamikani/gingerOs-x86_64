@@ -48,12 +48,10 @@ unsigned long alarm(unsigned sec) {
     }
 
     assert(
-        clock_set(
-        &tv,
+        clock_set(&tv,
         (void *)trigger_alarm,
         (void *)(long)curproc->pid,
-        CLK_ARMED,
-        &clkid
+        CLK_ARMED, &clkid
     ) == 0, "Failed to set alarm\n");
     
     btree_lock(&alarms);
