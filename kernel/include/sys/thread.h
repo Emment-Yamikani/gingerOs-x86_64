@@ -23,8 +23,8 @@ typedef enum tstate_t {
     T_READY,        // Ready.
     T_RUNNING,      // Running.
     T_ISLEEP,       // Interruptable sleep.
-    T_USLEEP,       // Uninterruptable sleep.
     T_STOPPED,      // Stopped.
+    T_USLEEP,       // Uninterruptable sleep.
     T_TERMINATED,   // Terminated.
     T_ZOMBIE,       // Zombie.
 } tstate_t;
@@ -115,6 +115,7 @@ typedef struct __thread_t {
 
     cond_t          t_wait;             // thread conditional wait variable.
     arch_thread_t   t_arch;             // architecture-specific thread struct.
+    queue_node_t    *t_group_qnode;     // node pointing to the tgroup holding this thread.
     queue_t         t_queues;           // queues on which this thread resides.
 
     spinlock_t      t_lock;             // lock to synchronize access to this struct.

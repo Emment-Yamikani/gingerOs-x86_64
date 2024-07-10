@@ -3,10 +3,15 @@
 void handler(int);
 
 void main(void) {
+ 
+    pid_t pid = fork();
+    signal(SIGINT, handler);
 
-    signal(SIGALRM, handler);
-    
-    alarm(2);
+    if (pid) {
+        sleep(2);
+        kill(pid, SIGINT);
+    } else {
+    }
 
     loop();
 }

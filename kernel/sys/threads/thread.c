@@ -568,8 +568,7 @@ int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread) {
         if (tid == 0) {
             *pthread = thread;
             return 0;
-        } else if (thread->t_tid == tid)
-        {
+        } else if (thread->t_tid == tid) {
             *pthread = thread;
             return 0;
         }

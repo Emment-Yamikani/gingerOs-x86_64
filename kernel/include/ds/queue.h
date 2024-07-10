@@ -153,13 +153,23 @@ int queue_remove(queue_t *q, void *data);
  */
 int queue_remove_node(queue_t *q, queue_node_t *__node);
 
+// rellocation points, used with queue rellocation functions.
+typedef enum {
+    QUEUE_RELLOC_TAIL,  // rellocate to the tail-end.
+    QUEUE_RELLOC_HEAD   // rellocate to the front-end.
+} queue_relloc_t;
+
 /**
  * @brief Rellocates  a data item to the fron or back depending
  * on the value of 'head'.
  *
  * @param q queue on which to apply the operation.
- * @param data data to be rellocated.
- * @param head specifies where the data is the be rellocated to.
+ * @param node contains the data to be rellocated.
+ * @param whence specifies where the data is the be rellocated to.
+ *  see above enum queue_relloc_t typedef.
  * @return int 0 on success, otherwise and error code is returned.
  */
-int queue_rellocate(queue_t *q, void *data, int head);
+int queue_rellocate_node(queue_t *q, queue_node_t *node, queue_relloc_t whence);
+
+// same as above only difference is this take a data pointer not a node.
+int queue_rellocate(queue_t *q, void *data, queue_relloc_t whence);

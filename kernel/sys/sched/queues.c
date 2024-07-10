@@ -60,7 +60,7 @@ int sched_sleep_r(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
      * @FIXME: Do we need to do this for all kinds of sleep state,
      * or do we only need it for interruptable sleep states?
      */
-    if ((err = queue_rellocate(current->t_tgroup, (void *)current, 1)))
+    if ((err = queue_rellocate(current->t_tgroup, (void *)current, QUEUE_RELLOC_HEAD)))
         goto error;
 
     if (lock != NULL)

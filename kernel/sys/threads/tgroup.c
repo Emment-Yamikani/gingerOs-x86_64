@@ -71,7 +71,7 @@ int thread_create_group(thread_t *thread) {
     if ((err = queue_alloc(&threads)))
         goto error;
 
-    if ((err = thread_enqueue(threads, thread, NULL)))
+    if ((err = thread_enqueue(threads, thread, &thread->t_group_qnode)))
         goto error;
 
     thread_setmain(thread);
@@ -100,7 +100,7 @@ error:
 
 int thread_join_group(thread_t *thread) {
     int         err   = 0;
-    if ((err = thread_enqueue(current->t_tgroup,     thread, NULL)))
+    if ((err = thread_enqueue(current->t_tgroup, thread, &thread->t_group_qnode)))
         return err;
 
     thread->t_cred      = current->t_cred;

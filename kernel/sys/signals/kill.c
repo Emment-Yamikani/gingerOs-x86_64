@@ -13,21 +13,24 @@ int signal_perm(proc_t *proc, uid_t *ppuid) {
     uid_t gid   = 0;
     uid_t euid  = 0;
     uid_t egid  = 0;
+    int granted = 0;
 
     if (proc == NULL)
-        goto __not_granted;
+        return -EPERM;
 
     proc_assert_locked(proc);
 
     if (current == NULL)
-        goto __granted;
-    
+        return 0;
+
     cred_lock(current->t_cred);
     uid = current->t_cred->c_uid;
-    
+
     if (curproc == proc) {
         cred_unlock(current->t_cred);
-        goto __granted;
+        if (ppuid)
+            *ppuid = uid;
+        return 0;
     }
 
     gid  = current->t_cred->c_gid;
@@ -35,28 +38,161 @@ int signal_perm(proc_t *proc, uid_t *ppuid) {
     egid = current->t_cred->c_egid;
     cred_unlock(current->t_cred);
 
-    if (proc != curproc) {
-        if (!getpid()   || (uid == 0)  || (euid == 0) ||
-            (gid == 0)  || (egid == 0))
-            goto __granted;
-
-        cred_lock(proc->cred);
-        if ((proc->cred->c_uid  != uid) &&
-            (proc->cred->c_euid != euid) &&
-            (proc->cred->c_gid  != gid) &&
-            (proc->cred->c_egid != egid)) {
-            cred_unlock(proc->cred);
-            goto __not_granted;
-        }
-        cred_unlock(proc->cred);
+    if (!getpid()   || (uid == 0)  || (euid == 0) ||
+        (gid == 0)  || (egid == 0)) {
+        if (ppuid)
+            *ppuid = uid;
+        return 0;
     }
 
-__granted:
+    cred_lock(proc->cred);
+    granted = ((proc->cred->c_uid != uid) &&
+               (proc->cred->c_euid != euid) &&
+               (proc->cred->c_gid != gid) &&
+               (proc->cred->c_egid != egid));
+    cred_unlock(proc->cred);
+
+    if (!granted)
+        return -EPERM;
+
     if (ppuid)
         *ppuid = uid;
     return 0;
-__not_granted:
-    return -EPERM;
+}
+
+static int signal_select_thread(proc_t *proc, int signo, thread_t **pthread) {
+    int         err     = 0;
+    thread_t    *thread = NULL;
+
+    if (proc == NULL || pthread == NULL)
+        return -EINVAL;
+
+    queue_lock(proc->threads);
+    /**
+     * @brief try picking a thread
+     * that is in an interruptable sleep state
+     * and has the signo unblocked.
+     */
+    queue_foreach(thread_t *, thread, proc->threads) {
+        if (current == thread)
+            continue;
+
+        thread_lock(thread);
+        if (thread_isterminated(thread) ||
+            thread_iszombie(thread) || 
+            thread_isusleep(thread)) {
+            thread_unlock(thread);
+            continue;
+        }
+
+        /**
+         * @brief thread is not in the supported interruptable
+         * blocked state. so just break the loop because
+         * it is unlikely that the subsequent
+         * threads are in a sleep state.
+         * and if signo is not blocked return this thread.
+         */
+        if (thread_isstopped(thread) || thread_isisleep(thread)) {
+            if (!sigismember(&thread->t_sigmask, signo)) {
+                // put thread at back of queue.
+                if ((err = queue_rellocate_node(proc->threads,
+                                thread->t_group_qnode, QUEUE_RELLOC_TAIL))) {
+                    thread_unlock(thread);
+                    queue_unlock(proc->threads);
+                    return err;
+                }
+                *pthread = thread;
+                queue_unlock(proc->threads);
+                return 0;
+            }
+        }
+
+        thread_unlock(thread);
+    }
+
+    /**
+     * @brief try any thread which is not currently handling a signal
+     * and has the signo unblocked.
+     */
+    queue_foreach(thread_t *, thread, proc->threads) {
+        if (current == thread)
+            continue;
+
+        thread_lock(thread);       
+        if (thread_isterminated(thread) ||
+            thread_iszombie(thread) || 
+            thread_isusleep(thread)) {
+            thread_unlock(thread);
+            continue;
+        }
+
+        if (thread_isisleep(thread) || thread_isstopped(thread)) {
+            thread_unlock(thread);
+            continue;
+        }
+
+        // only threads not currently handling signals.
+        if (!thread_ishandling_signal(thread)) {
+            // if signo is not blocked return this thread.
+            if (!sigismember(&thread->t_sigmask, signo)) {
+                // put thread at back of queue.
+                if ((err = queue_rellocate_node(proc->threads,
+                                thread->t_group_qnode, QUEUE_RELLOC_TAIL))) {
+                    thread_unlock(thread);
+                    queue_unlock(proc->threads);
+                    return err;
+                }
+                *pthread = thread;
+                queue_unlock(proc->threads);
+                return 0;
+            }
+        }
+        thread_unlock(thread);
+    }
+
+    // Try any thread which has the signal unblocked.
+    queue_foreach(thread_t *, thread, proc->threads) {
+        if (current == thread)
+            continue;
+        
+        thread_lock(thread);       
+        if (thread_isterminated(thread) ||
+            thread_iszombie(thread) || 
+            thread_isusleep(thread)) {
+            thread_unlock(thread);
+            continue;
+        }
+
+        if (thread_isisleep(thread) || thread_isstopped(thread)) {
+            thread_unlock(thread);
+            continue;
+        }
+
+        // skip threads currently handling signals.
+        if (thread_ishandling_signal(thread)) {
+            thread_unlock(thread);
+            continue;
+        }
+
+        // if signo is not blocked return this thread.
+        if (!sigismember(&thread->t_sigmask, signo)) {
+            // put thread at back of queue.
+            if ((err = queue_rellocate_node(proc->threads,
+                            thread->t_group_qnode, QUEUE_RELLOC_TAIL))) {
+                thread_unlock(thread);
+                queue_unlock(proc->threads);
+                return err;
+            }
+            *pthread = thread;
+            queue_unlock(proc->threads);
+            return 0;
+        }
+
+        thread_unlock(thread);
+    }
+    queue_unlock(proc->threads);
+
+    return -ESRCH;
 }
 
 int signal_send(proc_t *proc, int signo) {
@@ -103,6 +239,7 @@ int signal_send(proc_t *proc, int signo) {
 
 int kill(pid_t pid, int signo) {
     int     err     = 0;
+    pid_t   pgid    = 0;
     proc_t  *proc   = NULL;
     
     if (pid > 0) {
@@ -116,14 +253,73 @@ int kill(pid_t pid, int signo) {
 
         proc_unlock(proc);
     } else if (pid == 0) {
+        pgid = getpgrp();
 
+        queue_lock(procQ);
+        queue_foreach(proc_t *, proc, procQ) {
+            if (proc == curproc)
+                continue;
+
+            proc_lock(proc);
+            if (proc->pgid == pgid) {
+                if ((err = signal_send(proc, signo))) {
+                    proc_unlock(proc);
+                    queue_unlock(procQ);
+                    return err;
+                }
+            }
+            proc_unlock(proc);
+        }
+        queue_unlock(procQ);
+
+        proc_lock(curproc);
+        err = signal_send(curproc, signo);
+        proc_unlock(curproc);
     } else if (pid == -1) {
+        queue_lock(procQ);
+        queue_foreach(proc_t *, proc, procQ) {
+            if (proc == curproc)
+                continue;
 
+            proc_lock(proc);
+            if ((err = signal_send(proc, signo))) {
+                proc_unlock(proc);
+                queue_unlock(procQ);
+                return err;
+            }
+            proc_unlock(proc);
+        }
+        queue_unlock(procQ);
+
+        proc_lock(curproc);
+        err = signal_send(curproc, signo);
+        proc_unlock(curproc);
     } else {
+        pgid = -pid;
 
+        queue_lock(procQ);
+        queue_foreach(proc_t *, proc, procQ) {
+            if (proc == curproc)
+                continue;
+
+            proc_lock(proc);
+            if (proc->pgid == pgid) {
+                if ((err = signal_send(proc, signo))) {
+                    proc_unlock(proc);
+                    queue_unlock(procQ);
+                    return err;
+                }
+            }
+            proc_unlock(proc);
+        }
+        queue_unlock(procQ);
+
+        proc_lock(curproc);
+        err = signal_send(curproc, signo);
+        proc_unlock(curproc);
     }
 
-    return 0;
+    return err;
 }
 
 int pthread_kill(tid_t tid, int signo) {
