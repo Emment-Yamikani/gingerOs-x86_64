@@ -15,14 +15,14 @@ int raise(int signo) {
 }
 
 int pause(void) {
-    sigset_t set        = 0;
-    sigset_t empty_set  = 0;
-    loop() {
-        sigpending(&set);
-        if (set != empty_set)
-            break;
-        thread_yield();
-    }
+    static queue_t pause_queue = QUEUE_INIT();
+
+    queue_lock(current->t_tgroup);
+    current_lock();
+    sched_sleep_r(&pause_queue, T_ISLEEP, NULL);
+    current_unlock();
+    queue_unlock(current->t_tgroup);
+
     return -EINTR;
 }
 

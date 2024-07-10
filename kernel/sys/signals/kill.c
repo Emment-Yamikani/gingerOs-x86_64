@@ -62,7 +62,6 @@ int signal_perm(proc_t *proc, uid_t *ppuid) {
 
 static int signal_select_thread(proc_t *proc, int signo, thread_t **pthread) {
     int         err     = 0;
-    thread_t    *thread = NULL;
 
     if (proc == NULL || pthread == NULL)
         return -EINVAL;
@@ -84,7 +83,7 @@ static int signal_select_thread(proc_t *proc, int signo, thread_t **pthread) {
             thread_unlock(thread);
             continue;
         }
-
+        // printk("%s:%d: thread(%d): state: %s\n", __FILE__, __LINE__, thread->t_tid, t_states[thread_getstate(thread)]);
         /**
          * @brief thread is not in the supported interruptable
          * blocked state. so just break the loop because
@@ -131,6 +130,7 @@ static int signal_select_thread(proc_t *proc, int signo, thread_t **pthread) {
             continue;
         }
 
+        // printk("%s:%d: thread(%d): state: %s\n", __FILE__, __LINE__, thread->t_tid, t_states[thread_getstate(thread)]);
         // only threads not currently handling signals.
         if (!thread_ishandling_signal(thread)) {
             // if signo is not blocked return this thread.
@@ -200,6 +200,7 @@ int signal_send(proc_t *proc, int signo) {
     uid_t       uid         = 0;
     siginfo_t   *info       = NULL;
     sig_desc_t  *sigdesc    = NULL;
+    thread_t    *thread     = NULL;
 
     if (signo < 0 || signo > NSIG)
         return -EINVAL;
@@ -222,18 +223,37 @@ int signal_send(proc_t *proc, int signo) {
     info->si_value  = (union sigval) { .sigval_int = signo };
     info->si_pid    = proc != curproc ? getpid() : curproc->pid;
 
-    sigdesc = proc->sigdesc;
-    sigdesc_lock(sigdesc);
-    queue_lock(&sigdesc->sig_queue[signo - 1]);
-    if ((err = sigenqueue_pending(
-        &sigdesc->sig_queue[signo - 1], info))) {
+    err = signal_select_thread(proc, signo, &thread);
+
+    assert_msg(err == 0 || err == -ESRCH,
+        "Error finding thread to signal. error: %d.\n",
+        err
+    );
+
+    switch (err) {
+    case 0:
+        if ((err = thread_sigqueue(thread, info))) {
+            thread_unlock(thread);
+            kfree(info);
+            return err;
+        }
+        thread_unlock(thread);
+        break;
+    case -ESRCH:
+        sigdesc = proc->sigdesc;
+        sigdesc_lock(sigdesc);
+        queue_lock(&sigdesc->sig_queue[signo - 1]);
+        if ((err = sigenqueue_pending(
+            &sigdesc->sig_queue[signo - 1], info))) {
+            queue_unlock(&sigdesc->sig_queue[signo - 1]);
+            sigdesc_unlock(sigdesc);
+            kfree(info);
+            return err;
+        }
         queue_unlock(&sigdesc->sig_queue[signo - 1]);
         sigdesc_unlock(sigdesc);
-        kfree(info);
-        return err;
     }
-    queue_unlock(&sigdesc->sig_queue[signo - 1]);
-    sigdesc_unlock(sigdesc);
+
     return 0;
 }
 

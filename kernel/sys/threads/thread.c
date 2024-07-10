@@ -341,14 +341,13 @@ int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode) {
     queue_lock(queue);
     queue_lock(&thread->t_queues);
 
-    if ((err = enqueue(queue, (void *)thread, 1, NULL))) {
+    if ((err = enqueue(queue, (void *)thread, 1, &node))) {
         queue_unlock(&thread->t_queues);
         queue_unlock(queue);
         goto error;
     }
 
     if ((err = enqueue(&thread->t_queues, (void *)queue, 1, NULL))) {
-        node = NULL;
         queue_remove(queue, (void *)thread);
         queue_unlock(&thread->t_queues);
         queue_unlock(queue);

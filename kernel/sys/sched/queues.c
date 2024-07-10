@@ -47,6 +47,13 @@ int sched_sleep_r(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
         return -EINVAL;
     
     current_assert_locked();
+    /**
+     * @brief Rellocate the thread to the head of the tgroup queue.
+     * @FIXME: Do we need to do this for all kinds of sleep state,
+     * or do we only need it for interruptable sleep states?
+     */
+    if ((err = queue_rellocate(current->t_tgroup, (void *)current, QUEUE_RELLOC_HEAD)))
+        return err;
 
     if ((err = thread_enqueue(sleep_queue, current, &current->t_sleep.node)))
         return err;
@@ -55,18 +62,13 @@ int sched_sleep_r(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
     current->t_sleep.guard = lock;
     current->t_sleep.queue = sleep_queue;
 
-    /**
-     * @brief Rellocate the thread to the head of the tgroup queue.
-     * @FIXME: Do we need to do this for all kinds of sleep state,
-     * or do we only need it for interruptable sleep states?
-     */
-    if ((err = queue_rellocate(current->t_tgroup, (void *)current, QUEUE_RELLOC_HEAD)))
-        goto error;
 
     if (lock != NULL)
         spin_unlock(lock);
     
+    queue_unlock(current->t_tgroup);
     sched();    // jmp back to the scheduler.
+    queue_lock(current->t_tgroup);
 
     if (lock != NULL)
         spin_lock(lock);
@@ -78,15 +80,6 @@ int sched_sleep_r(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
     if (current_iskilled())
         return -EINTR;
     return 0;
-error:
-    current->t_sleep.node  = NULL;
-    current->t_sleep.guard = NULL;
-    current->t_sleep.queue = NULL;
-
-    thread_remove_queue(current, sleep_queue);
-
-    printk("%s:%d: failed to put thread to sleep. error_code: %d\n", __FILE__, __LINE__, err);
-    return err;
 }
 
 int sched_wake1(queue_t *sleep_queue) {

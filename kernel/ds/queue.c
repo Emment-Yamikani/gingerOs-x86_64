@@ -288,14 +288,12 @@ int dequeue_tail(queue_t *q, void **pdp) {
 }
 
 int queue_rellocate_node(queue_t *q, queue_node_t *node, queue_relloc_t whence) {
-    int          err   = 0;
     queue_node_t *next = NULL;
-    queue_node_t *node = NULL;
     queue_node_t *prev = NULL;
 
     if (q == NULL || node == NULL)
         return -EINVAL;
-    
+
     queue_assert_locked(q);
 
     if (node->queue != q)
