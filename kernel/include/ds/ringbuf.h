@@ -15,11 +15,12 @@ typedef struct ringbuf {
 
 #define RINGBUF_NEW(nam, sz) (&(struct ringbuf){.buf = (char[sz]){0}, .size = sz, .head = 0, .tail = 0, .lock = SPINLOCK_INIT()})
 
-#define ringbuf_assert(r)   assert(r, "no ringbuf")
-#define ringbuf_assert_locked(r)  spin_assert_locked(&r->lock)
-#define ringbuf_lock(r) spin_lock(&r->lock)
-#define ringbuf_unlock(r) spin_unlock(&r->lock)
+#define ringbuf_assert(r)           ({ assert(r, "no ringbuf"); })
+#define ringbuf_lock(r)             ({ ringbuf_assert(r); spin_lock(&(r)->lock); })
+#define ringbuf_unlock(r)           ({ ringbuf_assert(r); spin_unlock(&(r)->lock); })
+#define ringbuf_assert_locked(r)    ({ ringbuf_assert(r); spin_assert_locked(&(r)->lock); })
 
+int ringbuf_init(isize size, ringbuf_t *ring);
 int ringbuf_isempty(ringbuf_t *);
 int ringbuf_isfull(ringbuf_t *);
 void ringbuf_debug(ringbuf_t *);

@@ -1,61 +1,73 @@
 #include <ds/ringbuf.h>
 #include <bits/errno.h>
 #include <mm/kalloc.h>
+#include <lib/types.h>
 
-int ringbuf_new(size_t size, ringbuf_t **rref)
-{
-    char *buf = NULL;
-    assert(rref, "no reference");
+int ringbuf_init(isize size, ringbuf_t *ring) {
+    u8 *buf = NULL;
 
-    struct ringbuf *ring = kmalloc(sizeof(struct ringbuf));
-    if (!ring) return -ENOMEM;
+    if (ring == NULL)
+        return -EINVAL;
 
-    if (!(buf = kmalloc(size)))
-    {
+    if (!(buf = (u8 *)kmalloc(size))) {
         kfree(ring);
         return -ENOMEM;
     }
 
-    *ring = (struct ringbuf){
-        .buf = buf,
+    *ring = (ringbuf_t){
+        .buf = (char *)buf,
         .size = size,
         .head = 0,
         .tail = 0,
         .lock = SPINLOCK_INIT(),
     };
 
-    *rref = ring;
     return 0;
 }
 
-void ringbuf_free(struct ringbuf *r)
-{
+int ringbuf_new(size_t size, ringbuf_t **rref) {
+    int             err = 0;
+    ringbuf_t *ring = NULL;
+
+    assert(rref, "no reference");
+
+    if ((ring = kmalloc(sizeof(ringbuf_t))) == NULL)
+        return -ENOMEM;
+
+    if ((err = ringbuf_init(size, ring)))
+        goto error;
+
+    *rref = ring;
+    return 0;
+error:
+    if (ring != NULL)
+        kfree(ring);
+    return err;
+}
+
+void ringbuf_free(ringbuf_t *r) {
     assert(r, "no ringbuff");
     kfree(r->buf);
     kfree(r);
 }
 
-int ringbuf_isempty(ringbuf_t *ring)
-{
+int ringbuf_isempty(ringbuf_t *ring) {
     ringbuf_assert(ring);
     ringbuf_assert_locked(ring);
     return ring->count == 0;
 }
 
-int ringbuf_isfull(ringbuf_t *ring)
-{
+int ringbuf_isfull(ringbuf_t *ring) {
     ringbuf_assert(ring);
     ringbuf_assert_locked(ring);
     return ring->count == ring->size;
 }
 
-size_t ringbuf_read(struct ringbuf *ring, size_t n, char *buf)
-{
+size_t ringbuf_read(ringbuf_t *ring, size_t n, char *buf) {
     size_t size = n;
     ringbuf_assert(ring);
     ringbuf_assert_locked(ring);
-    while (n)
-    {
+    while (n) {
         if (ringbuf_isempty(ring))
             break;
         *buf++ = ring->buf[RINGBUF_INDEX(ring, ring->head++)];
@@ -65,13 +77,11 @@ size_t ringbuf_read(struct ringbuf *ring, size_t n, char *buf)
     return size - n;
 }
 
-size_t ringbuf_write(struct ringbuf *ring, size_t n, char *buf)
-{
+size_t ringbuf_write(ringbuf_t *ring, size_t n, char *buf) {
     size_t size = n;
     ringbuf_assert(ring);
     ringbuf_assert_locked(ring);    
-    while (n)
-    {
+    while (n) {
         if (ringbuf_isfull(ring))
             break;
 
@@ -82,8 +92,7 @@ size_t ringbuf_write(struct ringbuf *ring, size_t n, char *buf)
     return size - n;
 }
 
-size_t ringbuf_available(struct ringbuf *ring)
-{
+size_t ringbuf_available(ringbuf_t *ring) {
     ringbuf_assert(ring);
     ringbuf_assert_locked(ring);
     if (ring->tail >= ring->head)
@@ -92,8 +101,7 @@ size_t ringbuf_available(struct ringbuf *ring)
     return aval;
 }
 
-void ringbuf_debug(ringbuf_t *ring)
-{
+void ringbuf_debug(ringbuf_t *ring) {
     ringbuf_assert(ring);
     ringbuf_lock(ring);
     printk("size: %5d\nhead: %5d\ntail: %5d\ncount: %d\n",

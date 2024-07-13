@@ -5,8 +5,10 @@
 #include <lib/printk.h>
 #include <lib/string.h>
 #include <mm/kalloc.h>
+#include <sys/thread.h>
 
 static filesystem_t *pipefs = NULL;
+__unused static superblock_t *pipefs_sb = NULL;
 
 static iops_t pipefs_iops = {
     .isync      = pipefs_isync,
@@ -17,8 +19,8 @@ static iops_t pipefs_iops = {
     .isetattr   = pipefs_isetattr,
     .ifcntl     = pipefs_ifcntl,
     .iioctl     = pipefs_iioctl,
-    .iread      = pipefs_iread_data,
-    .iwrite     = pipefs_iwrite_data,
+    .iread      = pipefs_iread,
+    .iwrite     = pipefs_iwrite,
     .imkdir     = pipefs_imkdir,
     .icreate    = pipefs_icreate,
     .ibind      = pipefs_ibind,
@@ -57,7 +59,7 @@ static int pipefs_fill_sb(filesystem_t *fs __unused, const char *target,
     sb->sb_uio      = (cred_t) {
         .c_gid      = 0,
         .c_uid      = 0,
-        .c_umask    = 0555,
+        .c_umask    = 0776,
         .c_lock     = SPINLOCK_INIT(),
     };
 
@@ -97,6 +99,55 @@ error:
     return err;
 }
 
+int pipe_mkpipe(pipe_t **pref) {
+    int     err     = 0;
+    pipe_t  *pipe   = NULL;
+
+    if (pref == NULL)
+        return -EINVAL;
+    
+    if ((pipe = (pipe_t *)kmalloc(sizeof *pipe)))
+        return -ENOMEM;
+    
+    memset(pipe, 0, sizeof *pipe);
+    pipe_lock(pipe);
+
+    if ((err = ringbuf_init(PIPESZ, &pipe->p_ringbuf)))
+        goto error;
+    
+    if ((err = ialloc(FS_FIFO, &pipe->p_iread)))
+        goto error;
+    
+    if ((err = ialloc(FS_FIFO, &pipe->p_iwrite)))
+        goto error;
+    
+    pipe_setflags(pipe, PIPE_RW);
+
+    pipe->p_iread->i_ops    = &pipefs_iops;
+    pipe->p_iread->i_mode   = 0444;
+    iunlock(pipe->p_iread);
+
+    pipe->p_iwrite->i_mode  = 0222;
+    pipe->p_iwrite->i_ops   = &pipefs_iops;
+    iunlock(pipe->p_iwrite);
+
+    *pref = pipe;
+    return 0;
+error:
+    if (pipe) {
+        if (pipe->p_iread)
+            irelease(pipe->p_iread);
+        if (pipe->p_iwrite)
+            irelease(pipe->p_iwrite);
+        
+        if (pipe->p_ringbuf.buf)
+            kfree(pipe->p_ringbuf.buf);
+        kfree(pipe);
+    }
+    printk("Failed to create a new pipe, err= %d\n", err);
+    return err;
+}
+
 int pipefs_isync(inode_t *ip __unused) {
     return -ENOSYS;
 }
@@ -126,14 +177,60 @@ int pipefs_ifcntl(inode_t *ip __unused, int cmd __unused, __unused void *argp __
 }
 
 int pipefs_iioctl(inode_t *ip __unused, int req __unused, void *argp __unused) {
+    return -ENOTTY;
+}
+
+ssize_t pipefs_iread(inode_t *ip __unused, off_t off __unused, void *buf __unused, size_t nb __unused) {
+    int     err     = 0;
+    usize   read    = 0;
+    pipe_t  *pipe   = NULL;
+
+    pipe = ip->i_priv;
+    pipe_lock(pipe);
+
+    if ((ip->i_mode & S_IREAD) == 0) {
+        pipe_unlock(pipe);
+        return -EACCES;
+    }
+
+    while (read < nb) {
+        ringbuf_lock(&pipe->p_ringbuf);
+
+        if (ringbuf_isempty(&pipe->p_ringbuf)) {
+            ringbuf_unlock(&pipe->p_ringbuf);
+            if (pipe_isreadable(pipe)) {
+                pipe_unlock(pipe);   
+                return read ? (isize)read : -EPIPE;
+            }
+
+            pipe_lock_writersq(pipe);
+            sched_wake1(pipe_writersq(pipe));
+            pipe_unlock_writersq(pipe);
+
+            current_tgroup_lock();
+            current_lock();
+            err = sched_sleep_r(pipe_readersq(pipe), T_ISLEEP, &pipe->p_lock);
+            current_unlock();
+            current_tgroup_unlock();
+
+            if (err != 0) {
+                pipe_unlock(pipe);
+                return err;
+            }
+
+            ringbuf_lock(&pipe->p_ringbuf);
+        }
+
+        read += ringbuf_read(&pipe->p_ringbuf, nb - read, buf + read);
+        ringbuf_unlock(&pipe->p_ringbuf);
+    }
+
+    pipe_unlock(pipe);
+
     return -ENOSYS;
 }
 
-ssize_t pipefs_iread_data(inode_t *ip __unused, off_t off __unused, void *buf __unused, size_t nb __unused) {
-    return -ENOSYS;
-}
-
-ssize_t pipefs_iwrite_data(inode_t *ip __unused, off_t off __unused, void *buf __unused, size_t nb __unused) {
+ssize_t pipefs_iwrite(inode_t *ip __unused, off_t off __unused, void *buf __unused, size_t nb __unused) {
     return -ENOSYS;
 }
 

@@ -7,8 +7,11 @@
 #include <sync/spinlock.h>
 #include <sys/system.h>
 
-#define PIPE_R  BS(0) //
-#define PIPE_W  BS(1) //
+#define PIPE_R      BS(0) //
+#define PIPE_W      BS(1) //
+#define PIPE_RW     (PIPE_R | PIPE_W)
+
+#define PIPESZ      (KiB(1))
 
 typedef struct __pipe_t {
     flags32_t   p_flags;
@@ -22,10 +25,10 @@ typedef struct __pipe_t {
 
 
 #define pipe_assert(p)                  ({ assert(p, "No pipe descriptor."); })
-#define pipe_lock(p)                    ({ pipe_assert(p); spin_lock((p)->p_lock); })
-#define pipe_unlock(p)                  ({ pipe_assert(p); spin_unlock((p)->p_lock); })
-#define pipe_islocked(p)                ({ pipe_assert(p); spin_islocked((p)->p_lock); })
-#define pipe_assert_locked(p)           ({ pipe_assert(p); spin_assert_locked((p)->p_lock); })
+#define pipe_lock(p)                    ({ pipe_assert(p); spin_lock(&(p)->p_lock); })
+#define pipe_unlock(p)                  ({ pipe_assert(p); spin_unlock(&(p)->p_lock); })
+#define pipe_islocked(p)                ({ pipe_assert(p); spin_islocked(&(p)->p_lock); })
+#define pipe_assert_locked(p)           ({ pipe_assert(p); spin_assert_locked(&(p)->p_lock); })
 
 #define pipe_setflags(p, flags)         ({ pipe_assert_locked(p); (p)->p_flags |= (flags); })
 #define pipe_testflags(p, flags)        ({ pipe_assert_locked(p); ((p)->p_flags & (flags)); })
@@ -44,6 +47,7 @@ typedef struct __pipe_t {
 #define pipe_unlock_writersq(p)         ({ queue_unlock(pipe_writersq(p)); })
 #define pipe_assert_locked_writersq(p)  ({ queue_assert_locked(pipe_writersq(p)); })
 
+
 #define pipe_iswritable(p)              ({ pipe_assert_locked(p); pipe_testflags(p, PIPE_W); })
 #define pipe_isreadable(p)              ({ pipe_assert_locked(p); pipe_testflags(p, PIPE_R); })
 
@@ -57,8 +61,8 @@ int     pipefs_igetattr(inode_t *ip, void *attr);
 int     pipefs_isetattr(inode_t *ip, void *attr);
 int     pipefs_ifcntl(inode_t *ip, int cmd, void *argp);
 int     pipefs_iioctl(inode_t *ip, int req, void *argp);
-ssize_t pipefs_iread_data(inode_t *ip, off_t off, void *buf, size_t nb);
-ssize_t pipefs_iwrite_data(inode_t *ip, off_t off, void *buf, size_t nb);
+ssize_t pipefs_iread(inode_t *ip, off_t off, void *buf, size_t nb);
+ssize_t pipefs_iwrite(inode_t *ip, off_t off, void *buf, size_t nb);
 int     pipefs_imkdir(inode_t *dir, const char *fname, mode_t mode);
 int     pipefs_icreate(inode_t *dir, const char *fname, mode_t mode);
 int     pipefs_ibind(inode_t *dir, struct dentry *dentry, inode_t *ip);

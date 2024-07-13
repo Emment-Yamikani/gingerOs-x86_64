@@ -57,7 +57,7 @@ static int sysfs_fill_sb(filesystem_t *fs __unused, const char *target,
     sb->sb_uio      = (cred_t){
         .c_gid      = 0,
         .c_uid      = 0,
-        .c_umask    = 0555,
+        .c_umask    = 0665,
         .c_lock     = SPINLOCK_INIT(),
     };
 
