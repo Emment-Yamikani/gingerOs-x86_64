@@ -236,6 +236,10 @@ int pause(void) {
     return sys_pause();
 }
 
+int raise(int signo) {
+    return sys_raise(signo);
+}
+
 int kill(pid_t pid, int signo) {
     return sys_kill(pid, signo);
 }

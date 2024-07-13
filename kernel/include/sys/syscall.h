@@ -99,6 +99,7 @@ void do_syscall(ucontext_t *uctx);
 #define SYS_OPENAT              76  // int sys_openat(int fd, const char *pathname, int oflags, mode_t mode)
 
 #define SYS_EXECVE              77  // int sys_execve(const char *pathname, char *const argv[], char *const envp[]);
+#define SYS_RAISE               78  // int sys_raise(int signo);
 
 extern void     sys_putc(int c);
 
@@ -182,6 +183,7 @@ extern int      sys_chdir(const char *path);
 /** @brief SIGNALS */
 
 extern int      sys_pause(void);
+extern int      sys_raise(int signo);
 extern int      sys_kill(pid_t pid, int signo);
 extern unsigned sys_alarm(unsigned sec);
 extern sigfunc_t sys_signal(int signo, sigfunc_t func);

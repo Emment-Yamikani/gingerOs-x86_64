@@ -1,42 +1,34 @@
 #include <ginger/unistd.h>
 
 void handler(int signo) {
-    printf("thread(%d) caught signal: %d\n", gettid(), signo);
+    printf("thread(%d:%d) caught signal(%d)\n", gettid(), getpid(), signo);
 }
 
-void t1(void) {
-    pause();
-    loop();
+void sig_int(int signo) {
+    printf("thread(%d:%d) caught signal(%d)\n", gettid(), getpid(), signo);
 }
 
-void t2(void) {
+unsigned pseudo_sleep(unsigned sec) {
+    alarm(sec);
     pause();
-    loop();
+    return 0;
 }
 
 void main(void) {
+    signal(SIGALRM, handler);
+    pseudo_sleep(2);
     pid_t pid = fork();
-    signal(SIGINT, handler);
+
 
     if (pid) {
-        sleep(1);
-        for (int i = 6; i; sleep(1), --i)
-            kill(pid, SIGINT);
-        printf("done sending");
+        alarm(2);
+        pause();
+        kill(pid, SIGINT);
     } else if (pid == 0) {
-        for (int i = 5; i ; --i) {
-            thread_create(NULL,
-            NULL,
-            (void *)t1,
-            NULL
-            );
-        }
-
-        thread_create(NULL,
-            NULL,
-            (void *)t2,
-            NULL
-        );
+        signal(SIGINT, sig_int);
+        pause();
+    } else {
+        panic("error: fork()\n");
     }
 
     loop();

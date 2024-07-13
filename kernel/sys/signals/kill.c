@@ -8,7 +8,15 @@
 #include <sys/proc.h>
 #include <sys/thread.h>
 
-int signal_perm(proc_t *proc, uid_t *ppuid) {
+/**
+ * @brief checks if sender has permission
+ * to send proc a signal.
+ * 
+ * @param proc proc is receiptient of signal.
+ * @param ppuid pointer to uid of the sending process.
+ * @return int 
+ */
+int signal_check_perm(proc_t *proc, uid_t *ppuid) {
     uid_t uid   = 0;
     uid_t gid   = 0;
     uid_t euid  = 0;
@@ -20,8 +28,12 @@ int signal_perm(proc_t *proc, uid_t *ppuid) {
 
     proc_assert_locked(proc);
 
-    if (current == NULL)
+    // this is a call from the bare kernel.
+    if (current == NULL) {
+        if (ppuid)
+            *ppuid = 0;
         return 0;
+    }
 
     cred_lock(current->t_cred);
     uid = current->t_cred->c_uid;
@@ -46,10 +58,10 @@ int signal_perm(proc_t *proc, uid_t *ppuid) {
     }
 
     cred_lock(proc->cred);
-    granted = ((proc->cred->c_uid != uid) &&
-               (proc->cred->c_euid != euid) &&
-               (proc->cred->c_gid != gid) &&
-               (proc->cred->c_egid != egid));
+    granted = ((proc->cred->c_uid == uid)   ||
+               (proc->cred->c_gid == gid)   ||
+               (proc->cred->c_euid == euid) ||
+               (proc->cred->c_egid == egid));
     cred_unlock(proc->cred);
 
     if (!granted)
@@ -199,15 +211,15 @@ int signal_send(proc_t *proc, int signo) {
     int         err         = 0;
     uid_t       uid         = 0;
     siginfo_t   *info       = NULL;
-    sig_desc_t  *sigdesc    = NULL;
     thread_t    *thread     = NULL;
+    sig_desc_t  *sigdesc    = NULL;
 
     if (signo < 0 || signo > NSIG)
         return -EINVAL;
 
     proc_assert_locked(proc);
 
-    if ((err = signal_perm(proc, &uid)))
+    if ((err = signal_check_perm(proc, &uid)))
         return err;
     else if (signo == 0)
         return 0; // Test Ok
@@ -226,8 +238,7 @@ int signal_send(proc_t *proc, int signo) {
     err = signal_select_thread(proc, signo, &thread);
 
     assert_msg(err == 0 || err == -ESRCH,
-        "Error finding thread to signal. error: %d.\n",
-        err
+        "Error finding thread to signal. error: %d.\n", err
     );
 
     switch (err) {

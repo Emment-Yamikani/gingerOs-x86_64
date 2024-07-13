@@ -58,6 +58,7 @@ size_t (*syscall[])() = {
     [SYS_THREAD_SELF]       = (void *)sys_thread_self,
 
     [SYS_KILL]              = (void *)sys_kill,
+    [SYS_RAISE]             = (void *)sys_raise,
     [SYS_PAUSE]             = (void *)sys_pause,
     [SYS_SLEEP]             = (void *)sys_sleep,
     [SYS_ALARM]             = (void *)sys_alarm,

@@ -98,6 +98,7 @@ sys_%2:
 %define SYS_OPENAT          76
 
 %define SYS_EXECVE          77
+%define SYS_RAISE           78
 
 stub SYS_PUTC, putc
 stub SYS_CLOSE, close
@@ -153,6 +154,7 @@ stub SYS_THREAD_SELF, thread_self
 stub SYS_THREAD_YIELD, thread_yield
 
 stub SYS_PAUSE, pause
+stub SYS_RAISE, raise
 stub SYS_KILL, kill
 stub SYS_ALARM, alarm
 stub SYS_SIGNAL, signal

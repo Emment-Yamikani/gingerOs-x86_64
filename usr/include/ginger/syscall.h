@@ -81,6 +81,7 @@ extern void     sys_thread_yield();
 /** @brief SIGNALS */
 
 extern int      sys_pause(void);
+extern int      sys_raise(int signo);
 extern int      sys_kill(pid_t pid, int signo);
 extern unsigned sys_alarm(unsigned sec);
 extern sigfunc_t sys_signal(int signo, sigfunc_t func);
