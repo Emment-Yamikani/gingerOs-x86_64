@@ -8,10 +8,10 @@
 #include <lib/string.h>
 #include <sys/thread.h>
 
-static iops_t ramfs2_iops;
-static inode_t *iroot = NULL;
-static superblock_t *ramfs2_sb = NULL;
-static ramfs2_super_t *ramfs2_super = NULL;
+static iops_t           ramfs2_iops;
+static inode_t          *iroot        = NULL;
+static superblock_t     *ramfs2_sb    = NULL;
+static ramfs2_super_t   *ramfs2_super = NULL;
 // static vmr_ops_t ramfs2_vmr_ops __unused;
 
 static int ramfs_getsb(filesystem_t *fs, const char *src, const char *target, unsigned long flags, void *data, superblock_t **);
@@ -19,22 +19,21 @@ static int ramfs_getsb(filesystem_t *fs, const char *src, const char *target, un
 static int ramfs_fill_sb(filesystem_t *fs, const char *target, struct devid *devid, superblock_t *sb);
 
 filesystem_t ramfs2 = {
-    .fs_iops = &ramfs2_iops,
-    .fs_id = 0,
-    .fs_count = 1,
-    .fs_flags = 0,
-    .fs_priv = NULL,
-    .fs_name = "ramfs",
-    .fs_lock = SPINLOCK_INIT(),
-    .get_sb = ramfs_getsb,
+    .fs_iops        = &ramfs2_iops,
+    .fs_id          = 0,
+    .fs_count       = 1,
+    .fs_flags       = 0,
+    .fs_priv        = NULL,
+    .fs_name        = "ramfs",
+    .fs_lock        = SPINLOCK_INIT(),
+    .get_sb         = ramfs_getsb,
     .fs_superblocks = &QUEUE_INIT(),
 };
 
 int ramfs_init(void) {
     int err = 0;
     fslock(&ramfs2);
-    if ((err = vfs_register_fs(&ramfs2)))
-    {
+    if ((err = vfs_register_fs(&ramfs2))) {
         fsunlock(&ramfs2);
         return err;
     }
@@ -50,11 +49,11 @@ static int ramfs_getsb(filesystem_t *fs, const char *src,
 
 static int ramfs_fill_sb(filesystem_t *fs, const char *target, 
                     struct devid *devid, superblock_t *sb) {
-    ssize_t err = 0;
-    size_t sbsz = 0;
-    dentry_t *droot = NULL;
-    ramfs2_node_t *node = NULL;
-    ramfs2_super_header_t hdr = {0};
+    ssize_t                 err     = 0;
+    size_t                  sbsz    = 0;
+    ramfs2_super_header_t   hdr     = {0};
+    dentry_t                *droot  = NULL;
+    ramfs2_node_t           *node   = NULL;
 
     sbassert_locked(sb);
 
@@ -134,8 +133,9 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
 }
 
 int ramfs2_validate(ramfs2_super_t *super) {
-    uint32_t chksum = 0;
-    const char *magic = "ginger_rd2";
+    uint32_t    chksum = 0;
+    const char  *magic = "ginger_rd2";
+    
     if (!super)
         return -EINVAL;
     if (compare_strings(super->header.magic, (char *)magic))
@@ -176,12 +176,12 @@ int ramfs2_find(ramfs2_super_t *super, const char *fn, ramfs2_node_t **pnode) {
 }
 
 static int ramfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
-    int err = 0;
-    itype_t type = 0;
-    inode_t *ip = NULL;
-    ramfs2_node_t *node = NULL;
-    iassert_locked(dir);
+    int             err = 0;
+    itype_t         type = 0;
+    inode_t         *ip = NULL;
+    ramfs2_node_t   *node = NULL;
 
+    iassert_locked(dir);
     if (!dir || pipp == NULL)
         return -EINVAL;
 
@@ -219,8 +219,8 @@ __unused static int ramfs2_open(inode_t *ip __unused, int mode __unused, ...) {
 }
 
 static ssize_t ramfs2_read_data(inode_t *ip, off_t off, void *buf, size_t sz) {
-    ramfs2_node_t *node = NULL;
-    ssize_t retval = 0;
+    ssize_t         retval = 0;
+    ramfs2_node_t   *node  = NULL;
 
     if (!ip || !buf)
         return -EINVAL;

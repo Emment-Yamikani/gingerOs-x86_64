@@ -138,12 +138,10 @@ __unused static int mnt_remove(fs_mount_t *mnt) {
     return 0;
 }
 
-static int do_new_mount(filesystem_t *fs, const char *src,
-                        const char *target, unsigned long flags,
-                        void *data, fs_mount_t **pmnt) {
-    int err = 0;
-    fs_mount_t *mnt = NULL;
-    superblock_t *sb = NULL;
+static int do_new_mount(filesystem_t *fs, const char *src, const char *target, u64 flags, void *data, fs_mount_t **pmnt) {
+    int             err = 0;
+    fs_mount_t      *mnt= NULL;
+    superblock_t    *sb = NULL;
 
     fsassert_locked(fs);
 
@@ -163,9 +161,9 @@ static int do_new_mount(filesystem_t *fs, const char *src,
     if ((err = fs->get_sb(fs, src, target, flags, data, &sb)))
         goto error;
 
-    mnt->mnt_sb = sb;
-    sb->sb_mnt = mnt;
-    mnt->mnt_root = sb->sb_root;
+    mnt->mnt_sb     = sb;
+    sb->sb_mnt      = mnt;
+    mnt->mnt_root   = sb->sb_root;
     sbunlock(sb);
     *pmnt = mnt;
 
@@ -175,11 +173,7 @@ error:
     return err;
 }
 
-int vfs_mount(const char *src,
-              const char *target,
-              const char *type,
-              unsigned long flags,
-              const void *data) {
+int vfs_mount(const char *src, const char *target, const char *type, u64 flags, const void *data) {
     int                 err     = 0;
     char                *lasttok= NULL;
     fs_mount_t          *mnt    = NULL;

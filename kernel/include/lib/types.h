@@ -73,6 +73,7 @@ typedef     signed long             ssize_t;
 
 typedef     struct inode*           INODE;
 typedef     struct inode            inode_t;
+typedef     struct __pipe_t         pipe_t;
 
 struct devid;
 typedef     struct dev              dev_t;

@@ -1,10 +1,13 @@
-#include <fs/fs.h>
-#include <fs/tmpfs.h>
-#include <mm/kalloc.h>
 #include <bits/errno.h>
+#include <fs/fs.h>
+#include <fs/devtmpfs.h>
+#include <fs/tmpfs.h>
+#include <fs/pipefs.h>
+#include <fs/procfs.h>
+#include <fs/sysfs.h>
 #include <fs/tmpfs.h>
 #include <lib/string.h>
-#include <fs/devtmpfs.h>
+#include <mm/kalloc.h>
 
 char *itype_strings[] = {
     [FS_INV] = "INV",
@@ -78,6 +81,15 @@ int vfs_init(void) {
         return err;
     
     if ((err = devtmpfs_init()))
+        return err;
+
+    if ((err = pipefs_init()))
+        return err;
+    
+    if ((err = procfs_init()))
+        return err;
+
+    if ((err = sysfs_init()))
         return err;
 
     if ((err = vfs_mount(NULL, "/", "tmpfs", 0, NULL)))
