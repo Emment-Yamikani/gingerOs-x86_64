@@ -20,8 +20,8 @@ long sleep(long s) {
 
 int park(void) {
     int err = 0;
-    current_lock();
 
+    current_lock();
     current_setpark();
 
     if (current_issetwake()) {
@@ -38,8 +38,8 @@ int park(void) {
 }
 
 int unpark(tid_t tid) {
-    int err = 0;
-    thread_t *thread = NULL;
+    int         err     = 0;
+    thread_t    *thread = NULL;
 
     current_tgroup_lock();
     if ((err = tgroup_get_thread(current_tgroup(), tid, T_ISLEEP, &thread))) {

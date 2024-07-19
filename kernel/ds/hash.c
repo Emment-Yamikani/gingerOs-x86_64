@@ -13,8 +13,8 @@ void hash_init(hash_table_t *ht, hash_ctx_t *ctx) {
 }
 
 int hash_insert(hash_table_t *ht, void *key, void *data) {
-    int err = 0;
-    hash_key_t hashed_key = 0;
+    int         err     = 0;
+    hash_key_t  hsh_key = 0;
     hash_node_t *head = NULL;
     hash_node_t *tail = NULL;
     hash_node_t *node = NULL;
@@ -29,9 +29,9 @@ int hash_insert(hash_table_t *ht, void *key, void *data) {
         return -EINVAL;
 
     if (hash_ctx(ht)->hash_func)
-        hashed_key = (hash_ctx(ht)->hash_func)(key);
+        hsh_key = (hash_ctx(ht)->hash_func)(key);
     else
-        hashed_key = (hash_key_t)key;
+        hsh_key = (hash_key_t)key;
 
     if (NULL == (node = kmalloc(sizeof *node)))
         return -ENOMEM;
@@ -41,8 +41,8 @@ int hash_insert(hash_table_t *ht, void *key, void *data) {
     node->hn_prev = NULL;
 
     hash_btree_lock(ht);
-    if ((err = btree_search(hash_btree(ht), hashed_key, (void **)&head)) == -ENOENT) {
-        err = btree_insert(hash_btree(ht), hashed_key, node);
+    if ((err = btree_search(hash_btree(ht), hsh_key, (void **)&head)) == -ENOENT) {
+        err = btree_insert(hash_btree(ht), hsh_key, node);
     } else if (err == 0) {
         forlinked(node, head, next)
             next = (tail = node)->hn_next;
@@ -63,7 +63,7 @@ error:
 
 int hash_search(hash_table_t *ht, void *key, int isstring, void **pdp) {
     int err = 0;
-    hash_key_t hashed_key = 0;
+    hash_key_t hsh_key = 0;
     hash_node_t *head = NULL, *next = NULL;
 
     if (ht == NULL)
@@ -75,12 +75,12 @@ int hash_search(hash_table_t *ht, void *key, int isstring, void **pdp) {
         return -EINVAL;
 
     if (hash_ctx(ht)->hash_func)
-        hashed_key = (hash_ctx(ht)->hash_func)(key);
+        hsh_key = (hash_ctx(ht)->hash_func)(key);
     else
-        hashed_key = (hash_key_t)key;
+        hsh_key = (hash_key_t)key;
 
     hash_btree_lock(ht);
-    if ((err = btree_search(hash_btree(ht), hashed_key, (void **)&head)) == 0) {
+    if ((err = btree_search(hash_btree(ht), hsh_key, (void **)&head)) == 0) {
         forlinked(node, head, next) {
             head = node;
             if (hash_ctx(ht)->hash_verify_obj) {
@@ -105,10 +105,10 @@ found:
 }
 
 int hash_delete(hash_table_t *ht, void *key, int isstring) {
-    int err = 0;
-    hash_key_t hashed_key = 0;
-    hash_node_t *prev = NULL, *next = NULL;
-    hash_node_t *head = NULL, *target = NULL;
+    int         err     = 0;
+    hash_key_t  hsh_key = 0;
+    hash_node_t *prev   = NULL, *next = NULL;
+    hash_node_t *head   = NULL, *target = NULL;
 
     if (ht == NULL)
         return -EINVAL;
@@ -119,12 +119,12 @@ int hash_delete(hash_table_t *ht, void *key, int isstring) {
         return -EINVAL;
 
     if (hash_ctx(ht)->hash_func)
-        hashed_key = (hash_ctx(ht)->hash_func)(key);
+        hsh_key = (hash_ctx(ht)->hash_func)(key);
     else
-        hashed_key = (hash_key_t)key;
+        hsh_key = (hash_key_t)key;
 
     hash_btree_lock(ht);
-    if ((err = btree_search(hash_btree(ht), hashed_key, (void *)&head)) == 0) {
+    if ((err = btree_search(hash_btree(ht), hsh_key, (void *)&head)) == 0) {
         forlinked(node, head, next) {
             target = node;
             if (hash_ctx(ht)->hash_verify_obj) {
@@ -152,15 +152,15 @@ found:
     
     if (target == head) {
         /*Remove the head node*/
-        btree_delete(hash_btree(ht), hashed_key);
+        btree_delete(hash_btree(ht), hsh_key);
 
         /*Insert next node is available*/
         if (next) {
             if (hash_ctx(ht)->hash_func)
-                    hashed_key = (hash_ctx(ht)->hash_func)(next->hn_data);
+                    hsh_key = (hash_ctx(ht)->hash_func)(next->hn_data);
             else
-                    hashed_key = (hash_key_t)next->hn_data;
-            if ((err = btree_insert(hash_btree(ht), hashed_key, next)))
+                    hsh_key = (hash_key_t)next->hn_data;
+            if ((err = btree_insert(hash_btree(ht), hsh_key, next)))
                 goto error;
         }
     }

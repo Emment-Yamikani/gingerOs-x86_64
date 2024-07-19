@@ -14,11 +14,11 @@ int ringbuf_init(isize size, ringbuf_t *ring) {
         return -ENOMEM;
     }
 
-    *ring = (ringbuf_t){
-        .buf = (char *)buf,
-        .size = size,
+    *ring = (ringbuf_t) {
         .head = 0,
         .tail = 0,
+        .size = size,
+        .buf  = (char *)buf,
         .lock = SPINLOCK_INIT(),
     };
 
@@ -26,7 +26,7 @@ int ringbuf_init(isize size, ringbuf_t *ring) {
 }
 
 int ringbuf_new(size_t size, ringbuf_t **rref) {
-    int             err = 0;
+    int       err   = 0;
     ringbuf_t *ring = NULL;
 
     assert(rref, "no reference");
@@ -65,6 +65,7 @@ int ringbuf_isfull(ringbuf_t *ring) {
 
 size_t ringbuf_read(ringbuf_t *ring, size_t n, char *buf) {
     size_t size = n;
+
     ringbuf_assert(ring);
     ringbuf_assert_locked(ring);
     while (n) {
@@ -79,6 +80,7 @@ size_t ringbuf_read(ringbuf_t *ring, size_t n, char *buf) {
 
 size_t ringbuf_write(ringbuf_t *ring, size_t n, char *buf) {
     size_t size = n;
+
     ringbuf_assert(ring);
     ringbuf_assert_locked(ring);    
     while (n) {

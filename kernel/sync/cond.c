@@ -17,7 +17,7 @@ void cond_free(cond_t *c) {
 }
 
 int cond_init(cond_t *c, cond_t **ref) {
-    int err = 0;
+    int err   = 0;
     int alloc = !c;
 
     if ((!c && !ref))
@@ -47,6 +47,7 @@ error:
 
 int cond_wait(cond_t *cond) {
     int retval = 0;
+
     assert(cond, "no condition-variable");
     current_assert();
 
@@ -62,6 +63,7 @@ int cond_wait(cond_t *cond) {
 
 int cond_wait_releasing(cond_t *cond, spinlock_t *lk) {
     int retval = 0;
+
     if (lk)
         spin_unlock(lk);
     retval = cond_wait(cond);

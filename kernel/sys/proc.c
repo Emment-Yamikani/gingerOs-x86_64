@@ -120,6 +120,7 @@ int procQ_search_bypid(pid_t pid, proc_t **ref) {
 
 int procQ_search_bypgid(pid_t pgid, proc_t **ref) {
     proc_t *proc = NULL;
+
     queue_lock(procQ);
     forlinked(node, procQ->head, node->next) {
         proc = node->data;

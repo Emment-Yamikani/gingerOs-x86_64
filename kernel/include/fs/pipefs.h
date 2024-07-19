@@ -47,11 +47,10 @@ typedef struct __pipe_t {
 #define pipe_unlock_writersq(p)         ({ queue_unlock(pipe_writersq(p)); })
 #define pipe_assert_locked_writersq(p)  ({ queue_assert_locked(pipe_writersq(p)); })
 
-
 #define pipe_iswritable(p)              ({ pipe_assert_locked(p); pipe_testflags(p, PIPE_W); })
 #define pipe_isreadable(p)              ({ pipe_assert_locked(p); pipe_testflags(p, PIPE_R); })
 
-int pipefs_init(void);
+int     pipefs_init(void);
 
 int     pipefs_isync(inode_t *ip);
 int     pipefs_iclose(inode_t *ip);

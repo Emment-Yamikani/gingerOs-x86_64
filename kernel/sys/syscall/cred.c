@@ -97,8 +97,8 @@ uid_t geteuid(void) {
 }
 
 gid_t getegid(void) {
-    gid_t            gid    = 0;
-    cred_t          *cred   = NULL;
+    gid_t   gid     = 0;
+    cred_t  *cred   = NULL;
 
     current_lock();
     

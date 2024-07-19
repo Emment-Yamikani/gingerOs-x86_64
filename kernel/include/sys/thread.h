@@ -115,8 +115,9 @@ typedef struct __thread_t {
 
     cond_t          t_wait;             // thread conditional wait variable.
     arch_thread_t   t_arch;             // architecture-specific thread struct.
-    queue_node_t    *t_group_qnode;     // node pointing to the tgroup holding this thread.
+    queue_node_t    *t_tgrp_qn;         // node pointing to the tgroup holding this thread.
     queue_t         t_queues;           // queues on which this thread resides.
+    queue_t         t_lock_chain;       // chain of locks to reliquinsh before sleeping and to hold after waking up.
 
     spinlock_t      t_lock;             // lock to synchronize access to this struct.
 
@@ -151,7 +152,8 @@ typedef struct {
 #define THREAD_USING_SSE                BS(11)  // thread is using SSE extensions if this flags is set, FPU otherwise.
 #define THREAD_EXITING                  BS(12)  // thread is exiting.
 #define THREAD_SUSPEND                  BS(13)  // flag to suspend thread execution.
-#define THREAD_KILLEXCEPT               BS(14)
+#define THREAD_KILLEXCEPT               BS(14)  //
+#define THREAD_LOCK_GROUP               BS(15)  // prior to locking thread lock tgroup first.
 
 #define thread_assert(t)                ({ assert(t, "No thread pointer\n");})
 #define thread_lock(t)                  ({ thread_assert(t); spin_lock(&((t)->t_lock)); })
@@ -307,6 +309,7 @@ typedef struct {
 #define current_tgroup_unlock()         ({ thread_tgroup_unlock(current); })
 #define current_tgroup_locked()         ({ thread_tgroup_locked(current); })
 
+#define current_setlock_group()         ({})
 #define current_setuser()               ({ thread_setuser(current); })
 #define current_setdetached()           ({ thread_setdetached(current); })
 #define current_setwake()               ({ thread_setwake(current); })

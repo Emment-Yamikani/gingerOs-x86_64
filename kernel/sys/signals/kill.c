@@ -107,7 +107,7 @@ static int signal_select_thread(proc_t *proc, int signo, thread_t **pthread) {
             if (!sigismember(&thread->t_sigmask, signo)) {
                 // put thread at back of queue.
                 if ((err = queue_rellocate_node(proc->threads,
-                                thread->t_group_qnode, QUEUE_RELLOC_TAIL))) {
+                                thread->t_tgrp_qn, QUEUE_RELLOC_TAIL))) {
                     thread_unlock(thread);
                     queue_unlock(proc->threads);
                     return err;
@@ -149,7 +149,7 @@ static int signal_select_thread(proc_t *proc, int signo, thread_t **pthread) {
             if (!sigismember(&thread->t_sigmask, signo)) {
                 // put thread at back of queue.
                 if ((err = queue_rellocate_node(proc->threads,
-                                thread->t_group_qnode, QUEUE_RELLOC_TAIL))) {
+                                thread->t_tgrp_qn, QUEUE_RELLOC_TAIL))) {
                     thread_unlock(thread);
                     queue_unlock(proc->threads);
                     return err;
@@ -190,7 +190,7 @@ static int signal_select_thread(proc_t *proc, int signo, thread_t **pthread) {
         if (!sigismember(&thread->t_sigmask, signo)) {
             // put thread at back of queue.
             if ((err = queue_rellocate_node(proc->threads,
-                            thread->t_group_qnode, QUEUE_RELLOC_TAIL))) {
+                            thread->t_tgrp_qn, QUEUE_RELLOC_TAIL))) {
                 thread_unlock(thread);
                 queue_unlock(proc->threads);
                 return err;

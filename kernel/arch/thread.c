@@ -26,8 +26,8 @@ int arch_kthread_init(arch_thread_t *arch, thread_entry_t entry, void *arg) {
 }
 
 char ***arch_execve_copy(char *_argp[], char *_envp[]) {
-    int argc = 0;
-    int envc = 0;
+    int argc    = 0;
+    int envc    = 0;
     char **argp = NULL;
     char **envp = NULL;
     char ***ptr = kcalloc(3, sizeof(char **));

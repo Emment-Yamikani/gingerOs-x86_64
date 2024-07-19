@@ -82,9 +82,9 @@ int mmap_init(mmap_t *mmap) {
 }
 
 int mmap_alloc(mmap_t **ref) {
-    int err = 0;
+    int       err   = 0;
     uintptr_t pgdir = 0;
-    mmap_t *mmap = NULL;
+    mmap_t    *mmap = NULL;
 
     if (ref == NULL)
         return -EINVAL;
@@ -99,11 +99,11 @@ int mmap_alloc(mmap_t **ref) {
 
     memset(mmap, 0, sizeof *mmap);
     
-    mmap->pgdir = pgdir;
-    mmap->flags = MMAP_USER;
+    mmap->pgdir     = pgdir;
+    mmap->flags     = MMAP_USER;
     mmap->guard_len = PAGESZ;
-    mmap->lock = SPINLOCK_INIT();
-    mmap->limit = __mmap_limit;
+    mmap->lock      = SPINLOCK_INIT();
+    mmap->limit     = __mmap_limit;
 
     mmap_lock(mmap);
     if ((err = mmap_init(mmap))) {
@@ -118,9 +118,9 @@ int mmap_alloc(mmap_t **ref) {
 }
 
 int mmap_mapin(mmap_t *mmap, vmr_t *r) {
-    size_t holesz = 0;
-    uintptr_t addr = 0;
-    vmr_t *left = NULL, *right = NULL;
+    size_t    holesz = 0;
+    uintptr_t addr   = 0;
+    vmr_t     *left  = NULL, *right = NULL;
 
     if (mmap == NULL || r == NULL)
         return -EINVAL;
@@ -221,6 +221,7 @@ done:
 
 int mmap_forced_mapin(mmap_t *mmap, vmr_t *r) {
     int err = 0;
+
     if (mmap == NULL || r == NULL)
         return -EINVAL;
     
@@ -306,6 +307,7 @@ vmr_t *mmap_find(mmap_t *mmap, uintptr_t addr) {
 
 vmr_t *mmap_find_exact(mmap_t *mmap, uintptr_t start, uintptr_t end) {
     vmr_t *vmr = NULL;
+
     if (mmap == NULL)
         return NULL;
 
@@ -342,6 +344,7 @@ vmr_t *mmap_find_vmr_next(mmap_t *mmap, uintptr_t addr, vmr_t **pnext) {
 
 vmr_t *mmap_find_vmr_prev(mmap_t *mmap, uintptr_t addr, vmr_t **pprev) {
     vmr_t *r = NULL;
+
     if (mmap == NULL || pprev == NULL)
         return NULL;
 
@@ -365,6 +368,7 @@ vmr_t *mmap_find_vmr_prev(mmap_t *mmap, uintptr_t addr, vmr_t **pprev) {
 
 vmr_t *mmap_find_vmr_overlap(mmap_t *mmap, uintptr_t start, uintptr_t end) {
     vmr_t *r = NULL;
+
     if (mmap == NULL)
         return NULL;
 
@@ -378,6 +382,7 @@ vmr_t *mmap_find_vmr_overlap(mmap_t *mmap, uintptr_t start, uintptr_t end) {
 
 int mmap_holesize(mmap_t *mmap, uintptr_t addr, size_t *plen) {
     vmr_t *next = NULL;
+
     if (mmap == NULL || plen == NULL)
         return -EINVAL;
 
@@ -401,9 +406,9 @@ int mmap_holesize(mmap_t *mmap, uintptr_t addr, size_t *plen) {
 }
 
 int mmap_unmap(mmap_t *mmap, uintptr_t start, size_t len) {
-    vmr_t *vmr = NULL;
-    size_t holesz = 0;
-    uintptr_t end = start + len - 1;
+    vmr_t       *vmr   = NULL;
+    size_t      holesz = 0;
+    uintptr_t   end    = start + len - 1;
 
     if (mmap == NULL || len == 0)
         return -EINVAL;
@@ -454,7 +459,7 @@ int mmap_unmap(mmap_t *mmap, uintptr_t start, size_t len) {
 }
 
 int mmap_find_hole(mmap_t *mmap, size_t size, uintptr_t *paddr, int whence) {
-    size_t holesz = 0;
+    size_t  holesz = 0;
 
     if (mmap == NULL || paddr == NULL || size == 0)
         return -EINVAL;
@@ -519,8 +524,8 @@ error:
 }
 
 int mmap_find_holeat(mmap_t *mmap, uintptr_t addr, size_t size, uintptr_t *paddr, int whence) {
-    size_t holesz = 0;
-    vmr_t *near_vmr = NULL;
+    size_t  holesz      = 0;
+    vmr_t   *near_vmr   = NULL;
 
     if (mmap == NULL || paddr == NULL || size == 0)
         return -EINVAL;
@@ -630,9 +635,9 @@ error:
 }
 
 int mmap_map_region(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flags, vmr_t **pvmr) {
-    int err = 0;
-    int whence = 0;
-    vmr_t *r = NULL;
+    int     err     = 0;
+    int     whence  = 0;
+    vmr_t   *r      = NULL;
 
     if (mmap == NULL || (!__flags_fixed(flags) && pvmr == NULL) || len == 0){
         // printk(
@@ -738,10 +743,11 @@ int mmap_alloc_stack(mmap_t *mmap, size_t size, vmr_t **pstack) {
 }
 
 int mmap_vmr_expand(mmap_t *mmap, vmr_t *r, intptr_t incr) {
-    int err = 0;
-    size_t holesz = 0;
-    uintptr_t hole_addr = 0;
-    long oldsz = 0, newsz = 0;
+    int         err       = 0;
+    isize       oldsz     = 0;
+    isize       newsz     = 0;
+    size_t      holesz    = 0;
+    uintptr_t   hole_addr = 0;
 
     if (mmap == NULL || r == NULL || incr == 0)
         return -EINVAL;
@@ -805,11 +811,11 @@ int mmap_vmr_expand(mmap_t *mmap, vmr_t *r, intptr_t incr) {
 }
 
 int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
-    int     err = 0;
-    int     flags = 0;
-    int     forge_prot = 0;
-    uintptr_t end = addr + len - 1;
-    vmr_t   *r = NULL, *split0 = NULL, *split1 = NULL, tmp = {0};
+    int       err           = 0;
+    int       flags         = 0;
+    int       forge_prot    = 0; // forged prot
+    uintptr_t end           = addr + len - 1;
+    vmr_t     *r            = NULL, *split0 = NULL, *split1 = NULL, tmp = {0};
     
     if (mmap == NULL || len == 0)
         return -EINVAL;
@@ -849,8 +855,8 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
             return err;
         
         tmp = *split0 = *r;
-        split0->refs = 0;
-        split0->prev = split0->next = NULL;
+        split0->refs  = 0;
+        split0->prev  = split0->next = NULL;
 
         if (r->start == addr) {
             r->end = end;
@@ -877,13 +883,13 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
                 return err;
             }
 
-            *split1 = *r;
-            split0->refs = 0;
-            split1->prev = split1->next = NULL;
+            *split1       = *r;
+            split0->refs  = 0;
+            split1->prev  = split1->next = NULL;
 
-            r->start = addr;
-            split0->end = __vmr_lower_bound(r);
-            r->end = end;
+            r->start      = addr;
+            split0->end   = __vmr_lower_bound(r);
+            r->end        = end;
             split1->start = __vmr_upper_bound(r);
 
             if ((err = mmap_mapin(mmap, split0))) {
@@ -923,8 +929,8 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
 }
 
 int mmap_clean(mmap_t *mmap) {
-    int err = 0;
-    uintptr_t pgdir = 0;
+    int         err     = 0;
+    uintptr_t   pgdir   = 0;
 
     if (mmap == NULL)
         return -EINVAL;
@@ -977,8 +983,8 @@ void mmap_free(mmap_t *mmap) {
 }
 
 int mmap_copy(mmap_t *dst, mmap_t *src) {
-    int err = 0;
-    vmr_t *vmr = NULL;
+    int     err   = 0;
+    vmr_t   *vmr  = NULL;
 
     if (dst == NULL || src == NULL)
         return-EINVAL;
@@ -986,15 +992,15 @@ int mmap_copy(mmap_t *dst, mmap_t *src) {
     mmap_assert_locked(src);
     mmap_assert_locked(dst);
 
-    dst->flags          = src->flags;
-    dst->limit          = src->limit;
-    dst->guard_len      = src->guard_len;
+    dst->flags      = src->flags;
+    dst->limit      = src->limit;
+    dst->guard_len  = src->guard_len;
     
-    dst->refs           = 0;
-    dst->used_space     = 0;
-    dst->priv           = NULL;
-    dst->vmr_head       = dst->vmr_tail = NULL;
-    dst->heap           = dst->arg = dst->env = NULL;
+    dst->refs       = 0;
+    dst->used_space = 0;
+    dst->priv       = NULL;
+    dst->vmr_head   = dst->vmr_tail = NULL;
+    dst->heap       = dst->arg = dst->env = NULL;
 
     forlinked(tmp, src->vmr_head, tmp->next) {
         if ((err = vmr_clone(tmp, &vmr)))
@@ -1055,11 +1061,11 @@ int mmap_focus(mmap_t *mmap, uintptr_t *ref) {
 
 int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
     const char *src_envp[], char **pargv[], int *pargc, char **penvv[]) {
-    int argc        = 0, envc = 0;
-    int err         = 0, index = 0;
-    size_t argslen  = 0, envslen = 0;
-    char **argp     = NULL, **envp = NULL;
-    vmr_t *argvmr   = NULL, *envvmr = NULL;
+    int argc        = 0,    envc     = 0;
+    int err         = 0,    index    = 0;
+    size_t argslen  = 0,    envslen  = 0;
+    char **argp     = NULL, **envp   = NULL;
+    vmr_t *argvmr   = NULL, *envvmr  = NULL;
     char *arglist   = NULL, *envlist = NULL;
 
     if (mmap == NULL)
@@ -1221,6 +1227,7 @@ void vmr_free(vmr_t *r) {
 
 int vmr_alloc(vmr_t **ref) {
     vmr_t *r = NULL;
+
     if ((r = kmalloc(sizeof *r)) == NULL)
         return -ENOMEM;
     memset(r, 0, sizeof *r);
@@ -1235,8 +1242,9 @@ int vmr_can_split(vmr_t *r, uintptr_t addr) {
 }
 
 int vmr_split(vmr_t *r, uintptr_t addr, vmr_t **pvmr) {
-    int err = 0;
-    vmr_t *new = NULL;
+    int     err     = 0;
+    vmr_t   *new    = NULL;
+
     if (r == NULL || !vmr_can_split(r, addr))
         return -EINVAL;
     
@@ -1245,11 +1253,11 @@ int vmr_split(vmr_t *r, uintptr_t addr, vmr_t **pvmr) {
     if ((err = vmr_alloc(&new)))
         return err;
 
-    new->start      = addr;
-    new->end        = r->end;
-    new->file       = r->file;
-    new->flags      = r->flags;
-    new->vflags     = r->vflags;
+    new->start  = addr;
+    new->end    = r->end;
+    new->file   = r->file;
+    new->flags  = r->flags;
+    new->vflags = r->vflags;
 
     if (new->file)
         new->file_pos += addr - r->start;
@@ -1273,17 +1281,17 @@ int vmr_copy(vmr_t *rdst, vmr_t *rsrc) {
     if (rdst->mmap && rdst->mmap == rsrc->mmap)
         return -EINVAL;
     
-    *rdst           = *rsrc;
-    rdst->refs      = 0;
-    rdst->mmap      = NULL;
-    rdst->priv      = NULL;
-    rdst->next      = rdst->prev = NULL;
+    *rdst       = *rsrc;
+    rdst->refs  = 0;
+    rdst->mmap  = NULL;
+    rdst->priv  = NULL;
+    rdst->next  = rdst->prev = NULL;
     return 0;
 }
 
 int vmr_clone(vmr_t *src, vmr_t **pclone) {
-    int err = 0;
-    vmr_t *clone = NULL;
+    int     err    = 0;
+    vmr_t   *clone = NULL;
 
     if (src == NULL || pclone == NULL)
         return -EINVAL;

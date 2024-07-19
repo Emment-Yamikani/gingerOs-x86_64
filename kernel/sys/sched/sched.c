@@ -73,8 +73,8 @@ int sched_park(thread_t *thread) {
     int             affini      = 0;
     level_t         *lvl        = NULL;
     cpu_t           *processor  = NULL;
-    int             core        = getcpuid();
     thread_sched_t  *tsched     = NULL;
+    int             core        = getcpuid();
 
     if (thread == NULL)
         return -EINVAL;
@@ -114,7 +114,7 @@ int sched_park(thread_t *thread) {
 }
 
 thread_t *sched_next(void) {
-    level_t *lvl = NULL;
+    level_t  *lvl    = NULL;
     thread_t *thread = NULL;
 
     if (NULL == (thread = sched_getembryo()))
@@ -173,7 +173,7 @@ static void sched_self_destruct(void) {
 
 __noreturn void schedule(void) {
     int             err     = 0;
-    uintptr_t       pdbr   = 0;
+    uintptr_t       pdbr    = 0;
     jiffies_t       before  = 0;
     mmap_t          *mmap   = NULL;
     arch_thread_t   *arch   = NULL;

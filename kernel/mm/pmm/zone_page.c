@@ -24,16 +24,17 @@ struct pmman pmman = {
 };
 
 page_t *alloc_pages(gfp_mask_t gfp, size_t order) {
-    size_t index = 0;
-    size_t start = 0;
-    page_t *page = NULL;
-    uintptr_t paddr = 0;
-    uintptr_t vaddr = 0;
-    mm_zone_t *zone = NULL;
-    size_t alloced = 0, npages = BS(order);
-    int where = !(gfp & 0x0F) ? MM_ZONE_NORM : (gfp & 0x0F) - 1;
+    size_t      index = 0;
+    size_t      start = 0;
+    page_t      *page = NULL;
+    uintptr_t   paddr = 0;
+    uintptr_t   vaddr = 0;
+    mm_zone_t   *zone = NULL;
+    size_t      alloced = 0, npages = BS(order);
+    int         where = !(gfp & 0x0F) ? MM_ZONE_NORM : (gfp & 0x0F) - 1;
 
     zone = mm_zone_get(where);
+
     if (!zone)
         return NULL;
     // printk("trying allocation from zone: %d: npages: %d\n", where, zone->free_pages);
@@ -102,9 +103,9 @@ page_t *alloc_page(gfp_mask_t gfp) {
 }
 
 uintptr_t page_address(page_t *page) {
-    long index = 0;
-    uintptr_t addr = 0;
-    mm_zone_t *zone = NULL;
+    long        index   = 0;
+    uintptr_t   addr    = 0;
+    mm_zone_t   *zone   = NULL;
 
     if (!page)
         return 0;
@@ -125,8 +126,8 @@ uintptr_t page_address(page_t *page) {
 }
 
 size_t __page_incr(uintptr_t addr) {
-    size_t pg_refcnt = 0;
-    mm_zone_t *zone = NULL;
+    size_t      pg_refcnt = 0;
+    mm_zone_t   *zone     = NULL;
 
     if (!addr)
         panic("%s(%p)???\n", __func__, addr);
@@ -142,8 +143,8 @@ size_t page_incr(page_t *page) {
 }
 
 size_t __page_count(uintptr_t addr) {
-    size_t pg_refcnt = 0;
-    mm_zone_t *zone = NULL;
+    size_t    pg_refcnt = 0;
+    mm_zone_t *zone     = NULL;
 
     if (!addr)
         panic("%s(%p)???\n", __func__, addr);
@@ -175,9 +176,9 @@ void page_put(page_t *page) {
 }
 
 void __pages_put(uintptr_t addr, size_t order) {
-    page_t *page = NULL;
-    mm_zone_t *zone = NULL;
-    size_t npages = BS(order);
+    page_t      *page  = NULL;
+    mm_zone_t   *zone  = NULL;
+    size_t      npages = BS(order);
 
     if (!addr)
         panic("%s(%p, %d)???\n", __func__, addr, order);

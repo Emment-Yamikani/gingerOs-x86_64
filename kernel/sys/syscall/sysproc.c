@@ -88,9 +88,9 @@ pid_t getpgid(pid_t pid) {
 }
 
 int   setpgid(pid_t pid, pid_t pgid) {
-    int err = 0;
-    proc_t *proc = NULL;
-    proc_t *leader = NULL;
+    int     err     = 0;
+    proc_t  *proc   = NULL;
+    proc_t  *leader = NULL;
 
     /**The value of the pgid argument
      * is less than 0, or is not a value

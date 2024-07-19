@@ -8,8 +8,8 @@
 #include <arch/signal.h>
 
 int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact) {
-    sig_desc_t  *sigdesc    = NULL;
     int         err         = -EINVAL;
+    sig_desc_t  *sigdesc    = NULL;
 
     if (SIGBAD(signo))
         return -EINVAL;
