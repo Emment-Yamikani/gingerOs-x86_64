@@ -807,6 +807,10 @@ int thread_get(tid_t tid, tstate_t state, thread_t **ppthread) {
     return -ESRCH;
 }
 
+tid_t gettid(void) {
+    return thread_gettid(current);
+}
+
 int thread_chain_lock_add(thread_t *thread, lock_type_t cl_type, void *sync_obj) {
     int          err         = 0;
     chain_lock_t *chain_lock = {0};
@@ -820,8 +824,6 @@ int thread_chain_lock_add(thread_t *thread, lock_type_t cl_type, void *sync_obj)
 
     if (NULL == (chain_lock = (chain_lock_t *)kmalloc(sizeof *chain_lock)))
         return -ENOMEM;
-
-    memset(chain_lock, 0, sizeof *chain_lock);
 
     chain_lock->cl_type  = cl_type;
     chain_lock->sync_obj = sync_obj;

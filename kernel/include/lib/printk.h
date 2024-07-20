@@ -123,13 +123,16 @@ size_t klog(int type, const char *restrict __fmt__, ...);
 
 #include <arch/cpu.h>
 
-#define debugloc() ({                            \
-    printk(                                      \
-        "%s:%d in %s(), #%p: cpu%d ncli: %ld\n", \
-        __FILE__, __LINE__,                      \
-        __func__, __retaddr(0),                  \
-        getcpuid(), cpu->ncli                    \
-    );                  \
+#include <lib/types.h>
+extern pid_t getpid(void);
+extern tid_t gettid(void);
+
+#define debugloc() ({                                     \
+    printk(                                               \
+        "%s:%d: cpu[%d ncli: %d] tid:[%d:%d] ret:[%p]\n", \
+        __FILE__, __LINE__,                               \
+        getcpuid(), cpu->ncli,                            \
+        gettid(), getpid(), __retaddr(0));  \
 })
 
 #endif  // _PRINTF_H_

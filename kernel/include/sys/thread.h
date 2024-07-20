@@ -623,3 +623,9 @@ int thread_leave_group(thread_t *thread);
 int thread_create_group(thread_t *thread);
 int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap);
 int thread_get(tid_t tid, tstate_t state, thread_t **ppthread);
+
+int thread_chain_lock_add(thread_t *thread, lock_type_t cl_type, void *sync_obj);
+void thread_chain_lock_acquire(thread_t *thread);
+void thread_chain_lock_release(thread_t *thread);
+
+tid_t gettid(void);
