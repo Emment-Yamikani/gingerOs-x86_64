@@ -84,6 +84,22 @@ typedef enum {
     PZOMBIE,
 } pstate_t;
 
+typedef enum __lock_type_t {
+    LCK_SPINLOCK,
+    LCK_CONDVAR,
+    LCK_MUTEX,
+} lock_type_t;
+
+/**
+ * @brief Chain lock to be put on the chain lock queue.
+ * 
+ */
+typedef struct __chain_lock_t {
+    lock_type_t cl_type;
+    void        *sync_obj;
+} chain_lock_t;
+
+
 typedef struct __thread_t {
     tid_t           t_tid;              // thread ID.
     tid_t           t_tgid;
