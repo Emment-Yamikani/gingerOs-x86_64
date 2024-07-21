@@ -17,6 +17,7 @@ int open(const char *pathname, int oflags, mode_t mode);
 int openat(int fd, const char *pathname, int oflags, mode_t mode);
 int create(int fd, const char *filename, mode_t mode);
 int mkdirat(int fd, const char *filename, mode_t mode);
+int pipe(int fds[2]);
 
 int linkat(int fd, const char *oldname, const char *newname);
 int mknodat(int fd, const char *filename, mode_t mode, int devid);

@@ -2,6 +2,7 @@
 #include <bits/errno.h>
 #include <sys/thread.h>
 #include <fs/fs.h>
+#include <fs/pipefs.h>
 #include <lib/string.h>
 #include <dev/dev.h>
 #include <mm/kalloc.h>
@@ -173,7 +174,7 @@ int     file_dup(int fd1, int fd2) {
     return fd2;
 }
 
-void file_close_all(void) {
+void    file_close_all(void) {
     int         file_cnt = 0;
     file_ctx_t *fctx = NULL; // file context
 
@@ -190,7 +191,7 @@ void file_close_all(void) {
         close(fd);
 }
 
-int file_copy(file_ctx_t *dst, file_ctx_t *src) {
+int     file_copy(file_ctx_t *dst, file_ctx_t *src) {
     dentry_t    *cwdir      = NULL;
     dentry_t    *rootdir    = NULL;
     file_t      **files     = NULL;
@@ -273,7 +274,7 @@ int     open(const char *pathname, int oflags, mode_t mode) {
     return fd;
 }
 
-int openat(int fd, const char *pathname, int oflags, mode_t mode) {
+int     openat(int fd, const char *pathname, int oflags, mode_t mode) {
     int err       = 0;
     file_t  *file = NULL;
     cred_t  *cred = NULL;
@@ -482,7 +483,7 @@ int     mknodat(int fd, const char *pathname, mode_t mode, int devid) {
     return err;
 }
 
-int fstat(int fd, struct stat *buf) {
+int     fstat(int fd, struct stat *buf) {
     int     err = 0;
     file_t  *file = NULL;
 
@@ -501,7 +502,7 @@ int fstat(int fd, struct stat *buf) {
     return 0;
 }
 
-int stat(const char *restrict path, struct stat *restrict buf) {
+int     stat(const char *restrict path, struct stat *restrict buf) {
     int         err     = 0;
     dentry_t    *dentry = NULL;
     cred_t      *cred   = NULL;
@@ -529,11 +530,11 @@ int stat(const char *restrict path, struct stat *restrict buf) {
     return 0;
 }
 
-int lstat(const char *restrict path, struct stat *restrict buf) {
+int     lstat(const char *restrict path, struct stat *restrict buf) {
     return stat(path, buf);
 }
 
-int fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag) {
+int     fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag) {
     int         err         = 0;
     file_t      *dir_file   = NULL;
     dentry_t    *dentry     = NULL;
@@ -574,7 +575,7 @@ int fstatat(int fd, const char *restrict path, struct stat *restrict buf, int fl
     return 0;
 }
 
-int chown(const char *path, uid_t owner, gid_t group) {
+int     chown(const char *path, uid_t owner, gid_t group) {
     int         err     = 0;
     dentry_t    *dentry = NULL;
     cred_t      *cred   = NULL;
@@ -602,7 +603,7 @@ int chown(const char *path, uid_t owner, gid_t group) {
     return 0;
 }
 
-int fchown(int fd, uid_t owner, gid_t group) {
+int     fchown(int fd, uid_t owner, gid_t group) {
     int     err     = 0;
     file_t  *file   = NULL;
 
@@ -612,5 +613,68 @@ int fchown(int fd, uid_t owner, gid_t group) {
     err = file_chown(file, owner, group);
     funlock(file);
 
+    return err;
+}
+
+int     pipe(int fds[2]) {
+    int      err     = 0;
+    pipe_t   *pipe   = NULL;
+    int      fildes0 = 0, fildes1 = 0;
+    dentry_t *d0     = NULL, *d1  = NULL;
+    file_t   *fd0    = NULL, *fd1 = NULL;
+
+    if (fds == NULL)
+        return -EINVAL;
+
+    if ((err = pipe_mkpipe(&pipe)))
+        return err;
+
+    if ((err = file_alloc(&fildes0, &fd0)))
+        goto error;
+
+    if ((err = file_alloc(&fildes1, &fd1)))
+        goto error;
+
+    if ((err = dalloc("dentry_pipe-r", &d0)))
+        goto error;
+
+    if ((err = dalloc("dentry-pipe-w", &d1)))
+        goto error;
+
+    d0->d_inode   = pipe->p_iread;
+    idupcnt(pipe->p_iread);
+    iunlock(pipe->p_iread);
+    dunlock(d0);
+
+    d1->d_inode   = pipe->p_iwrite;
+    idupcnt(pipe->p_iwrite);
+    iunlock(pipe->p_iwrite);
+    dunlock(d1);
+
+    fd0->f_off      = 0;
+    fd0->f_dentry   = d0;
+    fd0->f_oflags   |= O_RDONLY;
+    fd0->f_oflags   &= ~(O_CLOEXEC | O_NONBLOCK);
+    funlock(fd0);
+
+    fd1->f_off      = 0;
+    fd1->f_dentry   = d1;
+    fd1->f_oflags   |= O_WRONLY;
+    fd1->f_oflags   &= ~(O_CLOEXEC | O_NONBLOCK);
+    funlock(fd1);
+
+    pipe_unlock(pipe);
+
+    fds[0] = fildes0;
+    fds[1] = fildes1;
+    return 0;
+error:
+    if (d0)
+        drelease(d0);
+    if (d1)
+        drelease(d1);
+
+    // TODO: release the pipe descriptor.
+    printk("Failed to create a pipe, error: %d\n");
     return err;
 }

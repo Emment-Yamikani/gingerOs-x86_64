@@ -25,6 +25,7 @@ size_t (*syscall[])() = {
     [SYS_SYNC]              = (void *)sys_sync,
     [SYS_GETATTR]           = (void *)sys_getattr,
     [SYS_SETATTR]           = (void *)sys_setattr,
+    [SYS_PIPE]              = (void *)sys_pipe,
 
     [SYS_FSTAT]             = (void *)sys_fstat,
     [SYS_STAT]              = (void *)sys_stat,

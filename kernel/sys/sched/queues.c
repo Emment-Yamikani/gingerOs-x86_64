@@ -66,13 +66,22 @@ int sched_sleep_r(queue_t *sleep_queue, tstate_t state, spinlock_t *lock) {
         spin_unlock(lock);
 
     queue_unlock(current->t_tgroup);
+    
     sched();    // jmp back to the scheduler.
+    
+    /**
+     * @brief unlock here inorder to respect the
+     * loc ordering of the func-stack call chain.
+     *  lock ? before tgroup ? before current.
+     * SEE: lines below.
+     */
     current_unlock(); // FIXME: ???
-    queue_lock(current->t_tgroup);
-    current_lock();
 
     if (lock != NULL)
         spin_lock(lock);
+    
+    queue_lock(current->t_tgroup);
+    current_lock();
 
     current->t_sleep.node  = NULL;
     current->t_sleep.queue = NULL;

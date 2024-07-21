@@ -115,6 +115,9 @@ int      sys_fstatat(int fd, const char *restrict path, struct stat *restrict bu
     return fstatat(fd, path, buf, flag);
 }
 
+int     sys_pipe(int fds[2]) {
+    return pipe(fds);
+}
 
 int      sys_uname(struct utsname *name) {
     return uname(name);

@@ -100,6 +100,8 @@ sys_%2:
 %define SYS_EXECVE          77
 %define SYS_RAISE           78
 
+%define SYS_PIPE            79
+
 stub SYS_PUTC, putc
 stub SYS_CLOSE, close
 stub SYS_UNLINK, unlink
@@ -126,6 +128,7 @@ stub SYS_FSTAT, fstat
 stub SYS_STAT, stat
 stub SYS_LSTAT, lstat
 stub SYS_FSTATAT, fstatat
+stub SYS_PIPE, pipe
 
 stub SYS_UNAME, uname
 stub SYS_CHOWN, chown

@@ -96,6 +96,10 @@ int fstatat(int fd, const char *restrict path, struct stat *restrict buf, int fl
     return sys_fstatat(fd, path, buf, flag);
 }
 
+int pipe(int fds[2]) {
+    return sys_pipe(fds);
+}
+
 int getcwd(char *buf, size_t size) {
     return sys_getcwd(buf, size);
 }

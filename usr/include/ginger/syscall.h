@@ -38,7 +38,7 @@ extern int      sys_lstat(const char *restrict path, struct stat *restrict buf);
 extern int      sys_fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag);
 extern int      sys_getcwd(char *buf, size_t size);
 extern int      sys_chdir(const char *path);
-
+extern int      sys_pipe(int fds[2]);
 
 extern pid_t    sys_wait(int *stat_loc);
 extern int      sys_uname(struct utsname *name);

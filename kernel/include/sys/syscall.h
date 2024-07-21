@@ -101,6 +101,9 @@ void do_syscall(ucontext_t *uctx);
 #define SYS_EXECVE              77  // int sys_execve(const char *pathname, char *const argv[], char *const envp[]);
 #define SYS_RAISE               78  // int sys_raise(int signo);
 
+#define SYS_PIPE                79  // int sys_pipe(int fds[2]);
+
+
 extern void     sys_putc(int c);
 
 extern int      sys_close(int fd);
@@ -121,6 +124,7 @@ extern ssize_t  sys_readdir(int fd, off_t off, void *buf, size_t count);
 extern int      sys_linkat(int fd, const char *oldname, const char *newname);
 extern int      sys_mknodat(int fd, const char *filename, mode_t mode, int devid);
 extern int      sys_sync(int fd);
+extern int      sys_pipe(int fds[2]);
 extern int      sys_getattr(int fd, void *attr);
 extern int      sys_setattr(int fd, void *attr);
 

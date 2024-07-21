@@ -1,7 +1,8 @@
 #pragma once
 
-#include <ds/queue.h>
 #include <ds/ringbuf.h>
+#include <ds/queue.h>
+#include <fs/file.h>
 #include <fs/inode.h>
 #include <lib/types.h>
 #include <sync/spinlock.h>
@@ -51,6 +52,7 @@ typedef struct __pipe_t {
 #define pipe_isreadable(p)              ({ pipe_assert_locked(p); pipe_testflags(p, PIPE_R); })
 
 int     pipefs_init(void);
+int     pipe_mkpipe(pipe_t **pref);
 
 int     pipefs_isync(inode_t *ip);
 int     pipefs_iclose(inode_t *ip);

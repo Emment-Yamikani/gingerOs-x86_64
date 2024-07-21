@@ -1,5 +1,6 @@
 #include <bits/errno.h>
 #include <fs/fs.h>
+#include <fs/file.h>
 #include <fs/pipefs.h>
 #include <fs/tmpfs.h>
 #include <lib/printk.h>
@@ -108,7 +109,7 @@ int pipe_mkpipe(pipe_t **pref) {
     if (pref == NULL)
         return -EINVAL;
     
-    if ((pipe = (pipe_t *)kmalloc(sizeof *pipe)))
+    if (NULL == (pipe = (pipe_t *)kmalloc(sizeof *pipe)))
         return -ENOMEM;
     
     memset(pipe, 0, sizeof *pipe);
@@ -123,16 +124,13 @@ int pipe_mkpipe(pipe_t **pref) {
     if ((err = ialloc(FS_FIFO, &pipe->p_iwrite)))
         goto error;
 
-
     pipe->p_iread->i_priv   = pipe;
     pipe->p_iread->i_mode   = 0444;
     pipe->p_iread->i_ops    = &pipefs_iops;
-    iunlock(pipe->p_iread);
 
     pipe->p_iwrite->i_priv  = pipe;
     pipe->p_iwrite->i_mode  = 0222;
     pipe->p_iwrite->i_ops   = &pipefs_iops;
-    iunlock(pipe->p_iwrite);
 
     *pref = pipe;
     return 0;
