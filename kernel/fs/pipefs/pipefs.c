@@ -118,10 +118,10 @@ int pipe_mkpipe(pipe_t **pref) {
     if ((err = ringbuf_init(PIPESZ, &pipe->p_ringbuf)))
         goto error;
     
-    if ((err = ialloc(FS_FIFO, &pipe->p_iread)))
+    if ((err = ialloc(FS_PIPE, &pipe->p_iread)))
         goto error;
     
-    if ((err = ialloc(FS_FIFO, &pipe->p_iwrite)))
+    if ((err = ialloc(FS_PIPE, &pipe->p_iwrite)))
         goto error;
 
     pipe->p_iread->i_priv   = pipe;
@@ -131,6 +131,8 @@ int pipe_mkpipe(pipe_t **pref) {
     pipe->p_iwrite->i_priv  = pipe;
     pipe->p_iwrite->i_mode  = 0222;
     pipe->p_iwrite->i_ops   = &pipefs_iops;
+
+    pipe_setflags(pipe, PIPE_RW);
 
     *pref = pipe;
     return 0;
@@ -204,9 +206,7 @@ ssize_t pipefs_iread(inode_t *ip, off_t off __unused, void *buf, size_t nb) {
                 return read ? read : -EPIPE;
             }
 
-            pipe_lock_writersq(pipe);
             sched_wake1(pipe_writersq(pipe));
-            pipe_unlock_writersq(pipe);
 
             current_tgroup_lock();
             current_lock();
@@ -218,7 +218,7 @@ ssize_t pipefs_iread(inode_t *ip, off_t off __unused, void *buf, size_t nb) {
                 pipe_unlock(pipe);
                 return err;
             }
-
+            
             ringbuf_lock(&pipe->p_ringbuf);
         }
 
@@ -226,9 +226,7 @@ ssize_t pipefs_iread(inode_t *ip, off_t off __unused, void *buf, size_t nb) {
         ringbuf_unlock(&pipe->p_ringbuf);
     }
 
-    pipe_lock_writersq(pipe);
     sched_wake1(pipe_writersq(pipe));
-    pipe_unlock_writersq(pipe);
 
     pipe_unlock(pipe);
     return (isize)read;
@@ -242,6 +240,11 @@ ssize_t pipefs_iwrite(inode_t *ip, off_t off __unused, void *buf, size_t nb) {
     pipe = ip->i_priv;
     pipe_lock(pipe);
 
+    if ((ip->i_mode & S_IWRITE) == 0) {
+        pipe_unlock(pipe);
+        return -EACCES;
+    }
+
     while (written < (isize)nb) {
         ringbuf_lock(&pipe->p_ringbuf);
         if (ringbuf_available(&pipe->p_ringbuf) == PIPESZ) {
@@ -251,10 +254,8 @@ ssize_t pipefs_iwrite(inode_t *ip, off_t off __unused, void *buf, size_t nb) {
                 kill(getpid(), SIGPIPE);
                 return written ? written : -EPIPE;
             }
-
-            pipe_lock_readersq(pipe);
+;
             sched_wake1(pipe_readersq(pipe));
-            pipe_unlock_readersq(pipe);
 
             current_tgroup_lock();
             current_lock();
@@ -274,9 +275,7 @@ ssize_t pipefs_iwrite(inode_t *ip, off_t off __unused, void *buf, size_t nb) {
         ringbuf_unlock(&pipe->p_ringbuf);
     }
 
-    pipe_lock_readersq(pipe);
     sched_wake1(pipe_readersq(pipe));
-    pipe_unlock_readersq(pipe);
 
     pipe_unlock(pipe);
     return written;

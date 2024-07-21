@@ -44,8 +44,8 @@ static int inew(inode_t **pip) {
 }
 
 int ialloc(itype_t type,  inode_t **pip) {
-    int         err = 0;
-    inode_t     *ip = NULL;
+    int         err     = 0;
+    inode_t     *ip     = NULL;
     icache_t    *icache = NULL;
     cond_t      *reader = NULL;
     cond_t      *writer = NULL;
@@ -58,21 +58,22 @@ int ialloc(itype_t type,  inode_t **pip) {
 
     ip->i_type = type;
 
-    if (IISDEV(ip) == 0) {
+    if (!IISDEV(ip) && !IISFIFO(ip) && !IISPIPE(ip)) {
         if ((err = icache_alloc(&icache)))
             goto error;
     }
 
-    if ((err - cond_new(&reader)))
+    if ((err = cond_new(&reader)))
         goto error;
     
     if ((err = cond_new(&writer)))
         goto error;
 
-    ip->i_cache = icache;
-    icache->pc_inode = ip;
-    ip->i_writers = writer;
-    ip->i_readers = reader;
+    if (icache)
+        icache->pc_inode = ip;
+    ip->i_cache      = icache;
+    ip->i_writers    = writer;
+    ip->i_readers    = reader;
 
     *pip = ip;
     return 0;
@@ -285,7 +286,6 @@ ssize_t iwrite_data(inode_t *ip, off_t off, void *buf, size_t nb) {
 
     if ((err = icheck_op(ip, iwrite)))
         return err;
-    
     return ip->i_ops->iwrite(ip, off, buf, nb);
 }
 
@@ -552,6 +552,7 @@ ssize_t iread(inode_t *ip, off_t off, void *buf, size_t sz) {
 
 ssize_t iwrite(inode_t *ip, off_t off, void *buf, size_t sz) {
     ssize_t retval = 0;
+
     iassert_locked(ip);
     if (ip->i_cache == NULL)
         return iwrite_data(ip, off, buf, sz);

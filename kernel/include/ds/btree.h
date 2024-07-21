@@ -93,7 +93,7 @@ void *btree_largest(btree_t *btree);
 void btree_delete(btree_t *btree, btree_key_t key);
 
 /**
- * @brbtree_searchief 
+ * @brief btree_search
 */
 int btree_search(btree_t *btree, btree_key_t key, void **pdata);
 

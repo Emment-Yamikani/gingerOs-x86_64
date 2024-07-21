@@ -641,13 +641,15 @@ int     pipe(int fds[2]) {
     if ((err = dalloc("dentry-pipe-w", &d1)))
         goto error;
 
-    d0->d_inode   = pipe->p_iread;
-    idupcnt(pipe->p_iread);
+    if ((err = iadd_alias(pipe->p_iread, d0)))
+        goto error;
+    
+    if ((err = iadd_alias(pipe->p_iwrite, d1)))
+        goto error;
+
     iunlock(pipe->p_iread);
     dunlock(d0);
 
-    d1->d_inode   = pipe->p_iwrite;
-    idupcnt(pipe->p_iwrite);
     iunlock(pipe->p_iwrite);
     dunlock(d1);
 
@@ -656,6 +658,7 @@ int     pipe(int fds[2]) {
     fd0->f_oflags   |= O_RDONLY;
     fd0->f_oflags   &= ~(O_CLOEXEC | O_NONBLOCK);
     funlock(fd0);
+
 
     fd1->f_off      = 0;
     fd1->f_dentry   = d1;

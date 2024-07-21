@@ -26,6 +26,7 @@ typedef enum {
     FS_SYM,
     FS_BLK,
     FS_FIFO,
+    FS_PIPE,
     FS_SOCK,
 } itype_t;
 
@@ -117,6 +118,7 @@ typedef struct iops {
 #define IISSYM(ip) ({ IISTYPE(ip, FS_SYM); })
 #define IISBLK(ip) ({ IISTYPE(ip, FS_BLK); })
 #define IISFIFO(ip)({ IISTYPE(ip, FS_FIFO); })
+#define IISPIPE(ip)({ IISTYPE(ip, FS_PIPE); })
 #define IISSOCK(ip)({ IISTYPE(ip, FS_SOCK); })
 #define IISDEV(ip) ({ IISCHR(ip) || IISBLK(ip); })
 
