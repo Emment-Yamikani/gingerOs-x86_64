@@ -115,7 +115,7 @@ int pipe_mkpipe(pipe_t **pref) {
     memset(pipe, 0, sizeof *pipe);
     pipe_lock(pipe);
 
-    if ((err = ringbuf_init(PIPESZ, &pipe->p_ringbuf)))
+    if ((err = ringbuf_init(PIPESZ, pipe_getbuff(pipe))))
         goto error;
     
     if ((err = ialloc(FS_PIPE, &pipe->p_iread)))
@@ -188,48 +188,35 @@ ssize_t pipefs_iread(inode_t *ip, off_t off __unused, void *buf, size_t nb) {
     isize   read    = 0;
     pipe_t  *pipe   = NULL;
 
-    pipe = ip->i_priv;
+    pipe = (pipe_t *)ip->i_priv;
     pipe_lock(pipe);
 
-    if ((ip->i_mode & S_IREAD) == 0) {
-        pipe_unlock(pipe);
-        return -EACCES;
-    }
-
     while (read < (isize)nb) {
-        ringbuf_lock(&pipe->p_ringbuf);
-        if (ringbuf_isempty(&pipe->p_ringbuf)) {
-            ringbuf_unlock(&pipe->p_ringbuf);
-            if (!pipe_isreadable(pipe)) {
-                pipe_unlock(pipe);
-                kill(getpid(), SIGPIPE);
-                return read ? read : -EPIPE;
-            }
+        if (!pipe_isreadable(pipe)) {
+            pipe_wake_writer(pipe);
+            pipe_unlock(pipe);
+            kill(getpid(), SIGPIPE);
+            return read ? read : -EPIPE;
+        }
 
-            sched_wake1(pipe_writersq(pipe));
-
-            current_tgroup_lock();
-            current_lock();
-            err = sched_sleep_r(pipe_readersq(pipe), T_ISLEEP, &pipe->p_lock);
-            current_unlock();
-            current_tgroup_unlock();
-
-            if (err != 0) {
+        pipe_lockbuf(pipe);
+        if (ringbuf_isempty(pipe_getbuff(pipe))) {
+            pipe_unlockbuf(pipe);
+            pipe_wake_writer(pipe);
+            if ((err = pipe_reader_wait(pipe))) {
                 pipe_unlock(pipe);
                 return err;
             }
-            
-            ringbuf_lock(&pipe->p_ringbuf);
+            pipe_lockbuf(pipe);
         }
 
-        read += ringbuf_read(&pipe->p_ringbuf, nb - read, buf + read);
-        ringbuf_unlock(&pipe->p_ringbuf);
+        read += ringbuf_read(pipe_getbuff(pipe), buf + read, nb - read);
+        pipe_unlockbuf(pipe);
+        pipe_wake_writer(pipe);
     }
 
-    sched_wake1(pipe_writersq(pipe));
-
     pipe_unlock(pipe);
-    return (isize)read;
+    return read;
 }
 
 ssize_t pipefs_iwrite(inode_t *ip, off_t off __unused, void *buf, size_t nb) {
@@ -237,45 +224,32 @@ ssize_t pipefs_iwrite(inode_t *ip, off_t off __unused, void *buf, size_t nb) {
     isize   written = 0;
     pipe_t  *pipe   = NULL;
 
-    pipe = ip->i_priv;
+    pipe = (pipe_t *)ip->i_priv;
     pipe_lock(pipe);
 
-    if ((ip->i_mode & S_IWRITE) == 0) {
-        pipe_unlock(pipe);
-        return -EACCES;
-    }
-
     while (written < (isize)nb) {
-        ringbuf_lock(&pipe->p_ringbuf);
-        if (ringbuf_available(&pipe->p_ringbuf) == PIPESZ) {
-            ringbuf_unlock(&pipe->p_ringbuf);
-            if (!pipe_iswritable(pipe)) {
-                pipe_unlock(pipe);
-                kill(getpid(), SIGPIPE);
-                return written ? written : -EPIPE;
-            }
-;
-            sched_wake1(pipe_readersq(pipe));
+        if (!pipe_iswritable(pipe)) {
+            pipe_wake_reader(pipe);
+            pipe_unlock(pipe);
+            kill(getpid(), SIGPIPE);
+            return written ? written : -EPIPE;
+        }
 
-            current_tgroup_lock();
-            current_lock();
-            err = sched_sleep_r(pipe_writersq(pipe), T_ISLEEP, &pipe->p_lock);
-            current_unlock();
-            current_tgroup_unlock();
-
-            if (err != 0) {
+        pipe_lockbuf(pipe);
+        if (ringbuf_isfull(pipe_getbuff(pipe))) {
+            pipe_unlockbuf(pipe);
+            pipe_wake_reader(pipe);
+            if ((err = pipe_writer_wait(pipe))) {
                 pipe_unlock(pipe);
                 return err;
             }
-
-            ringbuf_lock(&pipe->p_ringbuf);
+            pipe_lockbuf(pipe);
         }
-
-        written += ringbuf_write(&pipe->p_ringbuf, nb - written, buf + written);
-        ringbuf_unlock(&pipe->p_ringbuf);
+        
+        written += ringbuf_write(pipe_getbuff(pipe), buf + written, nb - written);
+        pipe_unlockbuf(pipe);
+        pipe_wake_reader(pipe);
     }
-
-    sched_wake1(pipe_readersq(pipe));
 
     pipe_unlock(pipe);
     return written;

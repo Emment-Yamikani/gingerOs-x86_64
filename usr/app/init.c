@@ -1,32 +1,47 @@
 #include <ginger/unistd.h>
 
-int pi[2];
+int fd[3];
 
-void th(void) {
-    sleep(10);
-    write(pi[1], "&y", 3);
+void write_msg(const char *msg) {
+    printf("Thread[%d:%d]: %s", gettid(), getpid(), msg);
+}
+
+void *producer(void *arg __unused) {
+    int err = 0;
+    char buf[8192];
+
+    fd[2] = open("/ramfs/makefile", O_RDONLY, 0);
+
+    err = read(fd[2], buf, sizeof buf);
+    assert_msg(err >= -1,
+        "Failed to 'read', error: %d\n", err
+    );
+
+    assert_msg((err = write(fd[1], buf, sizeof buf)) > 0,
+        "Failed to 'write', error: %d\n", err
+    );
+
+    write_msg("Producer is done\n");
+    
+    return NULL;
 }
 
 void main(void) {
     int err = 0;
-    int in = 0, out = 0;
-    char buf[100];
+    char buf[129];
 
-    thread_create(NULL, NULL, (thread_entry_t)th, NULL);
+    assert(pipe(fd) == 0, "Failed to create pipe");
 
-    assert_msg((err = pipe(pi)) == 0,
-        "failed to create a pipe, err: %d\n", err);
+    thread_create(NULL, NULL, producer, NULL);
 
-    in  = pi[0];
-    out = pi[1];
+    for (isize sz = 0; sz <= 8192; sz += 128) {
+            err = read(fd[0], buf, 128);
+        assert_msg(err >= -1,
+            "Failed to 'read', error: %d\n", err
+        );
+        printf(buf);
+        memset(buf, 0, sizeof buf);
+    }
 
-    printf("writting to pipe\n");
-    if ((err = write(out, "Hello, World :) b", 17)) < 0)
-        panic("%s:%d: error: %d\n", __FILE__, __LINE__, err);
-
-    if ((err = read(in, buf, 20)) < 0)
-        panic("%s:%d: error: %d\n", __FILE__, __LINE__, err);
-    
-    printf("PIPE: %s\n", buf);
     loop();
 }

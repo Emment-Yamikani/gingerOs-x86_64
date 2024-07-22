@@ -143,7 +143,6 @@ int      sys_isatty(int fd) {
     return isatty(fd);
 }
 
-
 /** @brief PROTECTION */
 
 uid_t sys_getuid(void) {
@@ -275,7 +274,7 @@ long      sys_sleep(long seconds) {
 }
 
 tid_t    sys_gettid(void) {
-    return thread_gettid(current);
+    return gettid();
 }
 
 void     sys_thread_exit(int exit_code) {

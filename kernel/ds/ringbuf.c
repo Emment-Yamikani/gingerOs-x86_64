@@ -63,11 +63,12 @@ int ringbuf_isfull(ringbuf_t *ring) {
     return ring->count == ring->size;
 }
 
-size_t ringbuf_read(ringbuf_t *ring, size_t n, char *buf) {
+size_t ringbuf_read(ringbuf_t *ring, char *buf, size_t n) {
     size_t size = n;
-
     ringbuf_assert(ring);
     ringbuf_assert_locked(ring);
+    assert(buf, "No buffer provided for the rinfbuffer function.");
+
     while (n) {
         if (ringbuf_isempty(ring))
             break;
@@ -78,11 +79,12 @@ size_t ringbuf_read(ringbuf_t *ring, size_t n, char *buf) {
     return size - n;
 }
 
-size_t ringbuf_write(ringbuf_t *ring, size_t n, char *buf) {
+size_t ringbuf_write(ringbuf_t *ring, char *buf, size_t n) {
     size_t size = n;
-
     ringbuf_assert(ring);
     ringbuf_assert_locked(ring);    
+    assert(buf, "No buffer provided for the rinfbuffer function.");
+
     while (n) {
         if (ringbuf_isfull(ring))
             break;
