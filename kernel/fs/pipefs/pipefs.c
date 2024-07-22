@@ -155,8 +155,28 @@ int pipefs_isync(inode_t *ip __unused) {
     return -ENOSYS;
 }
 
-int pipefs_iclose(inode_t *ip __unused) {
-    return -ENOSYS;
+int pipefs_iclose(inode_t *ip) {
+    pipe_t *pipe = NULL;
+
+    pipe = (pipe_t *)ip->i_priv;
+
+
+    pipe_lock(pipe);
+
+    if (pipe->p_iwrite == ip) { // write end.
+        pipe_maskflags(pipe, PIPE_W);
+        pipe_wake_all_readers(pipe);
+        pipe_wake_all_writers(pipe);
+    } else if (pipe->p_iread == ip) { // read end.
+        pipe_maskflags(pipe, PIPE_R);
+        pipe_wake_all_writers(pipe);
+        pipe_wake_all_readers(pipe);
+    } else
+        panic("Invalid end of pipe.\n");
+
+    pipe_unlock(pipe);
+
+    return 0;
 }
 
 int pipefs_iunlink(inode_t *ip __unused) {

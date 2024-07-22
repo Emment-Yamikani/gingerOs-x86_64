@@ -39,7 +39,9 @@ typedef struct __pipe_t {
 #define pipe_iwrite(p)                  ({ pipe_assert_locked(p); ((p)->p_iwrite); })
 
 #define pipe_wake_reader(p)             ({ pipe_assert_locked(p); cond_signal(&(p)->p_readers); })
+#define pipe_wake_all_readers(p)        ({ pipe_assert_locked(p); cond_broadcast(&(p)->p_readers); })
 #define pipe_wake_writer(p)             ({ pipe_assert_locked(p); cond_signal(&(p)->p_writers); })
+#define pipe_wake_all_writers(p)        ({ pipe_assert_locked(p); cond_broadcast(&(p)->p_writers); })
 #define pipe_reader_wait(p)             ({ pipe_assert_locked(p); cond_wait_releasing(&(p)->p_readers, &(p)->p_lock); })
 #define pipe_writer_wait(p)             ({ pipe_assert_locked(p); cond_wait_releasing(&(p)->p_writers, &(p)->p_lock); })
 
