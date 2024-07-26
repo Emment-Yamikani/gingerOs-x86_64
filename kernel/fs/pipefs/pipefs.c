@@ -118,10 +118,10 @@ int pipe_mkpipe(pipe_t **pref) {
     if ((err = ringbuf_init(PIPESZ, pipe_getbuff(pipe))))
         goto error;
     
-    if ((err = ialloc(FS_PIPE, &pipe->p_iread)))
+    if ((err = ialloc(FS_PIPE, I_NORWQUEUES, &pipe->p_iread)))
         goto error;
     
-    if ((err = ialloc(FS_PIPE, &pipe->p_iwrite)))
+    if ((err = ialloc(FS_PIPE, I_NORWQUEUES, &pipe->p_iwrite)))
         goto error;
 
     pipe->p_iread->i_priv   = pipe;

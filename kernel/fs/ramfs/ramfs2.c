@@ -74,7 +74,7 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
     if ((err = ramfs2_validate(ramfs2_super)))
         return err;
 
-    if ((err = ialloc(FS_DIR, &iroot)))
+    if ((err = ialloc(FS_DIR, I_NORWQUEUES, &iroot)))
         return err;
 
     if ((err = dalloc(target, &droot))) {
@@ -197,7 +197,7 @@ static int ramfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
         [RAMFS2_DIR] = FS_DIR,
     }[node->type];
 
-    if ((err = ialloc(type, &ip)))
+    if ((err = ialloc(type, 0, &ip)))
         return err;
 
     ip->i_sb = ramfs2_sb;

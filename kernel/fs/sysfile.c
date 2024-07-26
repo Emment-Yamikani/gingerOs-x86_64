@@ -649,7 +649,7 @@ int     pipe(int fds[2]) {
 
     iunlock(pipe->p_iread);
     dunlock(d0);
-
+    
     iunlock(pipe->p_iwrite);
     dunlock(d1);
 

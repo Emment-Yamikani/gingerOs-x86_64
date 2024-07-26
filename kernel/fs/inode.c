@@ -43,7 +43,7 @@ static int inew(inode_t **pip) {
     return 0;
 }
 
-int ialloc(itype_t type,  inode_t **pip) {
+int ialloc(itype_t type, int flags, inode_t **pip) {
     int         err     = 0;
     inode_t     *ip     = NULL;
     icache_t    *icache = NULL;
@@ -58,19 +58,28 @@ int ialloc(itype_t type,  inode_t **pip) {
 
     ip->i_type = type;
 
-    if (!IISDEV(ip) && !IISFIFO(ip) && !IISPIPE(ip)) {
+    if (IISDIR(ip) || IISDEV(ip) || IISFIFO(ip) || IISPIPE(ip)) {
+        flags |= I_NOCACHE;
+    }
+
+    if (!(flags & I_NOCACHE)) {
         if ((err = icache_alloc(&icache)))
             goto error;
     }
 
-    if ((err = cond_new(&reader)))
-        goto error;
-    
-    if ((err = cond_new(&writer)))
-        goto error;
+    if ((flags & I_NORQUEUE) == 0) {
+        if ((err = cond_new(&reader)))
+            goto error;
+    }
+
+    if ((flags & I_NOWQUEUE) == 0) {
+        if ((err = cond_new(&writer)))
+            goto error;
+    }
 
     if (icache)
         icache->pc_inode = ip;
+
     ip->i_cache      = icache;
     ip->i_writers    = writer;
     ip->i_readers    = reader;

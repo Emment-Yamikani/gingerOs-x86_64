@@ -419,53 +419,55 @@ ssize_t fread(file_t *file, void *buf, size_t size) {
     ssize_t retval = 0;
     inode_t *inode = NULL;
 
-    fassert_locked(file);
+    fassert_locked(file); // Ensure file is locked
 
-    if (file->fops == NULL || file->fops->fread == NULL)
-        goto generic;
-
-    return file->fops->fread(file, buf, size);
-
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    // If file-specific read operation exists, use it
+    if (file->fops != NULL && file->fops->fread != NULL) {
+        return file->fops->fread(file, buf, size);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic read operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
 
-    loop() {
-        if ((retval = iread(inode, file->f_off, buf, size)) > 0) {
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    while (1) {
+        // Attempt to read data
+        retval = iread(inode, file->f_off, buf, size);
+
+        if (retval > 0) { // Data successfully read
             file->f_off += retval;
-            // wake up writers.
-            if (inode->i_writers)
-                cond_broadcast(inode->i_writers);
+            if (inode->i_writers) {
+                cond_broadcast(inode->i_writers); // Notify writers
+            }
             break;
-        } else if ((file->f_off >= igetsize(inode))) { // has reached end-of-file
-            retval = 0;
+        } else if (retval == 0) { // End-of-file reached
             break;
+        } else if (retval < 0) { // Error occurred during read
+            break;
+        } else if (file->f_oflags & O_NONBLOCK) { // Non-blocking mode
+            retval = -EAGAIN; // Operation would block
+            break;
+        } else { // Blocking mode, no data available
+            if (inode->i_readers) {
+                cond_wait(inode->i_readers); // Wait for data to be written
+            }
         }
-        else if (retval < 0)
-            break;
-        else if (file->f_oflags & O_NONBLOCK) {
-            retval = -EAGAIN;
-            break;
-        }
-        else {
-            // sleep on readers' queue waiting for for writers.
-            if (inode->i_readers)
-                cond_wait(inode->i_readers);
-        }
-    }    
+    }
 
-    iputcnt(inode);
-    iunlock(inode);
+    iputcnt(inode); // Decrement reference count
+    iunlock(inode); // Unlock inode
     return retval;
 }
 
@@ -473,74 +475,86 @@ ssize_t fwrite(file_t *file, void *buf, size_t size) {
     ssize_t retval = 0;
     inode_t *inode = NULL;
 
-    fassert_locked(file);
+    fassert_locked(file); // Ensure file is locked
 
-    if (file->fops == NULL || file->fops->fwrite == NULL)
-        goto generic;
-
-    return file->fops->fwrite(file, buf, size);
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    // If file-specific write operation exists, use it
+    if (file->fops != NULL && file->fops->fwrite != NULL) {
+        return file->fops->fwrite(file, buf, size);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
-    
-    loop() {
-        if (file->f_oflags & O_NONBLOCK) {
-            if (((file->f_off + size) < igetsize(inode))) { // can write.
-                if ((retval = iwrite(inode, file->f_off, buf, size)) >= 0) {
+    // Generic write operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    while (1) {
+        if (file->f_oflags & O_NONBLOCK) { // Non-blocking mode
+            if ((file->f_off + size) < igetsize(inode)) { // Can write
+                retval = iwrite(inode, file->f_off, buf, size);
+                if (retval >= 0) {
                     file->f_off += retval;
-                    // wake up any waiting readers.
-                    if (inode->i_readers)
-                        cond_broadcast(inode->i_readers);
-                } else if (retval < 0)
-                    break;
+                    if (inode->i_readers) {
+                        cond_broadcast(inode->i_readers); // Notify readers
+                    }
+                } else {
+                    break; // Error during write
+                }
             } else {
-                retval = -EAGAIN;
+                retval = -EAGAIN; // Operation would block
                 break;
             }
-        } else {
-            retval = size;
+        } else { // Blocking mode
+            retval = 0;
             ssize_t written = 0;
+            size_t remaining = size;
 
-            while (size) {
-                if ((written = iwrite(inode, file->f_off, buf, size)) < 0) {
-                    retval = written;
+            while (remaining > 0) {
+                written = iwrite(inode, file->f_off, buf, remaining);
+                if (written < 0) {
+                    if (retval == 0) { // No data has been written yet
+                        retval = written; // Return the error code
+                    }
                     break;
                 }
-                size -= written;
-                if ((size == 0) || (file->f_off >= igetsize(inode)))
-                    break;
-                
-                // wakeup any readers.
-                if (inode->i_readers)
-                    cond_broadcast(inode->i_readers);
-                // sleep on writters queue.
-                if (inode->i_writers)
-                    cond_wait(inode->i_writers);
+
+                retval += written;
+                remaining -= written;
+                file->f_off += written;
+                buf = (char *)buf + written;
+
+                if (remaining > 0) {
+                    if (inode->i_writers) {
+                        cond_wait(inode->i_writers); // Wait for space to write
+                    } else {
+                        break; // No wait queue to sleep on, exit
+                    }
+                }
+
+                if (inode->i_readers) {
+                    cond_broadcast(inode->i_readers); // Notify readers
+                }
             }
 
-            retval -= size;
-            file->f_off += retval;
-            // wakeup any readers.
-            if (inode->i_readers)
-                cond_broadcast(inode->i_readers);
             break;
         }
-
     }
-    iputcnt(inode);
-    iunlock(inode);
+
+    iputcnt(inode); // Decrement reference count
+    iunlock(inode); // Unlock inode
     return retval;
 }
+
 
 int     fcreate(file_t *dir, const char *pathname, mode_t mode) {
     int err = 0;

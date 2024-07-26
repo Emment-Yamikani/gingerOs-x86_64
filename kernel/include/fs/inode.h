@@ -10,13 +10,13 @@
 #include <sync/cond.h>
 #include <fs/cred.h>
 
-struct iops;
-struct dentry;
-struct superblock;
+struct  iops;
+struct  dentry;
+struct  superblock;
 typedef struct superblock superblock_t;
-struct filesystem;
+struct  filesystem;
 typedef struct filesystem filesystem_t;
-struct dirent;
+struct  dirent;
 
 typedef enum {
     FS_INV,
@@ -43,6 +43,7 @@ typedef struct inode {
     int             i_flags;    // Inode flags.
     ssize_t         i_refcnt;   // Number of references to this inode.
     ssize_t         i_hlinks;   // Number of hard links to this inode. 
+
     superblock_t    *i_sb;      // Superblock to while this inode belongs.
     struct iops     *i_ops;     // Filesystem specific inode operations. 
     void            *i_priv;    // Filesystem specific private data.
@@ -132,7 +133,15 @@ typedef struct iops {
     ip->i_size = (size);          \
 })
 
-int     ialloc(itype_t type, inode_t **pip);
+
+#define I_NOCACHE       BS(0)   // create an inode with no cache.
+#define I_NORQUEUE      BS(1)   // create an inode with no read wait-queue.
+#define I_NOWQUEUE      BS(2)   // create an inode with no write wait-queue.
+#define I_NORWQUEUES    (I_NORQUEUE | I_NOWQUEUE) // create an inode with no rw wait queues.
+
+
+
+int     ialloc(itype_t type, int flags, inode_t **pip);
 int     iopen(inode_t *ip);
 void    iputcnt(inode_t *ip);
 void    idupcnt(inode_t *ip);

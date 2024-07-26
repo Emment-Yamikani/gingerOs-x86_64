@@ -223,7 +223,7 @@ int tmpfs_new_inode(itype_t type, inode_t **pip) {
     if ((err = tmpfs_ialloc(type, &tmpfs_ip)))
         goto error;
 
-    if ((err = ialloc(type, &inode)))
+    if ((err = ialloc(type, 0, &inode)))
         goto error;
 
     inode->i_type   = type;
@@ -365,7 +365,7 @@ int tmpfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     if (dirent->inode == NULL)
         return -EINVAL;
     
-    if ((err = ialloc(dirent->inode->type, &ip)))
+    if ((err = ialloc(dirent->inode->type, 0, &ip)))
         goto error;
 
     ip->i_ops       = dir->i_ops;
