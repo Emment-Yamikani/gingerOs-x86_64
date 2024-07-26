@@ -194,15 +194,16 @@ int iadd_alias(inode_t *inode, dentry_t *dentry) {
     dentry->d_alias_prev = NULL;
 
     if (last) {
-        last->d_alias_next = dentry;
-        dentry->d_alias_prev = last;
+        dentry->d_alias_prev= ddup(last);
+        last->d_alias_next  = ddup(dentry);
 
         /// Unlock the last alias node.
         /// Remember we locked this node in to forlinked() loop above?,
         /// Yeah, so do this to prevent deadlock.
         dunlock(last);
-    } else inode->i_alias = dentry;
-    
+    } else {
+        inode->i_alias = ddup(dentry);
+    }
 
     /// Increase the reference count to this inode
     /// because we have added an inode alias.
@@ -211,6 +212,30 @@ int iadd_alias(inode_t *inode, dentry_t *dentry) {
     // printk("file(\e[023582;013m%s\e[0m) found. refs: %ld\n", dentry->d_name, inode->i_refcnt);
 
     return 0;
+}
+
+int imkalias(inode_t *ip, const char *name, struct dentry **dref) {
+    int     err        = 0;
+    dentry_t *dentry   = NULL;
+
+    if (ip == NULL || name == NULL)
+        return -EINVAL;
+    
+    if ((err = dalloc(name, &dentry)))
+        return err;
+    
+    if ((iadd_alias(ip, dentry)))
+        goto error;
+    
+    if (dref)
+        *dref = dentry;
+    else
+        dclose(dentry);
+    return 0;
+error:
+    if (dentry)
+        dclose(dentry);
+    return err;
 }
 
 int iopen(inode_t *ip) {
@@ -458,8 +483,7 @@ int itruncate(inode_t *ip) {
 }
 
 /* check for file permission */
-int icheck_perm(inode_t *ip, cred_t *cred, int oflags)
-{
+int icheck_perm(inode_t *ip, cred_t *cred, int oflags) {
     // printk("%s(\e[0;15mip=%p, cred=%p, oflags=%d)\e[0m\n", __func__, ip, cred, oflags);
     if (!ip)
         return -EINVAL;
@@ -584,7 +608,7 @@ int istat(inode_t *ip, struct stat *buf) {
         [FS_CHR]    = _IFCHR,
         [FS_BLK]    = _IFBLK,
         [FS_FIFO]   = _IFIFO,
-        [FS_SYM]    = _IFLNK,
+        [FS_LNK]    = _IFLNK,
         [FS_SOCK]   = _IFSOCK,
         //[FS_SPECIAL]  = 0    /* FIXME */
     }[ip->i_type];

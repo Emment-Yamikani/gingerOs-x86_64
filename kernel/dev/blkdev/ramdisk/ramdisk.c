@@ -14,10 +14,10 @@ typedef struct {
     spinlock_t      lock;
 } ramdisk_t;
 
-static ramdisk_t *ramdisks [256];
-static int ramdisk_cnt = 0;
-static atomic_t ramdisk_minor = {0};
-static spinlock_t *ramdisks_lk = &SPINLOCK_INIT();
+static ramdisk_t    *ramdisks [256];
+static int          ramdisk_cnt = 0;
+static atomic_t     ramdisk_minor = {0};
+static spinlock_t   *ramdisks_lk = &SPINLOCK_INIT();
 
 #define ramdisks_lock()   ({ spin_lock(ramdisks_lk); })
 #define ramdisks_unlock() ({ spin_unlock(ramdisks_lk); })

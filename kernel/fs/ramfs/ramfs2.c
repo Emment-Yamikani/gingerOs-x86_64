@@ -222,7 +222,6 @@ __unused static int ramfs2_open(inode_t *ip __unused, int mode __unused, ...) {
 static ssize_t ramfs2_read_data(inode_t *ip, off_t off, void *buf, size_t sz) {
     ssize_t         retval = 0;
     ramfs2_node_t   *node  = NULL;
-
     if (!ip || !buf)
         return -EINVAL;
     if ((node = ramfs2_convert_inode(ip)) == NULL)

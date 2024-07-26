@@ -13,6 +13,7 @@ typedef struct vfspath_t {
     size_t      tokencount;     // number of tokens in parsed path.
     char        **tokenized;    // absolute path from the root dir in a tokenized format.
     dentry_t    *directory;     // if lookup failed, this is the directory lookup ended at.
+    char        *token;         // last token to be looked up.
 } vfspath_t;
 
 #define PATH_NOABS         BS(0) //do not return absolute path.

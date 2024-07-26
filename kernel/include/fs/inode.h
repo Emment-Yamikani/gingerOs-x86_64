@@ -168,6 +168,7 @@ void    iduplink(inode_t *ip);
 void    irelease(inode_t *ip);
 int     idel_alias(inode_t *ip, struct dentry *dentry);
 int     iadd_alias(inode_t *ip, struct dentry *dentry);
+int     imkalias(inode_t *ip, const char *name, struct dentry **dentry);
 
 int     icheck_perm(inode_t *ip, cred_t *cred, int oflags);
 

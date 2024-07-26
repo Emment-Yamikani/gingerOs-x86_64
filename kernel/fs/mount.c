@@ -175,7 +175,7 @@ error:
 
 int vfs_mount(const char *src, const char *target, const char *type, u64 flags, const void *data) {
     int                 err     = 0;
-    char                *lasttok= NULL;
+    char                *ltok   = NULL;
     fs_mount_t          *mnt    = NULL;
     filesystem_t        *fs     = NULL;
     __unused inode_t    *isrc   = NULL, *itarget = NULL;
@@ -187,7 +187,7 @@ int vfs_mount(const char *src, const char *target, const char *type, u64 flags, 
     if ((err = vfs_getfs(type, &fs)))
         return err;
     
-    if ((err = path_get_lasttoken(target, &lasttok))) {
+    if ((err = path_get_lasttoken(target, &ltok))) {
         fsunlock(fs);
         return err;
     }
@@ -197,20 +197,20 @@ int vfs_mount(const char *src, const char *target, const char *type, u64 flags, 
     } else if (flags & MS_MOVE) {
     } else {
         // Do New Mount.
-        if ((err = do_new_mount(fs, src, lasttok, flags, (void *)data, &mnt))) {
-            kfree(lasttok);
+        if ((err = do_new_mount(fs, src, ltok, flags, (void *)data, &mnt))) {
+            kfree(ltok);
             fsunlock(fs);
             return err;
         }
         goto bind;
     }
 
-    kfree(lasttok);
+    kfree(ltok);
     fsunlock(fs);
 
     return 0;
 bind:
-    if ((err = vfs_lookup(target, NULL, O_RDONLY, 0, 0, &dtarget))) {
+    if ((err = vfs_lookup(target, NULL, O_EXCL, &dtarget))) {
         mnt_unlock(mnt);
         fsunlock(fs);
         goto error;

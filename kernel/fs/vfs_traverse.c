@@ -4,45 +4,110 @@
 #include <lib/string.h>
 #include <bits/errno.h>
 
-int vfs_traverse_path(dentry_t *dir, cred_t *cred, int oflags, vfspath_t *path, usize *ptok_i) {
-    int     err      = 0;
-    usize   tok_i    = 0;
-    dentry_t *dentry = NULL;
+int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags, usize *ptok_i) {
+    int         err      = 0;
+    usize       tok_i    = 0;
+    inode_t     *ip      = NULL;
+    dentry_t    *dentry  = NULL;
 
-    if (dir == NULL || path == NULL)
+    if (path == NULL)
         return -EINVAL;
 
     foreach(token, path->tokenized) {
         dentry          = NULL;
         path->dentry    = NULL;
-        path->directory = dir;
+        path->token     = token;
 
-        ilock(dir->d_inode);
-        if ((err = icheck_perm(dir->d_inode, cred, oflags))) {
-            iunlock(dir->d_inode);
-            printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+        ilock(path->directory->d_inode);
+        if ((err = icheck_perm(path->directory->d_inode, cred, oflags))) {
+            iunlock(path->directory->d_inode);
+            // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
             goto error;
         }
 
-        // Ensure that this dir is actually refering to a directory.
-        err = IISDIR(dir->d_inode) ? 0 : -ENOTDIR;
-        iunlock(dir->d_inode);
-        
+        // Ensure that this path->directory is actually refering to a directory.
+        err = IISDIR(path->directory->d_inode) ? 0 : -ENOTDIR;
+        iunlock(path->directory->d_inode);
+
         if (err != 0) {
-            printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+            // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
             goto error;
         }
 
         /**
          * @brief Lookup 'token' in the dentry's cache
          * of children.
-         * unlock 'dir' if err != -ENOENT*/
-        if ((err = dlookup(dir, token, &dentry)) != -ENOENT) {
-            dclose(dir);
-        }
+         * unlock 'path->directory' if err != -ENOENT*/
+        if ((err = dlookup(path->directory, token, &dentry)) == -ENOENT) {
+            // if current path->directory has an inode follow the fs-specific lookup.
+            if (path->directory->d_inode != NULL) {
+                foreach(token, &path->tokenized[tok_i]) {
+                    dentry          = NULL;
+                    path->dentry    = NULL;
+                    path->token     = token;
 
-        if (err != 0) {
-            printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                    ilock(path->directory->d_inode);
+                    if ((err = ilookup(path->directory->d_inode, token, &ip))) {
+                        iunlock(path->directory->d_inode);
+                        // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                        goto error;
+                    }
+                    iunlock(path->directory->d_inode);
+
+                    // found the inode.
+                    if ((err = icheck_perm(ip, cred, oflags))) {
+                        irelease(ip);
+                        // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                        goto error;
+                    }
+
+                    // add dentry alias to the new inode.
+                    if ((err = imkalias(ip, token, &dentry))) {
+                        irelease(ip);
+                        // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                        goto error;
+                    }
+
+                    // bind the new dentry to the directory tree.
+                    if ((err = dbind(path->directory, dentry))) {
+                        irelease(ip);
+                        // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                        goto error;
+                    }
+
+                    err = IISDIR(ip) ? 0: -ENOTDIR;
+                    irelease(ip);
+
+                    path->dentry = dentry;
+                    // reached the end of the path?
+                    if (!compare_strings(token, path->lasttoken)) {
+                        /**
+                         * we've reached the end of the path.
+                         * path fully traversed but does not refer to a directory.
+                         * user specified '/' at the end of the pathname,
+                         * therefore this is an error.*/
+                        if (vfspath_isdir(path) && err == -ENOTDIR) {
+                            goto error;
+                        }
+                    } else { // we've not reached the end of the path.
+                        if (err == - ENOTDIR) {
+                            /** ERROR: the next token cannot be traversed
+                             * because it is not a directory.*/
+                            // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                            goto error;
+                        }
+
+                        dclose(path->directory);
+                        // next token is a dir and can be followed.
+                        tok_i++;
+                        path->directory     = dentry;
+                    }
+                }
+
+                goto done;
+            }
+        } else if (err != 0) {
+            // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
             goto error;
         }
 
@@ -55,36 +120,36 @@ int vfs_traverse_path(dentry_t *dir, cred_t *cred, int oflags, vfspath_t *path, 
             if ((err = icheck_perm(dentry->d_inode, cred, oflags))) {
                 iunlock(dentry->d_inode);
                 dclose(dentry);
-                printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
                 goto error;
             }
+            err = IISDIR(dentry->d_inode) ? 0: -ENOTDIR;
             iunlock(dentry->d_inode);
         }
 
-        // reached the last token in the pathname
+        path->dentry = dentry;
+        // reached the end of the path?
         if (!compare_strings(token, path->lasttoken)) {
-            if (dentry->d_inode) {
-                ilock(dentry->d_inode);
-                // if the pathname had '/' at the end check if inode is a directory.
-                if (vfspath_isdir(path) && !IISDIR(dentry->d_inode))
-                    err = -ENOTDIR;
-                iunlock(dentry->d_inode);
-
-                 // fail if path specified a directory but actual file isn't.
-                if (err != 0) {
-                    dclose(dentry);
-                    printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
-                    goto error;
-                }
+            /**
+             * we've reached the end of the path.
+             * path fully traversed but does not refer to a directory.
+             * user specified '/' at the end of the pathname,
+             * therefore this is an error.*/
+            if (vfspath_isdir(path) && err == -ENOTDIR) {
+                goto error;
+            }
+        } else { // we've not reached the end of the path.
+            if (err == - ENOTDIR) {
+                /** ERROR: the next token cannot be traversed
+                 * because it is not a directory.*/
+                goto error;
             }
 
-            path->dentry    = dentry;
-            goto done;
+            dclose(path->directory);
+            // next token is a dir and can be followed.
+            tok_i++;
+            path->directory     = dentry;
         }
-
-        // Not reached the last token.
-        tok_i++;
-        dir = dentry;
     }
 
 done:

@@ -101,14 +101,12 @@ int vfs_register_fs(filesystem_t *fs);
 int vfs_unregister_fs(filesystem_t *fs);
 int  vfs_getfs(const char *type, filesystem_t **pfs);
 
-int vfs_traverse_path(dentry_t *dir, cred_t *cred, int oflags, vfspath_t *path, size_t *ptok_i);
+int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags, size_t *ptok_i);
 
-int vfs_lookup(const char *fn, cred_t *cred,
-               int oflags, mode_t mode,
-               int flags, dentry_t **pdp);
+int vfs_lookup(const char *fn, cred_t *cred, int oflags, dentry_t **pdp);
+int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred, int oflags, dentry_t **pdp);
 
-int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred,
-                 int oflags, mode_t mode, int flags, dentry_t **pdp);
+int vfs_mkdirat(const char *pathname, dentry_t *dir, cred_t *cred, mode_t mode);
 
 int vfs_dirlist(const char *path);
 

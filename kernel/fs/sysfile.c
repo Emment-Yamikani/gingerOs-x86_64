@@ -249,14 +249,14 @@ error:
     return err;
 }
 
-int     open(const char *pathname, int oflags, mode_t mode) {
+int     open(const char *pathname, int oflags, mode_t mode __unused) {
     int         fd      = 0;
     int         err     = 0;
     cred_t      *cred   = NULL;
     file_t      *file   = NULL;
     dentry_t    *dentry = NULL;
 
-    if ((err = vfs_lookup(pathname, cred, oflags, mode, 0, &dentry)))
+    if ((err = vfs_lookup(pathname, cred, oflags, &dentry)))
         return err;
     
 
@@ -274,7 +274,7 @@ int     open(const char *pathname, int oflags, mode_t mode) {
     return fd;
 }
 
-int     openat(int fd, const char *pathname, int oflags, mode_t mode) {
+int     openat(int fd, const char *pathname, int oflags, mode_t mode __unused) {
     int err       = 0;
     file_t  *file = NULL;
     cred_t  *cred = NULL;
@@ -285,7 +285,7 @@ int     openat(int fd, const char *pathname, int oflags, mode_t mode) {
 
     dlock(file->f_dentry);
 
-    if ((err = vfs_lookupat(pathname, file->f_dentry, cred, oflags, mode, 0, &dentry))) {
+    if ((err = vfs_lookupat(pathname, file->f_dentry, cred, oflags, &dentry))) {
         if (dislocked(file->f_dentry))
             dunlock(file->f_dentry);
         return err;
@@ -510,7 +510,7 @@ int     stat(const char *restrict path, struct stat *restrict buf) {
     if (path == NULL || buf == NULL)
         return -EINVAL;
     
-    if ((err = vfs_lookup(path, cred, O_RDONLY, 0, 0, &dentry)))
+    if ((err = vfs_lookup(path, cred, O_EXCL, &dentry)))
         return err;
     
     if (dentry->d_inode == NULL) {
@@ -550,7 +550,7 @@ int     fstatat(int fd, const char *restrict path, struct stat *restrict buf, in
     }
 
     dlock(dir_file->f_dentry);
-    if ((err = vfs_lookupat(path, dir_file->f_dentry, cred, O_RDONLY, 0, 0, &dentry))) {
+    if ((err = vfs_lookupat(path, dir_file->f_dentry, cred, O_EXCL, &dentry))) {
         dunlock(dir_file->f_dentry);
         funlock(dir_file);
         return err;
@@ -583,7 +583,7 @@ int     chown(const char *path, uid_t owner, gid_t group) {
     if (path == NULL)
         return -EINVAL;
     
-    if ((err = vfs_lookup(path, cred, O_RDONLY, 0, 0, &dentry)))
+    if ((err = vfs_lookup(path, cred, O_EXCL, &dentry)))
         return err;
     
     if (dentry->d_inode == NULL) {

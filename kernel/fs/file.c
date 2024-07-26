@@ -18,13 +18,14 @@ int fctx_alloc(file_ctx_t **ret) {
     if (NULL == (fctx = (file_ctx_t *)kmalloc(sizeof *fctx)))
         return -ENOMEM;
 
-    if ((err = vfs_lookup("/", NULL, O_RDONLY, 0, 0, &cwdir)))
+    if ((err = vfs_lookup("/", NULL, O_EXCL, &cwdir)))
         goto error;
 
     rootdir = ddup(cwdir);
     dunlock(cwdir);
 
     memset(fctx, 0, sizeof *fctx);
+
     fctx->fc_fmax   = NFILE;
     fctx->fc_cwd    = cwdir;
     fctx->fc_root   = rootdir;

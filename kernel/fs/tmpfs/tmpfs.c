@@ -335,10 +335,10 @@ int tmpfs_icreate(inode_t *dir, const char *fname, mode_t mode) {
 }
 
 int tmpfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
-    int err = 0;
-    inode_t *ip = NULL;
-    hash_table_t *htable = NULL;
-    tmpfs_dirent_t *dirent = NULL;
+    int             err     = 0;
+    inode_t         *ip     = NULL;
+    hash_table_t    *htable = NULL;
+    tmpfs_dirent_t  *dirent = NULL;
 
     iassert_locked(dir);
 

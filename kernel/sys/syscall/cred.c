@@ -252,11 +252,11 @@ int getcwd(char *buf, size_t size) {
 }
 
 int chdir(const char *path) {
-    int         err         = 0;
-    dentry_t     *newcwd    = NULL;
-    file_ctx_t *file_ctx  = NULL;
+    int         err        = 0;
+    dentry_t    *newcwd    = NULL;
+    file_ctx_t  *file_ctx  = NULL;
 
-    if ((err = vfs_lookup(path, NULL, O_RDONLY, 0, 0, &newcwd)))
+    if ((err = vfs_lookup(path, NULL, O_EXCL, &newcwd)))
         return err;
 
     current_lock();
