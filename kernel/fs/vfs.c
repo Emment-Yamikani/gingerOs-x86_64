@@ -14,9 +14,10 @@ char *itype_strings[] = {
     [FS_RGL] = "REG",
     [FS_DIR] = "DIR",
     [FS_CHR] = "CHR",
-    [FS_SYM] = "SYM",
+    [FS_LNK] = "LNK",
     [FS_BLK] = "BLK",
     [FS_FIFO]= "FIFO",
+    [FS_PIPE]= "PIPE"
 };
 
 static dentry_t *droot = NULL;
@@ -95,22 +96,34 @@ int vfs_init(void) {
     if ((err = vfs_mount(NULL, "/", "tmpfs", 0, NULL)))
         return err;
 
-    if ((err = vfs_lookup("/dev/", NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0755, 0, NULL)))
+    if ((err = vfs_lookup("/dev/", NULL, O_RDWR | O_CREAT, 0755 | S_IFDIR, 0, NULL)))
         return err;
 
-    if ((err = vfs_lookup("/mnt/", NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0755, 0, NULL)))
+    if ((err = vfs_lookup("/mnt/", NULL, O_RDWR | O_CREAT, 0755 | S_IFDIR, 0, NULL)))
         return err;
 
-    if ((err = vfs_lookup("/tmp/", NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0755, 0, NULL)))
+    if ((err = vfs_lookup("/tmp/", NULL, O_RDWR | O_CREAT, 0755 | S_IFDIR, 0, NULL)))
         return err;
 
-    if ((err = vfs_lookup("/ramfs/", NULL, O_RDWR | O_CREAT | O_DIRECTORY, 0755, 0, NULL)))
+    if ((err = vfs_lookup("/ramfs/", NULL, O_RDWR | O_CREAT, 0755 | S_IFDIR, 0, NULL)))
+        return err;
+
+    if ((err = vfs_lookup("/proc/", NULL, O_RDWR | O_CREAT, 0755 | S_IFDIR, 0, NULL)))
+        return err;
+
+    if ((err = vfs_lookup("/sys/", NULL, O_RDWR | O_CREAT, 0755 | S_IFDIR, 0, NULL)))
         return err;
 
     if ((err = vfs_mount("ramdisk", "/ramfs/", "ramfs", 0, NULL)))
         return err;
 
     if ((err = vfs_mount(NULL, "/dev/", "devtmpfs", 0, NULL)))
+        return err;
+    
+    if ((err = vfs_mount(NULL, "/sys/", "sysfs", 0, NULL)))
+        return err;
+    
+    if ((err = vfs_mount(NULL, "/proc/", "procfs", 0, NULL)))
         return err;
 
     return 0;
@@ -237,89 +250,22 @@ int vfs_dirlist(const char *path) {
     return 0;
 }
 
-/*
-int vfs_traverse_path(dentry_t *dir, cred_t *cred, int oflags, vfspath_t *path, size_t *ptok_i) {
-    int         err         = 0;
-    int         decr        = 0;
-    size_t      tok_i       = 0;
-    dentry_t    *dentry     = NULL;
-
-    if (dir == NULL || path == NULL)
-        return -EINVAL;
-
-    foreach(token, path->tokenized) {
-        dlock(dir);
-
-        ilock(dir->d_inode);
-        // check if this is a valid directory.
-        err = IISDIR(dir->d_inode) ? 0
-                                   : -ENOTDIR;
-        iunlock(dir->d_inode);
-
-        // this isn't a directory and as such we must not follow it.
-        if (err != 0) {
-            dconditional_release(dir, decr);
-            goto error;
-        }
-
-        err = dlookup(dir, token, &dentry);
-        dconditional_release(dir, decr);
-
-        // check permissions and goto the next token.
-        if (err == 0) {
-            ilock(dentry->d_inode);
-            err = icheck_perm(dentry->d_inode, cred, oflags);
-            iunlock(dentry->d_inode);
-
-            // error occured while checking the dentry permissions.
-            if (err != 0) {
-                // dlookup() incremented d_refcnt on dentry before returning.
-                // so we need to call dput to decrement d_refcnt then unlock the struct.
-                drelease(dentry);
-                goto perm_error;
-            }
-        } else { // an error occured, either dentry not found or just some other error.
-            if (err == -ENOENT) {
-                dlock(dir);
-                path->directory = dir;
-            }
-            goto error;
-        }
-
-        if (compare_strings(token, path->lasttoken) == 0)
-            break;
-
-        dir     = dentry;
-        decr    = 1;
-        dentry  = NULL;
-        tok_i++;
-    }
-
-found:
-    if (ptok_i)
-        *ptok_i = tok_i;
-    path->dentry= dentry;
-    return 0;
-error:
-    if (ptok_i)
-        *ptok_i = tok_i;
-    return err;
-perm_error:
-    return err;
-}
-*/
-
 int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *cred,
                     int oflags, mode_t mode, int flags, dentry_t **pdp) {
+    int         err     = 0;
     size_t      tok_i   = 0;
     dentry_t    *dp     = NULL;
     inode_t     *ip     = NULL;
     vfspath_t   *path   = NULL;
-    int         err     = 0, isdir = 0;
+    itype_t     type    = 0;
     (void)  flags;
 
     if (dir == NULL)
         return -EINVAL;
+
+    // get the type of node
+    type = iextract_type(mode);
+    mode &= ~S_IFMT;    // turn off type bits.
 
     dassert_locked(dir);
 
@@ -331,42 +277,18 @@ int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *cred,
         goto found;
     }
 
-    foreach(token, path->tokenized) {
-        dp = NULL;
-        switch ((err = dlookup(dir, token, &dp))) {
-        case 0:
-            ilock(dp->d_inode);
-            if ((err = icheck_perm(dp->d_inode, cred, oflags))) {
-                iunlock(dp->d_inode);
-                dclose(dp);
-                goto error;
-            }
-            iunlock(dp->d_inode);
-            goto next;
-        case -ENOENT:
-            goto delegate;
-        default:
-            dclose(dir);
-            goto error;
-        }
 
-    next:
-        dclose(dir);
-        if (!compare_strings(token, path->lasttoken)) {
-            if (isdir && dp->d_inode) {
-                ilock(dp->d_inode);
-                if (IISDIR(dp->d_inode) == 0) {
-                    err = -ENOTDIR;
-                    iunlock(dp->d_inode);
-                    dclose(dp);
-                    goto error;
-                }
-                iunlock(dp->d_inode);
-            }
-            goto found;
-        }
-        dir = dp;
-        tok_i++;
+   switch ((err = vfs_traverse_path(dir, cred, oflags, path, &tok_i))) {
+    case 0:
+        dp = path->dentry;
+        dir = path->directory;
+        goto found;
+    case -ENOENT:
+        dir = path->directory;
+        goto delegate;
+    default:
+        panic("entry[%p, %p]\n", path->dentry, path->directory);
+        goto error;
     }
 
 delegate:
@@ -383,17 +305,29 @@ delegate:
             // printk("file(\e[0;013m%s\e[0m) not found.\n", token);
             // Did user specify O_CREAT flag?
             if ((oflags & O_CREAT)) {
-                if (oflags & O_DIRECTORY) {
+                switch (type) {
+                case FS_RGL:
+                    if ((err = icreate(dir->d_inode, token, mode))) {
+                    // create a regular file.
+                        iunlock(dir->d_inode);
+                        dclose(dir);
+                        goto error;
+                    }
+                    break;
+                case FS_DIR:
                     if ((err = imkdir(dir->d_inode, token, mode))) {
                         iunlock(dir->d_inode);
                         dclose(dir);
                         goto error;
                     }
-                } else if ((err = icreate(dir->d_inode, token, mode))) {
-                // create a regular file.
-                    iunlock(dir->d_inode);
-                    dclose(dir);
-                    goto error;
+                    break;
+                case FS_CHR:
+                case FS_BLK:
+                case FS_LNK:
+                case FS_FIFO:
+                case FS_SOCK:
+                default:
+                    panic("%s:%d: Failed to create: '%s'\n", __FILE__, __LINE__, itype_strings[type]);
                 }
 
                 goto try_lookup;   

@@ -314,11 +314,15 @@ typedef struct {
 #define thread_set_simd_dirty(t)        ({ thread_setflags((t), THREAD_SIMD_DIRTY); })
 #define thread_mask_simd_dirty(t)       ({ thread_maskflags((t), THREAD_SIMD_DIRTY); })
 
+#define thread_cred(t)                  ({ thread_assert(t); (t)->t_cred; })
+
 #define current_assert()                ({ assert(current, "No current thread running"); })
 #define current_lock()                  ({ thread_lock(current); })
 #define current_unlock()                ({ thread_unlock(current); })
 #define current_locked()                ({ thread_islocked(current); })
 #define current_assert_locked()         ({ thread_assert_locked(current); })
+
+#define current_cred()                  ({ current ? thread_cred(current) : NULL; })
 
 #define current_tgroup()                ({ current ? thread_tgroup(current) : NULL; })
 #define current_tgroup_lock()           ({ thread_tgroup_lock(current); })

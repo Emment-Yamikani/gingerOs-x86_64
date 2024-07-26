@@ -99,33 +99,34 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
     strncpy(node->name, droot->d_name, strlen(droot->d_name));
 
     sb->sb_blocksize = 512;
+    sb->sb_size      = ramfs2_super->header.file_size;
     strncpy(sb->sb_magic0, ramfs2_super->header.magic,
             strlen(ramfs2_super->header.magic));
-    sb->sb_size = ramfs2_super->header.file_size;
     sb->sb_uio  = (cred_t) {
-        .c_gid = 0,
-        .c_uid = 0,
+        .c_gid   = 0,
+        .c_uid   = 0,
         .c_umask = 0555,
-        .c_lock = SPINLOCK_INIT(),
+        .c_lock  = SPINLOCK_INIT(),
     };
     sb->sb_root = droot;
-    ramfs2_sb = sb;
+    ramfs2_sb   = sb;
 
-    node->offset = 0;
-    node->mode = 0555;
-    node->type = RAMFS2_DIR;
-    node->gid = sb->sb_uio.c_gid;
-    node->uid = sb->sb_uio.c_uid;
+    node->offset= 0;
+    node->mode  = 0555;
+    node->type  = RAMFS2_DIR;
+    node->gid   = sb->sb_uio.c_gid;
+    node->uid   = sb->sb_uio.c_uid;
 
-    iroot->i_mode = node->mode;
-    iroot->i_uid = node->uid;
-    iroot->i_gid = node->gid;
-    iroot->i_ino = node->offset;
-    iroot->i_priv = node;
+    iroot->i_mode   = node->mode;
+    iroot->i_uid    = node->uid;
+    iroot->i_gid    = node->gid;
+    iroot->i_ino    = node->offset;
+    iroot->i_priv   = node;
 
-    iroot->i_type = FS_DIR;
-    iroot->i_sb = ramfs2_sb;
-    iroot->i_ops = ramfs2_sb->sb_iops;
+    iroot->i_type   = FS_DIR;
+    iroot->i_sb     = ramfs2_sb;
+    iroot->i_ops    = ramfs2_sb->sb_iops;
+
     dunlock(droot);
     iunlock(iroot);
 
@@ -176,10 +177,10 @@ int ramfs2_find(ramfs2_super_t *super, const char *fn, ramfs2_node_t **pnode) {
 }
 
 static int ramfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
-    int             err = 0;
-    itype_t         type = 0;
-    inode_t         *ip = NULL;
-    ramfs2_node_t   *node = NULL;
+    int             err     = 0;
+    itype_t         type    = 0;
+    inode_t         *ip     = NULL;
+    ramfs2_node_t   *node   = NULL;
 
     iassert_locked(dir);
     if (!dir || pipp == NULL)
@@ -200,15 +201,15 @@ static int ramfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     if ((err = ialloc(type, 0, &ip)))
         return err;
 
-    ip->i_sb = ramfs2_sb;
-    ip->i_ops = ramfs2_sb->sb_iops;
-    ip->i_priv = node;
-    ip->i_gid = node->gid;
-    ip->i_uid = node->uid;
-    ip->i_mode = node->mode;
-    ip->i_size = node->size;
-    ip->i_type = type;
-    ip->i_ino = node - ramfs2_super->nodes;
+    ip->i_priv  = node;
+    ip->i_type  = type;
+    ip->i_sb    = ramfs2_sb;
+    ip->i_gid   = node->gid;
+    ip->i_uid   = node->uid;
+    ip->i_mode  = node->mode;
+    ip->i_size  = node->size;
+    ip->i_ops   = ramfs2_sb->sb_iops;
+    ip->i_ino   = node - ramfs2_super->nodes;
 
     *pipp = ip;
     return 0;
@@ -282,17 +283,18 @@ static ssize_t ramfs2_readdir(inode_t *dir, off_t offset, struct dirent *buff, s
         if (indx >= count)
             break;
         buff[indx] = (struct dirent){
-            .d_ino = offset + 1,
-            .d_off = offset,
+            .d_off  = offset,
+            .d_ino  = offset + 1,
             .d_reclen = sizeof *buff,
             .d_size = ramfs2_super->nodes[offset].size,
-            .d_type = (int[]){
+            .d_type = (int[]) {
                 [RAMFS2_INV] = 0,
                 [RAMFS2_REG] = _IFREG,
                 [RAMFS2_DIR] = _IFDIR,
             }[ramfs2_super->nodes[offset].type],
             .d_name[0] = '\0',
         };
+
         switch (ramfs2_super->nodes[offset].type) {
         case RAMFS2_DIR:
             buff[indx].d_type = FS_DIR;
@@ -303,6 +305,7 @@ static ssize_t ramfs2_readdir(inode_t *dir, off_t offset, struct dirent *buff, s
         default:
             buff[indx].d_type = FS_INV;
         }
+
         strncpy(buff[indx].d_name, ramfs2_super->nodes[offset].name,
             strlen(ramfs2_super->nodes[offset].name));
     }

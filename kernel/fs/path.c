@@ -163,7 +163,6 @@ int parse_path(const char *pathname, const char *cwd, int flags, vfspath_t **pre
             abslen++;
         } else
             abs[abslen] = '\0';
-        
     }
 
     err = -ENOMEM;

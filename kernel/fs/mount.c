@@ -179,7 +179,7 @@ int vfs_mount(const char *src, const char *target, const char *type, u64 flags, 
     fs_mount_t          *mnt    = NULL;
     filesystem_t        *fs     = NULL;
     __unused inode_t    *isrc   = NULL, *itarget = NULL;
-    __unused dentry_t   *dentry = NULL, *dsrc = NULL, *dtarget = NULL;
+    __unused dentry_t   *dentry = NULL, *dtarget = NULL, *dsrc = NULL;
 
     if (target == NULL)
         return -EINVAL;
