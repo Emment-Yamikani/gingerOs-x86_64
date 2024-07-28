@@ -69,13 +69,13 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
         ilock(path->directory->d_inode);
         if ((err = icheck_perm(path->directory->d_inode, cred, oflags))) {
             iunlock(path->directory->d_inode);
-            // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+            // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
             goto error;
         }
 
         // Ensure that this path->directory is actually refering to a directory.
         if ((err = IISDIR(path->directory->d_inode) ? 0 : -ENOTDIR)) {
-            // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+            // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
             iunlock(path->directory->d_inode);
             goto error;
         }
@@ -99,7 +99,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                                 vfspath_set_lasttoken(path);
                             }
                             iunlock(path->directory->d_inode);
-                            // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                            // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
                             goto error;
                         }
                         iunlock(path->directory->d_inode);
@@ -107,21 +107,21 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                         // found the inode.
                         if ((err = icheck_perm(ip, cred, oflags))) {
                             irelease(ip);
-                            // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                            // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
                             goto error;
                         }
 
                         // add dentry alias to the new inode.
                         if ((err = imkalias(ip, token, &dentry))) {
                             irelease(ip);
-                            // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                            // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
                             goto error;
                         }
 
                         // bind the new dentry to the directory tree.
                         if ((err = dbind(path->directory, dentry))) {
                             irelease(ip);
-                            // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                            // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
                             goto error;
                         }
 
@@ -145,7 +145,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                             if (err == - ENOTDIR) {
                                 /** ERROR: the next token cannot be traversed
                                  * because it is not a directory.*/
-                                // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                                // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
                                 dclose(dentry);
                                 goto error;
                             }
@@ -171,7 +171,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
             if ((err = icheck_perm(dentry->d_inode, cred, oflags))) {
                 iunlock(dentry->d_inode);
                 dclose(dentry);
-                // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
                 goto error;
             }
             err = IISDIR(dentry->d_inode) ? 0: -ENOTDIR;
@@ -195,7 +195,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
             if (err == - ENOTDIR) {
                 /** ERROR: the next token cannot be traversed
                  * because it is not a directory.*/
-                // printk("%s:%d: %s() failed to lookup: '%s', err: %d\n", __FILE__, __LINE__, __func__, token, err);
+                // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
                 dclose(dentry);
                 goto error;
             }

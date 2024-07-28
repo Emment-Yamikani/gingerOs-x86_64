@@ -268,19 +268,42 @@ int     open(const char *pathname, int oflags, mode_t mode) {
         fctx_unlock(ctx);
     }
 
-__lookup:
-    /**
-     * set dentry based on iteration level.
-     * if this is the first iteration, dentry
-     * is set to itself as in from the thread_group's current directory
-     * above else it will be null, indicating the systems rootdir.
-     * if, however, this isn't the first iteration then dentry is set to
-     * the current directory according to where the previous traversal ended.
-     */
-    dentry = path ? path->directory : dentry;
-    if ((err = vfs_resolve_path(pathname, dentry, current_cred(), O_EXCL, &path))) {
-        if ((err == -ENOENT) && (oflags & O_CREAT))
-            goto creat;
+    if ((err = vfs_resolve_path(pathname, dentry, current_cred(), oflags, &path))) {
+        if ((err == -ENOENT) && (oflags & O_CREAT)) {
+            if (vfspath_isdir(path) || (oflags & O_DIRECTORY)) {
+                err = -EINVAL;
+                dclose(path->directory);
+                goto error;
+            }
+
+            // Ensure to only create the file if path->token is the last component in the path.
+            if (vfspath_islasttoken(path)) {
+                ilock(path->directory->d_inode);
+                if ((err = icreate(path->directory->d_inode, path->token, mode & ~S_IFMT))) {
+                    iunlock(path->directory->d_inode);
+                    dclose(path->directory);
+                    goto error;
+                }
+                iunlock(path->directory->d_inode);
+                /**
+                 * NOTE: no need of dclose(path->directory);
+                 * followed by path_free(path); here
+                 * because vfs_traverse_path() below can operate on a 'path'
+                 * starting at the last traversed token, thus improving performance.
+                 **/
+                // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
+                if ((err = vfs_traverse_path(path, current_cred(), oflags))) {
+                    dclose(path->dentry);
+                    goto error;
+                }
+                goto found;
+            }
+
+            // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
+            // remaining token is not the lat component of path.
+            dclose(path->directory);
+            goto error;
+        }
         
          if (path) {
             assert(path->directory, "On error, path has no directory\n");
@@ -289,39 +312,6 @@ __lookup:
         goto error;
     }
     
-    goto found;
-creat:
-    if (vfspath_isdir(path) || (oflags & O_DIRECTORY)) {
-        err = -EINVAL;
-        dclose(path->directory);
-        goto error;
-    }
-
-    // Ensure to only create the file if path->token is the last component in the path.
-    if (vfspath_islasttoken(path)) {
-        ilock(path->directory->d_inode);
-        if ((err = icreate(path->directory->d_inode, path->token, mode & ~S_IFMT))) {
-            iunlock(path->directory->d_inode);
-            dclose(path->directory);
-            goto error;
-        }
-        iunlock(path->directory->d_inode);
-        /**
-         * NOTE: no need of dclose(path->directory);
-         * followed by path_free(path); here
-         * because vfs_resolve_path() above can operate on a 'path'
-         * starting at the last traversed token, thus improving performance.
-         **/
-        goto __lookup;
-    }
-
-    // remaining token is not the lat component of path.
-    dclose(path->directory);
-error:
-    if (path)
-        path_free(path);
-    return err;
-
 found:
     assert(path->directory == NULL, "On success, path has directory\n");
     assert(path->dentry, "On success, path has no dentry\n");
@@ -340,6 +330,10 @@ found:
 
     path_free(path);
     return fd;
+error:
+    if (path)
+        path_free(path);
+    return err;
 }
 
 int     openat(int fd, const char *pathname, int oflags, mode_t mode __unused) {

@@ -4,7 +4,7 @@
 #include <lib/stddef.h>
 #include <fs/dentry.h>
 #include <sys/system.h>
-
+//tmp/foo/bar
 typedef struct vfspath_t {
     int         flags;          // flags specifying how to parse the given path.
     dentry_t    *dentry;        // if lookup succeeded, this is the dentry we were searching for.
