@@ -24,7 +24,7 @@ extern ssize_t  sys_read(int fd, void *buf, size_t size);
 extern ssize_t  sys_write(int fd, void *buf, size_t size);
 extern int      sys_open(const char *pathname, int oflags, mode_t mode);
 extern int      sys_openat(int fd, const char *pathname, int oflags, mode_t mode);
-extern int      sys_create(int fd, const char *filename, mode_t mode);
+extern int      sys_create(const char *filename, mode_t mode);
 extern int      sys_mkdirat(int fd, const char *filename, mode_t mode);
 extern ssize_t  sys_readdir(int fd, off_t off, void *buf, size_t count);
 extern int      sys_linkat(int fd, const char *oldname, const char *newname);
@@ -39,6 +39,8 @@ extern int      sys_fstatat(int fd, const char *restrict path, struct stat *rest
 extern int      sys_getcwd(char *buf, size_t size);
 extern int      sys_chdir(const char *path);
 extern int      sys_pipe(int fds[2]);
+extern int      sys_mkdir(const char *filename, mode_t mode);
+extern int      sys_mknod(const char *filename, mode_t mode, int devid);
 
 extern pid_t    sys_wait(int *stat_loc);
 extern int      sys_uname(struct utsname *name);

@@ -99,11 +99,10 @@ int vfs_init(void) {
 
     if ((err = vfs_mount(NULL, "/", "tmpfs", 0, NULL)))
         return err;
-
     mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
 
     for (int i = 0; dir[i] ; ++i) {
-        if ((err = vfs_mkdirat(dir[i], NULL, NULL, mode | S_IFDIR)))
+        if ((err = vfs_mkdir(dir[i], NULL, mode | S_IFDIR)))
             return err;
     }
 
@@ -239,61 +238,4 @@ int vfs_dirlist(const char *path) {
     dclose(dfile);
 
     return 0;
-}
-
-int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *cred, int oflags, dentry_t **pdp) {
-    int         err     = 0;
-    vfspath_t   *path   = NULL;
-
-    if (dir == NULL)
-        return -EINVAL;
-
-    dassert_locked(dir);
-
-    if ((err = parse_path(pathname, NULL, 0, &path)))
-        return err;
-
-    path->directory = dir;
-
-    if (!compare_strings(path->absolute, "/")) {
-        path->dentry    = dir;
-        path->directory = NULL;
-        goto found;
-    }
-
-    if ((err = vfs_traverse_path(path, cred, oflags, NULL))) {
-        goto error;
-    }
-
-found:
-    if (pdp) {
-        *pdp = path->dentry;
-    } else {
-        dclose(path->dentry);
-    }
-
-    if (path->directory)
-        dclose(path->directory);
-
-    if (path)
-        path_free(path);
-    return 0;
-error:
-    if (path->dentry)
-        dclose(path->dentry);
-
-    dclose(path->directory);
-
-    if (path)
-        path_free(path);
-    return err;
-}
-
-int vfs_lookup(const char *pathname, cred_t *__cred, int oflags, dentry_t **pdp) {
-    dentry_t *dir = NULL;
-
-    if ((dir = vfs_getdroot()) == NULL)
-        return -EINVAL;
-
-    return vfs_lookupat(pathname, dir, __cred, oflags, pdp);
 }

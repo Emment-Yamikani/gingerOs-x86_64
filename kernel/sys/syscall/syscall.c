@@ -67,8 +67,8 @@ int      sys_ioctl(int fd, int req, void *argp) {
     return ioctl(fd, req, argp);
 }
 
-int      sys_create(int fd, const char *filename, mode_t mode) {
-    return create(fd, filename, mode);
+int      sys_create(const char *filename, mode_t mode) {
+    return create(filename, mode);
 }
 
 int      sys_mkdirat(int fd, const char *filename, mode_t mode) {
@@ -85,6 +85,14 @@ int      sys_linkat(int fd, const char *oldname, const char *newname) {
 
 int      sys_mknodat(int fd, const char *filename, mode_t mode, int devid) {
     return mknodat(fd, filename, mode, devid);
+}
+
+int      sys_mkdir(const char *filename, mode_t mode) {
+    return mkdir(filename, mode);
+}
+
+int      sys_mknod(const char *filename, mode_t mode, int devid) {
+    return mknod(filename, mode, devid);
 }
 
 int      sys_sync(int fd) {

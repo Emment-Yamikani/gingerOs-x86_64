@@ -102,6 +102,9 @@ sys_%2:
 
 %define SYS_PIPE            79
 
+%define SYS_MKDIR           80
+%define SYS_MKNOD           81
+
 stub SYS_PUTC, putc
 stub SYS_CLOSE, close
 stub SYS_UNLINK, unlink
@@ -123,6 +126,9 @@ stub SYS_MKNODAT, mknodat
 stub SYS_SYNC, sync
 stub SYS_GETATTR, getattr
 stub SYS_SETATTR, setattr
+
+stub SYS_MKDIR, mkdir
+stub SYS_MKNOD, mknod
 
 stub SYS_FSTAT, fstat
 stub SYS_STAT, stat

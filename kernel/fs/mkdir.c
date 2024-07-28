@@ -10,45 +10,50 @@ int vfs_mkdirat(const char *pathname, dentry_t *dir, cred_t *cred, mode_t mode) 
     int         err     = 0;
     vfspath_t   *path   = NULL;
 
-    if ((err = parse_path(pathname, NULL, 0, &path)))
-        return err;
-
-    if (dir == NULL) {
-        if ((dir = vfs_getdroot()) == NULL) {
-            err = -EINVAL;
-            goto error;
-        }
-    }
-
-    path->directory = dir;
-    if ((err = vfs_traverse_path(path, cred, O_EXCL, NULL)) != -ENOENT) {
-        goto error;
-    } else if (err == 0) {
-        err = -EEXIST;
-        goto error;
+    if (!S_ISDIR(mode)) {
+        if (S_IFMT & mode)
+            return -EINVAL;
     }
     
-    // doesn't exist.
+    if ((err = vfs_resolve_path(pathname, dir, cred, O_EXCL, &path))) {
+        if (err == -ENOENT) {
+            // only goto create dir if the traversal reached the last token of the path.
+            if (vfspath_islasttoken(path))
+                goto creat;
+            printk("%s(%s)\n", __func__, path->lasttoken);
+            debugloc();
+        }
+        
+        if (path) {
+            assert(path->directory, "On error, path has no directory\n");
+            dclose(path->directory);
+        }
+        goto error;
+    }
 
+    assert(path->directory == NULL, "On success, path has directory\n");
+    assert(path->dentry, "On success, path has no dentry\n");
+    err = -EEXIST;
+    dclose(path->directory);
+    goto error;
+creat:
     ilock(path->directory->d_inode);
     if ((err = imkdir(path->directory->d_inode, path->token, mode & ~S_IFMT))) {
         iunlock(path->directory->d_inode);
+        dclose(path->directory);
         goto error;
     }
     iunlock(path->directory->d_inode);
 
-    if (path->dentry)
-        dclose(path->dentry);
-    if (path->directory)
-        dclose(path->directory);
-
+    dclose(path->directory);
+    path_free(path);
     return 0;
 error:
-    if (path->dentry)
-        dclose(path->dentry);
-    if (path->directory)
-        dclose(path->directory);
     if (path)
         path_free(path);
     return err;
+}
+
+int vfs_mkdir(const char *path, cred_t *cred, mode_t mode) {
+    return vfs_mkdirat(path, NULL, cred, mode);
 }

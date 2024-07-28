@@ -249,28 +249,96 @@ error:
     return err;
 }
 
-int     open(const char *pathname, int oflags, mode_t mode __unused) {
+int     open(const char *pathname, int oflags, mode_t mode) {
     int         fd      = 0;
     int         err     = 0;
-    cred_t      *cred   = NULL;
+    vfspath_t   *path   = NULL;
     file_t      *file   = NULL;
     dentry_t    *dentry = NULL;
+    file_ctx_t  *ctx    = NULL;
 
-    if ((err = vfs_lookup(pathname, cred, oflags, &dentry)))
-        return err;
+    // open() must only be called by threads.
+    current_assert();
+
+    if ((ctx = current_fctx())) {
+        fctx_lock(ctx);
+        dentry = ctx->fc_cwd;
+        dlock(dentry);
+        ddup(dentry);
+        fctx_unlock(ctx);
+    }
+
+__lookup:
+    /**
+     * set dentry based on iteration level.
+     * if this is the first iteration, dentry
+     * is set to itself as in from the thread_group's current directory
+     * above else it will be null, indicating the systems rootdir.
+     * if, however, this isn't the first iteration then dentry is set to
+     * the current directory according to where the previous traversal ended.
+     */
+    dentry = path ? path->directory : dentry;
+    if ((err = vfs_resolve_path(pathname, dentry, current_cred(), O_EXCL, &path))) {
+        if ((err == -ENOENT) && (oflags & O_CREAT))
+            goto creat;
+        
+         if (path) {
+            assert(path->directory, "On error, path has no directory\n");
+            dclose(path->directory);
+        }
+        goto error;
+    }
     
+    goto found;
+creat:
+    if (vfspath_isdir(path) || (oflags & O_DIRECTORY)) {
+        err = -EINVAL;
+        dclose(path->directory);
+        goto error;
+    }
+
+    // Ensure to only create the file if path->token is the last component in the path.
+    if (vfspath_islasttoken(path)) {
+        ilock(path->directory->d_inode);
+        if ((err = icreate(path->directory->d_inode, path->token, mode & ~S_IFMT))) {
+            iunlock(path->directory->d_inode);
+            dclose(path->directory);
+            goto error;
+        }
+        iunlock(path->directory->d_inode);
+        /**
+         * NOTE: no need of dclose(path->directory);
+         * followed by path_free(path); here
+         * because vfs_resolve_path() above can operate on a 'path'
+         * starting at the last traversed token, thus improving performance.
+         **/
+        goto __lookup;
+    }
+
+    // remaining token is not the lat component of path.
+    dclose(path->directory);
+error:
+    if (path)
+        path_free(path);
+    return err;
+
+found:
+    assert(path->directory == NULL, "On success, path has directory\n");
+    assert(path->dentry, "On success, path has no dentry\n");
 
     if ((err = file_alloc(&fd, &file))) {
-        dclose(dentry);
-        return err;
+        dclose(path->dentry);
+        goto error;
     }
 
     file->fops      = NULL;
-    file->f_dentry  = dentry;
+    file->f_dentry  = path->dentry;
     file->f_oflags  = oflags;
     
     funlock(file);
-    dunlock(dentry);
+    dunlock(path->dentry);
+
+    path_free(path);
     return fd;
 }
 
@@ -433,14 +501,8 @@ ssize_t write(int fd, void *buf, size_t size) {
     return err;
 }
 
-int     create(int fd, const char *pathname, mode_t mode) {
-    int err= 0;
-    file_t *file = NULL;
-    if ((err = file_get(fd, &file)))
-        return err;
-    err = fcreate(file, pathname, mode);
-    funlock(file);
-    return err;
+int     create(const char *pathname, mode_t mode) {
+    return open(pathname, O_WRONLY | O_CREAT | O_TRUNC, mode);
 }
 
 int     mkdirat(int fd, const char *pathname, mode_t mode) {
@@ -451,6 +513,10 @@ int     mkdirat(int fd, const char *pathname, mode_t mode) {
     err = fmkdirat(file, pathname, mode);
     funlock(file);
     return err;
+}
+
+int     mkdir(const char *pathname, mode_t mode) {
+    return vfs_mkdir(pathname, current_cred(), mode);
 }
 
 ssize_t readdir(int fd, off_t off, void *buf, size_t count) {
@@ -481,6 +547,10 @@ int     mknodat(int fd, const char *pathname, mode_t mode, int devid) {
     err = fmknodat(file, pathname, mode, devid);
     funlock(file);
     return err;
+}
+
+int     mknod(const char *pathname, mode_t mode, int devid) {
+    return vfs_mknod(pathname, current_cred(), mode, devid);
 }
 
 int     fstat(int fd, struct stat *buf) {

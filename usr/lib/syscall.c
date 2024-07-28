@@ -52,8 +52,8 @@ int openat(int fd, const char *pathname, int oflags, mode_t mode) {
     return sys_openat(fd, pathname, oflags, mode);
 }
 
-int create(int fd, const char *filename, mode_t mode) {
-    return sys_create(fd, filename, mode);
+int create(const char *filename, mode_t mode) {
+    return sys_create(filename, mode);
 }
 
 int mkdirat(int fd, const char *filename, mode_t mode) {
@@ -99,6 +99,15 @@ int fstatat(int fd, const char *restrict path, struct stat *restrict buf, int fl
 int pipe(int fds[2]) {
     return sys_pipe(fds);
 }
+
+int mkdir(const char *filename, mode_t mode) {
+    return sys_mkdir(filename, mode);
+}
+
+int mknod(const char *filename, mode_t mode, int devid) {
+    return sys_mknod(filename, mode, devid);
+}
+
 
 int getcwd(char *buf, size_t size) {
     return sys_getcwd(buf, size);

@@ -594,7 +594,27 @@ int tmpfs_ilink(const char *oldname __unused, inode_t *dir __unused, const char 
     return -ENOTSUP;
 }
 
-int tmpfs_imknod(inode_t *dir __unused, const char *name __unused, mode_t mode __unused, int devid __unused) {
+int tmpfs_imknod(inode_t *dir __unused, const char *name __unused, mode_t mode, int devid __unused) {
+    __unused int     err = 0;
+    // Validate the mode
+    if ((mode & S_IFMT) == 0) {
+        mode |= S_IFREG; // Default to regular file
+    }
+    
+    if (!S_ISCHR(mode) && !S_ISBLK(mode) && !S_ISFIFO(mode) && !S_ISSOCK(mode) && !S_ISREG(mode)) {
+        return -EINVAL; // Invalid argument
+    }
+
+    if (S_ISBLK(mode) || S_ISCHR(mode)) {
+
+    } else if (S_ISREG(mode)) {
+
+    } else if (S_ISFIFO(mode)) {
+
+    }
+    goto error;
+    return 0;
+error:
     return -ENOTSUP;
 }
 

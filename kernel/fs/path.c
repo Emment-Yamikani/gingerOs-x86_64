@@ -161,8 +161,9 @@ int parse_path(const char *pathname, const char *cwd, int flags, vfspath_t **pre
         if (token != tokens[tok_i - 1]) {
             abs[abslen] = '/';
             abslen++;
-        } else
+        } else {
             abs[abslen] = '\0';
+        }
     }
 
     err = -ENOMEM;
@@ -178,22 +179,24 @@ int parse_path(const char *pathname, const char *cwd, int flags, vfspath_t **pre
     kfree(tmppath);
     kfree(tmptokens);
     
-    path->flags = flags | (isdir ? PATH_ISDIR : 0);
+    vfspath_setflags(path, flags | (isdir ? PATH_ISDIR : 0));
 
     if (flags & PATH_NOABS)
         kfree(abs);
-    else path->absolute = abs;
+    else
+        path->absolute = abs;
 
-    if (flags & PATH_NOTOKENIZED)
+    if (flags & PATH_NOTOKENIZED) {
         tokens_free(tokens);
-    else {
+    } else {
         path->tokencount = tok_i;
         path->tokenized = tokens;
     };
 
     if (flags & PATH_NOLAST_TOK)
         kfree(last_token);
-    else path->lasttoken = last_token;
+    else
+        path->lasttoken = last_token;
 
     *pref = path;
     return 0;

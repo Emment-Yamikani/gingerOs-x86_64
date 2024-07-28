@@ -30,3 +30,5 @@
 #include <stdnoreturn.h>
 #include <string.h>
 #include <types.h>
+
+dev_t mkdev(int major, int minor);

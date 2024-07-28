@@ -498,20 +498,16 @@ int icheck_perm(inode_t *ip, cred_t *cred, int oflags) {
     if (cred->c_uid == 0) /* root */
         goto done;
 
-    if (((oflags & O_ACCMODE) == O_RDONLY) || (oflags & O_ACCMODE) != O_WRONLY)
-    {
-        if (ip->i_uid == cred->c_uid)
-        {
+    if (((oflags & O_ACCMODE) == O_RDONLY) || (oflags & O_ACCMODE) != O_WRONLY) {
+        if (ip->i_uid == cred->c_uid) {
             if (ip->i_mode & S_IRUSR)
                 goto write_perms;
         }
-        else if (ip->i_gid == cred->c_gid)
-        {
+        else if (ip->i_gid == cred->c_gid) {
             if (ip->i_mode & S_IRGRP)
                 goto write_perms;
         }
-        else
-        {
+        else {
             if (ip->i_mode & S_IROTH)
                 goto write_perms;
         }
@@ -521,19 +517,15 @@ int icheck_perm(inode_t *ip, cred_t *cred, int oflags) {
     }
 
 write_perms:
-    if (((oflags & O_ACCMODE) == O_WRONLY) || (oflags & O_ACCMODE) == O_RDWR)
-    {
-        if (ip->i_uid == cred->c_uid)
-        {
+    if (((oflags & O_ACCMODE) == O_WRONLY) || (oflags & O_ACCMODE) == O_RDWR) {
+        if (ip->i_uid == cred->c_uid) {
             if (ip->i_mode & S_IWUSR)
                 goto exec_perms;
         }
-        else if (ip->i_gid == cred->c_gid)
-        {
+        else if (ip->i_gid == cred->c_gid) {
             if (ip->i_mode & S_IWGRP)
                 goto exec_perms;
-        }
-        else
+        } 
         {
             if (ip->i_mode & S_IWOTH)
                 goto exec_perms;
@@ -544,20 +536,16 @@ write_perms:
     }
 
 exec_perms:
-    if ((oflags & O_EXCL))
-    {
-        if (ip->i_uid == cred->c_uid)
-        {
+    if ((oflags & O_EXCL)) {
+        if (ip->i_uid == cred->c_uid) {
             if (ip->i_mode & S_IXUSR)
                 goto done;
         }
-        else if (ip->i_gid == cred->c_gid)
-        {
+        else if (ip->i_gid == cred->c_gid) {
             if (ip->i_mode & S_IXGRP)
                 goto done;
         }
-        else
-        {
+        else {
             if (ip->i_mode & S_IXOTH)
                 goto done;
         }

@@ -6,6 +6,7 @@ typedef     int                 tid_t;
 typedef     long                ssize_t;
 typedef     unsigned            long off_t;
 typedef     unsigned short      devid_t;
+typedef     unsigned short      dev_t;
 
 typedef     int                 uid_t;
 typedef     int                 gid_t;
