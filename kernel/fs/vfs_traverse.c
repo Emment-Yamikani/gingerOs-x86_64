@@ -1,8 +1,9 @@
+#include <bits/errno.h>
 #include <fs/dentry.h>
 #include <fs/fs.h>
 #include <fs/inode.h>
 #include <lib/string.h>
-#include <bits/errno.h>
+#include <sys/thread.h>
 
 /**
  * @brief 
@@ -35,8 +36,25 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
      * 
      */
     if (path->directory == NULL) {
-        if ((path->directory = vfs_getdroot()) == NULL) {
-            return -ENOTDIR;
+        if (current_fctx()) {
+            fctx_lock(current_fctx());
+            if (path->directory != current_fctx()->fc_cwd) {
+                if (path->directory)
+                    dclose(path->directory);
+                if (vfspath_isabsolute(path))
+                    path->directory = current_fctx()->fc_root;
+                else
+                    path->directory = current_fctx()->fc_cwd;
+                dlock(path->directory);
+                ddup(path->directory);
+            }
+            fctx_unlock(current_fctx());
+        } 
+        
+        if (path->directory == NULL) {
+            if ((path->directory = vfs_getdroot()) == NULL) {
+                return -ENOTDIR;
+            }
         }
     }
 
@@ -47,6 +65,18 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
      * requested path entry.
      */
     if (!compare_strings("/", path->absolute)) {
+        if (current_fctx()) {
+            fctx_lock(current_fctx());
+            if (path->directory != current_fctx()->fc_root) {
+                if (path->directory)
+                    dclose(path->directory);
+                path->directory = current_fctx()->fc_root;
+                dlock(path->directory);
+                ddup(path->directory);
+            }
+            fctx_unlock(current_fctx());
+        }
+
         // test is we have an inode, needed especially during kernel startup.
         if (path->directory->d_inode) {
             ilock(path->directory->d_inode);
@@ -56,6 +86,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
             }
             iunlock(path->directory->d_inode);
         }
+
         path->dentry    = path->directory;
         path->directory = NULL;
         return 0;
@@ -228,7 +259,7 @@ int vfs_resolve_path(const char *pathname, dentry_t *dir,  cred_t *cred, int ofl
     if (pathname == NULL || rp == NULL)
         return -EINVAL;
 
-    if ((err = parse_path(pathname, NULL, 0, &path)))
+    if ((err = vfspath_parse(pathname, 0, &path)))
         return err;
 
     path->directory = dir;

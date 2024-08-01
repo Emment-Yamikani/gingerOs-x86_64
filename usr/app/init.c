@@ -11,9 +11,17 @@ void main(void) {
         panic("Failed to mkdir, error: %d\n", err);
 
     printf("opening file\n");
-    if ((err = fd = open("/tmp/foo/bar", O_CREAT | O_RDWR | O_TRUNC, mode)) < 0)
-        panic("Failed to open, error: %d\n", err);
 
+    chdir("/tmp/foo");
+
+    if ((err = fd = open("bar", O_CREAT | O_RDWR | O_TRUNC, mode)) < 0)
+        panic("Failed to open, error: %d\n", err);
+    
+    close(fd);
+    
+    if ((err = fd = open("/tmp/foo/bar", O_RDWR, mode)) < 0)
+        panic("Failed to open, error: %d\n", err);
+    
     if ((err = write(fd, buf, sizeof buf)) < 0)
         panic("Failed to write, error: %d\n", err);
     lseek(fd, 0, SEEK_SET);

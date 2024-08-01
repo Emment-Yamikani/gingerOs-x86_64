@@ -15,8 +15,7 @@ __noreturn void kthread_main(void) {
     int     err     = 0;
 
     printk("\n\t\t\tWelcome to \'"
-        "\e[025453;011mGinger "
-        "OS\e[0m\'.\n\n"
+        "\e[025453;011mGinger OS\e[0m\'.\n\n"
     );
 
     builtin_threads_begin(NULL);

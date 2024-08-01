@@ -255,18 +255,9 @@ int     open(const char *pathname, int oflags, mode_t mode) {
     vfspath_t   *path   = NULL;
     file_t      *file   = NULL;
     dentry_t    *dentry = NULL;
-    file_ctx_t  *ctx    = NULL;
 
     // open() must only be called by threads.
     current_assert();
-
-    if ((ctx = current_fctx())) {
-        fctx_lock(ctx);
-        dentry = ctx->fc_cwd;
-        dlock(dentry);
-        ddup(dentry);
-        fctx_unlock(ctx);
-    }
 
     if ((err = vfs_resolve_path(pathname, dentry, current_cred(), oflags, &path))) {
         if ((err == -ENOENT) && (oflags & O_CREAT)) {

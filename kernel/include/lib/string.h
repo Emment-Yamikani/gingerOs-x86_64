@@ -43,8 +43,11 @@ char    *strrchr(const char *s, int c);
 int     strcasecmp(const char *s1, const char *s2);
 int     strncasecmp(const char *s1, const char *s2, size_t n);
 
+/// test strings for equality, based of contents.
+/// @returns 1 on success and 0 no failure. 
+int     string_eq(const char *str0, const char *str1);
 int     compare_strings(const char *s0, const char *s1);
 char    *combine_strings(const char *s0, const char *s1);
 void    tokens_free(char **tokens);
-char    **tokenize(char *s, int c, size_t *ptoks, char **plast_tok);
-char    **canonicalize_path(const char *path, size_t *ptoks, char **plast);
+int     tokenize(char *s, int c, size_t *ntoks, char ***tokenized, char **plast_tok);
+int     canonicalize_path(const char *path, size_t *ntoks, char ***ptokenized, char **plast);

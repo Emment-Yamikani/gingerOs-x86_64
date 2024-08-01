@@ -101,6 +101,8 @@ int parse_path(const char *pathname, const char *cwd, int flags, vfspath_t **pre
         strncpy(__cwd + 1, cwd, tmplen);
         __cwd[tmplen + 1] = '\0';
         cwd = __cwd;
+    } else {
+        flags |= PATH_ABSOLUTE;
     }
 
     cwdlen = strlen(cwd);
@@ -117,7 +119,7 @@ int parse_path(const char *pathname, const char *cwd, int flags, vfspath_t **pre
     strncpy(tmppath + cwdlen + 1, pathname, pathlen);
     tmppath[cwdlen + pathlen + 1] = '\0';
 
-    if (NULL == (tmptokens = canonicalize_path(tmppath, &ntok, NULL)))
+    if ((err= canonicalize_path(tmppath, &ntok, &tmptokens, NULL)))
         goto error;
 
     if (NULL == (tokens = kcalloc(ntok + 1, sizeof(char *))))
@@ -222,9 +224,6 @@ void path_free(vfspath_t *path) {
     
     if (path->absolute)
         kfree(path->absolute);
-    
-    if (path->lasttoken)
-        kfree(path->lasttoken);
     
     if (path->tokenized)
         tokens_free(path->tokenized);

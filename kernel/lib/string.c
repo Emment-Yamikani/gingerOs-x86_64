@@ -635,6 +635,10 @@ int compare_strings(const char *s0, const char *s1) {
     return strcmp((char *)s0, (char *)s1);
 }
 
+int string_eq(const char *str0, const char *str1) {
+    return !compare_strings(str0, str1);
+}
+
 #ifdef KALLOC_H
 char *strdup(const char *s) {
     int len = strlen((const char *)s) + 1;
@@ -657,22 +661,20 @@ grabtok(char *s, size_t *rlen, int c) {
         len++;
     s = buf;
     tok = kmalloc(len + 1);
-    memset(tok, 0, len + 1);
     safestrncpy(tok, s, len + 1);
-    if (rlen)
-        *rlen = len;
+    if (rlen) *rlen = len;
     return tok;
 }
 
-char **tokenize(char *s, int c, size_t *ntoks, char **plast_tok) {
-    size_t len = 0;
-    size_t i = 0;
-    char *buf = NULL;
-    char *tmp = NULL, *tmp2 = NULL;
-    char **tokens = NULL, *last_tok = NULL;
+int tokenize(char *s, int c, size_t *ntoks, char ***ptokenized, char **plast_tok) {
+    size_t  len      = 0;
+    size_t  i        = 0;
+    char    *buf     = NULL;
+    char    *tmp     = NULL, *tmp2      = NULL;
+    char    **tokens = NULL, *last_tok  = NULL;
 
-    if (!s || !c)
-        return NULL;
+    if (!s || !c || ptokenized == NULL)
+        return -EINVAL;
 
     len = strlen(s);
     buf = kmalloc(len + 1);
@@ -704,7 +706,10 @@ char **tokenize(char *s, int c, size_t *ntoks, char **plast_tok) {
         *ntoks = i;
     if (plast_tok)
         *plast_tok = last_tok;
-    return tokens;
+    
+    *ptokenized = tokens;
+
+    return 0;
 }
 
 void tokens_free(char **tokens) {
@@ -715,10 +720,9 @@ void tokens_free(char **tokens) {
     kfree(tokens);
 }
 
-char **canonicalize_path(const char *path, size_t *ntoks, char **plast) {
+int canonicalize_path(const char *path, size_t *ntoks, char ***ptokenized, char **plast) {
     /* Tokenize slash seperated words in path into tokens */
-    char **tokens = tokenize((char *)path, '/', ntoks, plast);
-    return tokens;
+    return tokenize((char *)path, '/', ntoks, ptokenized, plast);
 }
 
 #endif
