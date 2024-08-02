@@ -10,11 +10,9 @@ void main(void) {
     if ((err = mkdir("/tmp/foo/", mode)) < 0)
         panic("Failed to mkdir, error: %d\n", err);
 
-    printf("opening file\n");
+    fd = open("/tmp/foo/", O_EXCL, mode);
 
-    chdir("/tmp/foo");
-
-    if ((err = fd = open("bar", O_CREAT | O_RDWR | O_TRUNC, mode)) < 0)
+    if ((err = fd = openat(fd, "bar", O_CREAT | O_RDWR | O_TRUNC, mode)) < 0)
         panic("Failed to open, error: %d\n", err);
     
     close(fd);
