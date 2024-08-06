@@ -64,15 +64,18 @@ typedef struct dev {
 #define dev_unlock(dev)         ({ dev_assert(dev); spin_unlock(&(dev)->devlock); })
 #define dev_assert_locked(dev)  ({ dev_assert(dev); spin_assert_locked(&(dev)->devlock); })
 
-#define DEVID(_type, rdev) (&(struct devid){ \
-    .type = (_type),                         \
-    .major = ((devid_t)(rdev)&0xff),        \
-    .minor = ((devid_t)(rdev) >> 8) & 0xff, \
+#define DEVID(_type, _rdev) ((struct devid){   \
+    .major = ((devid_t)(_rdev)) & 0xff,        \
+    .minor = (((devid_t)(_rdev)) >> 8) & 0xff, \
+    .type = ((itype_t)_type),                  \
 })
 
-#define IDEVID(inode) ({    \
-    DEVID((inode)->i_type,  \
-          (inode)->i_rdev); \
+#define DEVID_PTR(_type, _rdev) (&DEVID(_type, _rdev))
+
+#define IDEVID(inode)       (&(struct devid){                  \
+    .major = ((devid_t)((inode)->i_rdev)) & 0xff,        \
+    .minor = (((devid_t)((inode)->i_rdev)) >> 8) & 0xff, \
+    .type = ((itype_t)(inode)->i_type),                  \
 })
 
 #define DEVID_CMP(dd0, dd1) ({((dd0)->major == (dd1)->major && (dd0)->minor == (dd1)->minor);})

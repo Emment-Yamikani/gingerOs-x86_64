@@ -23,8 +23,8 @@ typedef enum tstate_t {
     T_READY,        // Ready.
     T_RUNNING,      // Running.
     T_ISLEEP,       // Interruptable sleep.
-    T_USLEEP,       // Uninterruptable sleep.
     T_STOPPED,      // Stopped.
+    T_USLEEP,       // Uninterruptable sleep.
     T_TERMINATED,   // Terminated.
     T_ZOMBIE,       // Zombie.
 } tstate_t;
@@ -75,8 +75,7 @@ typedef struct __thread_shared_t {
     spinlock_t      lock;
 } thread_shared_t;
 
-typedef enum
-{
+typedef enum {
     PEMBROY,
     PRUNNING,
     PSTOPPED,
@@ -85,6 +84,22 @@ typedef enum
     PZOMBIE,
 } pstate_t;
 
+typedef enum __lock_type_t {
+    LCK_SPINLOCK,
+    LCK_CONDVAR,
+    LCK_MUTEX,
+} lock_type_t;
+
+/**
+ * @brief Chain lock to be put on the chain lock queue.
+ * 
+ */
+typedef struct __chain_lock_t {
+    lock_type_t cl_type;
+    void        *sync_obj;
+} chain_lock_t;
+
+
 typedef struct __thread_t {
     tid_t           t_tid;              // thread ID.
     tid_t           t_tgid;
@@ -92,7 +107,6 @@ typedef struct __thread_t {
     thread_entry_t  t_entry;            // thread entry point.
 
     isize           t_refcnt;           // thread's reference count.
-
     proc_t          *t_owner;           // thread's owner process.
 
     uintptr_t       t_exit;             // thread exit code.
@@ -117,7 +131,9 @@ typedef struct __thread_t {
 
     cond_t          t_wait;             // thread conditional wait variable.
     arch_thread_t   t_arch;             // architecture-specific thread struct.
+    queue_node_t    *t_tgrp_qn;         // node pointing to the tgroup holding this thread.
     queue_t         t_queues;           // queues on which this thread resides.
+    queue_t         t_lock_chain;       // chain of locks to reliquinsh before sleeping and to hold after waking up.
 
     spinlock_t      t_lock;             // lock to synchronize access to this struct.
 
@@ -152,7 +168,8 @@ typedef struct {
 #define THREAD_USING_SSE                BS(11)  // thread is using SSE extensions if this flags is set, FPU otherwise.
 #define THREAD_EXITING                  BS(12)  // thread is exiting.
 #define THREAD_SUSPEND                  BS(13)  // flag to suspend thread execution.
-#define THREAD_KILLEXCEPT               BS(14)
+#define THREAD_KILLEXCEPT               BS(14)  //
+#define THREAD_LOCK_GROUP               BS(15)  // prior to locking thread lock tgroup first.
 
 #define thread_assert(t)                ({ assert(t, "No thread pointer\n");})
 #define thread_lock(t)                  ({ thread_assert(t); spin_lock(&((t)->t_lock)); })
@@ -297,17 +314,24 @@ typedef struct {
 #define thread_set_simd_dirty(t)        ({ thread_setflags((t), THREAD_SIMD_DIRTY); })
 #define thread_mask_simd_dirty(t)       ({ thread_maskflags((t), THREAD_SIMD_DIRTY); })
 
+#define thread_cred(t)                  ({ thread_assert(t); (t)->t_cred; })
+#define thread_fctx(t)                  ({ thread_assert(t); (t)->t_fctx; })
+
 #define current_assert()                ({ assert(current, "No current thread running"); })
 #define current_lock()                  ({ thread_lock(current); })
 #define current_unlock()                ({ thread_unlock(current); })
 #define current_locked()                ({ thread_islocked(current); })
 #define current_assert_locked()         ({ thread_assert_locked(current); })
 
+#define current_cred()                  ({ current ? thread_cred(current) : NULL; })
+#define current_fctx()                  ({ current ? thread_fctx(current) : NULL; })
+
 #define current_tgroup()                ({ current ? thread_tgroup(current) : NULL; })
 #define current_tgroup_lock()           ({ thread_tgroup_lock(current); })
 #define current_tgroup_unlock()         ({ thread_tgroup_unlock(current); })
 #define current_tgroup_locked()         ({ thread_tgroup_locked(current); })
 
+#define current_setlock_group()         ({})
 #define current_setuser()               ({ thread_setuser(current); })
 #define current_setdetached()           ({ thread_setdetached(current); })
 #define current_setwake()               ({ thread_setwake(current); })
@@ -605,3 +629,9 @@ int thread_leave_group(thread_t *thread);
 int thread_create_group(thread_t *thread);
 int thread_fork(thread_t *dst, thread_t *src, mmap_t *mmap);
 int thread_get(tid_t tid, tstate_t state, thread_t **ppthread);
+
+int thread_chain_lock_add(thread_t *thread, lock_type_t cl_type, void *sync_obj);
+void thread_chain_lock_acquire(thread_t *thread);
+void thread_chain_lock_release(thread_t *thread);
+
+tid_t gettid(void);

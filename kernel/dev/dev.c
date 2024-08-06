@@ -28,101 +28,55 @@ int dev_init(void) {
 }
 
 dev_t *kdev_get(struct devid *dd) {
-    dev_t *dev = NULL;
 
     if (!dd) return NULL;
+
+    // printk("%s:%d: %d->rdev[%d:%d]: %p\n",
+        //    __FILE__, __LINE__, dd->type, dd->major, dd->minor, dd);
 
     switch (dd->type) {
     case FS_BLK:
         spin_lock(blkdevlk);
-        dev = blkdev[dd->major];
+        forlinked(dev, blkdev[dd->major], dev->devnext) {
+            if (DEVID_CMP(&dev->devid, dd)) {
+                spin_unlock(blkdevlk);
+                return dev;
+            }
+        }
         spin_unlock(blkdevlk);
         break;
     case FS_CHR:
         spin_lock(chrdevlk);
-        dev = chrdev[dd->major];
-        spin_unlock(chrdevlk);
-        break;
-    default:
-        dev = NULL;
-    }
-
-    if (dev && !DEVID_CMP(&dev->devid, dd)) {
-        forlinked(node, dev->devnext, node->devnext) {
-            if (DEVID_CMP(&node->devid, dd)) {
-                dev = node;
-                break;
+        forlinked(dev, chrdev[dd->major], dev->devnext) {
+            if (DEVID_CMP(&dev->devid, dd)) {
+                spin_unlock(chrdevlk);
+                return dev;
             }
         }
-        dev = NULL;
+        spin_unlock(chrdevlk);
+        break;
     }
 
-    return dev;
+    return NULL;
 }
 
 int    kdev_register(dev_t *dev, uint8_t major, uint8_t type) {
-    int err = 0;
-    dev_t *tail = NULL;
+    int     err     = 0;
+    dev_t   *tail   = NULL;
+    dev_t   **table = NULL;
+    spinlock_t *lock= NULL;
 
     if (!dev) return -EINVAL;
 
     switch (type) {
     case FS_BLK:
-        spin_lock(blkdevlk);
-
-        if (blkdev[major]) {
-            forlinked(node, blkdev[major], node->devnext) {
-                tail = node;
-                if (node->devid.minor == dev->devid.minor) {
-                    err = -EALREADY;
-                    spin_unlock(blkdevlk);
-                    goto error;
-                }
-            }
-
-            tail->devnext = dev;
-            dev->devprev = tail;
-            dev->devnext = NULL;
-        }
-
-        if (dev->devprobe) {
-            if ((err = dev->devprobe())) {
-                spin_unlock(blkdevlk);
-                goto error;
-            }
-        }
-
-        blkdev[major] = dev;
-        spin_unlock(blkdevlk);
+        table   = blkdev;
+        lock    = blkdevlk;
         break;
 
     case FS_CHR:
-        spin_lock(chrdevlk);
-
-        if (chrdev[major]) {
-            forlinked(node, chrdev[major], node->devnext) {
-                tail = node;
-                if (node->devid.minor == dev->devid.minor) {
-                    err = -EALREADY;
-                    spin_unlock(chrdevlk);
-                    goto error;
-                }
-            }
-
-            tail->devnext = dev;
-            dev->devprev = tail;
-            dev->devnext = NULL;
-        }
-
-        if (dev->devprobe) {
-            if ((err = dev->devprobe())) {
-                spin_unlock(chrdevlk);
-                goto error;
-            }
-        }
-
-        chrdev[major] = dev;
-        spin_unlock(chrdevlk);
+        table   = chrdev;
+        lock    = chrdevlk;
         break;
     default:
         printk("WARNING: Can't register file, not a device file\n");
@@ -130,6 +84,31 @@ int    kdev_register(dev_t *dev, uint8_t major, uint8_t type) {
         goto error;
     }
 
+    spin_lock(lock);
+    forlinked(node, table[major], node->devnext) {
+        tail = node;
+        if (node->devid.minor == dev->devid.minor) {
+            err = -EEXIST;
+            spin_unlock(lock);
+            goto error;
+        }
+    }
+
+    if (tail)
+        tail->devnext = dev;
+    else table[major] = dev;
+
+    dev->devprev = tail;
+    dev->devnext = NULL;
+
+    if (dev->devprobe) {
+        if ((err = dev->devprobe())) {
+            spin_unlock(lock);
+            goto error;
+        }
+    }
+
+    spin_unlock(lock);
     return 0;
 error:
     return err;
@@ -187,6 +166,10 @@ ssize_t kdev_read(struct devid *dd, off_t off, void *buf, size_t nbyte) {
 
 ssize_t kdev_write(struct devid *dd, off_t off, void *buf, size_t nbyte) {
     dev_t *dev = NULL;
+
+    // printk("%s:%d: %d->rdev[%d:%d]: %p\n",
+        //    __FILE__, __LINE__, dd->type, dd->major, dd->minor, dd);
+
     if (!(dev = kdev_get(dd)))
         return -ENXIO;
     
@@ -235,13 +218,13 @@ int kdev_getinfo(struct devid *dd, void *info) {
 int kdev_create(const char *dev_name,
                 uint8_t type, uint8_t major,
                 uint8_t minor, dev_t **pdev) {
-    int err = 0;
-    dev_t *dev = NULL;
+    int     err     = 0;
+    dev_t   *dev    = NULL;
 
     if (type != FS_BLK && type != FS_CHR)
         return -EINVAL;
 
-    if ((dev = kdev_get(DEVID(type, DEV_T(major, minor)))))
+    if ((dev = kdev_get(DEVID_PTR(type, DEV_T(major, minor)))))
         return -EEXIST;
 
     if (dev_name == NULL || pdev == NULL)
@@ -255,7 +238,7 @@ int kdev_create(const char *dev_name,
     dev->devlock = SPINLOCK_INIT();
     dev_lock(dev);
 
-    dev->devid = *DEVID(type, DEV_T(major, minor));
+    dev->devid = DEVID(type, DEV_T(major, minor));
     *pdev = dev;
 
     return 0;

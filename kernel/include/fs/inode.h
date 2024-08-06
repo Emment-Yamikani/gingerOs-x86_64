@@ -10,24 +10,44 @@
 #include <sync/cond.h>
 #include <fs/cred.h>
 
-struct iops;
-struct dentry;
-struct superblock;
+struct  iops;
+struct  dentry;
+struct  superblock;
 typedef struct superblock superblock_t;
-struct filesystem;
+struct  filesystem;
 typedef struct filesystem filesystem_t;
-struct dirent;
+struct  dirent;
 
 typedef enum {
     FS_INV,
     FS_RGL,
     FS_DIR,
     FS_CHR,
-    FS_SYM,
+    FS_LNK,
     FS_BLK,
     FS_FIFO,
+    FS_PIPE,
     FS_SOCK,
 } itype_t;
+
+#define iextract_type(mode) ({ \
+    itype_t type = 0;          \
+    if (S_ISDIR(mode))         \
+        type = FS_DIR;         \
+    else if (S_ISCHR(mode))    \
+        type = FS_CHR;         \
+    else if (S_ISBLK(mode))    \
+        type = FS_BLK;         \
+    else if (S_ISREG(mode))    \
+        type = FS_RGL;         \
+    else if (S_ISFIFO(mode))   \
+        type = FS_FIFO;        \
+    else if (S_ISLNK(mode))    \
+        type = FS_LNK;         \
+    else if (S_ISSOCK(mode))   \
+        type = FS_SOCK;        \
+    type;                      \
+})
 
 extern char * itype_strings [];
 
@@ -42,6 +62,7 @@ typedef struct inode {
     int             i_flags;    // Inode flags.
     ssize_t         i_refcnt;   // Number of references to this inode.
     ssize_t         i_hlinks;   // Number of hard links to this inode. 
+
     superblock_t    *i_sb;      // Superblock to while this inode belongs.
     struct iops     *i_ops;     // Filesystem specific inode operations. 
     void            *i_priv;    // Filesystem specific private data.
@@ -114,9 +135,10 @@ typedef struct iops {
 #define IISREG(ip) ({ IISTYPE(ip, FS_RGL); })
 #define IISDIR(ip) ({ IISTYPE(ip, FS_DIR); })
 #define IISCHR(ip) ({ IISTYPE(ip, FS_CHR); })
-#define IISSYM(ip) ({ IISTYPE(ip, FS_SYM); })
+#define IISSYM(ip) ({ IISTYPE(ip, FS_LNK); })
 #define IISBLK(ip) ({ IISTYPE(ip, FS_BLK); })
 #define IISFIFO(ip)({ IISTYPE(ip, FS_FIFO); })
+#define IISPIPE(ip)({ IISTYPE(ip, FS_PIPE); })
 #define IISSOCK(ip)({ IISTYPE(ip, FS_SOCK); })
 #define IISDEV(ip) ({ IISCHR(ip) || IISBLK(ip); })
 
@@ -130,7 +152,14 @@ typedef struct iops {
     ip->i_size = (size);          \
 })
 
-int     ialloc(itype_t type, inode_t **pip);
+
+#define I_NOCACHE       BS(0)   // create an inode with no cache.
+#define I_NORQUEUE      BS(1)   // create an inode with no read wait-queue.
+#define I_NOWQUEUE      BS(2)   // create an inode with no write wait-queue.
+#define I_NORWQUEUES    (I_NORQUEUE | I_NOWQUEUE) // create an inode with no rw wait queues.
+
+
+int     ialloc(itype_t type, int flags, inode_t **pip);
 int     iopen(inode_t *ip);
 void    iputcnt(inode_t *ip);
 void    idupcnt(inode_t *ip);
@@ -139,6 +168,7 @@ void    iduplink(inode_t *ip);
 void    irelease(inode_t *ip);
 int     idel_alias(inode_t *ip, struct dentry *dentry);
 int     iadd_alias(inode_t *ip, struct dentry *dentry);
+int     imkalias(inode_t *ip, const char *name, struct dentry **dentry);
 
 int     icheck_perm(inode_t *ip, cred_t *cred, int oflags);
 

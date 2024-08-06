@@ -201,12 +201,10 @@ int queue_remove_node(queue_t *q, queue_node_t *__node) {
     if (q == NULL || __node == NULL)
         return -EINVAL;
 
-    forlinked(node, q->head, next)
-    {
+    forlinked(node, q->head, next) {
         next = node->next;
         prev = node->prev;
-        if (__node == node)
-        {
+        if (__node == node) {
             if (prev)
                 prev->next = next;
             if (next)
@@ -287,4 +285,75 @@ int dequeue_tail(queue_t *q, void **pdp) {
     }
 
     return -ENOENT;
+}
+
+int queue_rellocate_node(queue_t *q, queue_node_t *node, queue_relloc_t whence) {
+    queue_node_t *next = NULL;
+    queue_node_t *prev = NULL;
+
+    if (q == NULL || node == NULL)
+        return -EINVAL;
+
+    queue_assert_locked(q);
+
+    if (node->queue != q)
+        return -EPERM;
+    
+    if (whence != QUEUE_RELLOC_HEAD && whence != QUEUE_RELLOC_TAIL)
+        return -EINVAL;
+    
+    prev = node->prev;
+    next = node->next;
+
+    if (next)
+        next->prev = prev;
+    if (prev)
+        prev->next = next;
+    if (q->head == node)
+        q->head = next;
+    if (q->tail == node)
+        q->tail = prev;
+
+    node->prev = NULL;
+    node->next = NULL;
+
+    switch (whence) {
+    case QUEUE_RELLOC_HEAD:
+        if (q->head == NULL) {
+            q->tail = node;
+        } else {
+            q->head->prev = node;
+            node->next = q->head;
+        }
+        q->head = node;
+        break;
+    case QUEUE_RELLOC_TAIL:
+        if (q->head == NULL) {
+            q->head = node;
+        } else {
+            q->tail->next = node;
+            node->prev = q->tail;
+        }
+        q->tail = node;
+        break;
+    }
+
+    return 0;
+}
+
+int queue_rellocate(queue_t *q, void *data, queue_relloc_t whence) {
+    int          err   = 0;
+    queue_node_t *node = NULL;
+    if (q == NULL)
+        return -EINVAL;
+
+    queue_assert_locked(q);
+    
+    // FIXME: may need to keep a queue node ptr to quicken the rellocation
+    // as hat will eliminate the need for iteration on the queue searching
+    // for the data item.    
+    if ((err = queue_contains(q, data, &node)))
+        return err;
+
+    return queue_rellocate_node(q, node, whence);
 }

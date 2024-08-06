@@ -2,6 +2,7 @@
 #include <bits/errno.h>
 #include <sys/thread.h>
 #include <fs/fs.h>
+#include <fs/pipefs.h>
 #include <lib/string.h>
 #include <dev/dev.h>
 #include <mm/kalloc.h>
@@ -13,12 +14,8 @@ int     file_get(int fd, file_t **ref) {
     if (ref == NULL)
         return -EINVAL;
 
-    /// TODO: Is this lock on current thread
-    /// neccessary just for accessing file_table?
-    current_lock();
     fctx    = current->t_fctx;
     fctx_lock(fctx);
-    current_unlock();
 
     if ((fctx->fc_files == NULL) || (fd < 0) || (fd >= fctx->fc_nfile)) {
         fctx_unlock(fctx);
@@ -40,10 +37,8 @@ int     file_get(int fd, file_t **ref) {
 int     file_free(int fd) {
     file_ctx_t   *fctx = NULL; // file context
 
-    current_lock();
     fctx = current->t_fctx;
     fctx_lock(fctx);
-    current_unlock();
 
     if ((fctx->fc_files == NULL) || (fd < 0) || (fd >= fctx->fc_nfile)) {
         fctx_unlock(fctx);
@@ -68,10 +63,8 @@ int     file_alloc(int *ref, file_t **fref) {
     if ((err = falloc(&file)))
         return err;
 
-    current_lock();
     fctx = current->t_fctx;
     fctx_lock(fctx);
-    current_unlock();
 
     if (fctx->fc_files == NULL) {
         if ((fctx->fc_files = kcalloc(1, sizeof (file_t *))) == NULL) {
@@ -114,10 +107,8 @@ int     file_dup(int fd1, int fd2) {
     file_ctx_t *fctx = NULL; // file context
     file_t *file = NULL, **tmp = NULL;
 
-    current_lock();
     fctx = current->t_fctx;
     fctx_lock(fctx);
-    current_unlock();
 
     if ((fctx->fc_files == NULL)) {
         fctx_unlock(fctx);
@@ -173,14 +164,12 @@ int     file_dup(int fd1, int fd2) {
     return fd2;
 }
 
-void file_close_all(void) {
+void    file_close_all(void) {
     int         file_cnt = 0;
     file_ctx_t *fctx = NULL; // file context
 
-    current_lock();
     fctx = current->t_fctx;
     fctx_lock(fctx);
-    current_unlock();
 
     if (fctx->fc_files != NULL)
         file_cnt = fctx->fc_nfile;
@@ -190,7 +179,7 @@ void file_close_all(void) {
         close(fd);
 }
 
-int file_copy(file_ctx_t *dst, file_ctx_t *src) {
+int     file_copy(file_ctx_t *dst, file_ctx_t *src) {
     dentry_t    *cwdir      = NULL;
     dentry_t    *rootdir    = NULL;
     file_t      **files     = NULL;
@@ -251,62 +240,169 @@ error:
 int     open(const char *pathname, int oflags, mode_t mode) {
     int         fd      = 0;
     int         err     = 0;
-    cred_t      *cred   = NULL;
+    vfspath_t   *path   = NULL;
     file_t      *file   = NULL;
     dentry_t    *dentry = NULL;
 
-    if ((err = vfs_lookup(pathname, cred, oflags, mode, 0, &dentry)))
-        return err;
+    // open() must only be called by threads.
+    current_assert();
+
+    if ((err = vfs_resolve_path(pathname, dentry, current_cred(), oflags, &path))) {
+        if ((err == -ENOENT) && (oflags & O_CREAT)) {
+            if (vfspath_isdir(path) || (oflags & O_DIRECTORY)) {
+                err = -EINVAL;
+                dclose(path->directory);
+                goto error;
+            }
+
+            // Ensure to only create the file if path->token is the last component in the path.
+            if (vfspath_islasttoken(path)) {
+                ilock(path->directory->d_inode);
+                if ((err = icreate(path->directory->d_inode, path->token, mode & ~S_IFMT))) {
+                    iunlock(path->directory->d_inode);
+                    dclose(path->directory);
+                    goto error;
+                }
+                iunlock(path->directory->d_inode);
+                /**
+                 * NOTE: no need of dclose(path->directory);
+                 * followed by path_free(path); here
+                 * because vfs_traverse_path() below can operate on a 'path'
+                 * starting at the last traversed token, thus improving performance.
+                 **/
+                // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
+                if ((err = vfs_traverse_path(path, current_cred(), oflags))) {
+                    dclose(path->dentry);
+                    goto error;
+                }
+                goto found;
+            }
+
+            // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
+            // remaining token is not the lat component of path.
+            dclose(path->directory);
+            goto error;
+        }
+        
+        if (path) {
+            assert(path->directory, "On error, path has no directory\n");
+            dclose(path->directory);
+        } else {
+            printk("%s:%d: [Warning...]: is unlocking dentry here safe?\n", __FILE__, __LINE__);
+            dunlock(dentry);
+        }
+        goto error;
+    }
     
+found:
+    assert(path->directory == NULL, "On success, path has directory\n");
+    assert(path->dentry, "On success, path has no dentry\n");
 
     if ((err = file_alloc(&fd, &file))) {
-        dclose(dentry);
-        return err;
+        dclose(path->dentry);
+        goto error;
     }
 
     file->fops      = NULL;
-    file->f_dentry  = dentry;
+    file->f_dentry  = path->dentry;
     file->f_oflags  = oflags;
     
     funlock(file);
-    dunlock(dentry);
+    dunlock(path->dentry);
+
+    path_free(path);
     return fd;
+error:
+    if (path)
+        path_free(path);
+    return err;
 }
 
-int openat(int fd, const char *pathname, int oflags, mode_t mode) {
-    int err       = 0;
-    file_t  *file = NULL;
-    cred_t  *cred = NULL;
-    dentry_t *dentry = NULL;
+int     openat(int fd, const char *pathname, int oflags, mode_t mode) {
+    int         err     = 0;
+    vfspath_t   *path   = NULL;
+    file_t      *file   = NULL;
+    dentry_t    *dentry = NULL;
+
+    // openat() must only be called by threads.
+    current_assert();
 
     if ((err = file_get(fd, &file)))
         return err;
-
+    
     dlock(file->f_dentry);
-
-    if ((err = vfs_lookupat(pathname, file->f_dentry, cred, oflags, mode, 0, &dentry))) {
-        if (dislocked(file->f_dentry))
-            dunlock(file->f_dentry);
-        return err;
-    }
-
+    dentry = ddup(file->f_dentry);
     funlock(file);
 
-    fd   = 0;
-    file = NULL;
+    if ((err = vfs_resolve_path(pathname, dentry, current_cred(), oflags, &path))) {
+        if ((err == -ENOENT) && (oflags & O_CREAT)) {
+            if (vfspath_isdir(path) || (oflags & O_DIRECTORY)) {
+                err = -EINVAL;
+                dclose(path->directory);
+                goto error;
+            }
+
+            // Ensure to only create the file if path->token is the last component in the path.
+            if (vfspath_islasttoken(path)) {
+                ilock(path->directory->d_inode);
+                if ((err = icreate(path->directory->d_inode, path->token, mode & ~S_IFMT))) {
+                    iunlock(path->directory->d_inode);
+                    dclose(path->directory);
+                    goto error;
+                }
+                iunlock(path->directory->d_inode);
+                /**
+                 * NOTE: no need of dclose(path->directory);
+                 * followed by path_free(path); here
+                 * because vfs_traverse_path() below can operate on a 'path'
+                 * starting at the last traversed token, thus improving performance.
+                 **/
+                // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
+                if ((err = vfs_traverse_path(path, current_cred(), oflags))) {
+                    dclose(path->dentry);
+                    goto error;
+                }
+                goto found;
+            }
+
+            // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n", __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
+            // remaining token is not the lat component of path.
+            dclose(path->directory);
+            goto error;
+        }
+        
+        if (path) {
+            assert(path->directory, "On error, path has no directory\n");
+            dclose(path->directory);
+        } else {
+            printk("%s:%d: [Warning...]: is unlocking dentry here safe?\n", __FILE__, __LINE__);
+            dunlock(dentry);
+        }
+        goto error;
+    }
+    
+found:
+    assert(path->directory == NULL, "On success, path has directory\n");
+    assert(path->dentry, "On success, path has no dentry\n");
 
     if ((err = file_alloc(&fd, &file))) {
-        dclose(dentry);
-        return err;
+        dclose(path->dentry);
+        goto error;
     }
 
     file->fops      = NULL;
-    file->f_dentry  = dentry;
+    file->f_dentry  = path->dentry;
     file->f_oflags  = oflags;
     
     funlock(file);
-    dunlock(dentry);
+    dunlock(path->dentry);
+
+    path_free(path);
     return fd;
+error:
+    if (path)
+        path_free(path);
+    return err;
 }
 
 int     dup(int fd) {
@@ -432,14 +528,8 @@ ssize_t write(int fd, void *buf, size_t size) {
     return err;
 }
 
-int     create(int fd, const char *pathname, mode_t mode) {
-    int err= 0;
-    file_t *file = NULL;
-    if ((err = file_get(fd, &file)))
-        return err;
-    err = fcreate(file, pathname, mode);
-    funlock(file);
-    return err;
+int     create(const char *pathname, mode_t mode) {
+    return open(pathname, O_WRONLY | O_CREAT | O_TRUNC, mode);
 }
 
 int     mkdirat(int fd, const char *pathname, mode_t mode) {
@@ -450,6 +540,10 @@ int     mkdirat(int fd, const char *pathname, mode_t mode) {
     err = fmkdirat(file, pathname, mode);
     funlock(file);
     return err;
+}
+
+int     mkdir(const char *pathname, mode_t mode) {
+    return vfs_mkdir(pathname, current_cred(), mode);
 }
 
 ssize_t readdir(int fd, off_t off, void *buf, size_t count) {
@@ -482,7 +576,11 @@ int     mknodat(int fd, const char *pathname, mode_t mode, int devid) {
     return err;
 }
 
-int fstat(int fd, struct stat *buf) {
+int     mknod(const char *pathname, mode_t mode, int devid) {
+    return vfs_mknod(pathname, current_cred(), mode, devid);
+}
+
+int     fstat(int fd, struct stat *buf) {
     int     err = 0;
     file_t  *file = NULL;
 
@@ -501,7 +599,7 @@ int fstat(int fd, struct stat *buf) {
     return 0;
 }
 
-int stat(const char *restrict path, struct stat *restrict buf) {
+int     stat(const char *restrict path, struct stat *restrict buf) {
     int         err     = 0;
     dentry_t    *dentry = NULL;
     cred_t      *cred   = NULL;
@@ -509,7 +607,7 @@ int stat(const char *restrict path, struct stat *restrict buf) {
     if (path == NULL || buf == NULL)
         return -EINVAL;
     
-    if ((err = vfs_lookup(path, cred, O_RDONLY, 0, 0, &dentry)))
+    if ((err = vfs_lookup(path, cred, O_EXCL, &dentry)))
         return err;
     
     if (dentry->d_inode == NULL) {
@@ -529,11 +627,11 @@ int stat(const char *restrict path, struct stat *restrict buf) {
     return 0;
 }
 
-int lstat(const char *restrict path, struct stat *restrict buf) {
+int     lstat(const char *restrict path, struct stat *restrict buf) {
     return stat(path, buf);
 }
 
-int fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag) {
+int     fstatat(int fd, const char *restrict path, struct stat *restrict buf, int flag) {
     int         err         = 0;
     file_t      *dir_file   = NULL;
     dentry_t    *dentry     = NULL;
@@ -549,7 +647,7 @@ int fstatat(int fd, const char *restrict path, struct stat *restrict buf, int fl
     }
 
     dlock(dir_file->f_dentry);
-    if ((err = vfs_lookupat(path, dir_file->f_dentry, cred, O_RDONLY, 0, 0, &dentry))) {
+    if ((err = vfs_lookupat(path, dir_file->f_dentry, cred, O_EXCL, &dentry))) {
         dunlock(dir_file->f_dentry);
         funlock(dir_file);
         return err;
@@ -574,7 +672,7 @@ int fstatat(int fd, const char *restrict path, struct stat *restrict buf, int fl
     return 0;
 }
 
-int chown(const char *path, uid_t owner, gid_t group) {
+int     chown(const char *path, uid_t owner, gid_t group) {
     int         err     = 0;
     dentry_t    *dentry = NULL;
     cred_t      *cred   = NULL;
@@ -582,7 +680,7 @@ int chown(const char *path, uid_t owner, gid_t group) {
     if (path == NULL)
         return -EINVAL;
     
-    if ((err = vfs_lookup(path, cred, O_RDONLY, 0, 0, &dentry)))
+    if ((err = vfs_lookup(path, cred, O_EXCL, &dentry)))
         return err;
     
     if (dentry->d_inode == NULL) {
@@ -602,7 +700,7 @@ int chown(const char *path, uid_t owner, gid_t group) {
     return 0;
 }
 
-int fchown(int fd, uid_t owner, gid_t group) {
+int     fchown(int fd, uid_t owner, gid_t group) {
     int     err     = 0;
     file_t  *file   = NULL;
 
@@ -612,5 +710,71 @@ int fchown(int fd, uid_t owner, gid_t group) {
     err = file_chown(file, owner, group);
     funlock(file);
 
+    return err;
+}
+
+int     pipe(int fds[2]) {
+    int      err     = 0;
+    pipe_t   *pipe   = NULL;
+    int      fildes0 = 0, fildes1 = 0;
+    dentry_t *d0     = NULL, *d1  = NULL;
+    file_t   *fd0    = NULL, *fd1 = NULL;
+
+    if (fds == NULL)
+        return -EINVAL;
+
+    if ((err = pipe_mkpipe(&pipe)))
+        return err;
+
+    if ((err = file_alloc(&fildes0, &fd0)))
+        goto error;
+
+    if ((err = file_alloc(&fildes1, &fd1)))
+        goto error;
+
+    if ((err = dalloc("dentry_pipe-r", &d0)))
+        goto error;
+
+    if ((err = dalloc("dentry-pipe-w", &d1)))
+        goto error;
+
+    if ((err = iadd_alias(pipe->p_iread, d0)))
+        goto error;
+    
+    if ((err = iadd_alias(pipe->p_iwrite, d1)))
+        goto error;
+
+    iunlock(pipe->p_iread);
+    dunlock(d0);
+    
+    iunlock(pipe->p_iwrite);
+    dunlock(d1);
+
+    fd0->f_off      = 0;
+    fd0->f_dentry   = d0;
+    fd0->f_oflags   |= O_RDONLY;
+    fd0->f_oflags   &= ~(O_CLOEXEC | O_NONBLOCK);
+    funlock(fd0);
+
+
+    fd1->f_off      = 0;
+    fd1->f_dentry   = d1;
+    fd1->f_oflags   |= O_WRONLY;
+    fd1->f_oflags   &= ~(O_CLOEXEC | O_NONBLOCK);
+    funlock(fd1);
+
+    pipe_unlock(pipe);
+
+    fds[0] = fildes0;
+    fds[1] = fildes1;
+    return 0;
+error:
+    if (d0)
+        drelease(d0);
+    if (d1)
+        drelease(d1);
+
+    // TODO: release the pipe descriptor.
+    printk("Failed to create a pipe, error: %d\n");
     return err;
 }

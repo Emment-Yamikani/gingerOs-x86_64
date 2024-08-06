@@ -9,10 +9,10 @@
 #include <arch/paging.h>
 
 void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off) {
-    long            err = 0;
-    mmap_t          *mmap   = NULL;
-    file_t          *file   = NULL;
-    vmr_t           *region = NULL;
+    long    err     = 0;
+    mmap_t  *mmap   = NULL;
+    file_t  *file   = NULL;
+    vmr_t   *region = NULL;
 
     printk("[%d:%d:%d]: mmap(%p, %d, %d, %d, %d, %d)\n",
         thread_self(), getpid(), getppid(), addr, len, prot, flags, fd, off);
@@ -112,6 +112,7 @@ error:
 
 int mprotect(void *addr, size_t len, int prot) {
     mmap_t *mmap = NULL;
+
     mmap = curproc->mmap;
 
     if (mmap == NULL)

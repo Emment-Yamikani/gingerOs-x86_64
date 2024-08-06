@@ -7,14 +7,11 @@
 #include <boot/boot.h>
 #include <arch/paging.h>
 #include <lib/string.h>
+#include <lib/types.h>
 
 mm_zone_t zones[NZONE] = {0};
 const char *str_zone[] = {
-    "DMA",
-    "NORM",
-    "HOLE",
-    "HIGH",
-    NULL,
+    "DMA", "NORM", "HOLE", "HIGH", NULL,
 };
 
 queue_t *mm_zone_sleep_queue[] = {
@@ -31,45 +28,46 @@ static __unused void zone_dump(mm_zone_t *zone) {
 }
 
 static int enumerate_zones(void) {
-    void *pages = NULL;
-    uintptr_t start = 0x0;
-    size_t size = MiB(16);
-    size_t zone_structs_size = 0;
-    size_t memsize = KiB(bootinfo.memsize);
-    mod_t *last_mod = &bootinfo.mods[bootinfo.modcnt - 1];
+    void        *pages      = NULL;
+    uintptr_t   start       = 0x0;
+    usize      zones_size   = 0x0;
+    usize      size         = MiB(16);
+    usize      memsize      = KiB(bootinfo.memsize);
+    mod_t       *last_mod   = &bootinfo.mods[bootinfo.modcnt - 1];
+
+    zones_size = NPAGE(size) * sizeof(page_t);
     pages = (void *)PGROUNDUP((last_mod->addr + last_mod->size));
-    zone_structs_size = NPAGE(size) * sizeof(page_t);
 
     printk("enumerating DMA memory zone...\n");
 
     zones[MM_ZONE_DMA] = (mm_zone_t){
-        .pages = pages,
-        .nrpages = size / PGSZ,
-        .flags = MM_ZONE_VALID,
-        .lock = SPINLOCK_INIT(),
-        .start = PGROUNDUP(start),
+        .pages      = pages,
+        .nrpages    = size / PGSZ,
+        .flags      = MM_ZONE_VALID,
+        .lock       = SPINLOCK_INIT(),
+        .start      = PGROUNDUP(start),
         .free_pages = size / PGSZ,
-        .size = size,
+        .size       = size,
     };
 
-    start = MiB(16);
-    memsize -= MiB(16);
-    size = GiB(2) - MiB(16);
-    size = MIN(memsize, size);
-    memsize -= size;
-    zone_structs_size = NPAGE(size) * sizeof(page_t);
-    pages += NPAGE(size) * sizeof(page_t);
+    start       = MiB(16);
+    memsize     -= MiB(16);
+    size        = GiB(2) - MiB(16);
+    size        = MIN(memsize, size);
+    memsize     -= size;
+    zones_size  = NPAGE(size) * sizeof(page_t);
+    pages       += NPAGE(size) * sizeof(page_t);
 
     printk("enumerating NORM memory zone...\n");
 
     zones[MM_ZONE_NORM] = (mm_zone_t) {
-        .pages = pages,
-        .nrpages = size / PGSZ,
-        .flags = MM_ZONE_VALID,
-        .lock = SPINLOCK_INIT(),
-        .start = PGROUNDUP(start),
+        .pages      = pages,
+        .nrpages    = size / PGSZ,
+        .flags      = MM_ZONE_VALID,
+        .lock       = SPINLOCK_INIT(),
+        .start      = PGROUNDUP(start),
         .free_pages = size / PGSZ,
-        .size = size,
+        .size       = size,
     };
 
     if (!memsize || !bootinfo.memhigh)
@@ -77,22 +75,22 @@ static int enumerate_zones(void) {
 
     printk("enumerating HOLE memory zone...\n");
 
-    start = GiB(2);
-    size = (KiB(bootinfo.memhigh) + MiB(1)) - GiB(2);
-    size = MIN(memsize, size);
-    memsize -= size;
-    zone_structs_size = NPAGE(size) * sizeof(page_t);
-    pages += NPAGE(size) * sizeof(page_t);
+    start       = GiB(2);
+    size        = (KiB(bootinfo.memhigh) + MiB(1)) - GiB(2);
+    size        = MIN(memsize, size);
+    memsize     -= size;
+    zones_size  = NPAGE(size) * sizeof(page_t);
+    pages       += NPAGE(size) * sizeof(page_t);
 
 
     zones[MM_ZONE_HOLE] = (mm_zone_t){
-        .pages = pages,
-        .nrpages = size / PGSZ,
-        .flags = MM_ZONE_VALID,
-        .lock = SPINLOCK_INIT(),
-        .start = PGROUNDUP(start),
+        .pages      = pages,
+        .nrpages    = size / PGSZ,
+        .flags      = MM_ZONE_VALID,
+        .lock       = SPINLOCK_INIT(),
+        .start      = PGROUNDUP(start),
         .free_pages = size / PGSZ,
-        .size = size,
+        .size       = size,
     };
 
     if (!memsize)
@@ -100,29 +98,29 @@ static int enumerate_zones(void) {
 
     printk("enumerating HIGH memory zone...\n");
 
-    start = GiB(4);
-    size = memsize;
-    zone_structs_size = NPAGE(size) * sizeof(page_t);
-    pages += NPAGE(size) * sizeof(page_t);
+    start       = GiB(4);
+    size        = memsize;
+    zones_size  = NPAGE(size) * sizeof(page_t);
+    pages       += NPAGE(size) * sizeof(page_t);
 
     zones[MM_ZONE_HIGH] = (mm_zone_t) {
-        .pages = pages,
-        .nrpages = size / PGSZ,
-        .flags = MM_ZONE_VALID,
-        .lock = SPINLOCK_INIT(),
-        .start = PGROUNDUP(start),
+        .pages      = pages,
+        .nrpages    = size / PGSZ,
+        .flags      = MM_ZONE_VALID,
+        .lock       = SPINLOCK_INIT(),
+        .start      = PGROUNDUP(start),
         .free_pages = size / PGSZ,
-        .size = size,
+        .size       = size,
     };
 
 done:
     pages = zones[MM_ZONE_DMA].pages;
-    memset(pages, 0, zone_structs_size);
+    memset(pages, 0, zones_size);
     return 0;
 }
 
-mm_zone_t *get_mmzone(uintptr_t addr, size_t size) {
-    for (size_t i = 0; i < NELEM(zones); ++i) {
+mm_zone_t *get_mmzone(uintptr_t addr, usize size) {
+    for (usize i = 0; i < NELEM(zones); ++i) {
         if ((addr >= zones[i].start) && ((addr + (size - 1)) < (zones[i].start + zones[i].nrpages * PAGESZ))) {
             mm_zone_lock(&zones[i]);
             if (mm_zone_isvalid(&zones[i]))
@@ -138,20 +136,20 @@ mm_zone_t *get_mmzone(uintptr_t addr, size_t size) {
 
 mm_zone_t *mm_zone_get(int z) {
     mm_zone_t *zone = NULL;
+
     if ((z < 0) || (z > (int)NELEM(zones)))
         return NULL;
     zone = &zones[z];
     mm_zone_lock(zone);
     // printk("requesting zone(%d): %p ,flags: %d\n", z, zone, zone->flags);
-    if (!mm_zone_isvalid(zone))
-    {
+    if (!mm_zone_isvalid(zone)) {
         mm_zone_unlock(zone);
         return NULL;
     }
     return zone;
 }
 
-int mm_zone_contains(int z, uintptr_t addr, size_t size) {
+int mm_zone_contains(int z, uintptr_t addr, usize size) {
     mm_zone_t *zone = NULL;
 
     if ((z < MM_ZONE_DMA) || (z > MM_ZONE_HIGH))
@@ -160,8 +158,7 @@ int mm_zone_contains(int z, uintptr_t addr, size_t size) {
     if (!(zone = get_mmzone(addr, size)))
         return -EINVAL;
 
-    if (&zones[z] != zone)
-    {
+    if (&zones[z] != zone) {
         mm_zone_unlock(zone);
         return -EINVAL;
     }
@@ -171,12 +168,13 @@ int mm_zone_contains(int z, uintptr_t addr, size_t size) {
 }
 
 int physical_memory_init(void) {
-    int err = 0;
-    size_t index = 0;
-    size_t size = 0;
-    uintptr_t addr = 0;
-    mm_zone_t *zone = NULL;
+    int         err = 0;
+    usize       index = 0;
+    usize       size = 0;
+    uintptr_t   addr = 0;
+    mm_zone_t   *zone = NULL;
     page_t      *page = NULL;
+
     typeof(*bootinfo.mmap) *map = bootinfo.mmap;
     typeof(*bootinfo.mods) *module = bootinfo.mods;
 
@@ -191,7 +189,7 @@ int physical_memory_init(void) {
 
     /**
      * Mark all memory maps returned by multiboot */
-    for (size_t i = 0; i < bootinfo.mmapcnt; ++i) {
+    for (usize i = 0; i < bootinfo.mmapcnt; ++i) {
         addr = VMA2LO(PGROUND(map[i].addr));
         size = PGROUNDUP(map[i].size);
 
@@ -199,7 +197,7 @@ int physical_memory_init(void) {
             zone = get_mmzone(addr, size);
             if (zone != NULL) {
                 index = (addr - zone->start) / PAGESZ;
-                for (size_t j = 0; j < (size_t)NPAGE(size); ++j, ++index) {
+                for (usize j = 0; j < (usize)NPAGE(size); ++j, ++index) {
                     page = &zone->pages[index];
                     atomic_write(&page->pg_refcnt, 1);
                     page_setmmzone(page, zone - zones);
@@ -219,7 +217,7 @@ int physical_memory_init(void) {
     assert_msg(((addr + size) < ((zone->size) - (addr + size))), "Kernel is too big");
 
     index = (addr - zone->start) / PAGESZ;
-    for (size_t j = 0; j < (size_t)NPAGE(size); ++j, ++index) {
+    for (usize j = 0; j < (usize)NPAGE(size); ++j, ++index) {
         page = &zone->pages[index];
         atomic_write(&page->pg_refcnt, 1);
         page_setmmzone(page, zone - zones);
@@ -229,15 +227,15 @@ int physical_memory_init(void) {
     zone->free_pages -= NPAGE(size);
     mm_zone_unlock(zone);
 
-    size_t i = 0, j = 0;
+    usize i = 0, j = 0;
     for (i = 0; i < bootinfo.modcnt; ++i) {
         size = PGROUNDUP(module[i].size);
         addr = PGROUND(VMA2LO(module[i].addr));
-        for (j = 0; j < (size_t)NPAGE(size); ++j, ++index, addr += PAGESZ) {
+        for (j = 0; j < (usize)NPAGE(size); ++j, ++index, addr += PAGESZ) {
             zone = get_mmzone(addr, PAGESZ);
             zone->free_pages--;
-            index = (addr - zone->start) / PAGESZ;
-            page = &zone->pages[index];
+            index   = (addr - zone->start) / PAGESZ;
+            page    = &zone->pages[index];
             atomic_write(&page->pg_refcnt, 1);
             page_setmmzone(page, zone - zones);
             page_setrwx(page);
@@ -252,7 +250,7 @@ int physical_memory_init(void) {
         arch_unmap_n(VMA2HI(addr), size);
     }
 
-    for (size_t i = 0; i < bootinfo.mmapcnt; ++i) {
+    for (usize i = 0; i < bootinfo.mmapcnt; ++i) {
         addr = PGROUND(map[i].addr);
         size = PGROUNDUP(map[i].size);
 

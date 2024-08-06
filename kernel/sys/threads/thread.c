@@ -341,14 +341,13 @@ int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode) {
     queue_lock(queue);
     queue_lock(&thread->t_queues);
 
-    if ((err = enqueue(queue, (void *)thread, 1, NULL))) {
+    if ((err = enqueue(queue, (void *)thread, 1, &node))) {
         queue_unlock(&thread->t_queues);
         queue_unlock(queue);
         goto error;
     }
 
     if ((err = enqueue(&thread->t_queues, (void *)queue, 1, NULL))) {
-        node = NULL;
         queue_remove(queue, (void *)thread);
         queue_unlock(&thread->t_queues);
         queue_unlock(queue);
@@ -465,10 +464,8 @@ int thread_kill(tid_t tid, int wait) {
 }
 
 int thread_join(tid_t tid, thread_info_t *info, void **retval) {
-    int err = 0;
-    thread_t *thread = NULL;
-
-    current_assert();
+    int         err     = 0;
+    thread_t    *thread = NULL;
 
     if (current_iskilled())
         return -EINTR;
@@ -510,7 +507,7 @@ int thread_wake(thread_t *thread) {
     thread_assert_locked(thread);
 
     if (current == thread)
-    return 0;
+        return 0;
 
     if (thread_iszombie(thread) ||
         thread_isterminated(thread))
@@ -522,11 +519,13 @@ int thread_wake(thread_t *thread) {
     if (thread->t_sleep.queue == NULL)
         return 0;
 
-    if (thread->t_sleep.guard && (guard_locked = !spin_islocked(thread->t_sleep.guard)))
+    if (thread->t_sleep.guard && 
+            (guard_locked = !spin_islocked(thread->t_sleep.guard)))
         spin_lock(thread->t_sleep.guard);
 
     if ((q_locked = !queue_islocked(thread->t_sleep.queue)))
         queue_lock(thread->t_sleep.queue);
+
 
     err = thread_remove_queue(thread, thread->t_sleep.queue);
 
@@ -568,8 +567,7 @@ int thread_queue_get(queue_t *queue, tid_t tid, thread_t **pthread) {
         if (tid == 0) {
             *pthread = thread;
             return 0;
-        } else if (thread->t_tid == tid)
-        {
+        } else if (thread->t_tid == tid) {
             *pthread = thread;
             return 0;
         }
@@ -807,4 +805,80 @@ int thread_get(tid_t tid, tstate_t state, thread_t **ppthread) {
         queue_unlock(threads_queue);
     }
     return -ESRCH;
+}
+
+tid_t gettid(void) {
+    return thread_gettid(current);
+}
+
+int thread_chain_lock_add(thread_t *thread, lock_type_t cl_type, void *sync_obj) {
+    int          err         = 0;
+    chain_lock_t *chain_lock = {0};
+
+    if (cl_type != LCK_CONDVAR &&
+        cl_type != LCK_MUTEX   &&
+        cl_type != LCK_SPINLOCK)
+        return -EINVAL;
+    
+    thread_assert_locked(thread);
+
+    if (NULL == (chain_lock = (chain_lock_t *)kmalloc(sizeof *chain_lock)))
+        return -ENOMEM;
+
+    chain_lock->cl_type  = cl_type;
+    chain_lock->sync_obj = sync_obj;
+
+    if ((err = enqueue(&thread->t_lock_chain, (void *)chain_lock, 1, NULL)))
+        goto error;
+
+    return 0;
+error:
+    if (chain_lock != NULL)
+        kfree(chain_lock);
+
+    printk("Failed to chain, error: %d\n", err);
+
+    return err;
+}
+
+void thread_chain_lock_acquire(thread_t *thread) {
+    queue_node_t *next = NULL;
+    chain_lock_t *lock = NULL;
+
+    queue_lock(&thread->t_lock_chain);
+    forlinked(node, thread->t_lock_chain.head, next) {
+        lock = (chain_lock_t *)node->data;
+        switch (lock->cl_type) {
+        case LCK_SPINLOCK:
+                spin_lock((spinlock_t *)lock->sync_obj);
+            break;
+        case LCK_CONDVAR:
+        case LCK_MUTEX:
+        default:
+            panic("Invalid lock...\n");
+        }
+        next = node->next;
+    }
+    queue_unlock(&thread->t_lock_chain);
+}
+
+void thread_chain_lock_release(thread_t *thread) {
+    queue_node_t *prev = NULL;
+    chain_lock_t *lock = NULL;
+
+    queue_lock(&thread->t_lock_chain);
+    forlinked(node, thread->t_lock_chain.tail, prev) {
+        lock = (chain_lock_t *)node->data;
+        switch (lock->cl_type) {
+        case LCK_SPINLOCK:
+            spin_unlock((spinlock_t *)lock->sync_obj);
+            break;
+        case LCK_CONDVAR:
+        case LCK_MUTEX:
+        default:
+            panic("Invalid lock...\n");
+        }
+        prev = node->prev;
+    }
+    queue_unlock(&thread->t_lock_chain);
 }

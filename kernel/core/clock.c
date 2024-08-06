@@ -20,7 +20,7 @@ void clock_trigger(void) {
         clk_lock(clk);
         if (clk->clk_flags & CLK_ARMED) {
             clk->clk_tv = TIMEVAL_SUB(clk->clk_tv, tv);
-            if (clk->clk_tv.tv_sec < 0){
+            if (clk->clk_tv.tv_sec < 0) {
                 if (clk->clk_flags & CLK_RESET)
                     clk->clk_tv = clk->clk_default_tv;
                 else{
@@ -28,7 +28,7 @@ void clock_trigger(void) {
                     clk->clk_tv = (timeval_t) {0};
                 }
                 clk->clk_entry(clk->clk_arg);
-            } else if (TIMEVAL_EQ(&clk->clk_tv, &((timeval_t){0}))){
+            } else if (TIMEVAL_EQ(&clk->clk_tv, &((timeval_t){0}))) {
                 if (clk->clk_flags & CLK_RESET)
                     clk->clk_tv = clk->clk_default_tv;
                 else{

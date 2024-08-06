@@ -43,9 +43,9 @@ static int inew(inode_t **pip) {
     return 0;
 }
 
-int ialloc(itype_t type,  inode_t **pip) {
-    int         err = 0;
-    inode_t     *ip = NULL;
+int ialloc(itype_t type, int flags, inode_t **pip) {
+    int         err     = 0;
+    inode_t     *ip     = NULL;
     icache_t    *icache = NULL;
     cond_t      *reader = NULL;
     cond_t      *writer = NULL;
@@ -58,21 +58,31 @@ int ialloc(itype_t type,  inode_t **pip) {
 
     ip->i_type = type;
 
-    if (IISDEV(ip) == 0) {
+    if (IISDIR(ip) || IISDEV(ip) || IISFIFO(ip) || IISPIPE(ip)) {
+        flags |= I_NOCACHE | I_NORWQUEUES;
+    }
+
+    if (!(flags & I_NOCACHE)) {
         if ((err = icache_alloc(&icache)))
             goto error;
     }
 
-    if ((err - cond_new(&reader)))
-        goto error;
-    
-    if ((err = cond_new(&writer)))
-        goto error;
+    if ((flags & I_NORQUEUE) == 0) {
+        if ((err = cond_new(&reader)))
+            goto error;
+    }
 
-    ip->i_cache = icache;
-    icache->pc_inode = ip;
-    ip->i_writers = writer;
-    ip->i_readers = reader;
+    if ((flags & I_NOWQUEUE) == 0) {
+        if ((err = cond_new(&writer)))
+            goto error;
+    }
+
+    if (icache)
+        icache->pc_inode = ip;
+
+    ip->i_cache      = icache;
+    ip->i_writers    = writer;
+    ip->i_readers    = reader;
 
     *pip = ip;
     return 0;
@@ -184,15 +194,16 @@ int iadd_alias(inode_t *inode, dentry_t *dentry) {
     dentry->d_alias_prev = NULL;
 
     if (last) {
-        last->d_alias_next = dentry;
-        dentry->d_alias_prev = last;
+        dentry->d_alias_prev= ddup(last);
+        last->d_alias_next  = ddup(dentry);
 
         /// Unlock the last alias node.
         /// Remember we locked this node in to forlinked() loop above?,
         /// Yeah, so do this to prevent deadlock.
         dunlock(last);
-    } else inode->i_alias = dentry;
-    
+    } else {
+        inode->i_alias = ddup(dentry);
+    }
 
     /// Increase the reference count to this inode
     /// because we have added an inode alias.
@@ -201,6 +212,30 @@ int iadd_alias(inode_t *inode, dentry_t *dentry) {
     // printk("file(\e[023582;013m%s\e[0m) found. refs: %ld\n", dentry->d_name, inode->i_refcnt);
 
     return 0;
+}
+
+int imkalias(inode_t *ip, const char *name, struct dentry **dref) {
+    int     err        = 0;
+    dentry_t *dentry   = NULL;
+
+    if (ip == NULL || name == NULL)
+        return -EINVAL;
+    
+    if ((err = dalloc(name, &dentry)))
+        return err;
+    
+    if ((iadd_alias(ip, dentry)))
+        goto error;
+    
+    if (dref)
+        *dref = dentry;
+    else
+        dclose(dentry);
+    return 0;
+error:
+    if (dentry)
+        dclose(dentry);
+    return err;
 }
 
 int iopen(inode_t *ip) {
@@ -282,10 +317,8 @@ ssize_t iwrite_data(inode_t *ip, off_t off, void *buf, size_t nb) {
 
     if (IISDIR(ip))
         return -EISDIR;
-
     if ((err = icheck_op(ip, iwrite)))
         return err;
-    
     return ip->i_ops->iwrite(ip, off, buf, nb);
 }
 
@@ -449,8 +482,7 @@ int itruncate(inode_t *ip) {
 }
 
 /* check for file permission */
-int icheck_perm(inode_t *ip, cred_t *cred, int oflags)
-{
+int icheck_perm(inode_t *ip, cred_t *cred, int oflags) {
     // printk("%s(\e[0;15mip=%p, cred=%p, oflags=%d)\e[0m\n", __func__, ip, cred, oflags);
     if (!ip)
         return -EINVAL;
@@ -465,20 +497,16 @@ int icheck_perm(inode_t *ip, cred_t *cred, int oflags)
     if (cred->c_uid == 0) /* root */
         goto done;
 
-    if (((oflags & O_ACCMODE) == O_RDONLY) || (oflags & O_ACCMODE) != O_WRONLY)
-    {
-        if (ip->i_uid == cred->c_uid)
-        {
+    if (((oflags & O_ACCMODE) == O_RDONLY) || (oflags & O_ACCMODE) != O_WRONLY) {
+        if (ip->i_uid == cred->c_uid) {
             if (ip->i_mode & S_IRUSR)
                 goto write_perms;
         }
-        else if (ip->i_gid == cred->c_gid)
-        {
+        else if (ip->i_gid == cred->c_gid) {
             if (ip->i_mode & S_IRGRP)
                 goto write_perms;
         }
-        else
-        {
+        else {
             if (ip->i_mode & S_IROTH)
                 goto write_perms;
         }
@@ -488,19 +516,15 @@ int icheck_perm(inode_t *ip, cred_t *cred, int oflags)
     }
 
 write_perms:
-    if (((oflags & O_ACCMODE) == O_WRONLY) || (oflags & O_ACCMODE) == O_RDWR)
-    {
-        if (ip->i_uid == cred->c_uid)
-        {
+    if (((oflags & O_ACCMODE) == O_WRONLY) || (oflags & O_ACCMODE) == O_RDWR) {
+        if (ip->i_uid == cred->c_uid) {
             if (ip->i_mode & S_IWUSR)
                 goto exec_perms;
         }
-        else if (ip->i_gid == cred->c_gid)
-        {
+        else if (ip->i_gid == cred->c_gid) {
             if (ip->i_mode & S_IWGRP)
                 goto exec_perms;
-        }
-        else
+        } 
         {
             if (ip->i_mode & S_IWOTH)
                 goto exec_perms;
@@ -511,20 +535,16 @@ write_perms:
     }
 
 exec_perms:
-    if ((oflags & O_EXCL))
-    {
-        if (ip->i_uid == cred->c_uid)
-        {
+    if ((oflags & O_EXCL)) {
+        if (ip->i_uid == cred->c_uid) {
             if (ip->i_mode & S_IXUSR)
                 goto done;
         }
-        else if (ip->i_gid == cred->c_gid)
-        {
+        else if (ip->i_gid == cred->c_gid) {
             if (ip->i_mode & S_IXGRP)
                 goto done;
         }
-        else
-        {
+        else {
             if (ip->i_mode & S_IXOTH)
                 goto done;
         }
@@ -552,10 +572,10 @@ ssize_t iread(inode_t *ip, off_t off, void *buf, size_t sz) {
 
 ssize_t iwrite(inode_t *ip, off_t off, void *buf, size_t sz) {
     ssize_t retval = 0;
+
     iassert_locked(ip);
     if (ip->i_cache == NULL)
         return iwrite_data(ip, off, buf, sz);
-
     icache_lock(ip->i_cache);    
     retval = icache_write(ip->i_cache, off, buf, sz);
     icache_unlock(ip->i_cache);
@@ -574,7 +594,7 @@ int istat(inode_t *ip, struct stat *buf) {
         [FS_CHR]    = _IFCHR,
         [FS_BLK]    = _IFBLK,
         [FS_FIFO]   = _IFIFO,
-        [FS_SYM]    = _IFLNK,
+        [FS_LNK]    = _IFLNK,
         [FS_SOCK]   = _IFSOCK,
         //[FS_SPECIAL]  = 0    /* FIXME */
     }[ip->i_type];

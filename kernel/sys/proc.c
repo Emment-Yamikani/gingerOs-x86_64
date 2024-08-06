@@ -120,6 +120,7 @@ int procQ_search_bypid(pid_t pid, proc_t **ref) {
 
 int procQ_search_bypgid(pid_t pgid, proc_t **ref) {
     proc_t *proc = NULL;
+
     queue_lock(procQ);
     forlinked(node, procQ->head, node->next) {
         proc = node->data;
@@ -258,7 +259,7 @@ int proc_load(const char *pathname, mmap_t *mmap, thread_entry_t *entry) {
     if (mmap == NULL || entry == NULL)
         return -EINVAL;
 
-    if ((err = vfs_lookup(pathname, NULL, O_EXEC | O_RDONLY, 0, 0, &dentry)))
+    if ((err = vfs_lookup(pathname, NULL,  O_EXEC, &dentry)))
         goto error;
 
     binary = dentry->d_inode;

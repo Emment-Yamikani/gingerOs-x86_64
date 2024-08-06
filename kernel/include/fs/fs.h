@@ -85,11 +85,11 @@ void fs_put(filesystem_t *fs);
 void fs_free(filesystem_t *fs);
 long fs_count(filesystem_t *fs);
 void fs_unsetname(filesystem_t *fs);
-int fs_set_iops(filesystem_t *fs, iops_t *iops);
-int fs_setname(filesystem_t *fs, const char *fsname);
-int fs_create(const char *name, iops_t *iops, filesystem_t **pfs);
-int fs_add_superblock(filesystem_t *fs, superblock_t *sb);
-int fs_del_superblock(filesystem_t *fs, superblock_t *sb);
+int  fs_set_iops(filesystem_t *fs, iops_t *iops);
+int  fs_setname(filesystem_t *fs, const char *fsname);
+int  fs_create(const char *name, iops_t *iops, filesystem_t **pfs);
+int  fs_add_superblock(filesystem_t *fs, superblock_t *sb);
+int  fs_del_superblock(filesystem_t *fs, superblock_t *sb);
 
 
 int vfs_init(void);
@@ -101,14 +101,17 @@ int vfs_register_fs(filesystem_t *fs);
 int vfs_unregister_fs(filesystem_t *fs);
 int  vfs_getfs(const char *type, filesystem_t **pfs);
 
-int vfs_traverse_path(dentry_t *dir, cred_t *cred, int oflags, vfspath_t *path, size_t *ptok_i);
+int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags);
+int vfs_resolve_path(const char *pathname, dentry_t *dir, cred_t *cred, int oflags, vfspath_t **dp);
 
-int vfs_lookup(const char *fn, cred_t *cred,
-               int oflags, mode_t mode,
-               int flags, dentry_t **pdp);
+int vfs_lookup(const char *fn, cred_t *cred, int oflags, dentry_t **pdp);
+int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred, int oflags, dentry_t **pdp);
 
-int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred,
-                 int oflags, mode_t mode, int flags, dentry_t **pdp);
+int vfs_mknod(const char *pathname, cred_t *cred, mode_t mode, devid_t dev);
+int vfs_mknodat(const char *pathname, dentry_t *dir, cred_t *cred, mode_t mode, devid_t dev);
+
+int vfs_mkdir(const char *path, cred_t *cred, mode_t mode);
+int vfs_mkdirat(const char *pathname, dentry_t *dir, cred_t *cred, mode_t mode);
 
 int vfs_dirlist(const char *path);
 

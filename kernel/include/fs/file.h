@@ -62,7 +62,6 @@ int     funlink(file_t *file);
 int     fgetattr(file_t *file, void *attr);
 int     fsetattr(file_t *file, void *attr);
 int     file_stat(file_t *file, struct stat *buf);
-
 int     file_chown(file_t *file, uid_t owner, gid_t group);
 
 int     ftruncate(file_t *file, off_t length);
@@ -98,19 +97,18 @@ typedef struct file_ctx_t {
 #define fctx_islocked(fctx)      ({ fassert(fctx); spin_islocked(&(fctx)->fc_lock); })
 #define fctx_assert_locked(fctx) ({ fassert(fctx); spin_assert_locked(&(fctx)->fc_lock); })
 
-int fctx_alloc(file_ctx_t**ret);
+int     fctx_alloc(file_ctx_t**ret);
+void    fctx_free(file_ctx_t *fctx);
 
-void fctx_free(file_ctx_t *fctx);
-
-void file_close_all(void);
-int file_copy(file_ctx_t *dst, file_ctx_t *src);
+void    file_close_all(void);
+int     file_copy(file_ctx_t *dst, file_ctx_t *src);
 
 int     file_get(int fd, file_t **ref);
 
+int     dup(int fd);
 int     sync(int fd);
 int     close(int fd);
 int     unlink(int fd);
-int     dup(int fd);
 int     dup2(int fd1, int fd2);
 int     getattr(int fd, void *attr);
 int     setattr(int fd, void *attr);
@@ -125,16 +123,19 @@ int     ioctl(int fd, int req, void *argp);
 /* SEEK_END */
 #define SEEK_END 2
 
+int     isatty(int fd);
+mode_t  umask(mode_t cmask);
+int     pipe(int fds[2]);
 off_t   lseek(int fd, off_t off, int whence);
 ssize_t read(int fd, void *buf, size_t size);
 ssize_t write(int fd, void *buf, size_t size);
-int     open(const char *pathname, int oflags, mode_t mode);
-int     openat(int fd, const char *pathname, int oflags, mode_t mode);
-int     create(int fd, const char *filename, mode_t mode);
+int     create(const char *filename, mode_t mode);
 int     mkdirat(int fd, const char *filename, mode_t mode);
+int     mkdir(const char *filename, mode_t mode);
 ssize_t readdir(int fd, off_t off, void *buf, size_t count);
-int     linkat(int fd, const char *oldname, const char *newname);
-int     mknodat(int fd, const char *filename, mode_t mode, int devid);
+int     open(const char *pathname, int oflags, mode_t mode);
 int     openat(int fd, const char *pathn, int oflags, mode_t);
-mode_t  umask(mode_t cmask);
-int     isatty(int fd);
+int     linkat(int fd, const char *oldname, const char *newname);
+int     openat(int fd, const char *pathname, int oflags, mode_t mode);
+int     mknodat(int fd, const char *filename, mode_t mode, int devid);
+int     mknod(const char *filename, mode_t mode, int devid);

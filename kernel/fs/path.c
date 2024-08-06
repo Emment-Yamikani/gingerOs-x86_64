@@ -101,6 +101,8 @@ int parse_path(const char *pathname, const char *cwd, int flags, vfspath_t **pre
         strncpy(__cwd + 1, cwd, tmplen);
         __cwd[tmplen + 1] = '\0';
         cwd = __cwd;
+    } else {
+        flags |= PATH_ABSOLUTE;
     }
 
     cwdlen = strlen(cwd);
@@ -117,7 +119,7 @@ int parse_path(const char *pathname, const char *cwd, int flags, vfspath_t **pre
     strncpy(tmppath + cwdlen + 1, pathname, pathlen);
     tmppath[cwdlen + pathlen + 1] = '\0';
 
-    if (NULL == (tmptokens = canonicalize_path(tmppath, &ntok, NULL)))
+    if ((err= canonicalize_path(tmppath, &ntok, &tmptokens, NULL)))
         goto error;
 
     if (NULL == (tokens = kcalloc(ntok + 1, sizeof(char *))))
@@ -161,9 +163,9 @@ int parse_path(const char *pathname, const char *cwd, int flags, vfspath_t **pre
         if (token != tokens[tok_i - 1]) {
             abs[abslen] = '/';
             abslen++;
-        } else
+        } else {
             abs[abslen] = '\0';
-        
+        }
     }
 
     err = -ENOMEM;
@@ -179,22 +181,24 @@ int parse_path(const char *pathname, const char *cwd, int flags, vfspath_t **pre
     kfree(tmppath);
     kfree(tmptokens);
     
-    path->flags = flags | (isdir ? PATH_ISDIR : 0);
+    vfspath_setflags(path, flags | (isdir ? PATH_ISDIR : 0));
 
     if (flags & PATH_NOABS)
         kfree(abs);
-    else path->absolute = abs;
+    else
+        path->absolute = abs;
 
-    if (flags & PATH_NOTOKENIZED)
+    if (flags & PATH_NOTOKENIZED) {
         tokens_free(tokens);
-    else {
+    } else {
         path->tokencount = tok_i;
         path->tokenized = tokens;
     };
 
     if (flags & PATH_NOLAST_TOK)
         kfree(last_token);
-    else path->lasttoken = last_token;
+    else
+        path->lasttoken = last_token;
 
     *pref = path;
     return 0;
@@ -220,9 +224,6 @@ void path_free(vfspath_t *path) {
     
     if (path->absolute)
         kfree(path->absolute);
-    
-    if (path->lasttoken)
-        kfree(path->lasttoken);
     
     if (path->tokenized)
         tokens_free(path->tokenized);

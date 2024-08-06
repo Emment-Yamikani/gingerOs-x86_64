@@ -19,14 +19,15 @@ struct  stat  {
   time_t          st_ctime;
 };
 
-#define _IFMT       0170000 /* type of file */
-#define     _IFDIR  0040000 /* directory */
-#define     _IFCHR  0020000 /* character special */
-#define     _IFBLK  0060000 /* block special */
-#define     _IFREG  0100000 /* regular */
-#define     _IFLNK  0120000 /* symbolic link */
-#define     _IFSOCK 0140000 /* socket */
-#define     _IFIFO  0010000 /* fifo */
+#define  _IFMT      0170000   // Bit mask for the file type bit fields
+
+#define  _IFDIR     0040000  // Directory
+#define  _IFCHR     0020000  // Character device
+#define  _IFBLK     0060000  // Block device
+#define  _IFREG     0100000  // Regular file
+#define  _IFIFO     0010000  // FIFO or pipe
+#define  _IFLNK     0120000  // Symbolic link
+#define  _IFSOCK    0140000  // Socket
 
 #define     S_BLKSIZE  1024 /* size of a block */
 
@@ -46,6 +47,14 @@ struct  stat  {
 #define S_IFLNK     _IFLNK
 #define S_IFSOCK    _IFSOCK
 #define S_IFIFO     _IFIFO
+
+#define S_ISDIR(mode)  (((mode) & S_IFMT) == S_IFDIR)   // Test for a directory
+#define S_ISCHR(mode)  (((mode) & S_IFMT) == S_IFCHR)   // Test for a character special file
+#define S_ISBLK(mode)  (((mode) & S_IFMT) == S_IFBLK)   // Test for a block special file
+#define S_ISREG(mode)  (((mode) & S_IFMT) == S_IFREG)   // Test for a regular file
+#define S_ISFIFO(mode) (((mode) & S_IFMT) == S_IFIFO)   // Test for a FIFO or pipe
+#define S_ISLNK(mode)  (((mode) & S_IFMT) == S_IFLNK)   // Test for a symbolic link
+#define S_ISSOCK(mode) (((mode) & S_IFMT) == S_IFSOCK)  // Test for a socket
 
 #define S_IRWXU     (S_IRUSR | S_IWUSR | S_IXUSR)
 #define     S_IRUSR 0000400 /* read permission, owner */

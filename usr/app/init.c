@@ -1,22 +1,21 @@
 #include <ginger/unistd.h>
-
-void handler(int);
+#include <api.h>
 
 void main(void) {
-    pid_t pid = fork();
+    int     err     = 0;
+    int     fd      = 0;
+    mode_t  mode    = 0777 | S_IFCHR;
 
-    if (pid != 0) {
-        kill(pid, SIGINT);
-    } else if (pid == 0) {
-        loop();
+    if ((err = mknod("/dev/null", mode, mkdev(1, 8))))
+        panic("Failed to creat device node: err: %d", err);
+
+    if ((err = fd = open("/dev/null", O_RDWR, mode)) < 0)
+        panic("Failed to open: device, error: %d\n", err);
+
+    if ((err = read(fd, &mode, 1)) < 0)
+        panic("Failed to read from null, err: %d\n", err);
+
+    printf("read from nulldev\n");
+    loop() {
     }
-
-    printf("Okay done sending signal\n");
-    loop();
-}
-
-
-void handler(int signo) {
-    printf("%s:%d: caught signal(%d)\n",
-    __FILE__, __LINE__, signo);
 }

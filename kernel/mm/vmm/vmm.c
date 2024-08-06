@@ -21,10 +21,10 @@ static spinlock_t *vmm_spinlock = SPINLOCK_NEW();
 int getpagesize(void)           { return PAGESZ; }
 
 typedef struct node {
-    uintptr_t base;     // start of region (zero if free)
-    struct node *next; // next region
-    struct node *prev; // prev region
-    size_t size;       // size of region in bytes
+    uintptr_t       base;   // start of region (zero if free)
+    struct  node    *next;  // next region
+    struct  node    *prev;  // prev region
+    size_t          size;   // size of region in bytes
 } node_t;
 
 //size of Kernel in GiB
@@ -77,8 +77,8 @@ static int can_merge_both(node_t *left, node_t *node, node_t *right) {
 static node_t *freenodes_get(void) {
     if (!freenodes_head)
         return NULL;
-    node_t *node = freenodes_head;
-    freenodes_head = node->next;
+    node_t *node    = freenodes_head;
+    freenodes_head  = node->next;
     if (!freenodes_head)
         freenodes_tail = NULL;
     *node = (node_t){0};
@@ -511,9 +511,9 @@ void memory_usage(void) {
 }
 
 struct vmman vmman = {
-    .free = vmm_free,
-    .init = vmm_init,
-    .alloc = vmm_alloc,
-    .getinuse = vmm_getinuse,
+    .free        = vmm_free,
+    .init        = vmm_init,
+    .alloc       = vmm_alloc,
+    .getinuse    = vmm_getinuse,
     .getfreesize = vmm_getfreesize,
 };

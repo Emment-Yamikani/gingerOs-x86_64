@@ -57,6 +57,8 @@ typedef void        (*sigfunc_t)();
 
 extern const char *signal_str[];
 
+extern const int sig_defaults[];
+
 typedef unsigned long sigset_t;
 
 #define SIGBAD(signo) ({ ((signo) < 1 || (signo) > NSIG); })
@@ -107,8 +109,9 @@ typedef unsigned long sigset_t;
 })
 
 extern int pause(void);
+extern int raise(int signo);
 extern int kill(pid_t pid, int signo);
-extern unsigned long alarm(unsigned long sec);
+extern unsigned long alarm(unsigned sec);
 extern sigfunc_t signal(int signo, sigfunc_t func);
 
 #define SIG_BLOCK   (1)

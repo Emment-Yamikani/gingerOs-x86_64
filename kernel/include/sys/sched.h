@@ -14,15 +14,13 @@ extern int sched_init(void);
 
 #define SCHED_LEVEL(p) ((p) / ((SCHED_LOWEST_PRIORITY + 1) / NLEVELS))
 
-typedef struct level
-{
+typedef struct level {
     atomic_t    pull;   // pull flag
     long        quatum; // quatum
     queue_t     *queue; // queue
 } level_t;
 
-typedef struct sched_queue
-{
+typedef struct sched_queue {
     level_t level[NLEVELS];
 } sched_queue_t;
 
@@ -73,11 +71,23 @@ int sched_wake1(queue_t *sleep_queue);
  * @brief causes the current 'thread' to sleep on 'sleep_queue'.
  * Also releases 'lock' if specified
  * and switches to the scheduler while holding current->t_lock
- * @param sleep_queue
- * @param lock
- * @return int
+ * @param sleep_queue sleep queue on which to place 'current'
+ * @param state state in which we want the thread(current) to be.
+ * @param lock  hand-over-lock passed to current upon waking up the thread.
+ * @return int  0 on success otherwise an error code is returned.
  */
 int sched_sleep(queue_t *sleep_queue, tstate_t state, spinlock_t *lock);
+
+/**
+ * @brief Same as sched_sleep(), except for this one 'current'
+ * is also rellocated to the fron of the tgroup queue.
+ * 
+ * @param sleep_queue sleep queue on which to place 'current'
+ * @param state state in which we want the thread(current) to be.
+ * @param lock  hand-over-lock passed to current upon waking up the thread.
+ * @return int  0 on success otherwise an error code is returned.
+ */
+int sched_sleep_r(queue_t *sleep_queue, tstate_t state, spinlock_t *lock);
 
 /**
  * @brief wake all threads on 'sleep-queue'

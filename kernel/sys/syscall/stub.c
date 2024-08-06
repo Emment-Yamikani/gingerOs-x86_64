@@ -19,12 +19,15 @@ size_t (*syscall[])() = {
     [SYS_OPENAT]            = (void *)sys_openat,
     [SYS_CREATE]            = (void *)sys_create,
     [SYS_MKDIRAT]           = (void *)sys_mkdirat,
+    [SYS_MKDIR]             = (void *)sys_mkdir,
     [SYS_READDIR]           = (void *)sys_readdir,
     [SYS_LINKAT]            = (void *)sys_linkat,
     [SYS_MKNODAT]           = (void *)sys_mknodat,
+    [SYS_MKNOD]             = (void *)sys_mknod,
     [SYS_SYNC]              = (void *)sys_sync,
     [SYS_GETATTR]           = (void *)sys_getattr,
     [SYS_SETATTR]           = (void *)sys_setattr,
+    [SYS_PIPE]              = (void *)sys_pipe,
 
     [SYS_FSTAT]             = (void *)sys_fstat,
     [SYS_STAT]              = (void *)sys_stat,
@@ -58,6 +61,7 @@ size_t (*syscall[])() = {
     [SYS_THREAD_SELF]       = (void *)sys_thread_self,
 
     [SYS_KILL]              = (void *)sys_kill,
+    [SYS_RAISE]             = (void *)sys_raise,
     [SYS_PAUSE]             = (void *)sys_pause,
     [SYS_SLEEP]             = (void *)sys_sleep,
     [SYS_ALARM]             = (void *)sys_alarm,

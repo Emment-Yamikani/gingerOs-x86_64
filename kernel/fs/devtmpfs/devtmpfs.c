@@ -9,8 +9,8 @@ static iops_t devtmpfs_iops = {
     .ibind      = tmpfs_ibind,
     .isync      = tmpfs_isync,
     .ilink      = tmpfs_ilink,
-    .iread      = tmpfs_iread_data,
-    .iwrite     = tmpfs_iwrite_data,
+    .iread      = tmpfs_iread,
+    .iwrite     = tmpfs_iwrite,
     .iclose     = tmpfs_iclose,
     .ifcntl     = tmpfs_ifcntl,
     .iioctl     = tmpfs_iioctl,
@@ -29,9 +29,9 @@ static iops_t devtmpfs_iops = {
 
 static int devtmpfs_fill_sb(filesystem_t *fs __unused, const char *target,
                          struct devid *devid __unused, superblock_t *sb) {
-    int err = 0;
-    inode_t *iroot = NULL;
-    dentry_t *droot = NULL;
+    int         err     = 0;
+    inode_t     *iroot  = NULL;
+    dentry_t    *droot  = NULL;
 
     if ((err = tmpfs_new_inode(FS_DIR, &iroot)))
         return err;
@@ -47,20 +47,21 @@ static int devtmpfs_fill_sb(filesystem_t *fs __unused, const char *target,
         return err;
     }
 
-    sb->sb_blocksize = -1;
     strncpy(sb->sb_magic0, "devtmpfs", 10);
-    sb->sb_size = -1;
+    sb->sb_blocksize = -1;
+    sb->sb_size      = -1;
+    sb->sb_root      = droot;
     sb->sb_uio = (cred_t){
-        .c_gid = 0,
-        .c_uid = 0,
-        .c_umask = 0555,
-        .c_lock = SPINLOCK_INIT(),
+        .c_gid      = 0,
+        .c_uid      = 0,
+        .c_umask    = 0555,
+        .c_lock     = SPINLOCK_INIT(),
     };
-    sb->sb_root = droot;
 
-    iroot->i_sb = sb;
-    iroot->i_type = FS_DIR;
-    iroot->i_ops = sb->sb_iops;
+    iroot->i_sb     = sb;
+    iroot->i_type   = FS_DIR;
+    iroot->i_ops    = sb->sb_iops;
+
     dunlock(droot);
     iunlock(iroot);
     return 0;

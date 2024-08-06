@@ -8,9 +8,9 @@
 int proc_get(proc_t *parent, proc_desc_t *desc);
 
 pid_t waitpid(pid_t pid, int *stat_loc, int opt) {
-    int     err     = 0;
-    int     has_kids= 0;
-    proc_t  *target = NULL;
+    int     err      = 0;
+    int     has_kids = 0;
+    proc_t  *target  = NULL;
 
     if (pid == getpid())
         return -EDEADLK;

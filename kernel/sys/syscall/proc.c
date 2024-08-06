@@ -1,7 +1,7 @@
 #include <sys/proc.h>
 
 pid_t getpid(void) {
-    if (curproc == 0)
+    if (curproc == NULL)
         return 0;
 
     proc_lock(curproc);

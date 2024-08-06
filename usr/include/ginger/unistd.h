@@ -15,8 +15,12 @@ ssize_t read(int fd, void *buf, size_t size);
 ssize_t write(int fd, void *buf, size_t size);
 int open(const char *pathname, int oflags, mode_t mode);
 int openat(int fd, const char *pathname, int oflags, mode_t mode);
-int create(int fd, const char *filename, mode_t mode);
+int create(const char *filename, mode_t mode);
 int mkdirat(int fd, const char *filename, mode_t mode);
+
+int mkdir(const char *filename, mode_t mode);
+int mknod(const char *filename, mode_t mode, int devid);
+int pipe(int fds[2]);
 
 int linkat(int fd, const char *oldname, const char *newname);
 int mknodat(int fd, const char *filename, mode_t mode, int devid);
@@ -63,7 +67,9 @@ int thread_create(tid_t *ptidp, void *attr, void *(*entry)(void *arg), void *arg
 int thread_join(tid_t tid, void **retval);
 tid_t thread_self(void);
 void thread_yield(void);
+
 int pause(void);
+int raise(int signo);
 int kill(pid_t pid, int signo);
 unsigned  long alarm(unsigned long sec);
 sigfunc_t signal(int signo, sigfunc_t func);

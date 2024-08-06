@@ -67,8 +67,8 @@ int      sys_ioctl(int fd, int req, void *argp) {
     return ioctl(fd, req, argp);
 }
 
-int      sys_create(int fd, const char *filename, mode_t mode) {
-    return create(fd, filename, mode);
+int      sys_create(const char *filename, mode_t mode) {
+    return create(filename, mode);
 }
 
 int      sys_mkdirat(int fd, const char *filename, mode_t mode) {
@@ -85,6 +85,14 @@ int      sys_linkat(int fd, const char *oldname, const char *newname) {
 
 int      sys_mknodat(int fd, const char *filename, mode_t mode, int devid) {
     return mknodat(fd, filename, mode, devid);
+}
+
+int      sys_mkdir(const char *filename, mode_t mode) {
+    return mkdir(filename, mode);
+}
+
+int      sys_mknod(const char *filename, mode_t mode, int devid) {
+    return mknod(filename, mode, devid);
 }
 
 int      sys_sync(int fd) {
@@ -115,6 +123,9 @@ int      sys_fstatat(int fd, const char *restrict path, struct stat *restrict bu
     return fstatat(fd, path, buf, flag);
 }
 
+int     sys_pipe(int fds[2]) {
+    return pipe(fds);
+}
 
 int      sys_uname(struct utsname *name) {
     return uname(name);
@@ -139,7 +150,6 @@ mode_t   sys_umask(mode_t cmask) {
 int      sys_isatty(int fd) {
     return isatty(fd);
 }
-
 
 /** @brief PROTECTION */
 
@@ -272,7 +282,7 @@ long      sys_sleep(long seconds) {
 }
 
 tid_t    sys_gettid(void) {
-    return thread_gettid(current);
+    return gettid();
 }
 
 void     sys_thread_exit(int exit_code) {
@@ -315,11 +325,15 @@ int sys_pause(void) {
     return pause();
 }
 
+int sys_raise(int signo) {
+    return raise(signo);
+}
+
 int sys_kill(pid_t pid, int signo) {
     return kill(pid, signo);
 }
 
-unsigned long sys_alarm(unsigned long sec) {
+unsigned sys_alarm(unsigned sec) {
     return alarm(sec);
 }
 

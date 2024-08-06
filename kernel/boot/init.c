@@ -22,6 +22,8 @@
 
 bootinfo_t bootinfo = {0};
 
+extern __noreturn void kthread_main(void);
+
 int multiboot_info_process(multiboot_info_t *info) {
     mmap_entry_t *mmap = NULL, *mmap_end = NULL;
 
@@ -83,8 +85,6 @@ int multiboot_info_process(multiboot_info_t *info) {
 
     return 0;
 }
-
-extern __noreturn void kthread_main(void);
 
 int early_init(void) {
     int err = 0;

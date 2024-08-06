@@ -13,10 +13,9 @@ int binfmt_elf_check(inode_t *binary) {
         return -EINVAL;
 
     iassert_locked(binary);
-
     if (iread(binary, 0, &h, sizeof h) != sizeof h)
         return -EAGAIN;
-    
+
     if ((h.e_ident[EI_MAG0] != 0x7f) || (h.e_ident[EI_MAG1] != 'E')||
         (h.e_ident[EI_MAG2] != 'L')  || (h.e_ident[EI_MAG3] != 'F'))
         return -EINVAL;

@@ -98,6 +98,12 @@ sys_%2:
 %define SYS_OPENAT          76
 
 %define SYS_EXECVE          77
+%define SYS_RAISE           78
+
+%define SYS_PIPE            79
+
+%define SYS_MKDIR           80
+%define SYS_MKNOD           81
 
 stub SYS_PUTC, putc
 stub SYS_CLOSE, close
@@ -121,10 +127,14 @@ stub SYS_SYNC, sync
 stub SYS_GETATTR, getattr
 stub SYS_SETATTR, setattr
 
+stub SYS_MKDIR, mkdir
+stub SYS_MKNOD, mknod
+
 stub SYS_FSTAT, fstat
 stub SYS_STAT, stat
 stub SYS_LSTAT, lstat
 stub SYS_FSTATAT, fstatat
+stub SYS_PIPE, pipe
 
 stub SYS_UNAME, uname
 stub SYS_CHOWN, chown
@@ -153,6 +163,7 @@ stub SYS_THREAD_SELF, thread_self
 stub SYS_THREAD_YIELD, thread_yield
 
 stub SYS_PAUSE, pause
+stub SYS_RAISE, raise
 stub SYS_KILL, kill
 stub SYS_ALARM, alarm
 stub SYS_SIGNAL, signal
