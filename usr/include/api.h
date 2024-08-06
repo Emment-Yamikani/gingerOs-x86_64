@@ -9,6 +9,7 @@
 #include <ginger/atomic.h>
 #include <ginger/spinlock.h>
 #include <ginger/syscall.h>
+#include <ginger/rtc.h>
 
 #include <sys/_signal.h>
 #include <sys/_time.h>

@@ -108,23 +108,25 @@ int     feof(file_t *file) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->feof == NULL)
-        goto generic;
-
-    return file->fops->feof(file);
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (file->fops != NULL && file->fops->feof != NULL) {
+        return file->fops->feof(file);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
     
     err = file->f_off >= igetsize(inode);
     iputcnt(inode);
@@ -136,11 +138,10 @@ int     fclose(file_t *file) {
     int err = 0;
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fclose == NULL)
-        goto generic;
+    if (file->fops != NULL && file->fops->fclose != NULL) {
+        return file->fops->fclose(file);
+    }
 
-    return file->fops->fclose(file);
-generic:
     if ((err = fput(file)))
         return err;
 
@@ -151,7 +152,6 @@ generic:
         goto done;
     }
 
-    
     funlock(file);
 done:
     return 0;
@@ -163,23 +163,25 @@ int     fsync(file_t *file) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fsync == NULL)
-        goto generic;
-
-    return file->fops->fsync(file);
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (file->fops != NULL && file->fops->fsync != NULL) {
+        return file->fops->fsync(file);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
 
     err = isync(inode);
     iputcnt(inode);
@@ -193,24 +195,26 @@ int     funlink(file_t *file) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->funlink == NULL)
-        goto generic;
-
-    return file->fops->funlink(file);
-
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (file->fops != NULL && file->fops->funlink != NULL) {
+        return file->fops->funlink(file);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+
+    // Generic write operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
     
     err = iunlink(inode);
     iputcnt(inode);
@@ -224,24 +228,25 @@ int     fgetattr(file_t *file, void *attr) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fgetattr == NULL)
-        goto generic;
-
-    return file->fops->fgetattr(file, attr);
-
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (file->fops != NULL && file->fops->fgetattr != NULL) {
+        return file->fops->fgetattr(file, attr);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
     
     err = igetattr(inode, attr);
     iputcnt(inode);
@@ -255,24 +260,25 @@ int     fsetattr(file_t *file, void *attr) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fsetattr == NULL)
-        goto generic;
-
-    return file->fops->fsetattr(file, attr);
-
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (file->fops != NULL && file->fops->fsetattr != NULL) {
+        return file->fops->fsetattr(file, attr);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
     
     err = isetattr(inode, attr);
     iputcnt(inode);
@@ -280,31 +286,31 @@ generic:
     return err;
 }
 
-int     ftruncate(file_t *file, off_t length __unused) {
+int     ftruncate(file_t *file, off_t length) {
     int err = 0;
     inode_t *inode = NULL;
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->ftruncate == NULL)
-        goto generic;
-
-    return file->fops->ftruncate(file, length);
-
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode))
-    {
-        ilock(inode);
-        idupcnt(inode);
+    if (file->fops != NULL && file->fops->ftruncate != NULL) {
+        return file->fops->ftruncate(file, length);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
 
     err = itruncate(inode);
     iputcnt(inode);
@@ -318,24 +324,25 @@ int     ffcntl(file_t *file, int cmd, void *argp) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->ffcntl == NULL)
-        goto generic;
-
-    return file->fops->ffcntl(file, cmd, argp);
-
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (file->fops != NULL && file->fops->ffcntl != NULL) {
+        return file->fops->ffcntl(file, cmd, argp);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
     
     err = ifcntl(inode, cmd, argp);
     iputcnt(inode);
@@ -349,24 +356,25 @@ int     fioctl(file_t *file, int req, void *argp) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fioctl == NULL)
-        goto generic;
-
-    return file->fops->fioctl(file, req, argp);
-
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (file->fops != NULL && file->fops->fioctl != NULL) {
+        return file->fops->fioctl(file, req, argp);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
     
     err = iioctl(inode, req, argp);
     iputcnt(inode);
@@ -379,24 +387,25 @@ off_t   flseek(file_t *file, off_t off, int whence) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->flseek == NULL)
-        goto generic;
-
-    return file->fops->flseek(file, off, whence);
-
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (file->fops != NULL && file->fops->flseek != NULL) {
+        return file->fops->flseek(file, off, whence);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
 
     switch (whence) {
         case 0: /* SEEK_SET */
@@ -556,31 +565,31 @@ ssize_t fwrite(file_t *file, void *buf, size_t size) {
     return retval;
 }
 
-
 int     fcreate(file_t *dir, const char *pathname, mode_t mode) {
     int err = 0;
     inode_t *inode = NULL;
 
     fassert_locked(dir);
 
-    if (dir->fops == NULL || dir->fops->fcreate == NULL)
-        goto generic;
-
-    return dir->fops->fcreate(dir, pathname, mode);
-
-generic:
-    if (dir->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(dir->f_dentry);
-    if ((inode = dir->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (dir->fops != NULL && dir->fops->fcreate != NULL) {
+        return dir->fops->fcreate(dir, pathname, mode);
     }
-    dunlock(dir->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (dir->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(dir->f_dentry); // Lock dentry
+    if ((inode = dir->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(dir->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
     
     err = icreate(inode, pathname, mode);
     iputcnt(inode);
@@ -598,24 +607,25 @@ int     fmkdirat(file_t *dir, const char *pathname, mode_t mode) {
     if ((err = path_get_lasttoken(pathname, &filename)))
         return err;
 
-    if (dir->fops == NULL || dir->fops->fmkdirat == NULL)
-        goto generic;
-
-    return dir->fops->fmkdirat(dir, filename, mode);
-
-generic:
-    if (dir->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(dir->f_dentry);
-    if ((inode = dir->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (dir->fops != NULL && dir->fops->fmkdirat != NULL) {
+        return dir->fops->fmkdirat(dir, filename, mode);
     }
-    dunlock(dir->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (dir->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(dir->f_dentry); // Lock dentry
+    if ((inode = dir->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(dir->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
     
     err = imkdir(inode, filename, mode);
     iputcnt(inode);
@@ -629,24 +639,25 @@ ssize_t freaddir(file_t *dir, off_t off, void *buf, size_t count) {
 
     fassert_locked(dir);
 
-    if (dir->fops == NULL || dir->fops->freaddir == NULL)
-        goto generic;
-
-    return dir->fops->freaddir(dir, off, buf, count);
-
-generic:
-    if (dir->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(dir->f_dentry);
-    if ((inode = dir->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (dir->fops != NULL && dir->fops->freaddir != NULL) {
+        return dir->fops->freaddir(dir, off, buf, count);
     }
-    dunlock(dir->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (dir->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(dir->f_dentry); // Lock dentry
+    if ((inode = dir->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(dir->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
     
     err = ireaddir(inode, off, buf, count);
     iputcnt(inode);
@@ -660,24 +671,25 @@ int     flinkat(file_t *dir, const char *oldname, const char *newname) {
 
     fassert_locked(dir);
 
-    if (dir->fops == NULL || dir->fops->flinkat == NULL)
-        goto generic;
-
-    return dir->fops->flinkat(dir, oldname, newname);
-
-generic:
-    if (dir->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(dir->f_dentry);
-    if ((inode = dir->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (dir->fops != NULL && dir->fops->flinkat != NULL) {
+        return dir->fops->flinkat(dir, oldname, newname);
     }
-    dunlock(dir->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (dir->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(dir->f_dentry); // Lock dentry
+    if ((inode = dir->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(dir->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
     
     err = ilink(oldname, inode, newname);
     iputcnt(inode);
@@ -688,30 +700,32 @@ generic:
 int     fmknodat(file_t *dir, const char *pathname, mode_t mode, int devid) {
     int err = 0;
     inode_t *inode = NULL;
-    __unused char *path = NULL, *filename = NULL;
+    char *filename = NULL;
+
     if ((err = path_get_lasttoken(pathname, &filename)))
         return err;
 
     fassert_locked(dir);
 
-    if (dir->fops == NULL || dir->fops->fmknodat == NULL)
-        goto generic;
-
-    return dir->fops->fmknodat(dir, filename, mode, devid);
-
-generic:
-    if (dir->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(dir->f_dentry);
-    if ((inode = dir->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (dir->fops != NULL && dir->fops->fmknodat != NULL) {
+        return dir->fops->fmknodat(dir, filename, mode, devid);
     }
-    dunlock(dir->f_dentry);
+    
+    // Generic write operation
+    if (dir->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
 
-    if (inode == NULL)
-        return -ENOENT;
+    dlock(dir->f_dentry); // Lock dentry
+    if ((inode = dir->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(dir->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
     
     err = imknod(inode, filename, mode, devid);
     iputcnt(inode);
@@ -745,23 +759,25 @@ int fmmap(file_t *file, vmr_t *region) {
             return -EACCES;
     }
 
-    if (file->fops == NULL || file->fops->fmmap == NULL)
-        goto generic;
-    
-    return file->fops->fmmap(file, region);
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (file->fops != NULL && file->fops->fmmap != NULL) {
+        return file->fops->fmmap(file, region);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
     
     if ((IISDEV(inode) == 0) && (IISREG(inode) == 0)) {
         irelease(inode);
@@ -787,23 +803,25 @@ int file_stat(file_t *file, struct stat *buf) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fstat == NULL)
-        goto generic;
-
-    return file->fops->fstat(file, buf);
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (file->fops != NULL && file->fops->fstat != NULL) {
+        return file->fops->fstat(file, buf);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
 
     err = istat(inode, buf);
     iputcnt(inode);
@@ -817,23 +835,25 @@ int file_chown(file_t *file, uid_t owner, gid_t group) {
 
     fassert_locked(file);
 
-    if (file->fops == NULL || file->fops->fchown == NULL)
-        goto generic;
-
-    return file->fops->fchown(file, owner,group);
-generic:
-    if (file->f_dentry == NULL)
-        return -ENOENT;
-
-    dlock(file->f_dentry);
-    if ((inode = file->f_dentry->d_inode)) {
-        ilock(inode);
-        idupcnt(inode);
+    if (file->fops != NULL && file->fops->fchown != NULL) {
+        return file->fops->fchown(file, owner,group);
     }
-    dunlock(file->f_dentry);
 
-    if (inode == NULL)
-        return -ENOENT;
+    // Generic write operation
+    if (file->f_dentry == NULL) {
+        return -ENOENT; // No such file or directory
+    }
+
+    dlock(file->f_dentry); // Lock dentry
+    if ((inode = file->f_dentry->d_inode)) {
+        ilock(inode); // Lock inode
+        idupcnt(inode); // Increment reference count
+    }
+    dunlock(file->f_dentry); // Unlock dentry
+
+    if (inode == NULL) {
+        return -ENOENT; // No such file or directory
+    }
 
     err = ichown(inode, owner, group);
     iputcnt(inode);

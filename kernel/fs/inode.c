@@ -59,7 +59,7 @@ int ialloc(itype_t type, int flags, inode_t **pip) {
     ip->i_type = type;
 
     if (IISDIR(ip) || IISDEV(ip) || IISFIFO(ip) || IISPIPE(ip)) {
-        flags |= I_NOCACHE;
+        flags |= I_NOCACHE | I_NORWQUEUES;
     }
 
     if (!(flags & I_NOCACHE)) {
@@ -317,7 +317,6 @@ ssize_t iwrite_data(inode_t *ip, off_t off, void *buf, size_t nb) {
 
     if (IISDIR(ip))
         return -EISDIR;
-
     if ((err = icheck_op(ip, iwrite)))
         return err;
     return ip->i_ops->iwrite(ip, off, buf, nb);
@@ -577,7 +576,6 @@ ssize_t iwrite(inode_t *ip, off_t off, void *buf, size_t sz) {
     iassert_locked(ip);
     if (ip->i_cache == NULL)
         return iwrite_data(ip, off, buf, sz);
-
     icache_lock(ip->i_cache);    
     retval = icache_write(ip->i_cache, off, buf, sz);
     icache_unlock(ip->i_cache);

@@ -10,23 +10,23 @@
 #include <arch/paging.h>
 #include <modules/module.h>
 
-static int fb_init(void);
-static int fb_probe(void);
-static int fb_close(struct devid *dd);
-static int fb_getinfo(struct devid *dd, void *info);
-static int fb_open(struct devid *dd, int oflags, ...);
-static int fb_ioctl(struct devid *dd, int req, void *argp);
-static off_t fb_lseek(struct devid *dd, off_t off, int whence);
-static ssize_t fb_read(struct devid *dd, off_t off, void *buf, size_t sz);
-static ssize_t fb_write(struct devid *dd, off_t off, void *buf, size_t sz);
+static int      fb_init(void);
+static int      fb_probe(void);
+static int      fb_close(struct devid *dd);
+static int      fb_getinfo(struct devid *dd, void *info);
+static int      fb_open(struct devid *dd, int oflags, ...);
+static int      fb_ioctl(struct devid *dd, int req, void *argp);
+static off_t    fb_lseek(struct devid *dd, off_t off, int whence);
+static ssize_t  fb_read(struct devid *dd, off_t off, void *buf, size_t sz);
+static ssize_t  fb_write(struct devid *dd, off_t off, void *buf, size_t sz);
 
-static int fb_vmr_fault(vmr_t *region, vm_fault_t *fault);
 static int fb_mmap(struct devid *dd, vmr_t *region);
+static int fb_vmr_fault(vmr_t *region, vm_fault_t *fault);
 
-static dev_t fbdev;
-fb_fixinfo_t fix_info       = {0};
-fb_varinfo_t var_info       = {0};
-framebuffer_t fbs[NFBDEV]   = {0};
+static dev_t    fbdev;
+fb_fixinfo_t    fix_info       = {0};
+fb_varinfo_t    var_info       = {0};
+framebuffer_t   fbs[NFBDEV]    = {0};
 
 static vmr_ops_t fb_vmrops = {
     .io = NULL,
@@ -83,7 +83,7 @@ int framebuffer_gfx_init(void) {
 
 static int fb_init(void) {
     printk("Initializing \e[025453;011m%s\e[0m chardev...\n", fbdev.devname);
-    return kdev_register(&fbdev, DEV_FULL, FS_CHR);
+    return kdev_register(&fbdev, DEV_FB, FS_CHR);
 }
 
 static int fb_probe(void) {
@@ -109,8 +109,7 @@ static int fb_getinfo(struct devid *dd, void *info __unused) {
 }
 
 static int fb_open(struct devid *dd, int oflags __unused, ...) {
-    if (dd == NULL ||
-        dd->major != DEV_FB ||
+    if (dd == NULL || dd->major != DEV_FB ||
         dd->minor >= NFBDEV || dd->type != FS_CHR)
         return -EINVAL;
     return 0;
@@ -220,7 +219,6 @@ static ssize_t fb_write(struct devid *dd, off_t off, void *buf, size_t sz) {
     size = MIN(sz, fb->fixinfo->memsz - off);
     size = (size_t)memcpy((void *)(fb->fixinfo->addr + off), buf, size) - 
         (fb->fixinfo->addr + off);
-
     return size;
 }
 

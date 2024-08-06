@@ -20,6 +20,7 @@ int rtc_ioctl(struct devid *dd, int req, void *argp);
 off_t rtc_lseek(struct devid *dd, off_t off, int whence);
 ssize_t rtc_read(struct devid *dd, off_t off, void *buf, size_t sz);
 ssize_t rtc_write(struct devid *dd, off_t off, void *buf, size_t sz);
+int rtc_mmap(struct devid *dd, vmr_t *r);
 
 #define RTC_CMD (0x70)  // RTC command port.
 #define RTC_IO  (0x71)  // RTC io data port.
@@ -38,35 +39,17 @@ ssize_t rtc_write(struct devid *dd, off_t off, void *buf, size_t sz);
 // Status register B
 #define RTC_STB 0x0B
 
-static dev_t rtcdev = {
-    .devname = "rtc0",
-    .devprobe = rtc_probe,
-    .devlock = SPINLOCK_INIT(),
-    .devid = {
-        .minor = 0,
-        .type = FS_CHR,
-        .major = DEV_RTC0,
-    },
-    .devops = {
-        .close = rtc_close,
-        .getinfo = rtc_getinfo,
-        .ioctl = rtc_ioctl,
-        .lseek = rtc_lseek,
-        .open = rtc_open,
-        .read = rtc_read,
-        .write = rtc_write,
-    },
-};
+static DEV_INIT(rtc, FS_CHR, DEV_RTC0, 0);
 
 #define CURRENT_YEAR    2023
 
-static dev_t rtcdev;
-static size_t rtc_secs = 0;
-static size_t rtc_ticks = 0;
-static uint16_t RTC_CENT = 0;
-static rtc_time_t rtc_tm = {0};
-static cond_t *rtc_event = COND_NEW();
-static spinlock_t *rtclk = SPINLOCK_NEW();
+static dev_t        rtcdev;
+static size_t       rtc_secs    = 0;
+static size_t       rtc_ticks   = 0;
+static uint16_t     RTC_CENT    = 0;
+static rtc_time_t   rtc_tm      = {0};
+static cond_t       *rtc_event  = COND_NEW();
+static spinlock_t   *rtclk      = SPINLOCK_NEW();
 
 static int rtc_updating(void) {
     outb(RTC_CMD, RTC_STA);
@@ -198,15 +181,14 @@ int rtc_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-int rtc_ioctl(struct devid *dd, int req, void *argp __unused) {
+int rtc_ioctl(struct devid *dd, int req, void *argp) {
     int err = 0;
 
     if (dd == NULL)
         return -EINVAL;
 
     spin_lock(rtclk);
-    switch (req)
-    {
+    switch (req) {
     case RTC_GETTIME:
         err = rtc_gettime(argp);
         break;
@@ -220,20 +202,18 @@ int rtc_ioctl(struct devid *dd, int req, void *argp __unused) {
         err = -ENOTSUP;
     }
 
-    spin_lock(rtclk);
+    spin_unlock(rtclk);
     return err;
 }
 
-off_t rtc_lseek(struct devid *dd, off_t off, int whence)
-{
+off_t rtc_lseek(struct devid *dd, off_t off, int whence) {
     (void)dd;
     (void)off;
     (void)whence;
     return -ENOTSUP;
 }
 
-ssize_t rtc_read(struct devid *dd, off_t off, void *buf, size_t sz)
-{
+ssize_t rtc_read(struct devid *dd, off_t off, void *buf, size_t sz) {
     (void)dd;
     (void)off;
     (void)buf;
@@ -241,13 +221,19 @@ ssize_t rtc_read(struct devid *dd, off_t off, void *buf, size_t sz)
     return -ENOTSUP;
 }
 
-ssize_t rtc_write(struct devid *dd, off_t off, void *buf, size_t sz)
-{
+ssize_t rtc_write(struct devid *dd, off_t off, void *buf, size_t sz) {
     (void)dd;
     (void)off;
     (void)buf;
     (void)sz;
     return -ENOTSUP;
+}
+
+int rtc_mmap(struct devid *dd __unused, vmr_t *r __unused) {
+    if (dd == NULL)
+        return -EINVAL;
+
+    return -EOPNOTSUPP;
 }
 
 void rtc_intr(void) {

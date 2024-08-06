@@ -6,6 +6,8 @@
 #include <ds/hash.h>
 #include <ds/stack.h>
 #include <fs/stat.h>
+#include <fs/devtmpfs.h>
+#include <dev/dev.h>
 
 typedef struct tmpfs_inode_t {
     uid_t       uid;
@@ -13,6 +15,7 @@ typedef struct tmpfs_inode_t {
     mode_t      mode;
     uintptr_t   ino;
     itype_t     type;
+    devid_t     rdev;
     size_t      size;
     long        hlink;
     void        *data;
@@ -147,10 +150,10 @@ error:
 }
 
 static int tmpfs_ialloc(itype_t type, tmpfs_inode_t **pipp) {
-    int err = 0;
-    tmpfs_inode_t *ip = NULL;
-    static long tmpfs_inos = 0;
-    hash_table_t *htable = NULL;
+    int             err         = 0;
+    tmpfs_inode_t   *ip         = NULL;
+    hash_table_t    *htable     = NULL;
+    static long     tmpfs_inos  = 0;
 
     if (pipp == NULL)
         return -EINVAL;
@@ -243,9 +246,9 @@ error:
 }
 
 static int tmpfs_dirent_alloc(const char *fname, tmpfs_inode_t *ip, tmpfs_dirent_t **ptde) {
-    int err = 0;
-    char *name = NULL;
-    tmpfs_dirent_t *tde = NULL;
+    int             err     = 0;
+    tmpfs_dirent_t  *tde    = NULL;
+    char            *name   = NULL;
 
     if (fname == NULL || ptde == NULL)
         return -EINVAL;
@@ -257,8 +260,8 @@ static int tmpfs_dirent_alloc(const char *fname, tmpfs_inode_t *ip, tmpfs_dirent
     if ((tde = kmalloc(sizeof *tde)) == NULL)
         goto error;
 
-    tde->name = name;
-    tde->inode = ip;
+    tde->inode  = ip;
+    tde->name   = name;
 
     *ptde = tde;
     return 0;
@@ -286,11 +289,11 @@ static int tmpfs_dirent_free(tmpfs_dirent_t *dirent) {
     return 0;
 }
 
-static int tmpfs_create_node(inode_t *dir, const char *fname, mode_t mode, itype_t type) {
-    int err = 0;
-    tmpfs_inode_t *ip = NULL;
-    hash_table_t *htable = NULL;
-    tmpfs_dirent_t *dirent = NULL;
+static int tmpfs_create_node(inode_t *dir, const char *fname, mode_t mode, itype_t type, devid_t dev __unused) {
+    int             err     = 0;
+    tmpfs_inode_t   *ip     = NULL;
+    hash_table_t    *htable = NULL;
+    tmpfs_dirent_t  *dirent = NULL;
 
     iassert_locked(dir);
 
@@ -314,8 +317,10 @@ static int tmpfs_create_node(inode_t *dir, const char *fname, mode_t mode, itype
     hash_unlock(htable);
 
     ip->mode = mode;
+    ip->rdev = dev;
 
-    // printk("[\e[0;04mWARNING\e[0m]: file credentials not fully set!\n");
+    // printk("%s:%d: [\e[0;04mWARNING\e[0m]: file credentials not fully set!: rdev[%d:%d]\n",
+        //    __FILE__, __LINE__, dev & 0xff, dev >> 8);
     return 0;
 error:
     if (dirent)
@@ -327,11 +332,11 @@ error:
 }
 
 int tmpfs_imkdir(inode_t *dir, const char *fname, mode_t mode) {
-    return tmpfs_create_node(dir, fname, mode, FS_DIR);
+    return tmpfs_create_node(dir, fname, mode, FS_DIR, 0);
 }
 
 int tmpfs_icreate(inode_t *dir, const char *fname, mode_t mode) {
-    return tmpfs_create_node(dir, fname, mode, FS_RGL);
+    return tmpfs_create_node(dir, fname, mode, FS_RGL, 0);
 }
 
 int tmpfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
@@ -368,7 +373,13 @@ int tmpfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     if ((err = ialloc(dirent->inode->type, 0, &ip)))
         goto error;
 
-    ip->i_ops       = dir->i_ops;
+    if (IISDEV(ip))
+        ip->i_ops   = &dev_iops;
+    else
+        ip->i_ops   = dir->i_ops;
+
+    // printk("file_type: %s\n", itype_strings[dirent->inode->type]);
+
     ip->i_priv      = dirent->inode;
     ip->i_ino       = dirent->inode->ino;
     ip->i_type      = dirent->inode->type;
@@ -377,7 +388,10 @@ int tmpfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     ip->i_gid       = dirent->inode->gid;
     ip->i_uid       = dirent->inode->uid;
     ip->i_mode      = dirent->inode->mode;
+    ip->i_rdev      = dirent->inode->rdev;
 
+    // printk("%s:%d: rdev[%d:%d]\n",
+        // __FILE__, __LINE__, ip->i_rdev & 0xff, ip->i_rdev >> 8);
     *pipp = ip;    
     return 0;
 error:
@@ -445,8 +459,6 @@ ssize_t tmpfs_iwrite(inode_t *ip, off_t off, void *buf, size_t sz) {
 
     iassert_locked(ip);
 
-    debugloc();
-
     if (ip == NULL || buf == NULL)
         return -EINVAL;
 
@@ -471,8 +483,7 @@ ssize_t tmpfs_iwrite(inode_t *ip, off_t off, void *buf, size_t sz) {
     }
 
     sz = MIN((tino->size - off), sz);
-    memcpy(data + off, buf, sz);    
-
+    memcpy(data + off, buf, sz);
     return sz;
 }
 
@@ -594,8 +605,9 @@ int tmpfs_ilink(const char *oldname __unused, inode_t *dir __unused, const char 
     return -ENOTSUP;
 }
 
-int tmpfs_imknod(inode_t *dir __unused, const char *name __unused, mode_t mode, int devid __unused) {
-    __unused int     err = 0;
+int tmpfs_imknod(inode_t *dir, const char *name, mode_t mode, int devid) {
+    itype_t         type   = 0;
+
     // Validate the mode
     if ((mode & S_IFMT) == 0) {
         mode |= S_IFREG; // Default to regular file
@@ -606,16 +618,17 @@ int tmpfs_imknod(inode_t *dir __unused, const char *name __unused, mode_t mode, 
     }
 
     if (S_ISBLK(mode) || S_ISCHR(mode)) {
-
+        if (S_ISBLK(mode))
+            type = FS_BLK;
+        else
+            type = FS_CHR;
     } else if (S_ISREG(mode)) {
-
+        type = FS_RGL;
     } else if (S_ISFIFO(mode)) {
-
+        return -EOPNOTSUPP;
     }
-    goto error;
-    return 0;
-error:
-    return -ENOTSUP;
+
+    return tmpfs_create_node(dir, name, mode, type, devid);
 }
 
 int tmpfs_irename(inode_t *dir __unused, const char *old __unused, inode_t *newdir __unused, const char *new __unused) {
