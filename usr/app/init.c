@@ -2,20 +2,21 @@
 #include <api.h>
 
 void main(void) {
-    int     err     = 0;
-    int     fd      = 0;
-    mode_t  mode    = 0777 | S_IFCHR;
+    int         err     = 0;
+    pid_t       pid     = 0;
+    int         stat_loc  = 0;
+    char *const  shell[] = {"/ramfs/shell", NULL};
 
-    if ((err = mknod("/dev/null", mode, mkdev(1, 8))))
-        panic("Failed to creat device node: err: %d", err);
-
-    if ((err = fd = open("/dev/null", O_RDWR, mode)) < 0)
-        panic("Failed to open: device, error: %d\n", err);
-
-    if ((err = read(fd, &mode, 1)) < 0)
-        panic("Failed to read from null, err: %d\n", err);
-
-    printf("read from nulldev\n");
     loop() {
+        if ((err = pid = fork()) < 0) {
+            panic("Failed to fork child. err: %d\n", err);
+        } else if (pid == 0) {
+            if ((err = execve(shell[0], shell, NULL)))
+                panic("Failed to execve(), err: %d\n", err);
+        }
+
+        if ((err = waitpid(pid, &stat_loc, 0)) < 0)
+            panic("Failed to wait for child: %d, err: %d\n", pid, err);
+        printf("err: %d\n", err);
     }
 }
