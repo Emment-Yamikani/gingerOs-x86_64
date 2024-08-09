@@ -9,6 +9,7 @@
 #include <arch/cpu.h>
 #include <ginger/jiffies.h>
 #include <arch/lapic.h>
+#include <sys/proc.h>
 
 int sched_init(void) {
     int err = 0;
@@ -275,6 +276,12 @@ __noreturn void schedule(void) {
         //     arch->t_ctx->link
         // );
         
+        if (curproc) {
+            proc_lock(curproc);
+            curproc->state = P_RUNNING;
+            proc_unlock(curproc);
+        }
+
         context_switch(&arch->t_ctx);
         
         // printk("1: cpu%d, tid: %d, "

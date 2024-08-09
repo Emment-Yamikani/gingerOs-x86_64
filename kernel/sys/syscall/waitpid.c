@@ -44,9 +44,8 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options) {
         if (pid < -1) {
             queue_lock(procQ);
             queue_foreach(proc_t *, proc, procQ) {
-                if (proc == curproc) {
+                if (proc == curproc)
                     continue;
-                }
 
                 proc_lock(proc);
                 if ((proc->pgid == ABSi(pid)) && (proc->parent == curproc)) {
@@ -98,9 +97,8 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options) {
         } else if (pid == 0) {
             queue_lock(procQ);
             queue_foreach(proc_t *, proc, procQ) {
-                if (proc == curproc) {
+                if (proc == curproc)
                     continue;
-                }
 
                 proc_lock(proc);
                 if ((proc->pgid == getpgrp()) && (proc->parent == curproc)) {
@@ -160,7 +158,7 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options) {
             }
 
             // If WNOHANG is specified and the child is still running, return immediately.
-            if ((options & WNOHANG) && proc_isrunning(target)) {
+            if ((options & WNOHANG)) {
                 proc_release(target);
                 return 0;
             }
