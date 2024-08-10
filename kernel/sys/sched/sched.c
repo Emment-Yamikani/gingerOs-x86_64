@@ -53,9 +53,9 @@ void sched(void) {
         }
     }
 
-    thread_chain_lock_release(current);
+    // thread_chain_lock_release(current);
     context_switch(&current->t_arch.t_ctx);
-    thread_chain_lock_acquire(current);
+    // thread_chain_lock_acquire(current);
 
     current_assert_locked();
     cpu->ncli   = ncli;

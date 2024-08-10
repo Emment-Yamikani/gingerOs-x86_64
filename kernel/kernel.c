@@ -11,6 +11,10 @@ int load_init(const char *conf_fn);
 
 static char *init_path = "/ramfs/init";
 
+void *fn(void *a __unused) {
+    loop();
+}
+
 __noreturn void kthread_main(void) {
     int     err     = 0;
 
@@ -19,6 +23,9 @@ __noreturn void kthread_main(void) {
     );
 
     builtin_threads_begin(NULL);
+
+
+    loop() kthread_create(NULL, fn, NULL, THREAD_CREATE_SCHED, NULL);
 
     if ((err = load_init("/ramfs/startup.conf"))) {
         printk("Failed to read or parse startup.conf"

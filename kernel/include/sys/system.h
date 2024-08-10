@@ -81,6 +81,8 @@
 
 #define ismmio_addr(x)          ((((uintptr_t)(x)) >= MEMMDEV) && (((uintptr_t)(x)) < GiB(4)))
 
+#define MAGIC_RETADDR           (-1ul)
+
 #if defined __i386__
     #define USTACK              ((uintptr_t)0xC0000000ul)
 #elif defined __x86_64__
