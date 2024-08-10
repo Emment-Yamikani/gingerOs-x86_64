@@ -9,7 +9,7 @@
 
 int gettimeofday(struct timeval *restrict tp, void *restrict tzp __unused) {
     time_t time = rtc_gettime();
-    tp->tv_sec = time;
-    tp->tv_usec = time % 1000000;
+    tp->tv_usec = 0;
+    tp->tv_sec  = time;
     return 0;
 }

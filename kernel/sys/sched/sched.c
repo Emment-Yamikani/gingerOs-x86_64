@@ -257,8 +257,8 @@ __noreturn void schedule(void) {
             // set up in the tss.
             // TODO: use tss.ist in later versions of this code.
             err = arch_thread_setkstack(&current->t_arch);
-            assert_msg(err == 0, "Kernel stack was not set"
-            " for user thread, errno = %d\n", err);
+            assert_msg(err == 0, "Kernel stack was not set "
+                "for user thread, errno = %d\n", err);
         }
 
 
@@ -275,12 +275,6 @@ __noreturn void schedule(void) {
         //     getcpuid(), thread_gettid(current), arch->t_ctx,
         //     arch->t_ctx->link
         // );
-        
-        if (curproc) {
-            proc_lock(curproc);
-            curproc->state = P_RUNNING;
-            proc_unlock(curproc);
-        }
 
         context_switch(&arch->t_ctx);
         

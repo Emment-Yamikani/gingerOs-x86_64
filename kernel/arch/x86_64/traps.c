@@ -18,47 +18,47 @@
 
 void dump_tf(mcontext_t *mctx, int halt) {
     if (halt) {
-        panic(
-            "\n\e[025453;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d]\n"
-            "ERR:%X rflags=%X cs=%X ds=%X fs=%X ss=%X\n"
-            "\e[025453;015mrax\e[0m=\e[025453;016m%16p\e[0m \e[025453;015mrbx\e[0m=\e[025453;12m%16p\e[0m \e[025453;015mrcx\e[0m=\e[025453;12m%16p\e[0m\n"
-            "\e[025453;015mrdx\e[0m=%16p \e[025453;015mrdi\e[0m=%16p \e[025453;015mrsi\e[0m=%16p\n"
-            "\e[025453;03mrbp\e[0m=\e[025453;03m%16p\e[0m \e[025453;03mrsp\e[0m=\e[025453;03m%16p\e[0m \e[025453;015mr8\e[0m =\e[025453;12m%16p\e[0m\n"
-            "\e[025453;015mr9\e[0m =%16p \e[025453;015mr10\e[0m=%16p \e[025453;015mr11\e[0m=%16p\n"
-            "\e[025453;015mr12\e[0m=\e[025453;012m%16p\e[0m \e[025453;015mr13\e[0m=\e[025453;12m%16p\e[0m \e[025453;015mr14\e[0m=\e[025453;12m%16p\e[0m\n"
-            "\e[025453;015mr15\e[0m=%16p \e[025453;015mrip\e[0m=\e[025453;016m%16p\e[0m \e[025453;015mcr0\e[0m=%16p\n"
-            "\e[025453;015mcr2\e[0m=\e[025453;016m%16p\e[0m \e[025453;015mcr3\e[0m=\e[025453;12m%16p\e[0m \e[025453;015mcr4\e[0m=\e[025453;12m%16p\e[0m\n",
-            mctx->trapno, mctx, getcpuid(), curproc ? curproc->pid : -1, thread_self(),
-            mctx->errno, mctx->rflags, mctx->cs, mctx->ds, mctx->fs, mctx->ss, 
-            mctx->rax, mctx->rbx, mctx->rcx,
-            mctx->rdx, mctx->rdi, mctx->rsi,
-            mctx->rbp, mctx->rsp, mctx->r8,
-            mctx->r9, mctx->r10, mctx->r11,
-            mctx->r12, mctx->r13, mctx->r14,
-            mctx->r15, mctx->rip, rdcr0(),
-            rdcr2(), rdcr3(), rdcr4()
-        );
-    }
-    else {
-        printk(
-            "\n\e[025453;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d]\n"
-            "ERR:%X rflags=%X cs=%X ds=%X fs=%X ss=%X\n"
-            "\e[025453;015mrax\e[0m=\e[025453;012m%16p\e[0m rbx=\e[025453;12m%16p\e[0m rcx=\e[025453;12m%16p\e[0m\n"
-            "\e[025453;015mrdx\e[0m=%16p \e[025453;015mrdi\e[0m=%16p \e[025453;015mrsi\e[0m=%16p\n"
-            "\e[025453;015mrbp\e[0m=\e[025453;012m%16p\e[0m rsp=\e[025453;12m%16p\e[0m r8 =\e[025453;12m%16p\e[0m\n"
-            "\e[025453;015mr9\e[0m =%16p \e[025453;015mr10\e[0m=%16p \e[025453;015mr11\e[0m=%16p\n"
-            "\e[025453;015mr12\e[0m=\e[025453;012m%16p\e[0m r13=\e[025453;12m%16p\e[0m r14=\e[025453;12m%16p\e[0m\n"
-            "\e[025453;015mr15\e[0m=%16p \e[025453;015mrip\e[0m=%16p \e[025453;015mcr0\e[0m=%16p\n"
-            "\e[025453;015mcr2\e[0m=\e[025453;012m%16p\e[0m cr3=\e[025453;12m%16p\e[0m cr4=\e[025453;12m%16p\e[0m\n",
-            mctx->trapno, mctx, getcpuid(), curproc ? curproc->pid : -1, thread_self(),
-            mctx->errno, mctx->rflags, mctx->cs, mctx->ds, mctx->fs, mctx->ss,
-            mctx->rax, mctx->rbx, mctx->rcx,
-            mctx->rdx, mctx->rdi, mctx->rsi,
-            mctx->rbp, mctx->rsp, mctx->r8,
-            mctx->r9, mctx->r10, mctx->r11,
-            mctx->r12, mctx->r13, mctx->r14,
-            mctx->r15, mctx->rip, rdcr0(),
-            rdcr2(), rdcr3(), rdcr4()
+        panic("\n\e[025453;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d]\n"
+              "\e[025453;015merr\e[0m=\e[025453;012m%16p\e[0m rfl=\e[025453;12m%16p\e[0m cs =\e[025453;12m%16p\e[0m\n"
+              "\e[025453;015mds\e[0m =%16p \e[025453;015mfs \e[0m=%16p \e[025453;015mss \e[0m=%16p\n"
+              "\e[025453;015mrax\e[0m=\e[025453;012m%16p\e[0m rbx=\e[025453;12m%16p\e[0m rcx=\e[025453;12m%16p\e[0m\n"
+              "\e[025453;015mrdx\e[0m=%16p \e[025453;015mrdi\e[0m=%16p \e[025453;015mrsi\e[0m=%16p\n"
+              "\e[025453;015mrbp\e[0m=\e[025453;012m%16p\e[0m rsp=\e[025453;12m%16p\e[0m r8 =\e[025453;12m%16p\e[0m\n"
+              "\e[025453;015mr9\e[0m =%16p \e[025453;015mr10\e[0m=%16p \e[025453;015mr11\e[0m=%16p\n"
+              "\e[025453;015mr12\e[0m=\e[025453;012m%16p\e[0m r13=\e[025453;12m%16p\e[0m r14=\e[025453;12m%16p\e[0m\n"
+              "\e[025453;015mr15\e[0m=%16p \e[025453;015mrip\e[0m=%16p \e[025453;015mcr0\e[0m=%16p\n"
+              "\e[025453;015mcr2\e[0m=\e[025453;012m%16p\e[0m cr3=\e[025453;12m%16p\e[0m cr4=\e[025453;12m%16p\e[0m\n",
+              mctx->trapno, mctx, getcpuid(), curproc ? curproc->pid : -1, thread_self(),
+              mctx->errno,  mctx->rflags, mctx->cs,
+              mctx->ds,     mctx->fs,     mctx->ss,
+              mctx->rax,    mctx->rbx,    mctx->rcx,
+              mctx->rdx,    mctx->rdi,    mctx->rsi,
+              mctx->rbp,    mctx->rsp,    mctx->r8,
+              mctx->r9,     mctx->r10,    mctx->r11,
+              mctx->r12,    mctx->r13,    mctx->r14,
+              mctx->r15,    mctx->rip,    rdcr0(),
+              rdcr2(),      rdcr3(),      rdcr4());
+    } else {
+        printk("\n\e[025453;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d]\n"
+              "\e[025453;015merr\e[0m=\e[025453;012m%16p\e[0m rfl=\e[025453;12m%16p\e[0m cs =\e[025453;12m%16p\e[0m\n"
+              "\e[025453;015mds\e[0m =%16p \e[025453;015mfs \e[0m=%16p \e[025453;015mss \e[0m=%16p\n"
+              "\e[025453;015mrax\e[0m=\e[025453;012m%16p\e[0m rbx=\e[025453;12m%16p\e[0m rcx=\e[025453;12m%16p\e[0m\n"
+              "\e[025453;015mrdx\e[0m=%16p \e[025453;015mrdi\e[0m=%16p \e[025453;015mrsi\e[0m=%16p\n"
+              "\e[025453;015mrbp\e[0m=\e[025453;012m%16p\e[0m rsp=\e[025453;12m%16p\e[0m r8 =\e[025453;12m%16p\e[0m\n"
+              "\e[025453;015mr9\e[0m =%16p \e[025453;015mr10\e[0m=%16p \e[025453;015mr11\e[0m=%16p\n"
+              "\e[025453;015mr12\e[0m=\e[025453;012m%16p\e[0m r13=\e[025453;12m%16p\e[0m r14=\e[025453;12m%16p\e[0m\n"
+              "\e[025453;015mr15\e[0m=%16p \e[025453;015mrip\e[0m=%16p \e[025453;015mcr0\e[0m=%16p\n"
+              "\e[025453;015mcr2\e[0m=\e[025453;012m%16p\e[0m cr3=\e[025453;12m%16p\e[0m cr4=\e[025453;12m%16p\e[0m\n",
+              mctx->trapno, mctx, getcpuid(), curproc ? curproc->pid : -1, thread_self(),
+              mctx->errno,  mctx->rflags, mctx->cs,
+              mctx->ds,     mctx->fs,     mctx->ss,
+              mctx->rax,    mctx->rbx,    mctx->rcx,
+              mctx->rdx,    mctx->rdi,    mctx->rsi,
+              mctx->rbp,    mctx->rsp,    mctx->r8,
+              mctx->r9 ,    mctx->r10,    mctx->r11,
+              mctx->r12,    mctx->r13,    mctx->r14,
+              mctx->r15,    mctx->rip,    rdcr0(),
+              rdcr2(),      rdcr3(),      rdcr4()
         );
     }
 }
