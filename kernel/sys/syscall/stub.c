@@ -90,6 +90,8 @@ size_t (*syscall[])() = {
     [SYS_GETCWD]            = (void *)sys_getcwd,
     [SYS_CHDIR]             = (void *)sys_chdir,
 
+    [SYS_GETTIMEOFDAY]      = (void *)sys_gettimeofday,
+
     [SYS_UNAME]             = (void *)sys_uname
 };
 

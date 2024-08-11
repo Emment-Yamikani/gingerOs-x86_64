@@ -206,3 +206,5 @@ extern int arch_memcpypp(uintptr_t pdst, uintptr_t psrc, usize size);
  * @return int 
  */
 extern int arch_map(uintptr_t frame, int i4, int i3, int i2, int i1, int flags);
+
+extern void arch_tlbshootdown(uintptr_t pdbr, uintptr_t vaddr);
