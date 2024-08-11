@@ -8,6 +8,6 @@ void main(void) {
     // char *const  shell[] = {"/ramfs/shell", NULL};
 
     loop() {
-        fork();
+        thread_create(NULL, NULL, (void *)main, NULL);
     }
 }
