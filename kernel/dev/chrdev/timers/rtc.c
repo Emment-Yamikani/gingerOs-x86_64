@@ -56,7 +56,7 @@ static int rtc_updating(void) {
     return (inb(RTC_IO) & 0x80);
 }
 
-static int rtc_gettime(rtc_time_t *tm) {
+static int rtc_retrieve_time(rtc_time_t *tm) {
     uint8_t statusB = 0;
     rtc_time_t last = {0};
 
@@ -161,7 +161,7 @@ int rtc_probe(void) {
     outb(RTC_CMD, 0x0C);
     inb(RTC_IO);
 
-    rtc_gettime(&rtc_tm);
+    rtc_retrieve_time(&rtc_tm);
 
     printk("Time: \e[025453;02m%d:%d:%d\e[0m Date: \e[025453;03m%d/%d/%d\e[0m\n",
            rtc_tm.rtc_hrs, rtc_tm.rtc_min, rtc_tm.rtc_sec,
@@ -190,7 +190,7 @@ int rtc_ioctl(struct devid *dd, int req, void *argp) {
     spin_lock(rtclk);
     switch (req) {
     case RTC_GETTIME:
-        err = rtc_gettime(argp);
+        err = rtc_retrieve_time(argp);
         break;
     case RTC_SETTIME:
         err = -ENOTSUP;
@@ -236,13 +236,78 @@ int rtc_mmap(struct devid *dd __unused, vmr_t *r __unused) {
     return -EOPNOTSUPP;
 }
 
+// Check if a year is a leap year
+static int is_leap_year(int year) {
+    return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+}
+
+// Days in each month
+static int days_in_month(int month, int year) {
+    static const int days_in_months[] = 
+        {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if (month == 2 && is_leap_year(year)) {
+        return 29;
+    }
+    return days_in_months[month - 1];
+}
+
+// Compute number of days from 1970 to the given date
+static usize days_since_epoch(const rtc_time_t *rtc_time) {
+    int year = rtc_time->rtc_year;
+    int month = rtc_time->rtc_mon;
+    int day = rtc_time->rtc_day;
+
+    usize days = 0;
+
+    // Calculate days for full years
+    for (int y = 1970; y < year; ++y) {
+        days += is_leap_year(y) ? 366 : 365;
+    }
+
+    // Calculate days for full months in the current year
+    for (int m = 1; m < month; ++m) {
+        days += days_in_month(m, year);
+    }
+
+    // Add days of the current month
+    days += day - 1; // day - 1 because day is inclusive
+
+    return days;
+}
+
+// Convert rtc_time_t to seconds since Unix epoch
+static time_t rtc_to_epoch(const rtc_time_t *rtc_time) {
+    // Calculate total days since epoch
+    int days = days_since_epoch(rtc_time);
+
+    // Calculate total seconds
+    time_t total_seconds = days * 86400L; // 86400 seconds in a day
+    total_seconds += rtc_time->rtc_hrs * 3600;   // 3600 seconds in an hour
+    total_seconds += rtc_time->rtc_min * 60;     // 60 seconds in a minute
+    total_seconds += rtc_time->rtc_sec;          // Seconds
+
+    return total_seconds;
+}
+
+
+usize rtc_gettime(void) {
+    rtc_time_t  tm      = {0};
+    time_t      time    = 0;
+    spin_lock(rtclk);
+    rtc_retrieve_time(&tm);
+    spin_unlock(rtclk);
+
+    time = rtc_to_epoch(&tm);
+    return time;
+}
+
 void rtc_intr(void) {
 
     spin_lock(rtclk);
     if (!((++rtc_ticks) % 2)) {
         ++rtc_secs;
         if ((rtc_secs % 60) == 0)
-            rtc_gettime(&rtc_tm);
+            rtc_retrieve_time(&rtc_tm);
         cond_broadcast(rtc_event);
     }
 

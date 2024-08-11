@@ -1,5 +1,7 @@
 #pragma once
 
+#include <lib/types.h>
+
 #define RTC_GETTIME  0
 #define RTC_SETTIME  1
 #define RTC_SETALM   2
@@ -15,3 +17,4 @@ typedef struct rtc_time {
 } rtc_time_t;
 
 void rtc_intr(void);
+usize rtc_gettime(void);

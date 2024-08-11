@@ -2,20 +2,12 @@
 #include <api.h>
 
 void main(void) {
-    int     err     = 0;
-    int     fd      = 0;
-    mode_t  mode    = 0777 | S_IFCHR;
+    // int         err     = 0;
+    // pid_t       pid     = 0;
+    // int         stat_loc= 0;
+    // char *const  shell[] = {"/ramfs/shell", NULL};
 
-    if ((err = mknod("/dev/null", mode, mkdev(1, 8))))
-        panic("Failed to creat device node: err: %d", err);
-
-    if ((err = fd = open("/dev/null", O_RDWR, mode)) < 0)
-        panic("Failed to open: device, error: %d\n", err);
-
-    if ((err = read(fd, &mode, 1)) < 0)
-        panic("Failed to read from null, err: %d\n", err);
-
-    printf("read from nulldev\n");
     loop() {
+        thread_create(NULL, NULL, (void *)main, NULL);
     }
 }

@@ -9,6 +9,7 @@
 #include <arch/cpu.h>
 #include <ginger/jiffies.h>
 #include <arch/lapic.h>
+#include <sys/proc.h>
 
 int sched_init(void) {
     int err = 0;
@@ -52,9 +53,9 @@ void sched(void) {
         }
     }
 
-    thread_chain_lock_release(current);
+    // thread_chain_lock_release(current);
     context_switch(&current->t_arch.t_ctx);
-    thread_chain_lock_acquire(current);
+    // thread_chain_lock_acquire(current);
 
     current_assert_locked();
     cpu->ncli   = ncli;
@@ -256,8 +257,8 @@ __noreturn void schedule(void) {
             // set up in the tss.
             // TODO: use tss.ist in later versions of this code.
             err = arch_thread_setkstack(&current->t_arch);
-            assert_msg(err == 0, "Kernel stack was not set"
-            " for user thread, errno = %d\n", err);
+            assert_msg(err == 0, "Kernel stack was not set "
+                "for user thread, errno = %d\n", err);
         }
 
 
@@ -274,7 +275,7 @@ __noreturn void schedule(void) {
         //     getcpuid(), thread_gettid(current), arch->t_ctx,
         //     arch->t_ctx->link
         // );
-        
+
         context_switch(&arch->t_ctx);
         
         // printk("1: cpu%d, tid: %d, "

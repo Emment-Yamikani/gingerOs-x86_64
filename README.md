@@ -4,6 +4,11 @@
 ![POSIX Badge](https://img.shields.io/badge/POSIX-Compliant-brightgreen?style=flat&label=POSIX)
 ![Issues Tracking Badge](https://img.shields.io/badge/issue_track-github-blue?style=flat&label=Issue%20Tracking) 
  [![Contributors](https://img.shields.io/github/contributors/Emment-yamikani/gingerOs-x86_64)](https://github.com/emment-yamikani/gingerOs-x86_64/graphs/contributors)
+![Commit activity](https://img.shields.io/github/commit-activity/m/emment-yamikani/gingerOs-x86_64/master)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/ddef159bc34148e4a89d2a600e9b61e5)](https://app.codacy.com/gh/emment-yamikani/gingerOs-x86_64/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+![GitHub top language](https://img.shields.io/github/languages/top/emment-yamikani/gingerOs-x86_64?logo=c&label=)
+[![GitHub license](https://img.shields.io/github/license/emment-yamikani/gingerOs-x86_64)](https://github.com/emment-yamikani/gingerOs-x86_64/blob/master/LICENSE)
+
 
 The Ginger Operating System (Ginger OS) is designed to be a straightforward operating system, aiming for full POSIX compliance and partial Linux compatibility wherever feasible.
 
