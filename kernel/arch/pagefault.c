@@ -308,10 +308,10 @@ int handle_vmr_fault(vmr_t *vmr, vm_fault_t *fault) {
 }
 
 void arch_do_page_fault(mcontext_t *trapframe) {
-    int         err = 0;
-    vm_fault_t  fault = {0};
-    mmap_t      *mmap = NULL;
-    vmr_t       *vmr = NULL;
+    int         err     = 0;
+    vm_fault_t  fault   = {0};
+    vmr_t       *vmr    = NULL;
+    mmap_t      *mmap   = NULL;
 
     // Get the faulting address and error code
     fault.addr = rdcr2();
@@ -341,6 +341,9 @@ void arch_do_page_fault(mcontext_t *trapframe) {
         handle_kernel_fault(trapframe, &fault);
         return;
     }
+
+    // printk("PF: %p, cpu[%d, ncli: %d] tid[%d:%d], rip: %p\n",
+        // fault.addr, getcpuid(), cpu->ncli, getpid(), gettid(), trapframe->rip);
 
     // Lock the memory map and find the corresponding virtual memory region (VMR)
     mmap_lock(mmap);

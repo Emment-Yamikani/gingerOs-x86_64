@@ -26,7 +26,10 @@ __noreturn void kthread_main(void) {
         );
     }
 
-    loop() thread_join(0, NULL, NULL);
+    loop() {
+        thread_join(0, NULL, NULL);
+        thread_yield();
+    }
 }
 
 static int conf_find(const char *buf, const char *str, char **ret) {

@@ -17,6 +17,14 @@
 #include <sys/proc.h>
 
 void dump_tf(mcontext_t *mctx, int halt) {
+    void *stack_sp = NULL;
+    usize stack_sz = 0;
+
+    if (current) {
+        stack_sp   = current->t_arch.t_kstack.ss_sp;
+        stack_sz    = current->t_arch.t_kstack.ss_size;
+    }
+
     if (halt) {
         panic("\n\e[025453;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d]\n"
               "\e[025453;015merr\e[0m=\e[025453;012m%16p\e[0m rfl=\e[025453;12m%16p\e[0m cs =\e[025453;12m%16p\e[0m\n"
@@ -27,7 +35,8 @@ void dump_tf(mcontext_t *mctx, int halt) {
               "\e[025453;015mr9\e[0m =%16p \e[025453;015mr10\e[0m=%16p \e[025453;015mr11\e[0m=%16p\n"
               "\e[025453;015mr12\e[0m=\e[025453;012m%16p\e[0m r13=\e[025453;12m%16p\e[0m r14=\e[025453;12m%16p\e[0m\n"
               "\e[025453;015mr15\e[0m=%16p \e[025453;015mrip\e[0m=%16p \e[025453;015mcr0\e[0m=%16p\n"
-              "\e[025453;015mcr2\e[0m=\e[025453;012m%16p\e[0m cr3=\e[025453;12m%16p\e[0m cr4=\e[025453;12m%16p\e[0m\n",
+              "\e[025453;015mcr2\e[0m=\e[025453;012m%16p\e[0m cr3=\e[025453;12m%16p\e[0m cr4=\e[025453;12m%16p\e[0m\n"
+              "\e[025453;015mst\e[0m =%16p \e[025453;015msp\e[0m =%16p \e[025453;015mstz\e[0m=%16p\n",
               mctx->trapno, mctx, getcpuid(), curproc ? curproc->pid : -1, thread_self(),
               mctx->errno,  mctx->rflags, mctx->cs,
               mctx->ds,     mctx->fs,     mctx->ss,
@@ -37,7 +46,9 @@ void dump_tf(mcontext_t *mctx, int halt) {
               mctx->r9,     mctx->r10,    mctx->r11,
               mctx->r12,    mctx->r13,    mctx->r14,
               mctx->r15,    mctx->rip,    rdcr0(),
-              rdcr2(),      rdcr3(),      rdcr4());
+              rdcr2(),      rdcr3(),      rdcr4(),
+              stack_sp, stack_sp + stack_sz, stack_sz
+        );
     } else {
         printk("\n\e[025453;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d]\n"
               "\e[025453;015merr\e[0m=\e[025453;012m%16p\e[0m rfl=\e[025453;12m%16p\e[0m cs =\e[025453;12m%16p\e[0m\n"
@@ -48,7 +59,8 @@ void dump_tf(mcontext_t *mctx, int halt) {
               "\e[025453;015mr9\e[0m =%16p \e[025453;015mr10\e[0m=%16p \e[025453;015mr11\e[0m=%16p\n"
               "\e[025453;015mr12\e[0m=\e[025453;012m%16p\e[0m r13=\e[025453;12m%16p\e[0m r14=\e[025453;12m%16p\e[0m\n"
               "\e[025453;015mr15\e[0m=%16p \e[025453;015mrip\e[0m=%16p \e[025453;015mcr0\e[0m=%16p\n"
-              "\e[025453;015mcr2\e[0m=\e[025453;012m%16p\e[0m cr3=\e[025453;12m%16p\e[0m cr4=\e[025453;12m%16p\e[0m\n",
+              "\e[025453;015mcr2\e[0m=\e[025453;012m%16p\e[0m cr3=\e[025453;12m%16p\e[0m cr4=\e[025453;12m%16p\e[0m\n"
+              "\e[025453;015mst\e[0m =%16p \e[025453;015msp\e[0m =%16p \e[025453;015mstz\e[0m=%16p\n",
               mctx->trapno, mctx, getcpuid(), curproc ? curproc->pid : -1, thread_self(),
               mctx->errno,  mctx->rflags, mctx->cs,
               mctx->ds,     mctx->fs,     mctx->ss,
@@ -58,7 +70,8 @@ void dump_tf(mcontext_t *mctx, int halt) {
               mctx->r9 ,    mctx->r10,    mctx->r11,
               mctx->r12,    mctx->r13,    mctx->r14,
               mctx->r15,    mctx->rip,    rdcr0(),
-              rdcr2(),      rdcr3(),      rdcr4()
+              rdcr2(),      rdcr3(),      rdcr4(),
+              stack_sp, stack_sp + stack_sz, stack_sz
         );
     }
 }
@@ -175,7 +188,7 @@ void trap(ucontext_t *uctx) {
         break;
     }
 
-    sched_remove_zombies();
+    // sched_remove_zombies();
 
     if (!current)
         return;

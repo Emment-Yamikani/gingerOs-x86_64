@@ -170,7 +170,7 @@ static void freevmr_put(node_t *node) {
     assert(node->size, "invalid memory region size");
     assert(node->base >= KHEAPBASE, "invalid memory region base address");
 
-    node_t *tmp = NULL, *right = freevmr_head, *left = NULL;
+    node_t *right = freevmr_head, *left = NULL;
 
     node->prev = NULL;
     node->next = NULL;
@@ -180,13 +180,18 @@ static void freevmr_put(node_t *node) {
 #endif
 
     if (!freevmr_head) {
+        // If the list is empty, set this node as both head and tail
         freevmr_head = node;
         freevmr_tail = node;
         return;
     }
 
-    for (tmp = right; tmp && (right->base < node->base); tmp = right = tmp->next) {
-        left = right;
+    // Traverse the list to find the correct position for insertion
+    forlinked(tmp, freevmr_head, tmp->next) {
+        if (tmp->base > node->base)
+            break;
+        left  = tmp;
+        right = tmp->next;
     }
 
     if (left && right) {
@@ -199,38 +204,30 @@ static void freevmr_put(node_t *node) {
                    left->base, left->size / 1024, node->base, node->size / 1024, right->base, right->size / 1024);
 #endif
             concatenate(left, node, right);
-        }
-        else if (can_merge_left(node, left)) {
+        } else if (can_merge_left(node, left)) {
 #if KVM_DEBUG
-            printk("%s:%d: can merge with left L[%p : %dkib] : [%p : %dkib] : R[%p : %dkib]\n", __FILE__, __LINE__,
-                   left->base, left->size / 1024, node->base, node->size / 1024, right->base, right->size / 1024);
+            printk("%s:%d: can merge with left L[%p : %dkib] : [%p : %dkib]\n", __FILE__, __LINE__,
+                   left->base, left->size / 1024, node->base, node->size / 1024);
 #endif
             merge_left(node, left);
-        }
-        else if (can_merge_right(node, right)) {
+        } else if (can_merge_right(node, right)) {
 #if KVM_DEBUG
-            printk("%s:%d: can merge with right L[%p : %dkib] : [%p : %dkib] : R[%p : %dkib]\n", __FILE__, __LINE__,
-                   left->base, left->size / 1024, node->base, node->size / 1024, right->base, right->size / 1024);
+            printk("%s:%d: can merge with right [%p : %dkib] : R[%p : %dkib]\n", __FILE__, __LINE__,
+                   node->base, node->size / 1024, right->base, right->size / 1024);
 #endif
             merge_right(node, right);
-        }
-        else {
+        } else {
 #if KVM_DEBUG
-            printk("%s:%d: can not merge with any L[%p : %dkib] : [%p : %dkib] : R[%p : %dkib]\n", __FILE__, __LINE__,
+            printk("%s:%d: cannot merge with any L[%p : %dkib] : [%p : %dkib] : R[%p : %dkib]\n", __FILE__, __LINE__,
                    left->base, left->size / 1024, node->base, node->size / 1024, right->base, right->size / 1024);
 #endif
-            // freevmr_linkto_left(node, left);
-            // freevmr_linkto_right(node, right);
-
+            // Link the node between left and right
             node->prev = left;
             node->next = right;
-            
             left->next = node;
             right->prev = node;
-
         }
-    }
-    else if (left) {
+    } else if (left) {
 #if KVM_DEBUG
         printk("%s:%d: only has left L[%p : %dkib] : [%p : %dkib]\n", __FILE__, __LINE__,
                left->base, left->size / 1024, node->base, node->size / 1024);
@@ -241,16 +238,14 @@ static void freevmr_put(node_t *node) {
                    left->base, left->size / 1024, node->base, node->size / 1024);
 #endif
             merge_left(node, left);
-        }
-        else {
+        } else {
 #if KVM_DEBUG
-            printk("%s:%d: can not merge left L[%p : %dkib] : [%p : %dkib]\n", __FILE__, __LINE__,
+            printk("%s:%d: cannot merge left L[%p : %dkib] : [%p : %dkib]\n", __FILE__, __LINE__,
                    left->base, left->size / 1024, node->base, node->size / 1024);
 #endif
             freevmr_linkto_left(node, left);
         }
-    }
-    else if (right) {
+    } else if (right) {
 #if KVM_DEBUG
         printk("%s:%d: only has right [%p : %dkib] : R[%p : %dkib]\n", __FILE__, __LINE__,
                node->base, node->size / 1024, right->base, right->size / 1024);
@@ -261,56 +256,64 @@ static void freevmr_put(node_t *node) {
                    node->base, node->size / 1024, right->base, right->size / 1024);
 #endif
             merge_right(node, right);
-        }
-        else {
+        } else {
 #if KVM_DEBUG
-            printk("%s:%d: can not merge right [%p : %dkib] : R[%p : %dkib]\n", __FILE__, __LINE__,
+            printk("%s:%d: cannot merge right [%p : %dkib] : R[%p : %dkib]\n", __FILE__, __LINE__,
                    node->base, node->size / 1024, right->base, right->size / 1024);
 #endif
             freevmr_linkto_right(node, right);
         }
-    }
-    else
+    } else {
         panic("impossible constraint\n", __FILE__, __LINE__);
+    }
 }
 
 static node_t *freevmr_get(size_t sz) {
-    assert(sz, "invalid memory size request");
-    assert(!(sz & PAGEMASK), "invalid size, must be page aligned");
-    node_t *node = freevmr_head, *next = NULL, *prev = NULL;
+    assert(sz, "Invalid memory size request");
+    assert(!(sz & PAGEMASK), "Invalid size, must be page aligned");
 
-    if (!node)
+    node_t *node = NULL, *next = NULL, *prev = NULL;
+
+    if (!freevmr_head)
         return NULL;
 
 #if KVM_DEBUG
     printk("%s:%d: requested: %d\n", __FILE__, __LINE__, sz / 1024);
 #endif
 
-    for (; node; node = node->next) {
-        // vmm_dump_node(node);
-        if (node->size >= sz)
+    // Traverse the list to find a node with a size greater than or equal to the requested size
+    forlinked(tmp, freevmr_head, tmp->next) {
+        node = tmp;
+        if (node->size >= sz) {
+            // Found a suitable node, break out of the loop
             break;
+        }
     }
 
     if (node) {
         next = node->next;
         prev = node->prev;
 
+        // Detach the node from the list
         node->next = NULL;
         node->prev = NULL;
 
+        // Update the previous node's next pointer, if there is a previous node
         if (prev)
             prev->next = next;
 
+        // Update the next node's previous pointer, if there is a next node
+        if (next)
+            next->prev = prev;
+
+        // If the node was the head of the list, update the head pointer
         if (freevmr_head == node) {
             freevmr_head = next;
             if (freevmr_head)
                 freevmr_head->prev = NULL;
         }
 
-        if (next)
-            next->prev = prev;
-
+        // If the node was the tail of the list, update the tail pointer
         if (freevmr_tail == node) {
             freevmr_tail = next;
             if (freevmr_tail)
@@ -318,7 +321,7 @@ static node_t *freevmr_get(size_t sz) {
         }
     }
 
-    return node;
+    return node;  // Return the found node, or NULL if not found
 }
 
 static void usedvmr_put(node_t *node) {
@@ -335,33 +338,43 @@ static void usedvmr_put(node_t *node) {
 }
 
 static node_t *usedvmr_lookup(uintptr_t base) {
-    assert(base, "no memory region base address specified");
-    node_t *node = usedvmr_head;
+    node_t *node = NULL;
 
-    if (!node)
-        return NULL;
+    assert(base, "No memory region base address specified");
 
-    for (; node; node = node->next)
-        if (node->base == base)
+    // Traverse the linked list to find the node with the matching base address
+    forlinked(tmp, usedvmr_head, tmp->next) {
+        node = tmp;
+        if (node->base == base) {
+            // Found the node with the specified base address, break out of the loop
             break;
+        }
+    }
 
+    // If the node is found, adjust the linked list to remove it
     if (node) {
+        // Update the previous node's next pointer, if there is a previous node
         if (node->prev)
             node->prev->next = node->next;
 
+        // Update the next node's previous pointer, if there is a next node
         if (node->next)
             node->next->prev = node->prev;
 
+        // If the node is the head of the list, update the head pointer
         if (usedvmr_head == node)
             usedvmr_head = node->next;
 
+        // If the node is the tail of the list, update the tail pointer
         if (usedvmr_tail == node)
             usedvmr_tail = node->prev;
 
+        // Detach the node from the list
         node->next = NULL;
         node->prev = NULL;
     }
-    return node;
+
+    return node;  // Return the found node, or NULL if not found
 }
 
 static uintptr_t vmm_alloc(size_t sz) {
@@ -369,58 +382,64 @@ static uintptr_t vmm_alloc(size_t sz) {
     node_t *split = NULL, *node = NULL;
 
 #if KVM_DEBUG
-    printk("%s:%d: alocating %dKib @ %p\n", __FILE__, __LINE__, sz / 1024, addr);
+    printk("%s:%d: Allocating %d KiB @ %p\n", __FILE__, __LINE__, sz / 1024, addr);
 #endif
 
+    // Ensure the VMM system is initialized
     if (!atomic_read(&vmm_online))
         vmman.init();
 
     spin_lock(vmm_spinlock);
 
+    // Attempt to find a free virtual memory region that can accommodate 'sz' bytes
     split = freevmr_get(sz);
 
     if (!split) {
 #if KVM_DEBUG
-        printk("%s:%d: couldn't allocate %dkib, no free virtual memory available\n", __FILE__, __LINE__, sz / 1024);
+        printk("%s:%d: Couldn't allocate %d KiB, no free virtual memory available\n", __FILE__, __LINE__, sz / 1024);
 #endif
         spin_unlock(vmm_spinlock);
 #if KVM_DEBUG
-        printk("%s:%d: No split\n", __FILE__, __LINE__);
+        printk("%s:%d: No available memory split\n", __FILE__, __LINE__);
 #endif
-        return 0;
+        return 0;  // Allocation failed, no free virtual memory region available
     }
 
+    // If the free region is larger than requested, split it
     if (split->size > sz) {
-        node = freenodes_get();
-        assert(node, "no free nodes left");
-        node->base = split->base;
-        node->size = sz;
+        node = freenodes_get();  // Get a free node for the new allocation
+        assert(node, "No free nodes left");  // Ensure a free node is available
+
+        node->base = split->base;  // Assign the base address to the new node
+        node->size = sz;  // Assign the requested size to the new node
 
 #if KVM_DEBUG
         printk("%s:%d: Region too big: [0x%p, %d KiB], after split: %d KiB\n", __FILE__, __LINE__, split->base, split->size / 1024, (split->size - sz) / 1024);
 #endif
 
-        split->base += sz;
-        split->size -= sz;
-        freevmr_put(split);
-    }
-    else if (split->size < sz)
-        panic("impossible contraint with size\n", __FILE__, __LINE__);
-    else
+        split->base += sz;  // Adjust the base of the remaining free region
+        split->size -= sz;  // Reduce the size of the remaining free region
+        freevmr_put(split);  // Return the remaining free region back to the pool
+    } else if (split->size < sz) {
+    // If the free region is smaller than requested, this is an unexpected condition
+        panic("Impossible constraint with size\n", __FILE__, __LINE__);
+    } else { // If the size matches exactly, use the split region as is
         node = split;
+    }
 
-    used_virtual_mmsz += sz;
+    used_virtual_mmsz += sz;  // Update the total used virtual memory size
 
-    addr = node->base;
-    usedvmr_put(node);
+    addr = node->base;  // Set the allocated address
+    usedvmr_put(node);  // Mark the region as used
 
 #if KVM_DEBUG
-    printk("%s:%d: alocated %dKib @ %p\n", __FILE__, __LINE__, sz / 1024, addr);
+    printk("%s:%d: Allocated %d KiB @ %p\n", __FILE__, __LINE__, sz / 1024, addr);
 #endif
 
-    // printk("%s:%d: node: %p, data: %p, end: %p, size: %d kiB\n", __FILE__, __LINE__, node, addr, node->size + addr, node->size / 1024);
+    // Unlock the spinlock after completing the allocation process
     spin_unlock(vmm_spinlock);
-    return addr;
+
+    return addr;  // Return the allocated address
 }
 
 static void vmm_free(uintptr_t base) {

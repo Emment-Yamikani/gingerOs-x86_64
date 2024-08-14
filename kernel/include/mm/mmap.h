@@ -52,8 +52,8 @@ typedef struct mm_region {
 
 typedef struct vmr {
     long             refs;      // No. of references to this struct.
-    int              flags;     // Flags associated with this memory mapping.
-    int              vflags;    // Flags used to map this region to physical memory by the paging logic.
+    long             flags;     // Flags associated with this memory mapping.
+    long             vflags;    // Flags used to map this region to physical memory by the paging logic.
     void             *priv;     // Private data(for module and driver-specif use).
     inode_t          *file;     // File used as backing store for this memory region.
     size_t           filesz;    // Size of this region on the file.
@@ -195,7 +195,7 @@ vmr_t *mmap_find_vmr_overlap(mmap_t *mmap, uintptr_t start, uintptr_t end);
 /*Begin search at the End of the Address Space, walking backwards*/
 #define __whence_end    1
 
-int mmap_holesize(mmap_t *mmap, uintptr_t addr, size_t *plen);
+int mmap_getholesize(mmap_t *mmap, uintptr_t addr, size_t *plen);
 int mmap_find_hole(mmap_t *mmap, size_t len, uintptr_t *paddr, int whence);
 int mmap_find_holeat(mmap_t *mmap, uintptr_t addr, size_t size, uintptr_t *paddr, int whence);
 

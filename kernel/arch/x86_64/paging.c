@@ -464,7 +464,7 @@ static int x86_64_kvmcpy(uintptr_t dstp) {
 int x86_64_lazycpy(uintptr_t dst, uintptr_t src) {
     int         err     = 0;
     uintptr_t   oldpdbr = 0;
-    usize      i4      = 0, i3 = 0, i2 = 0, i1 = 0;
+    usize       i4      = 0, i3 = 0, i2 = 0, i1 = 0;
     pte_t       *pml4   = NULL, *pdpt = NULL, *pdt = NULL, *pt = NULL;
 
     if (dst == 0 || src == 0)
@@ -585,7 +585,7 @@ error:
 
 int x86_64_memcpypp(uintptr_t pdst, uintptr_t psrc, usize size) {
     int         err     = 0;
-    usize      len     = 0;
+    usize       len     = 0;
     uintptr_t   vdst    = 0, vsrc = 0;
 
     for (; size; size -= len, psrc += len, pdst += len) {
@@ -610,7 +610,7 @@ int x86_64_memcpypp(uintptr_t pdst, uintptr_t psrc, usize size) {
 
 int x86_64_memcpyvp(uintptr_t paddr, uintptr_t vaddr, usize size) {
     int         err     = 0;
-    usize      len     = 0;
+    usize       len     = 0;
     uintptr_t   vdst    = 0;
     
     for (; size; size -= len, paddr += len, vaddr += len) {
@@ -627,7 +627,7 @@ int x86_64_memcpyvp(uintptr_t paddr, uintptr_t vaddr, usize size) {
 
 int x86_64_memcpypv(uintptr_t vaddr, uintptr_t paddr, usize size) {
     int         err     = 0;
-    usize      len     = 0;
+    usize       len     = 0;
     uintptr_t   vsrc    = 0;
     
     for (; size; size -= len, paddr += len, vaddr += len) {

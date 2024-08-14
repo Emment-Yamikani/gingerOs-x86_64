@@ -205,7 +205,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
     vmr_t           *ustack     = NULL;
     thread_t        *thread     = NULL;
 
-    t_attr = attr ? *attr : (thread_attr_t){
+    t_attr = attr ? *attr : (thread_attr_t) {
         .detachstate    = 0,
         .stackaddr      = 0,
         .guardsz        = PGSZ,
@@ -271,13 +271,14 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
         thread_unlock(thread);
     return 0;
 error:
+    printk("%s:%d: Failed to create thread, err: %d\n", __FILE__, __LINE__, err);
     if (thread) thread_free(thread);
     return err;
 }
 
 void thread_free(thread_t *thread) {
-    queue_t *queue = NULL;
-    queue_node_t *next = NULL;
+    queue_node_t    *next  = NULL;
+    queue_t         *queue = NULL;
 
     assert (current != thread, "current called freeing it's own kstack???");
 
