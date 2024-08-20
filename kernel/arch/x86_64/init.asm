@@ -160,9 +160,9 @@ start64:
     pop     rdi
     pop     rcx
 
-    call    multiboot_info_process
-    call    earlycons_init
-    call    early_init
+    ;call    multiboot_info_process
+    ;call    earlycons_init
+    ;call    early_init
     
     cli
     hlt
