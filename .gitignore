@@ -2,6 +2,7 @@
 /iso/modules/*
 /.vscode
 serial.log
+serial0.log
 lime.asm
 serial
 /ramfs/*
