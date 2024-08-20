@@ -42,7 +42,8 @@ static tid_t tid_alloc(void) {
 }
 
 int thread_kstack_alloc(usize size, uintptr_t *ret) {
-    uintptr_t addr = 0;
+    int         err     = 0;
+    uintptr_t   addr    = 0;
 
     if (ret == NULL)
         return -EINVAL;
@@ -50,9 +51,9 @@ int thread_kstack_alloc(usize size, uintptr_t *ret) {
     if (BADSTACKSZ(size))
         return -ERANGE;
     
-    if (0 == (addr = (uintptr_t)kmalloc(size)))
-        return -ENOMEM;
-    
+    if ((err = arch_pagealloc(size, &addr)))
+        return err;
+
     *ret = addr;
     return 0;
 }
@@ -129,7 +130,8 @@ int thread_alloc(usize ksz /*kstacksz*/, int __flags, thread_t **ret) {
     thread_setflags(thread, flags); // set the flags.
 
     err = thread_enqueue(threads_queue, thread, NULL);
-    assert(err == 0, "Thread not enqueued!!!");
+    assert_msg(err == 0, "%s:%d: Thread not enqueued, err: %d!!!\n",
+        __FILE__, __LINE__, err);
     thread_getref(thread);
 
     *ret = thread;

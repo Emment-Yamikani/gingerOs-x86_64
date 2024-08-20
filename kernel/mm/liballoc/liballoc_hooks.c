@@ -21,16 +21,16 @@
 #endif
 
 static int page_size = -1;
-static spinlock_t *spinlock = &SPINLOCK_INIT();
+static SPINLOCK(liballoc_lk);
 
 
 int liballoc_lock() {
-	spin_lock(spinlock);
+	spin_lock(liballoc_lk);
 	return 0;
 }
 
 int liballoc_unlock() {
-	spin_unlock(spinlock);
+	spin_unlock(liballoc_lk);
 	return 0;
 }
 
@@ -52,7 +52,7 @@ void* liballoc_alloc( int pages ) {
 }
 
 int liballoc_free( void* ptr, int pages ) {
-	// printk("liballoc_free(): release pointer: %p, pages: %d\n", ptr, pages);
+	printk("liballoc_free(): release pointer: %p, pages: %d\n", ptr, pages);
 	arch_pagefree((uintptr_t)ptr, pages * page_size);
 	return 0;
 }

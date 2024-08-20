@@ -10,21 +10,29 @@
 #include <lib/types.h>
 
 mm_zone_t zones[NZONE] = {0};
+
 const char *str_zone[] = {
     "DMA", "NORM", "HOLE", "HIGH", NULL,
 };
 
-queue_t *mm_zone_sleep_queue[] = {
-    QUEUE_NEW(/*"MM_ZONE_DMA"*/),
-    QUEUE_NEW(/*"MM_ZONE_NORM"*/),
-    QUEUE_NEW(/*"MM_ZONE_HOLE"*/),
-    QUEUE_NEW(/*"MM_ZONE_HIGH"*/),
-};
-
 static __unused void zone_dump(mm_zone_t *zone) {
     assert_msg(zone, "zerror: No physical memory zone specified\n", __FILE__, __LINE__);
-    printk("\nStart: %p\nSize: %ld B\nSize: %d MiB\nfree_pages: %d\nnrpages: %d\nPages: %p\n",
-           zone->start, zone->size, zone->size / MiB(1), zone->free_pages, zone->nrpages, zone->pages);
+    printk("\nZONE: %s\n"
+            "Array:  %16p\n"
+            "Size:   %16ld B\n"
+            "Size:   %16d MiB\n"
+            "Free:   %16d pages\n"
+            "Total:  %16d pages\n"
+            "Start:  %16p\n"
+            "End:    %16p\n",
+            str_zone[zone - zones],
+           zone->pages,
+           zone->size,
+           zone->size / MiB(1),
+           zone->free_pages,
+           zone->nrpages,
+           zone->start, zone->start + ((zone->nrpages - 1) * PGSZ)
+    );
 }
 
 static int enumerate_zones(void) {
@@ -35,8 +43,8 @@ static int enumerate_zones(void) {
     usize      memsize      = KiB(bootinfo.memsize);
     mod_t       *last_mod   = &bootinfo.mods[bootinfo.modcnt - 1];
 
-    zones_size = NPAGE(size) * sizeof(page_t);
-    pages = (void *)PGROUNDUP((last_mod->addr + last_mod->size));
+    zones_size  = NPAGE(size) * sizeof(page_t);
+    pages       = (void *)PGROUNDUP((last_mod->addr + last_mod->size));
 
     printk("enumerating DMA memory zone...\n");
 
@@ -48,7 +56,10 @@ static int enumerate_zones(void) {
         .start      = PGROUNDUP(start),
         .free_pages = size / PGSZ,
         .size       = size,
+        .queue      = QUEUE_INIT()
     };
+
+    zone_dump(&zones[MM_ZONE_DMA]);
 
     start       = MiB(16);
     memsize     -= MiB(16);
@@ -68,7 +79,10 @@ static int enumerate_zones(void) {
         .start      = PGROUNDUP(start),
         .free_pages = size / PGSZ,
         .size       = size,
+        .queue      = QUEUE_INIT()
     };
+
+    zone_dump(&zones[MM_ZONE_NORM]);
 
     if (!memsize || !bootinfo.memhigh)
         goto done;
@@ -91,7 +105,10 @@ static int enumerate_zones(void) {
         .start      = PGROUNDUP(start),
         .free_pages = size / PGSZ,
         .size       = size,
+        .queue      = QUEUE_INIT()
     };
+
+    zone_dump(&zones[MM_ZONE_HOLE]);
 
     if (!memsize)
         goto done;
@@ -111,8 +128,10 @@ static int enumerate_zones(void) {
         .start      = PGROUNDUP(start),
         .free_pages = size / PGSZ,
         .size       = size,
+        .queue      = QUEUE_INIT()
     };
 
+    zone_dump(&zones[MM_ZONE_HIGH]);
 done:
     pages = zones[MM_ZONE_DMA].pages;
     memset(pages, 0, zones_size);
@@ -167,6 +186,29 @@ int mm_zone_contains(int z, uintptr_t addr, usize size) {
     return 0;
 }
 
+int mmzone_bypage(page_t *page, mm_zone_t **ppz) {
+    mm_zone_t *zone = NULL;
+
+    if (page == NULL || ppz == NULL)
+        return -EINVAL;
+    
+    for (zone = zones; zone < &zones[NZONE]; ++zone) {
+        mm_zone_lock(zone);
+        if ((page >= zone->pages) &&
+            (page < &zone->pages[zone->nrpages])) {
+            if (!mm_zone_isvalid(zone)) {
+                mm_zone_unlock(zone);
+                return -EADDRNOTAVAIL;
+            }
+            *ppz = zone;
+            return 0;
+        }
+        mm_zone_unlock(zone);
+    }
+
+    return -EADDRNOTAVAIL;
+}
+
 int physical_memory_init(void) {
     int         err = 0;
     usize       index = 0;
@@ -175,17 +217,19 @@ int physical_memory_init(void) {
     mm_zone_t   *zone = NULL;
     page_t      *page = NULL;
 
-    typeof(*bootinfo.mmap) *map = bootinfo.mmap;
-    typeof(*bootinfo.mods) *module = bootinfo.mods;
+    typeof(*bootinfo.mmap) *map     = bootinfo.mmap;
+    typeof(*bootinfo.mods) *module  = bootinfo.mods;
 
-    assert_msg(((bootinfo.memsize / 1024) > 64), "%s:%d: error: RAM = %dMiB : Not enough RAM!\n"
-                                             "You need atleast 64MiB of RAM.\n",
-           __FILE__, __LINE__, bootinfo.memsize / 1024);
+    assert_msg(((bootinfo.memsize / 1024) > 64),
+                "%s:%d: error: RAM = %dMiB : Not enough RAM!\n"
+                "You need atleast 64MiB of RAM.\n",
+                __FILE__, __LINE__, bootinfo.memsize / 1024);
 
-    printk("initializing physical memory manager.\nRAM: %d KiB.\n", bootinfo.memsize);
+    printk("initializing physical memory "
+            "manager.\nRAM: %d KiB.\n", bootinfo.memsize);
 
     if ((err = enumerate_zones()))
-        goto error;
+        return err;
 
     /**
      * Mark all memory maps returned by multiboot */
@@ -199,8 +243,7 @@ int physical_memory_init(void) {
                 index = (addr - zone->start) / PAGESZ;
                 for (usize j = 0; j < (usize)NPAGE(size); ++j, ++index) {
                     page = &zone->pages[index];
-                    atomic_write(&page->pg_refcnt, 1);
-                    page_setmmzone(page, zone - zones);
+                    atomic_write(&page->refcnt, 1);
                     page_setrwx(page);
                 }
 
@@ -213,14 +256,16 @@ int physical_memory_init(void) {
     addr = PGROUND(VMA2LO(_kernel_start));
     size = PGROUNDUP((VMA2LO(_kernel_end) - VMA2LO(_kernel_start)));
 
+    printk("Kernel_start: %p\n, "
+        "Kernel end: %p size: %p\n",
+        addr, PGROUNDUP(addr + size), size);
     mm_zone_assert((zone = get_mmzone(addr, size)));
     assert_msg(((addr + size) < ((zone->size) - (addr + size))), "Kernel is too big");
 
     index = (addr - zone->start) / PAGESZ;
     for (usize j = 0; j < (usize)NPAGE(size); ++j, ++index) {
         page = &zone->pages[index];
-        atomic_write(&page->pg_refcnt, 1);
-        page_setmmzone(page, zone - zones);
+        atomic_write(&page->refcnt, 1);
         page_setrwx(page);
     }
 
@@ -236,8 +281,7 @@ int physical_memory_init(void) {
             zone->free_pages--;
             index   = (addr - zone->start) / PAGESZ;
             page    = &zone->pages[index];
-            atomic_write(&page->pg_refcnt, 1);
-            page_setmmzone(page, zone - zones);
+            atomic_write(&page->refcnt, 1);
             page_setrwx(page);
             mm_zone_unlock(zone);
         }
@@ -264,6 +308,4 @@ int physical_memory_init(void) {
         bootinfo.fb.framebuffer_size, PTE_KRW | PTE_PCDWT);
 
     return 0;
-error:
-    return err;
 }

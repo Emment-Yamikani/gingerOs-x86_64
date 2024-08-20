@@ -4,7 +4,7 @@
 #include <sync/spinlock.h>
 #include <mm/page.h>
 #include <mm/mm_gfp.h>
-//#include <ds/queue.h>
+#include <ds/queue.h>
 
 typedef struct mm_zone {
     uintptr_t   start;
@@ -13,6 +13,7 @@ typedef struct mm_zone {
     size_t      nrpages;
     size_t      free_pages;
     size_t      size; // in bytes
+    queue_t     queue;
     spinlock_t  lock;
 } mm_zone_t;
 
@@ -21,7 +22,6 @@ typedef struct meminfo_t {
     size_t      used;
 } meminfo_t;
 
-extern    queue_t     *mm_zone_sleep_queue[];
 #define MM_ZONE_DMA   0 //  mem < 16 MiB.
 #define MM_ZONE_NORM  1 //  16 MiB <= mem < 2 GiB.
 #define MM_ZONE_HOLE  2 //  2 GiB <= mem < 4 GiB.
@@ -36,6 +36,7 @@ extern    queue_t     *mm_zone_sleep_queue[];
 #define mm_zone_assert_locked(zone) ({mm_zone_assert(zone); spin_assert_locked(&(zone)->lock); })
 
 #define mm_zone_isvalid(zone) ({mm_zone_assert_locked(zone); ((zone)->flags & MM_ZONE_VALID); })
+
 
 #define NZONE         4
 
@@ -55,39 +56,38 @@ mm_zone_t *get_mmzone(uintptr_t addr, size_t size);
  */
 mm_zone_t *mm_zone_get(int z);
 
+int mmzone_bypage(page_t *page, mm_zone_t **ppz);
+
 int mm_zone_intersects(int zone0, uintptr_t addr, size_t size);
 
 int mm_zone_contains(int z, uintptr_t addr, size_t size);
 
-// increase the reference count of the page
-size_t page_incr(page_t *page);
-// same as page_incr(), except, it takes a physical address to the page as a parameter. 
-size_t __page_incr(uintptr_t addr);
-// returns the reference count of the page
-size_t page_count(page_t *page);
-// same as page_count(), except, it takes a physical address to the page as a parameter.
-size_t __page_count(uintptr_t addr);
+// // increase the reference count of the page
+// size_t page_incr(page_t *page);
+// // same as page_incr(), except, it takes a physical address to the page as a parameter. 
+// size_t __page_incr(uintptr_t addr);
+// // returns the reference count of the page
+// size_t page_count(page_t *page);
+// // same as page_count(), except, it takes a physical address to the page as a parameter.
+// size_t __page_count(uintptr_t addr);
 
-// allocate a single page.
-page_t *alloc_page(gfp_mask_t gfp);
-// allocate 'n' pages, where n is a power of 2.
-page_t *alloc_pages(gfp_mask_t gfp, size_t order);
+// // allocate a single page.
+// page_t *alloc_page(gfp_mask_t gfp);
+// // allocate 'n' pages, where n is a power of 2.
+// page_t *alloc_pages(gfp_mask_t gfp, size_t order);
 
-// get physical address of the page.
-uintptr_t page_address(page_t *page);
+// // get physical address of the page.
+// uintptr_t page_address(page_t *page);
 
-// These two function the same way as alloc_page() and alloc_pages(),
-// only differnce is that they directly return the physical address of the first page allocated
-uintptr_t __get_free_page(gfp_mask_t gfp);
-uintptr_t __get_free_pages(gfp_mask_t gfp, size_t order);
+// // These two function the same way as alloc_page() and alloc_pages(),
+// // only differnce is that they directly return the physical address of the first page allocated
+// uintptr_t __get_free_page(gfp_mask_t gfp);
+// uintptr_t __get_free_pages(gfp_mask_t gfp, size_t order);
 
-// these two are used to reliquish a reference to the page(s).
-void pages_put(page_t *page, size_t order);
-void page_put(page_t *page);
+// // these two are used to reliquish a reference to the page(s).
+// void pages_put(page_t *page, size_t order);
+// void page_put(page_t *page);
 
-// same as pages_put() and page_put(), only that they take 'addr' instead of 'page_t *'
-void __pages_put(uintptr_t addr, size_t order);
-void __page_put(uintptr_t addr);
-
-extern uintptr_t page_mount(uintptr_t paddr);
-extern void page_unmount(uintptr_t vaddr);
+// // same as pages_put() and page_put(), only that they take 'addr' instead of 'page_t *'
+// void __pages_put(uintptr_t addr, size_t order);
+// void __page_put(uintptr_t addr);

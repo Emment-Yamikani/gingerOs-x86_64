@@ -6,6 +6,7 @@
 #include <mm/mmap.h>
 #include <mm/mm_zone.h>
 #include <mm/pmm.h>
+#include <mm/page.h>
 #include <arch/signal.h>
 #include <sys/system.h>
 #include <sys/sysproc.h>
@@ -47,7 +48,17 @@ int copy_page_on_write(vmr_t *vmr, vm_fault_t *fault, uintptr_t srcpaddr) {
 #endif
     }
 
-    __page_put(PGROUND(srcpaddr));  // Decrease reference count on the source page
+    // Decrease reference count on the source page
+    if ((err = __page_putref(PGROUND(srcpaddr)))) {
+        // If the drop the ref on page fials, unmap the destination and restore the original COW mapping
+        arch_unmap_n(fault->addr, PGSZ);
+#if defined(__x86_64__)
+        fault->COW->raw = srcpaddr; // Restore COW mapping
+        invlpg(fault->addr);
+        arch_tlbshootdown(rdcr3(), fault->addr);
+        return err;
+#endif
+    }
     return 0;
 }
 
@@ -63,6 +74,7 @@ int enable_write_access(vm_fault_t *fault) {
 
 int load_page_from_file(vmr_t *vmr, vm_fault_t *fault, size_t offset, usize size) {
     int         err       = 0;
+    uintptr_t   paddr     = 0;
     uint8_t     buf[PGSZ] = {0};
     page_t      *page     = NULL;
 
@@ -90,9 +102,17 @@ int load_page_from_file(vmr_t *vmr, vm_fault_t *fault, size_t offset, usize size
                 return err;
             }
 
-            page_incr(page);
+            if ((err = page_getref(page))) {
+                iunlock(vmr->file);
+                return err;
+            }
 
-            if ((err = arch_map_i(fault->addr, page_address(page), PGSZ, vmr->vflags))) {
+            if ((err = page_get_address(page, (void **)&paddr))) {
+                iunlock(vmr->file);
+                return err;
+            }
+
+            if ((err = arch_map_i(fault->addr, paddr, PGSZ, vmr->vflags))) {
                 iunlock(vmr->file);
                 return err;
             }
@@ -120,10 +140,14 @@ int load_page_from_file(vmr_t *vmr, vm_fault_t *fault, size_t offset, usize size
     return map_anonymous_page(vmr, fault);
 }
 
+// Handle a Copy-On-Write (COW) page fault
 int handle_cow_fault(vmr_t *vmr, vm_fault_t *fault) {
-    // Handle a Copy-On-Write (COW) page fault
-    uintptr_t srcpaddr = fault->COW->raw;
-    long pgref = __page_count(PGROUND(srcpaddr));
+    int         err         = 0;
+    usize       pgref       = 0;
+    uintptr_t   srcpaddr    = fault->COW->raw;
+    
+    if ((err = __page_getcount(PGROUND(srcpaddr), &pgref)))
+        return err;
 
     if (pgref > 1) {
         // If the page is shared, copy it before writing
@@ -138,9 +162,10 @@ int handle_cow_fault(vmr_t *vmr, vm_fault_t *fault) {
 }
 
 int handle_writable_page_fault(vmr_t *vmr, vm_fault_t *fault, size_t offset, usize size) {
-    int     err       = 0;
-    uint8_t buf[PGSZ] = {0};
-    page_t  *page     = NULL;
+    int         err         = 0;
+    uintptr_t   paddr       = 0;
+    uint8_t     buf[PGSZ]   = {0};
+    page_t      *page       = NULL;
 
     // Handle writable page faults for non-COW pages
     if (fault->err_code & PTE_P) {
@@ -168,9 +193,17 @@ int handle_writable_page_fault(vmr_t *vmr, vm_fault_t *fault, size_t offset, usi
                 return err;
             }
             
-            page_incr(page);
+            if ((err = page_getref(page))) {
+                iunlock(vmr->file);
+                return err;
+            }
 
-            if ((err = arch_map_i(fault->addr, page_address(page), PGSZ, vmr->vflags))) {
+            if ((err = page_get_address(page, (void **)&paddr))) {
+                iunlock(vmr->file);
+                return err;
+            }
+
+            if ((err = arch_map_i(fault->addr, paddr, PGSZ, vmr->vflags))) {
                 iunlock(vmr->file);
                 return err;
             }

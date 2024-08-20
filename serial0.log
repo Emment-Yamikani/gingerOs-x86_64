@@ -1,12 +1,68 @@
 [0m
 initializing physical memory manager.
-RAM: 2096703 KiB.
+RAM: 261695 KiB.
 enumerating DMA memory zone...
+
+ZONE: DMA
+Array:  FFFFFF8002872000
+Size:           16777216 B
+Size:                 16 MiB
+Free:               4096 pages
+Total:              4096 pages
+Start:  0000000000000000
+End:    0000000000FFF000
 enumerating NORM memory zone...
+
+ZONE: NORM
+Array:  FFFFFF8002AC8E80
+Size:          251198464 B
+Size:                239 MiB
+Free:              61327 pages
+Total:             61327 pages
+Start:  0000000001000000
+End:    000000000FF8E000
+Kernel_start: 0000000001000000
+, Kernel end: 0000000002711000 size: 0000000001711000
+mmap(0): FFFFFF8000000000, len:           654336, end: FFFFFF80000A0000, type: 1
+mmap(1): FFFFFF800009FC00, len:             1024, end: FFFFFF80000A0C00, type: 2
+mmap(2): FFFFFF80000F0000, len:            65536, end: FFFFFF8000100000, type: 2
+mmap(3): FFFFFF8000100000, len:        267321344, end: FFFFFF800FFF0000, type: 1
+mmap(4): FFFFFF800FFF0000, len:            65536, end: FFFFFF8010000000, type: 3
+mmap(5): FFFFFF80FEC00000, len:             4096, end: FFFFFF80FEC01000, type: 2
+mmap(6): FFFFFF80FEE00000, len:             4096, end: FFFFFF80FEE01000, type: 2
+mmap(7): FFFFFF80FFFC0000, len:           262144, end: FFFFFF8100000000, type: 2
 initializing physical memory manager.
-RAM: 2096703 KiB.
+RAM: 261695 KiB.
 enumerating DMA memory zone...
+
+ZONE: DMA
+Array:  FFFFFF8002872000
+Size:           16777216 B
+Size:                 16 MiB
+Free:               4096 pages
+Total:              4096 pages
+Start:  0000000000000000
+End:    0000000000FFF000
 enumerating NORM memory zone...
+
+ZONE: NORM
+Array:  FFFFFF8002AC8E80
+Size:          251198464 B
+Size:                239 MiB
+Free:              61327 pages
+Total:             61327 pages
+Start:  0000000001000000
+End:    000000000FF8E000
+Kernel_start: 0000000001000000
+, Kernel end: 0000000002711000 size: 0000000001711000
+mmap(0): FFFFFF8000000000, len:           654336, end: FFFFFF80000A0000, type: 1
+mmap(1): FFFFFF800009FC00, len:             1024, end: FFFFFF80000A0C00, type: 2
+mmap(2): FFFFFF80000F0000, len:            65536, end: FFFFFF8000100000, type: 2
+mmap(3): FFFFFF8000100000, len:        267321344, end: FFFFFF800FFF0000, type: 1
+mmap(4): FFFFFF800FFF0000, len:            65536, end: FFFFFF8010000000, type: 3
+mmap(5): FFFFFF80FEC00000, len:             4096, end: FFFFFF80FEC01000, type: 2
+mmap(6): FFFFFF80FEE00000, len:             4096, end: FFFFFF80FEE01000, type: 2
+mmap(7): FFFFFF80FFFC0000, len:           262144, end: FFFFFF8100000000, type: 2
 initaliazing devices...
 initializing ramdisks...
 'ramfs2' ramdisk installed
@@ -18,7 +74,7 @@ Initializing [025453;011mnull[0m chardev...
 Initializing [025453;011mrandom[0m chardev...
 Initializing [025453;011mzero[0m chardev...
 Initializing Real Time Clock (RTC) timer...
-Time: [025453;02m0:24:24[0m Date: [025453;03m14/8/2024[0m
+Time: [025453;02m21:44:48[0m Date: [025453;03m19/8/2024[0m
 Initializing timers...
 Timers initalized successfully.
 
@@ -27,19 +83,17 @@ Timers initalized successfully.
 Parsing startup configuration file...
 [exec] /ramfs/init...
 [[025453;03mOK[0m] started "/ramfs/init", error: 0.
-PF: 0000000004000010, cpu[0, ncli: 1] tid[1:2], rip: 0000000004000010
-PF: 00000000040011F0, cpu[0, ncli: 1] tid[1:2], rip: 00000000040011F0
-PF: 0000000104000000, cpu[0, ncli: 1] tid[1:269], rip: 0000000104000000
+kernel/arch/pagefault.c:253: Invalid access: 200, start: 0000000000000000
 
-[025453;014mTRAP:14[0m MCTX: FFFFFF8101409240 CPU0 TID[1:269]
-[025453;015merr[0m=[025453;012m0000000000000004[0m rfl=[025453;12m0000000000010002[0m cs =[025453;12m000000000000001B[0m
+[025453;014mTRAP:14[0m MCTX: FFFFFF81003591E0 CPU0 TID[1:3]
+[025453;015merr[0m=[025453;012m0000000000000004[0m rfl=[025453;12m0000000000010202[0m cs =[025453;12m000000000000001B[0m
 [025453;015mds[0m =0000000000000023 [025453;015mfs [0m=0000000000000023 [025453;015mss [0m=0000000000000023
-[025453;015mrax[0m=[025453;012m0000000000000001[0m rbx=[025453;12m0000000000000000[0m rcx=[025453;12m0000000100000000[0m
-[025453;015mrdx[0m=0000000000000000 [025453;015mrdi[0m=0000000000000000 [025453;015mrsi[0m=0000000000000001
-[025453;015mrbp[0m=[025453;012m00007FFFFF69CFF8[0m rsp=[025453;12m00007FFFFF69CFF8[0m r8 =[025453;12m0000000100000000[0m
-[025453;015mr9[0m =0000000000000000 [025453;015mr10[0m=0000000000000000 [025453;015mr11[0m=0000000000000001
+[025453;015mrax[0m=[025453;012m0000000000000000[0m rbx=[025453;12m0000000000000000[0m rcx=[025453;12m0000000000000000[0m
+[025453;015mrdx[0m=0000000000000000 [025453;015mrdi[0m=0000000000000000 [025453;015mrsi[0m=0000000000000000
+[025453;015mrbp[0m=[025453;012m00007FFFFFFF6FF8[0m rsp=[025453;12m00007FFFFFFF7000[0m r8 =[025453;12m0000000000000000[0m
+[025453;015mr9[0m =0000000000000000 [025453;015mr10[0m=0000000000000000 [025453;015mr11[0m=0000000000000000
 [025453;015mr12[0m=[025453;012m0000000000000000[0m r13=[025453;12m0000000000000000[0m r14=[025453;12m0000000000000000[0m
-[025453;015mr15[0m=0000000000000000 [025453;015mrip[0m=0000000104000000 [025453;015mcr0[0m=0000000080000013
-[025453;015mcr2[0m=[025453;012m0000000104000000[0m cr3=[025453;12m0000000003AB9000[0m cr4=[025453;12m0000000000000630[0m
-[025453;015mst[0m =FFFFFF8101402060 [025453;015msp[0m =FFFFFF810140A060 [025453;015mstz[0m=0000000000008000
-page fault: kernel/arch/pagefault.c:273: send_sigsegv() @[[025453;04m0x0000000104000000[0m], err_code: 4 : SIGSEGV, from 'user' space
+[025453;015mr15[0m=0000000000000000 [025453;015mrip[0m=0000000000000001 [025453;015mcr0[0m=0000000080000013
+[025453;015mcr2[0m=[025453;012m0000000000000001[0m cr3=[025453;12m0000000002AB7000[0m cr4=[025453;12m0000000000000630[0m
+[025453;015mst[0m =FFFFFF8100352000 [025453;015msp[0m =FFFFFF810035A000 [025453;015mstz[0m=0000000000008000
+page fault: kernel/arch/pagefault.c:306: send_sigsegv() @[[025453;04m0x0000000000000001[0m], err_code: 4 : SIGSEGV, from 'user' space

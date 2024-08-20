@@ -222,7 +222,7 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
             ustack      = (u64 *)siginfo;
         }
 
-        *--ustack   = -1ull;
+        *--ustack   = -MAGIC_RETADDR;
     
         assert(((void *)ustack - 0) >= 
             (stack.ss_sp - stack.ss_size),
@@ -316,7 +316,7 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
            "Kernel stack is not 16bytes aligned!");
 
     *--kstack   = (u64)x86_64_thread_stop;
-    *--ustack   = -1ull; // push dummy return address.
+    *--ustack   = -MAGIC_RETADDR; // push dummy return address.
 
     mctx = (mcontext_t *)((u64)kstack - sizeof *mctx);
     memset(mctx, 0, sizeof *mctx);
@@ -365,7 +365,7 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
     assert(is_aligned16(kstack), "Kernel stack is not 16bytes aligned!");
 
     *--kstack = (u64)x86_64_thread_stop;
-    *--ustack = -1ull; // push dummy return address.
+    *--ustack = -MAGIC_RETADDR; // push dummy return address.
 
     mctx = (mcontext_t *)((u64)kstack - sizeof *mctx);
     memset(mctx, 0, sizeof *mctx);

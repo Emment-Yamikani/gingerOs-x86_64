@@ -1,12 +1,12 @@
+#include <mm/pmm.h>
+#include <mm/vmm.h>
 #include <arch/cpu.h>
-#include <arch/x86_64/ipi.h>
-#include <arch/x86_64/paging.h>
 #include <bits/errno.h>
 #include <lib/string.h>
 #include <mm/mm_zone.h>
-#include <mm/pmm.h>
-#include <mm/vmm.h>
 #include <sys/thread.h>
+#include <arch/x86_64/ipi.h>
+#include <arch/x86_64/paging.h>
 
 #define x86_64_CLR(t) ({           \
     for (int i = 0; i < NPTE; ++i) \
@@ -23,10 +23,9 @@ void x86_64_dumptable(pte_t *table) {
     }
 }
 
-spinlock_t *kvmhigh_lock = SPINLOCK_NEW();
-
 static inline int x86_64_map_pdpt(int i4, int flags) {
-    uintptr_t lvl3 = 0;
+    int        err  = 0;
+    uintptr_t  lvl3 = 0;
 
     if (iL_INV(i4))
         return -EINVAL;
@@ -35,8 +34,9 @@ static inline int x86_64_map_pdpt(int i4, int flags) {
         return -ENOTSUP;
 
     if (!pte_ispresent(PML4E(i4))) {
-        if ((lvl3 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
-            return -ENOMEM;
+        if ((err = pmman.get_page(GFP_NORMAL | GFP_ZERO, (void **)&lvl3))) {
+            return err;
+        }
 
         PML4E(i4)->raw = lvl3 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDPTE(i4, 0));
@@ -47,18 +47,19 @@ static inline int x86_64_map_pdpt(int i4, int flags) {
 }
 
 static inline int x86_64_map_pdt(int i4, int i3, int flags) {
-    int err = -ENOMEM;
-    uintptr_t lvl3 = 0, lvl2 = 0;
+    int         err     = -ENOMEM;
+    uintptr_t   lvl3    = 0, lvl2 = 0;
 
     if (iL_INV(i4) || iL_INV(i3))
         return -EINVAL;
-    
+
     if (_isPS(flags))
         return -ENOTSUP;
 
     if (!pte_ispresent(PML4E(i4))) {
-        if ((lvl3 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
+        if ((err = pmman.get_page(GFP_NORMAL | GFP_ZERO, (void **)&lvl3))) {
             goto error;
+        }
 
         PML4E(i4)->raw = lvl3 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDPTE(i4, 0));
@@ -66,8 +67,9 @@ static inline int x86_64_map_pdt(int i4, int i3, int flags) {
     }
 
     if (!pte_ispresent(PDPTE(i4, i3))) {
-        if ((lvl2 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
+        if ((err = pmman.get_page(GFP_NORMAL | GFP_ZERO, (void **)&lvl2))) {
             goto error;
+        }
 
         PDPTE(i4, i3)->raw = lvl2 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDTE(i4, i3, 0));
@@ -96,8 +98,9 @@ static inline int x86_64_map_pt(int i4, int i3, int i2, int flags) {
         return -ENOTSUP;
 
     if (!pte_ispresent(PML4E(i4))) {
-        if ((lvl3 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
+        if ((err = pmman.get_page(GFP_NORMAL | GFP_ZERO, (void **)&lvl3))) {
             goto error;
+        }
 
         PML4E(i4)->raw = lvl3 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDPTE(i4, 0));
@@ -105,8 +108,9 @@ static inline int x86_64_map_pt(int i4, int i3, int i2, int flags) {
     }
 
     if (!pte_ispresent(PDPTE(i4, i3))) {
-        if ((lvl2 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
+        if ((err = pmman.get_page(GFP_NORMAL | GFP_ZERO, (void **)&lvl2))) {
             goto error;
+        }
 
         PDPTE(i4, i3)->raw = lvl2 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDTE(i4, i3, 0));
@@ -114,8 +118,9 @@ static inline int x86_64_map_pt(int i4, int i3, int i2, int flags) {
     }
 
     if (!pte_ispresent(PDTE(i4, i3, i2))) {
-        if ((lvl1 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
+        if ((err = pmman.get_page(GFP_NORMAL | GFP_ZERO, (void **)&lvl1))) {
             goto error;
+        }
 
         PDTE(i4, i3, i2)->raw = lvl1 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PTE(i4, i3, i2, 0));
@@ -199,8 +204,7 @@ static inline void x86_64_unmap_pt(int i4, int i3, int i2) {
 }
 
 void x86_64_swtchvm(uintptr_t pdbr, uintptr_t *old) {
-    if (old)
-        *old = rdcr3();
+    if (old) *old = rdcr3();
     // if PDBR is null, then switch to the kernel address space (_PML4_)
     wrcr3(pdbr ? pdbr : VMA2LO(_PML4_));
 }
@@ -220,30 +224,36 @@ int x86_64_map(uintptr_t paddr, int i4, int i3, int i2, int i1, int flags) {
         return -ENOTSUP;
 
     if (!pte_ispresent(PML4E(i4))) {
-        if ((lvl3 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
+        if ((err = pmman.get_page(GFP_NORMAL | GFP_ZERO, (void **)&lvl3))) {
             goto error;
+        }
 
         PML4E(i4)->raw = lvl3 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDPTE(i4, 0));
         invlpg((uintptr_t)PDPTE(i4, 0));
+        // printk("%s:%d: lvl3: %p\n", __FILE__, __LINE__, lvl3);
     }
 
     if (!pte_ispresent(PDPTE(i4, i3))) {
-        if ((lvl2 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
+        if ((err = pmman.get_page(GFP_NORMAL | GFP_ZERO, (void **)&lvl2))) {
             goto error;
+        }
 
         PDPTE(i4, i3)->raw = lvl2 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDTE(i4, i3, 0));
         invlpg((uintptr_t)PDTE(i4, i3, 0));
+        // printk("%s:%d: lvl2: %p\n", __FILE__, __LINE__, lvl2);
     }
 
     if (!pte_ispresent(PDTE(i4, i3, i2))) {
-        if ((lvl1 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
+        if ((err = pmman.get_page(GFP_NORMAL | GFP_ZERO, (void **)&lvl1))) {
             goto error;
+        }
 
         PDTE(i4, i3, i2)->raw = lvl1 | PGOFF(flags | PTE_PWT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PTE(i4, i3, i2, 0));
         invlpg((uintptr_t)PTE(i4, i3, i2, 0));
+        // printk("%s:%d: lvl1: %p\n", __FILE__, __LINE__, lvl1);
     }
 
     if (!pte_ispresent(PTE(i4, i3, i2, i1)))
@@ -365,10 +375,12 @@ int x86_64_map_n(uintptr_t vaddr, usize sz, int flags) {
     gfp_mask_t  gfp_mask= GFP_NORMAL | (_iszero(flags) ? GFP_ZERO : 0);
 
     for (; nr; --nr, vaddr += PGSZ) {
-        if ((paddr = pmman.get_page(gfp_mask)) == 0) {
-            err = -ENOMEM;
+        if ((err = pmman.get_page(gfp_mask, (void **)&paddr))) {
             goto error;
         }
+
+        // printk("%s:%d: paddr: %p\n", __FILE__, __LINE__, paddr);
+
         if ((err = x86_64_map(paddr, PML4I(vaddr),
             PDPTI(vaddr), PDI(vaddr), PTI(vaddr), flags | PTE_ALLOC_PAGE)))
             goto error;
@@ -382,7 +394,7 @@ error:
 }
 
 int x86_64_mount(uintptr_t paddr, void **pvp) {
-    int         err = 0;
+    int         err   = 0;
     uintptr_t   vaddr = 0;
 
     if (paddr == 0 || pvp == NULL)
@@ -561,7 +573,12 @@ int x86_64_lazycpy(uintptr_t dst, uintptr_t src) {
                         continue;
 
                     // increase the page count on this page.
-                    __page_incr(PGROUND(pt[i1].raw));
+                    if ((err = __page_getref(PGROUND(pt[i1].raw)))) {
+                        assert(0, "Failed to increament page ref.");
+                        x86_64_unmount((uintptr_t)pdt);
+                        x86_64_unmount((uintptr_t)pdpt);
+                        goto error;
+                    }
                 }
 
                 x86_64_unmount((uintptr_t)pt);
@@ -663,7 +680,9 @@ int x86_64_getmapping(uintptr_t addr, pte_t **pte) {
     if (!pte_ispresent(PTE(i4, i3, i2, i1)))
         return -ENOENT;
     
-    if (pte) *pte = PTE(i4, i3, i2, i1);
+    if (pte) {
+        *pte = PTE(i4, i3, i2, i1);
+    }
     return 0;
 }
 
@@ -674,8 +693,9 @@ int x86_64_pml4alloc(uintptr_t *ref) {
     if (ref == NULL)
         return -EINVAL;
     
-    if ((pml4 = pmman.get_page(GFP_NORMAL | GFP_ZERO)) == 0)
-        return -ENOMEM;
+    if ((err = pmman.get_page(GFP_NORMAL | GFP_ZERO, (void **)&pml4))) {
+        return err;
+    }
     
     if ((err = x86_64_kvmcpy(pml4)))
         goto error;

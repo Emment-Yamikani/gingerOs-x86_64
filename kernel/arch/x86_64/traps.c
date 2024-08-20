@@ -127,15 +127,15 @@ void trap(ucontext_t *uctx) {
     mcontext_t      *mctx   = &uctx->uc_mcontext;
 
     if (current) {
+        pushcli();
         arch                = &current->t_arch;
         uctx->uc_stack      = current_isuser() ?
             arch->t_kstack : arch->t_ustack;
-        pushcli();
         uctx->uc_link       = arch->t_uctx;
         arch->t_uctx        = uctx;
-        popcli();
         uctx->uc_flags      = 0;
         sigemptyset(&uctx->uc_sigmask);
+        popcli();
     }
 
     switch (mctx->trapno) {

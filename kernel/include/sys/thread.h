@@ -257,6 +257,7 @@ typedef struct {
 #define thread_tgroup(t)                ({ thread_assert(t); (t)->t_tgroup; })
 #define thread_tgroup_lock(t)           ({ tgroup_lock(thread_tgroup(t)); })
 #define thread_tgroup_unlock(t)         ({ tgroup_unlock(thread_tgroup(t)); })
+#define thread_tgroup_islocked(t)       ({ tgroup_islocked(thread_tgroup(t)); })
 #define thread_tgroup_locked(t)         ({ tgroup_locked(thread_tgroup(t)); })
 
 #define thread_isuser(t) ({                    \
@@ -320,7 +321,7 @@ typedef struct {
 #define current_assert()                ({ assert(current, "No current thread running"); })
 #define current_lock()                  ({ thread_lock(current); })
 #define current_unlock()                ({ thread_unlock(current); })
-#define current_locked()                ({ thread_islocked(current); })
+#define current_islocked()              ({ thread_islocked(current); })
 #define current_assert_locked()         ({ thread_assert_locked(current); })
 
 #define current_cred()                  ({ current ? thread_cred(current) : NULL; })
@@ -328,6 +329,7 @@ typedef struct {
 
 #define current_tgroup()                ({ current ? thread_tgroup(current) : NULL; })
 #define current_tgroup_lock()           ({ thread_tgroup_lock(current); })
+#define current_tgroup_islocked()       ({ thread_tgroup_islocked(current); })
 #define current_tgroup_unlock()         ({ thread_tgroup_unlock(current); })
 #define current_tgroup_locked()         ({ thread_tgroup_locked(current); })
 

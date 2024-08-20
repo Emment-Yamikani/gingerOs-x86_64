@@ -35,7 +35,7 @@ int multiboot_info_process(multiboot_info_t *info) {
     }
 
     if ((BTEST(info->flags, 6))) {
-        mmap = (mmap_entry_t *)(VMA2HI(info->mmap_addr));
+        mmap     = (mmap_entry_t *)(VMA2HI(info->mmap_addr));
         mmap_end = (mmap_entry_t *)VMA2HI(info->mmap_addr + info->mmap_length);
 
         for (int i =0; mmap < mmap_end; ++i, bootinfo.mmapcnt++) {
@@ -43,7 +43,7 @@ int multiboot_info_process(multiboot_info_t *info) {
             bootinfo.mmap[i].type = mmap->type;
             bootinfo.mmap[i].addr = VMA2HI(mmap->addr);
             if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE)
-                bootinfo.memsize      += mmap->len;
+                bootinfo.memsize  += mmap->len;
             // printk("mmap(%d): %p, len: %ld, type: %d, size: %d\n",
                 // i, VMA2HI(mmap->addr), mmap->len, mmap->type, mmap->size);
             mmap = (mmap_entry_t *)(((uintptr_t)mmap) + mmap->size + sizeof (mmap->size));
@@ -56,30 +56,30 @@ int multiboot_info_process(multiboot_info_t *info) {
     if (BTEST(info->flags, 3)) {
         multiboot_module_t *mod = (multiboot_module_t *)(VMA2HI(info->mods_addr));
         for (size_t i = 0; i < info->mods_count; ++i, bootinfo.modcnt++, ++mod) {
-            bootinfo.mods[i].addr = VMA2HI(mod->mod_start);
+            bootinfo.mods[i].addr    = VMA2HI(mod->mod_start);
             bootinfo.mods[i].cmdline = (char *)VMA2HI(mod->cmdline);
-            bootinfo.mods[i].size = mod->mod_end - mod->mod_start;
+            bootinfo.mods[i].size    = mod->mod_end - mod->mod_start;
             // printk("MOD(%d): %p, size: %d\n", i, mod->mod_start, mod->mod_end - mod->mod_start);
         }
     }
 
     // framebuffer
     if (BTEST(info->flags, 12)) {
-        bootinfo.fb.framebuffer_bpp = info->framebuffer_bpp;
-        bootinfo.fb.framebuffer_type = info->framebuffer_type;
-        bootinfo.fb.framebuffer_pitch = info->framebuffer_pitch;
-        bootinfo.fb.framebuffer_width = info->framebuffer_width;
-        bootinfo.fb.framebuffer_height = info->framebuffer_height;
-        bootinfo.fb.framebuffer_addr = VMA2HI(info->framebuffer_addr);
-        bootinfo.fb.framebuffer_size = info->framebuffer_pitch * info->framebuffer_height;
+        bootinfo.fb.framebuffer_bpp     = info->framebuffer_bpp;
+        bootinfo.fb.framebuffer_type    = info->framebuffer_type;
+        bootinfo.fb.framebuffer_pitch   = info->framebuffer_pitch;
+        bootinfo.fb.framebuffer_width   = info->framebuffer_width;
+        bootinfo.fb.framebuffer_height  = info->framebuffer_height;
+        bootinfo.fb.framebuffer_addr    = VMA2HI(info->framebuffer_addr);
+        bootinfo.fb.framebuffer_size    = info->framebuffer_pitch * info->framebuffer_height;
 
         if (info->framebuffer_type == 1) {
-            bootinfo.fb.red.length = info->framebuffer_red_mask_size;
-            bootinfo.fb.red.offset = info->framebuffer_red_field_position;
-            bootinfo.fb.green.length = info->framebuffer_green_mask_size;
-            bootinfo.fb.green.offset = info->framebuffer_green_field_position;
-            bootinfo.fb.blue.length = info->framebuffer_blue_mask_size;
-            bootinfo.fb.blue.offset = info->framebuffer_blue_field_position;
+            bootinfo.fb.red.length      = info->framebuffer_red_mask_size;
+            bootinfo.fb.red.offset      = info->framebuffer_red_field_position;
+            bootinfo.fb.green.length    = info->framebuffer_green_mask_size;
+            bootinfo.fb.green.offset    = info->framebuffer_green_field_position;
+            bootinfo.fb.blue.length     = info->framebuffer_blue_mask_size;
+            bootinfo.fb.blue.offset     = info->framebuffer_blue_field_position;
         }
     }
 
@@ -98,6 +98,14 @@ int early_init(void) {
     if ((err = pmman.init()))
         panic("Physical memory initialization failed, error: %d\n", err);
 
+    for (size_t i =0; i < bootinfo.mmapcnt; ++i) {
+        printk("mmap(%d): %p, len: %16ld, end: %p, type: %d\n",
+               i, bootinfo.mmap[i].addr, bootinfo.mmap[i].size,
+               bootinfo.mmap[i].addr + PGROUNDUP(bootinfo.mmap[i].size),
+               bootinfo.mmap[i].type
+        );
+    }
+
     earlycons_usefb();
 
     if ((err = acpi_init()))
@@ -115,12 +123,9 @@ int early_init(void) {
         panic("Failed to initialize VFS!, error: %d\n", err);
 
     kthread_create(
-        NULL,
-        (thread_entry_t)kthread_main,
-        NULL,
-        THREAD_CREATE_GROUP |
-        THREAD_CREATE_SCHED,
-        NULL
+        NULL, (thread_entry_t)kthread_main,
+        NULL, THREAD_CREATE_GROUP |
+        THREAD_CREATE_SCHED, NULL
     );
 
     schedule();
