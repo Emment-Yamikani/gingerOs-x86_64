@@ -8,42 +8,41 @@
 
 typedef struct {
     uintptr_t   addr;
-    usize      size;
+    usize       size;
     char        *cmdline;
 } mod_t;
 
 typedef struct {
     uintptr_t   addr;
-    usize      size;
+    usize       size;
     int         type;
-} multiboot_mmap_t;
+} boot_mmap_t;
 
 typedef struct {
-    usize      modcnt;
-    usize      memsize;
-    usize      memlo;
-    usize      memhigh;
-    usize      mmapcnt;
+    usize           modcnt;
+    usize           memsize;
+    usize           memlo;
+    usize           memhigh;
+    usize           mmapcnt;
+
+    uintptr_t       phyaddr;
+    mod_t           mods[NMODS];
+    boot_mmap_t     mmap[NMMAP];
 
     struct {
-        u8 framebuffer_type;
-        uintptr_t framebuffer_addr;
-        u32 framebuffer_pitch;
-        u32 framebuffer_width;
-        u32 framebuffer_height;
-        usize   framebuffer_size;
-        u32 framebuffer_bpp;
+        u8          type;
+        uintptr_t   addr;
+        u32         pitch;
+        u32         width;
+        u32         height;
+        usize       size;
+        u32         bpp;
 
         // struct fb_bitfield red;
         // struct fb_bitfield blue;
         // struct fb_bitfield green;
         // struct fb_bitfield resv;
     } fb;
-
-    uintptr_t   phyaddr_start;
-
-    multiboot_mmap_t      mmap[NMMAP];
-    mod_t       mods[NMODS];
 } bootinfo_t;
 
 typedef multiboot_module_t mod_entry_t;

@@ -4,7 +4,7 @@ global _PML4_
 global start32
 
 extern cga_init
-extern multiboot_info_process
+extern parse_multiboot_info
 extern earlycons_init
 extern early_init
 extern x86_64_init
@@ -160,9 +160,9 @@ start64:
     pop     rdi
     pop     rcx
 
-    ;call    multiboot_info_process
+    call    parse_multiboot_info
     ;call    earlycons_init
-    ;call    early_init
+    call    early_init
     
     cli
     hlt

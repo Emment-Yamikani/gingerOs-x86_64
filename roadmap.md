@@ -2,9 +2,9 @@
 
 ## Firmware
 
-- [x] BIOS
+- [ ] BIOS
 - [ ] UEFI
-- [x] ACPI
+- [ ] ACPI
 
 ## Device Drivers
 
@@ -16,9 +16,9 @@
 
 ### Physical Devices
 
-- [x] CGA
-- [x] Real Time Clock
-- [x] High Precision Event Timer
+- [ ] CGA
+- [ ] Real Time Clock
+- [ ] High Precision Event Timer
 - [ ] Console
 - [ ] PS2 Mouse
 - [ ] PS2 Keyboard
@@ -27,47 +27,47 @@
 
 ### Virtual Devices
 
-- [x] RamDisk
-- [x] Full
-- [x] Null
-- [x] Zero
-- [x] Random
+- [ ] RamDisk
+- [ ] Full
+- [ ] Null
+- [ ] Zero
+- [ ] Random
 - [ ] Mem
 - [ ] Pseudo Teminals
 
 ## Memory Management
 
-- [x] Physical Memery Management
-- [x] Virtual Memory Management
-- [x] Page cache
+- [ ] Physical Memery Management
+- [ ] Virtual Memory Management
+- [ ] Page cache
 
 ### Memory allocator(s)
   
-- [x] Zones for physical memory (Similar, but not same, as in Linux).
-- [x] Liballoc (Credit to whom it is due)
+- [ ] Zones for physical memory (Similar, but not same, as in Linux).
+- [ ] Liballoc (Credit to whom it is due)
 
 ## Multitasking
 
-- [x] Symmetric Multiprocessing up to 16 Cores
-- [x] Multi-Threading
-  - [x] Thread groups
-- [x] User processes
+- [ ] Symmetric Multiprocessing up to 16 Cores
+- [ ] Multi-Threading
+  - [ ] Thread groups
+- [ ] User processes
 
-- [x] POSIX Signals
+- [ ] POSIX Signals
 
 ## Virtual Filesystem
 
-- [x] Generic inode operations.
-- [x] File address space to allow file sharing.
+- [ ] Generic inode operations.
+- [ ] File address space to allow file sharing.
 - [ ] File locks
 - [ ] File times
 - [ ] Generic file operations.
 
 ## File System
 
-- [x] ginger ramfs
-- [x] tmpfs
-- [x] devfs
+- [ ] ginger ramfs
+- [ ] tmpfs
+- [ ] devfs
 - [ ] pipefs
 - [ ] sysfs
 - [ ] ext2fs

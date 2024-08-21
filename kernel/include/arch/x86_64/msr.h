@@ -1,6 +1,6 @@
 #pragma once
 
-#include <lib/stdint.h>
+#include <core/types.h>
 
 #define IA32_APIC_BASE      0x1B    // “Local APIC Status and Location,”
 
@@ -58,5 +58,5 @@
 #define IA32_GS_BASE            0xC0000101  //Map of BASE Address of GS (R/W)
 #define IA32_KERNEL_GS_BASE     0xC0000102  //Swap Target of BASE Address of GS (R/W)
 
-extern void     wrmsr(uint64_t msr, uint64_t val);
-extern uint64_t rdmsr(uint64_t msr);
+extern void     wrmsr(u64 msr, u64 val);
+extern u64 rdmsr(u64 msr);
