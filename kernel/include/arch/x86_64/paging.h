@@ -25,13 +25,6 @@
 #define PTE_UR       (PTE_U  | PTE_R)
 #define PTE_URW      (PTE_UR | PTE_W)
 
-#define PTE_2MB      (PTE_PS)
-#define PTE_K2MBR    (PTE_KR  | PTE_2MB)
-#define PTE_K2MBRW   (PTE_KRW | PTE_2MB)
-
-#define PTE_U2MBR    (PTE_UR  | PTE_2MB)
-#define PTE_U2MBRW   (PTE_URW | PTE_2MB)
-
 typedef union pte {
     struct {
         u64 p : 1;
@@ -120,7 +113,6 @@ typedef union viraddr {
 #define pte_ispresent(pte)      (_ispresent((pte)->raw))
 #define pte_iswritable(pte)     (_iswritable((pte)->raw))
 #define pte_isuser_page(pte)    (_isuser_page((pte)->raw))    // is page a user page?
-#define pte_is2mb_page(pte)     (_is2mb_page((pte)->raw))     // is a 2mb page?
 #define pte_isPS(pte)           (_isPS((pte)->raw))           // is page size flags set?
 #define pte_isalloc_page(pte)   (_isalloc_page((pte)->raw))
 

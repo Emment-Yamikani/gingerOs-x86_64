@@ -24,67 +24,69 @@ bootinfo_t bootinfo = {0};
 
 extern __noreturn void kthread_main(void);
 
-int multiboot_info_process(multiboot_info_t *info) {
-    mmap_entry_t *mmap = NULL, *mmap_end = NULL;
+void multiboot_info_process(multiboot_info_t *mbi) {
+    // Initialize bootinfo with zero
+    memset(&bootinfo, 0, sizeof(bootinfo_t));
+    
 
-    memset(&bootinfo, 0, sizeof bootinfo);
+    // Get memory information
+    bootinfo.memlo      = (usize)mbi->mem_lower;
+    bootinfo.memhigh    = (usize)mbi->mem_upper;
 
-    if (BTEST(info->flags, 0)) {
-        bootinfo.memlo = info->mem_lower;
-        bootinfo.memhigh = info->mem_upper;
-    }
+    // Get memory map information
+    if (mbi->flags & MULTIBOOT_INFO_MEM_MAP) {
+        boot_mmap_t     *mmap   = bootinfo.mmap;
+        mmap_entry_t    *entry  = (mmap_entry_t *)VMA2HI(mbi->mmap_addr);
+        mmap_entry_t    *end    = (mmap_entry_t *)VMA2HI(mbi->mmap_addr + mbi->mmap_length);
 
-    if ((BTEST(info->flags, 6))) {
-        mmap     = (mmap_entry_t *)(VMA2HI(info->mmap_addr));
-        mmap_end = (mmap_entry_t *)VMA2HI(info->mmap_addr + info->mmap_length);
-
-        for (int i =0; mmap < mmap_end; ++i, bootinfo.mmapcnt++) {
-            bootinfo.mmap[i].size = mmap->len;
-            bootinfo.mmap[i].type = mmap->type;
-            bootinfo.mmap[i].addr = VMA2HI(mmap->addr);
-            if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE)
-                bootinfo.memsize  += mmap->len;
-            // printk("mmap(%d): %p, len: %ld, type: %d, size: %d\n",
-                // i, VMA2HI(mmap->addr), mmap->len, mmap->type, mmap->size);
-            mmap = (mmap_entry_t *)(((uintptr_t)mmap) + mmap->size + sizeof (mmap->size));
+        for (; entry < end; mmap++, bootinfo.mmapcnt++) {
+            if (bootinfo.mmapcnt >= NMMAP) break;
+            mmap->type        = entry->type;
+            mmap->addr        = VMA2HI(entry->addr);
+            mmap->size        = entry->len;
+            if (entry->type == MULTIBOOT_MEMORY_AVAILABLE)
+                bootinfo.memsize += entry->len;
+            entry = (mmap_entry_t *)((u64)entry + entry->size + sizeof(entry->size));
         }
-        bootinfo.memsize /= 1024;
-    }
-    else
-        return -ENOMEM;
-
-    if (BTEST(info->flags, 3)) {
-        multiboot_module_t *mod = (multiboot_module_t *)(VMA2HI(info->mods_addr));
-        for (size_t i = 0; i < info->mods_count; ++i, bootinfo.modcnt++, ++mod) {
-            bootinfo.mods[i].addr    = VMA2HI(mod->mod_start);
-            bootinfo.mods[i].cmdline = (char *)VMA2HI(mod->cmdline);
-            bootinfo.mods[i].size    = mod->mod_end - mod->mod_start;
-            // printk("MOD(%d): %p, size: %d\n", i, mod->mod_start, mod->mod_end - mod->mod_start);
-        }
+        
+        bootinfo.memsize = PGROUND(bootinfo.memsize) / KiB(1);
     }
 
-    // framebuffer
-    if (BTEST(info->flags, 12)) {
-        bootinfo.fb.framebuffer_bpp     = info->framebuffer_bpp;
-        bootinfo.fb.framebuffer_type    = info->framebuffer_type;
-        bootinfo.fb.framebuffer_pitch   = info->framebuffer_pitch;
-        bootinfo.fb.framebuffer_width   = info->framebuffer_width;
-        bootinfo.fb.framebuffer_height  = info->framebuffer_height;
-        bootinfo.fb.framebuffer_addr    = VMA2HI(info->framebuffer_addr);
-        bootinfo.fb.framebuffer_size    = info->framebuffer_pitch * info->framebuffer_height;
-
-        if (info->framebuffer_type == 1) {
-            bootinfo.fb.red.length      = info->framebuffer_red_mask_size;
-            bootinfo.fb.red.offset      = info->framebuffer_red_field_position;
-            bootinfo.fb.green.length    = info->framebuffer_green_mask_size;
-            bootinfo.fb.green.offset    = info->framebuffer_green_field_position;
-            bootinfo.fb.blue.length     = info->framebuffer_blue_mask_size;
-            bootinfo.fb.blue.offset     = info->framebuffer_blue_field_position;
+    bootinfo.phyaddr = PGROUNDUP(_kernel_end);
+    
+    // Get modules information
+    if (mbi->flags & MULTIBOOT_INFO_MODS) {
+        mod_entry_t *mod = (mod_entry_t *)VMA2HI(mbi->mods_addr);
+        bootinfo.modcnt = mbi->mods_count > NMODS ? NMODS : mbi->mods_count;
+        for (usize i = 0; i < bootinfo.modcnt; i++) {
+            bootinfo.mods[i].addr    = VMA2HI(mod[i].mod_start);
+            bootinfo.mods[i].cmdline = (char *)(VMA2HI(mod[i].cmdline));
+            bootinfo.mods[i].size    = PGROUNDUP(mod[i].mod_end - mod[i].mod_start);
+            bootinfo.phyaddr         = VMA2LO(bootinfo.mods[i].addr) + bootinfo.mods[i].size;
         }
     }
 
-    return 0;
+    // Get framebuffer information
+    if (mbi->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO) {
+        bootinfo.fb.bpp     = mbi->framebuffer_bpp;
+        bootinfo.fb.type    = mbi->framebuffer_type;
+        bootinfo.fb.pitch   = mbi->framebuffer_pitch;
+        bootinfo.fb.width   = mbi->framebuffer_width;
+        bootinfo.fb.height  = mbi->framebuffer_height;
+        bootinfo.fb.addr    = VMA2HI(mbi->framebuffer_addr);
+        bootinfo.fb.size    = mbi->framebuffer_height * mbi->framebuffer_pitch;
+    }
+
+    // Get bootloader name
+    if (mbi->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME) {
+        // Store or process the bootloader name if needed
+    }
+
+    usize size = GiB(2) - (bootinfo.memsize * KiB(1));
+    arch_unmap_n(VMA2HI(bootinfo.memsize * KiB(1)), size);
 }
+
+#include <dev/cga.h>
 
 int early_init(void) {
     int err = 0;
@@ -98,12 +100,14 @@ int early_init(void) {
     if ((err = pmman.init()))
         panic("Physical memory initialization failed, error: %d\n", err);
 
-    for (size_t i =0; i < bootinfo.mmapcnt; ++i) {
-        printk("mmap(%d): %p, len: %16ld, end: %p, type: %d\n",
-               i, bootinfo.mmap[i].addr, bootinfo.mmap[i].size,
-               bootinfo.mmap[i].addr + PGROUNDUP(bootinfo.mmap[i].size),
-               bootinfo.mmap[i].type
-        );
+    loop() {
+        uintptr_t a;
+
+        if ((err = arch_pagealloc(KSTACKSZ, &a)))
+            panic("failed to alloc, err: %d\n", err);
+        
+        memset((void *)a, 0, KSTACKSZ);
+        debugloc();
     }
 
     earlycons_usefb();

@@ -1,18 +1,13 @@
 #include <ginger/unistd.h>
 #include <api.h>
 
-void *thread(void *arg __unused) {
-    return arg;
-} 
+tid_t tid = 0;
 
 void main(void) {
-    // int         err     = 0;
-    // pid_t       pid     = 0;
-    // int         stat_loc= 0;
-    // char *const  shell[] = {"/ramfs/shell", NULL};
-
-    loop() {
-        thread_create(NULL, NULL, thread, NULL);
-        thread_yield();
+    if (tid == 0) {
+        tid = thread_self();
+        loop() {
+            thread_create(NULL, NULL, (void *)main, NULL);
+        }
     }
 }

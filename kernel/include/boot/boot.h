@@ -19,7 +19,7 @@ typedef struct {
     uintptr_t   addr;
     size_t      size;
     int         type;
-} multiboot_mmap_t;
+} boot_mmap_t;
 
 typedef struct {
     size_t      modcnt;
@@ -29,13 +29,13 @@ typedef struct {
     size_t      mmapcnt;
 
     struct {
-        uint8_t framebuffer_type;
-        uintptr_t framebuffer_addr;
-        uint32_t framebuffer_pitch;
-        uint32_t framebuffer_width;
-        uint32_t framebuffer_height;
-        size_t   framebuffer_size;
-        uint32_t framebuffer_bpp;
+        uint8_t     type;
+        uintptr_t   addr;
+        uint32_t    pitch;
+        uint32_t    width;
+        uint32_t    height;
+        size_t      size;
+        uint32_t    bpp;
 
         struct fb_bitfield red;
         struct fb_bitfield blue;
@@ -43,14 +43,12 @@ typedef struct {
         struct fb_bitfield resv;
     } fb;
 
-    uintptr_t   phyaddr_start;
-
-    multiboot_mmap_t      mmap[NMMAP];
-    mod_t       mods[NMODS];
+    uintptr_t       phyaddr;
+    boot_mmap_t     mmap[NMMAP];
+    mod_t           mods[NMODS];
 } bootinfo_t;
 
 typedef multiboot_module_t mod_entry_t;
 typedef multiboot_memory_map_t mmap_entry_t;
 
 extern bootinfo_t bootinfo;
-int multiboot_info_process(multiboot_info_t *info);

@@ -256,9 +256,8 @@ int physical_memory_init(void) {
     addr = PGROUND(VMA2LO(_kernel_start));
     size = PGROUNDUP((VMA2LO(_kernel_end) - VMA2LO(_kernel_start)));
 
-    printk("Kernel_start: %p\n, "
-        "Kernel end: %p size: %p\n",
-        addr, PGROUNDUP(addr + size), size);
+    printk("Kernel: %p, end: %p size: %p\n",
+        _kernel_start, _kernel_end, size);
     mm_zone_assert((zone = get_mmzone(addr, size)));
     assert_msg(((addr + size) < ((zone->size) - (addr + size))), "Kernel is too big");
 
@@ -304,8 +303,8 @@ int physical_memory_init(void) {
         }
     }
 
-    arch_map_i(bootinfo.fb.framebuffer_addr, VMA2LO(bootinfo.fb.framebuffer_addr),
-        bootinfo.fb.framebuffer_size, PTE_KRW | PTE_PCDWT);
+    arch_map_i(bootinfo.fb.addr, VMA2LO(bootinfo.fb.addr),
+        bootinfo.fb.size, PTE_KRW | PTE_PCDWT);
 
     return 0;
 }

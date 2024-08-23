@@ -133,9 +133,8 @@ int arch_pagealloc(size_t sz, uintptr_t *addr) {
     if ((v = vmman.alloc(sz)) == 0) {
         return -ENOMEM;
     }
-    
 
-    if ((err = arch_map_n(v, sz, PTE_KRW))) {
+    if ((err = arch_map_n(v, sz, PTE_KRW | PTE_PCDWT))) {
         printk("%s:%d: req: %d error: %d\n",
             __FILE__, __LINE__, sz / KiB(1), err);
         vmman.free(v);

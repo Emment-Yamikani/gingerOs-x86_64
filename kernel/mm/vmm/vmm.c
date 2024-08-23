@@ -20,7 +20,7 @@ typedef struct node_t {
 #define node_get_len(node)      ({ node_assert(node); (node)->size; })
 #define node_get_start(node)    ({ node_assert(node); (node)->start; })
 
-#define KHEAPSIZE               (GiB(2))
+#define KHEAPSIZE               (MiB(128))
 #define KHEAPBASE               (VMA2HI(GiB(4)))
 #define NNODES                  (KHEAPSIZE / 4096)
 
