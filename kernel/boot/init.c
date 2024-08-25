@@ -100,16 +100,6 @@ int early_init(void) {
     if ((err = pmman.init()))
         panic("Physical memory initialization failed, error: %d\n", err);
 
-    loop() {
-        uintptr_t a;
-
-        if ((err = arch_pagealloc(KSTACKSZ, &a)))
-            panic("failed to alloc, err: %d\n", err);
-        
-        memset((void *)a, 0, KSTACKSZ);
-        debugloc();
-    }
-
     earlycons_usefb();
 
     if ((err = acpi_init()))

@@ -53,7 +53,7 @@
 #define MAX(a, b)               ((long)((a) > (b) ? (a) : (b)))     // take max of two arguments
 #define MIN(a, b)               ((long)((a) < (b) ? (a) : (b)))     // take min of two arguments.
 #define ABS(a)                  (((long)(a) < 0) ? -(long)(a) : (a))// take the absolute value of an argument.
-#define ABSi(x)                 ({ (int)x < 0 ? -(int)(x) : (int)(x); })
+#define ABSi(x)                 ({ (int)(x) < 0 ? -(int)(x) : (int)(x); })
 
 // C('A') == Control-A
 #define CTRL(x)                 ((x) - '@')
@@ -103,8 +103,8 @@
 #define PG2MOFF(p)              (AND((uintptr_t)(p), PGSZ2MASK))
 #define PGROUND(p)              ((uintptr_t)AND(((uintptr_t)(p)), ~PGMASK))
 #define PG2MROUND(p)            ((uintptr_t)AND(((uintptr_t)(p)), ~PGSZ2MASK))
-#define PGROUNDUP(p)            (PGOFF(p)   ? (PGROUND(((uintptr_t)p) + PAGESZ)) : (uintptr_t)(p))
-#define PG2MROUNDUP(p)          (PG2MOFF(p) ? (PGROUND(((uintptr_t)p) + PGSZ2M)) : (uintptr_t)(p))
+#define PGROUNDUP(p)            (PGOFF(p)   ? (PGROUND(((uintptr_t)(p)) + PAGESZ)) : (uintptr_t)(p))
+#define PG2MROUNDUP(p)          (PG2MOFF(p) ? (PGROUND(((uintptr_t)(p)) + PGSZ2M)) : (uintptr_t)(p))
 #define ALIGN4KUP(p)            (PGROUNDUP(p))
 
 #define NPAGE(p)                (((size_t)(p) / PGSZ) + (PGOFF(p) ? 1 : 0))
