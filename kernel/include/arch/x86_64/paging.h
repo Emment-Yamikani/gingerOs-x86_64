@@ -60,10 +60,11 @@ typedef union viraddr {
 } __packed viraddr_t;
 
 #define __viraddr(pml4e, pdpte, pde, pte) ((viraddr_t){ \
-    .pdi = (pde),                                       \
-    .pti = (pte),                                       \
-    .pml4i = (pml4e),                                   \
-    .pdpti = (pdpte),                                   \
+    .pdi    = (pde),                                    \
+    .pti    = (pte),                                    \
+    .pml4i  = (pml4e),                                  \
+    .pdpti  = (pdpte),                                  \
+    .off    = (pdpte) >= 256 ? 0xFFFF : 0,              \
 }.raw)
 
 #define PTI(v)                  ((viraddr_t){.raw = (uintptr_t)(v)}.pti)
