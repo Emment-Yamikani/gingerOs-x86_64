@@ -47,7 +47,7 @@ void* liballoc_alloc( int pages ) {
 		return NULL;
 	// printk("liballoc_alloc(): pointer: %p request pages: %d\n", p2, pages);
 	
-	assert((u64)p2 >= VMA(0), "p2 below kernel virtual address space");
+	assert((u64)p2 >= V2HI(0), "p2 below kernel virtual address space");
 	return p2;
 }
 

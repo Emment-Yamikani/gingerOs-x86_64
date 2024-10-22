@@ -61,6 +61,20 @@
 #define KiB(x)                  ((size_t)(1024ul      * ((size_t)(x))))
 #define MiB(x)                  ((size_t)(KiB(1024ul) * ((size_t)(x))))
 #define GiB(x)                  ((size_t)(MiB(1024ul) * ((size_t)(x))))
+
+#define B2KiB(x)        ((usize)(x) / KiB(1))   // convert bytes to KiB.
+#define B2MiB(x)        ((usize)(x) / MiB(1))   // convert bytes to MiB.
+#define B2GiB(x)        ((usize)(x) / GiB(1))   // convert bytes to GiB.
+
+#define K2MiB(x)        ((usize)(x) / KiB(1))   // convert kiB from to MiB.
+#define K2GiB(x)        ((usize)(x) / MiB(1))   // convert kiB from to GiB.
+
+#define M2KiB(x)        ((usize)(x) * KiB(1))   // convert MiB from to KiB.
+#define M2GiB(x)        ((usize)(x) / KiB(1))   // convert MiB from to GiB.
+
+#define G2KiB(x)        ((usize)(x) * MiB(1))   // convert GiB from to KiB.
+#define G2MiB(x)        ((usize)(x) * KiB(1))   // convert GiB from to MiB.
+
 #define PGSZ                    (0x1000ul)
 #define PAGESZ                  (PGSZ)
 #define PGMASK                  (PGSZ - 1)
@@ -90,15 +104,25 @@
 #if defined __i386__
     #define VMA_BASE            ((uintptr_t)0xC0000000ul)
 #elif defined __x86_64__
-    #define VMA_BASE            ((uintptr_t)0xFFFFFF8000000000ul)
-#endif
+    #define VMA_BASE            ((uintptr_t)0xFFFF800000000000ul)
+#endif 
 
-#define VMA(x)                  (VMA_BASE + (uintptr_t)(x))
-#define VMA2HI(p)               (VMA_BASE + (uintptr_t)(p))
-#define VMA2LO(x)               ((uintptr_t)(x) - VMA_BASE)
+// physical address of memory mapped I/O space.
+#define MEMMIO          (0xfe000000ull)
+
+// convert a higher-half virtual address to a lower-half virtual address.
+#define V2LO(p)         ((uintptr_t)(p) - VMA_BASE)   
+#define VMA2LO(p)       ((uintptr_t)(p) - VMA_BASE)
+
+// convert a lower-half virtual address to a higher-half virtual address.
+#define V2HI(p)         ((uintptr_t)(p) + VMA_BASE)   
+#define VMA2HI(p)       ((uintptr_t)(p) + VMA_BASE)
 
 #define iskernel_addr(x)        ((uintptr_t)(x) >= VMA_BASE)
 
+// page size used for a 2MiB page
+#define PGSZ2MB         (MiB(2))
+#define PGSZ1GB         (GiB(1))
 #define PGOFF(p)                (AND((uintptr_t)(p), PGMASK))
 #define PG2MOFF(p)              (AND((uintptr_t)(p), PGSZ2MASK))
 #define PGROUND(p)              ((uintptr_t)AND(((uintptr_t)(p)), ~PGMASK))
@@ -112,8 +136,8 @@
 
 #define NELEM(x)                ((size_t)(sizeof ((x)) / sizeof ((x)[0])))
 
-extern void _kernel_end();
-extern void _kernel_start();
+extern void kend();
+extern void kstart();
 
 extern int copy_to_user(void *udst, void *ksrc, size_t size);
 extern int copy_from_user(void *kdst, void * usrc, size_t size);

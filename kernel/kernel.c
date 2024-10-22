@@ -4,7 +4,7 @@
 #include <sys/thread.h>
 #include <mm/mmap.h>
 #include <sys/proc.h>
-#include <mm/mm_zone.h>
+#include <mm/zone.h>
 #include <mm/kalloc.h>
 
 int load_init(const char *conf_fn);

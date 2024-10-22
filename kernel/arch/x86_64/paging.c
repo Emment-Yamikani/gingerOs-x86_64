@@ -3,7 +3,7 @@
 #include <arch/cpu.h>
 #include <bits/errno.h>
 #include <lib/string.h>
-#include <mm/mm_zone.h>
+#include <mm/zone.h>
 #include <sys/thread.h>
 #include <arch/x86_64/ipi.h>
 #include <arch/x86_64/paging.h>
@@ -213,7 +213,7 @@ int x86_64_map(uintptr_t paddr, int i4, int i3, int i2, int i1, int flags) {
     int         err     = -ENOMEM;
     int         do_remap= _isremap(flags);
     uintptr_t   lvl3    = 0, lvl2 = 0, lvl1 = 0;
-    uintptr_t   vaddr   = __viraddr(i4, i3, i2, i1);
+    uintptr_t   vaddr   = i2v(i4, i3, i2, i1);
 
     flags   = extract_vmflags(flags);
 
@@ -299,10 +299,10 @@ void x86_64_unmap(int i4, int i3, int i2, int i1) {
 
     paddr = PTE(i4, i3, i2, i1)->raw;
     PTE(i4, i3, i2, i1)->raw = 0;
-    send_tlb_shootdown(rdcr3(), __viraddr(i4, i3, i2, i1));
+    send_tlb_shootdown(rdcr3(), i2v(i4, i3, i2, i1));
 
 done:
-    invlpg(__viraddr(i4, i3, i2, i1));
+    invlpg(i2v(i4, i3, i2, i1));
     
     /** Deallocate this page frame
      * if it was allocated at the time of mapping.*/
@@ -372,7 +372,7 @@ int x86_64_map_n(uintptr_t vaddr, usize sz, int flags) {
     uintptr_t   paddr   = 0;
     uintptr_t   vr      = vaddr;
     usize       nr      = NPAGE(sz);
-    gfp_mask_t  gfp_mask= GFP_NORMAL | (_iszero(flags) ? GFP_ZERO : 0);
+    gfp_t  gfp_mask= GFP_NORMAL | (_iszero(flags) ? GFP_ZERO : 0);
 
     for (; nr; --nr, vaddr += PGSZ) {
         if ((err = pmman.get_page(gfp_mask, (void **)&paddr))) {
@@ -562,7 +562,7 @@ int x86_64_lazycpy(uintptr_t dst, uintptr_t src) {
                     // Enforce Copy-On-Write by marking page ready-only.
                     if (pte_iswritable(&pt[i1])) {
                         pt[i1].w = 0;
-                        send_tlb_shootdown(rdcr3(), __viraddr(i4, i3, i2, i1));
+                        send_tlb_shootdown(rdcr3(), i2v(i4, i3, i2, i1));
                     }
                     
                     // Do page copy.

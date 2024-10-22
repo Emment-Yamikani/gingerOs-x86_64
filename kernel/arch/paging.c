@@ -8,7 +8,7 @@
 #include <sys/thread.h>
 #include <arch/signal.h>
 #include <sys/syscall.h>
-#include <mm/mm_zone.h>
+#include <mm/zone.h>
 #include <mm/pmm.h>
 
 void arch_dumptable(pte_t *table) {

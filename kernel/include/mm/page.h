@@ -4,7 +4,7 @@
 #include <lib/stdint.h>
 #include <lib/stddef.h>
 #include <lib/types.h>
-#include <mm/mm_gfp.h>
+#include <mm/gfp.h>
 #include <mm/page_flags.h>
 #include <sync/assert.h>
 
@@ -35,11 +35,11 @@ typedef struct page {
 #define page_setrx(page)            ({ page_setflags(page, PG_RX); })
 #define page_setrw(page)            ({ page_setflags(page, PG_RW); })
 #define page_setrwx(page)           ({ page_setflags(page, PG_RWX); })
-#define page_setuser(page)          ({ page_setflags(page, PG_USER); })          // set 'user'.
-#define page_setexec(page)          ({ page_setflags(page, PG_EXEC); })          // set 'exec'able'.
-#define page_setread(page)          ({ page_setflags(page, PG_READ); })          // set 'readable'.
-#define page_setwrite(page)         ({ page_setflags(page, PG_WRITE); })         // set 'writeable'.
-#define page_setdirty(page)         ({ page_setflags(page, PG_DIRTY); })         // set 'dirty'.
+#define page_setuser(page)          ({ page_setflags(page, PG_U); })          // set 'user'.
+#define page_setexec(page)          ({ page_setflags(page, PG_X); })          // set 'exec'able'.
+#define page_setread(page)          ({ page_setflags(page, PG_R); })          // set 'readable'.
+#define page_setwrite(page)         ({ page_setflags(page, PG_W); })         // set 'writeable'.
+#define page_setdirty(page)         ({ page_setflags(page, PG_D); })         // set 'dirty'.
 #define page_setvalid(page)         ({ page_setflags(page, PG_VALID); })         // set 'valid'.
 #define page_setshared(page)        ({ page_setflags(page, PG_SHARED); })
 #define page_setwriteback(page)     ({ page_setflags(page, PG_WRITEBACK); })
@@ -49,11 +49,11 @@ typedef struct page {
 #define page_maskrx(page)           ({ page_maskflags(page, PG_RX); })
 #define page_maskrw(page)           ({ page_maskflags(page, PG_RW); })
 #define page_maskrwx(page)          ({ page_maskflags(page, PG_RWX); })
-#define page_maskuser(page)         ({ page_maskflags(page, PG_USER); })          // set 'user'.
-#define page_maskexec(page)         ({ page_maskflags(page, PG_EXEC); })          // set 'exec'able'.
-#define page_maskread(page)         ({ page_maskflags(page, PG_READ); })          // set 'readable'.
-#define page_maskwrite(page)        ({ page_maskflags(page, PG_WRITE); })         // set 'writeable'.
-#define page_maskdirty(page)        ({ page_maskflags(page, PG_DIRTY); })         // set 'dirty'.
+#define page_maskuser(page)         ({ page_maskflags(page, PG_U); })          // set 'user'.
+#define page_maskexec(page)         ({ page_maskflags(page, PG_X); })          // set 'exec'able'.
+#define page_maskread(page)         ({ page_maskflags(page, PG_R); })          // set 'readable'.
+#define page_maskwrite(page)        ({ page_maskflags(page, PG_W); })         // set 'writeable'.
+#define page_maskdirty(page)        ({ page_maskflags(page, PG_D); })         // set 'dirty'.
 #define page_maskvalid(page)        ({ page_maskflags(page, PG_VALID); })         // set 'valid'.
 #define page_maskshared(page)       ({ page_maskflags(page, PG_SHARED); })
 #define page_maskwriteback(page)    ({ page_maskflags(page, PG_WRITEBACK); })
@@ -69,11 +69,11 @@ void __page_free_n(uintptr_t paddr, usize order);
 void page_free(page_t *page);
 void __page_free(uintptr_t paddr);
 
-int page_alloc_n(gfp_mask_t gfp, usize order, page_t **pp);
-int __page_alloc_n(gfp_mask_t gfp, usize order, void **pp);
+int page_alloc_n(gfp_t gfp, usize order, page_t **pp);
+int __page_alloc_n(gfp_t gfp, usize order, void **pp);
 
-int page_alloc(gfp_mask_t gfp, page_t **pp);
-int __page_alloc(gfp_mask_t gfp, void **pp);
+int page_alloc(gfp_t gfp, page_t **pp);
+int __page_alloc(gfp_t gfp, void **pp);
 
 int page_increment(page_t *page);
 int __page_increment(uintptr_t paddr);

@@ -4,7 +4,7 @@
 #include <lib/stddef.h>
 #include <lib/stdint.h>
 #include <sys/thread.h>
-#include <mm/mm_zone.h>
+#include <mm/zone.h>
 #include <fs/stat.h>
 #include <sys/_time.h>
 #include <sys/_utsname.h>

@@ -1,4 +1,4 @@
-#include <mm/mm_zone.h>
+#include <mm/zone.h>
 #include <fs/icache.h>
 #include <mm/page.h>
 #include <arch/paging.h>

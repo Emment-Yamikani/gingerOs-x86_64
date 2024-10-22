@@ -1,17 +1,15 @@
-#include <arch/cpu.h>
 #include <bits/errno.h>
-#include <ginger/types.h>
-#include <lib/types.h>
-#include <mm/mm_gfp.h>
-#include <mm/mm_zone.h>
+#include <core/misc.h>
 #include <mm/page.h>
+#include <mm/zone.h>
 #include <mm/pmm.h>
+#include <sync/atomic.h>
+#include <sys/thread.h>
 #include <sys/proc.h>
 #include <sys/thread.h>
 #include <sys/sysproc.h>
 #include <sys/system.h>
 #include <sys/sched.h>
-#include <core/misc.h>
 
 size_t mem_free(void);
 size_t mem_used(void);
@@ -40,13 +38,14 @@ void mm_free(uintptr_t addr) {
 
 size_t mem_free(void) {
     size_t size = 0;
+    zone_t *z = NULL;
 
-    for (size_t zone = MM_ZONE_DMA; zone < NELEM(zones); ++zone) {
-        mm_zone_lock(&zones[zone]);
-        if (mm_zone_isvalid(&zones[zone])) {
-            size += zones[zone].free_pages * PAGESZ;
+    for (size_t zone = ZONEi_DMA; zone < NELEM(zones); ++zone) {
+        zone_lock(&zones[zone]);
+        if (zone_isvalid(z = &zones[zone])) {
+            size += (z->npages - z->upages) * PAGESZ;
         }
-        mm_zone_unlock(&zones[zone]);
+        zone_unlock(&zones[zone]);
     }
     return (size / 1024);
 }
@@ -54,11 +53,11 @@ size_t mem_free(void) {
 size_t mem_used(void) {
     size_t size = 0;
 
-    for (size_t zone = MM_ZONE_DMA; zone < NELEM(zones); ++zone) {
-        mm_zone_lock(&zones[zone]);
-        if (mm_zone_isvalid(&zones[zone]))
-            size += (zones[zone].nrpages - zones[zone].free_pages) * PAGESZ;
-        mm_zone_unlock(&zones[zone]);
+    for (size_t zone = ZONEi_DMA; zone < NELEM(zones); ++zone) {
+        zone_lock(&zones[zone]);
+        if (zone_isvalid(&zones[zone]))
+            size += zones[zone].upages * PAGESZ;
+        zone_unlock(&zones[zone]);
     }
     return (size / 1024);
 }
@@ -66,7 +65,7 @@ size_t mem_used(void) {
 #define page_index(page, zone)      ({ ((page) - (zone)->pages); })
 #define page_addr(page, zone)       ({ (zone)->start + (page_index(page, zone) * PGSZ); })
 
-int page_alloc_n(gfp_mask_t gfp, usize order, page_t **pp) {
+int page_alloc_n(gfp_t gfp, usize order, page_t **pp) {
     int         err     = 0;
     int         tglocked= 0;
     int         tlocked = 0;
@@ -77,7 +76,7 @@ int page_alloc_n(gfp_mask_t gfp, usize order, page_t **pp) {
     usize       start   = 0;
     usize       count   = 0;
     page_t      *page   = NULL;
-    mm_zone_t   *zone   = NULL;
+    zone_t      *zone   = NULL;
     usize       npage   = BS(order);
     // pte_t       *p      = NULL;
 
@@ -87,30 +86,30 @@ int page_alloc_n(gfp_mask_t gfp, usize order, page_t **pp) {
     if ((order >= 64))
         return -ENOMEM;
 
-    if (GFP_WHENCE(gfp) > __GFP_HIGH)
+    if (GFP_WHENCE(gfp) > __GFP_HIGHMEM)
         return -EINVAL;
 
     if (GFP_WHENCE(gfp) == __GFP_ANY)
-        whence = MM_ZONE_NORM;
+        whence = ZONEi_NORM;
     else if (GFP_WHENCE(gfp) == __GFP_DMA)
-        whence = MM_ZONE_DMA;
+        whence = ZONEi_DMA;
     else if (GFP_WHENCE(gfp) == __GFP_NORMAL)
-        whence = MM_ZONE_NORM;
+        whence = ZONEi_NORM;
     else if (GFP_WHENCE(gfp) == __GFP_HOLE)
-        whence = MM_ZONE_HOLE;
-    else if (GFP_WHENCE(gfp) == __GFP_HIGH)
-        whence = MM_ZONE_HIGH;
+        whence = ZONEi_HOLE;
+    else if (GFP_WHENCE(gfp) == __GFP_HIGHMEM)
+        whence = ZONEi_HIGH;
 
     loop() {
-        if (NULL == (zone = mm_zone_get(whence)))
-            return -EINVAL;
+        if ((err = getzone_byindex(whence, &zone)))
+            return err;
 
-        if ((BS(order) > zone->free_pages)) {
-            mm_zone_unlock(zone);
+        if ((BS(order) > (zone->npages - zone->upages))) {
+            zone_unlock(zone);
             return -ENOMEM;
         }
 
-        for (start = index = 0, page = zone->pages; index < zone->nrpages; ++index) {
+        for (start = index = 0, page = zone->pages; index < zone->npages; ++index) {
             if (atomic_read(&page->refcnt)) {
                 // start counting allocated pages anew.
                 count   = 0;
@@ -122,11 +121,11 @@ int page_alloc_n(gfp_mask_t gfp, usize order, page_t **pp) {
             // managed to get all the pages?
             if (++count == npage) {
                 for ( index++; page < &zone->pages[index]; page++) {
-                    zone->free_pages--;
+                    zone->upages++;
                     assert(!atomic_read(&page->refcnt),
                             "page->refcnt not 'zero'???.");
 
-                    assert_msg(page_addr(page, zone) != zones[MM_ZONE_NORM].start,
+                    assert_msg(page_addr(page, zone) != zones[ZONEi_NORM].start,
                         "%s:%d: Page belongs to kernel, page: %p\n",
                         __FILE__, __LINE__, page_addr(page, zone)
                     );
@@ -137,7 +136,7 @@ int page_alloc_n(gfp_mask_t gfp, usize order, page_t **pp) {
                     if (gfp & GFP_ZERO) {
                         // get the physical address of this page.
                         paddr = zone->start + ((page - zone->pages) * PGSZ);
-                        if ((whence == MM_ZONE_HOLE) || (whence == MM_ZONE_HIGH)) {
+                        if ((whence == ZONEi_HOLE) || (whence == ZONEi_HIGH)) {
                             /// attempt a page frame mount.
                             /// spin in a loop for now unpon failure.
                             /// TODO: implement a more plausible approach than spinning.
@@ -160,12 +159,12 @@ int page_alloc_n(gfp_mask_t gfp, usize order, page_t **pp) {
 
                 // set the return address and return after unlocking 'zone'.
                 *pp = &zone->pages[start];
-                mm_zone_unlock(zone);
+                zone_unlock(zone);
                 return 0;
             }
         }
 
-        mm_zone_unlock(zone);
+        zone_unlock(zone);
 
         // Not enough spage is available to satisfy the request.
         if (!(gfp & GFP_WAIT) && !(gfp & GFP_RETRY)) {
@@ -213,14 +212,14 @@ int page_alloc_n(gfp_mask_t gfp, usize order, page_t **pp) {
     }
 }
 
-int page_alloc(gfp_mask_t gfp, page_t **pp) {
+int page_alloc(gfp_t gfp, page_t **pp) {
     return page_alloc_n(gfp, 0, pp);
 }
 
 void page_free_n(page_t *page, usize order) {
     int         err     = 0;
     usize       npage   = 0;
-    mm_zone_t   *zone   = NULL;
+    zone_t      *zone   = NULL;
 
     assert(page, "Attemp to free NULL.");
 
@@ -228,26 +227,26 @@ void page_free_n(page_t *page, usize order) {
         "Order(%d) requested is too large.",
         __FILE__, __LINE__, page, order);
 
-    err = mmzone_bypage(page, &zone);
+    err = getzone_bypage(page, &zone);
 
     assert_msg(zone, "%s:%d: zone not "
         "found for paddr: %p, err = %d\n", __FILE__, __LINE__, page, err);
 
-    assert(page_addr(page, zone) != zones[MM_ZONE_NORM].start, "Page belongs to kernel");
+    assert(page_addr(page, zone) != zones[ZONEi_NORM].start, "Page belongs to kernel");
 
     npage   = BS(order);
 
-    if (npage > zone->nrpages) {
+    if (npage > zone->npages) {
         panic("%s:%d: How did we get "
             "access with npage out of bounds.", __FILE__, __LINE__);
-        mm_zone_unlock(zone);
+        zone_unlock(zone);
         return;
     }
 
-    if (&page[npage - 1] >= &zone->pages[zone->nrpages]) {
+    if (&page[npage - 1] >= &zone->pages[zone->npages]) {
         panic("%s:%d: How did we get access "
             "with npage out of bounds.", __FILE__, __LINE__);
-        mm_zone_unlock(zone);
+        zone_unlock(zone);
         return;
     }
 
@@ -259,83 +258,47 @@ void page_free_n(page_t *page, usize order) {
             
             page_resetflags(page);
             page_setswappable(page);
-            zone->free_pages++;
+            zone->upages--;
         }
     }
-    mm_zone_unlock(zone);
+    zone_unlock(zone);
 }
 
 void page_free(page_t *page) {
     page_free_n(page, 0);
 }
 
-int page_get_address(page_t *page, void **ppa) {
-    int         err     = 0;
-    usize       index   = 0;
-    mm_zone_t   *zone   = NULL;
-
-    if (page == NULL || ppa == NULL)
-        return -EINVAL;
-
-    if ((err = mmzone_bypage(page, &zone)))
-        return err;
-
-    if ((isize)(index = (page - zone->pages)) < 0) {
-        mm_zone_unlock(zone);
-        return -EFAULT;
-    }
-
-    *ppa = (void *)(zone->start + (index * PGSZ));
-    mm_zone_unlock(zone);
-    return 0;
-}
-
 int page_increment(page_t *page) {
     int         err     = 0;
-    mm_zone_t   *zone   = NULL;
+    zone_t  *zone   = NULL;
 
     if (page == NULL)
         return -EINVAL;
 
-    if ((err = mmzone_bypage(page, &zone)))
+    if ((err = getzone_bypage(page, &zone)))
         return err;
     
     atomic_inc(&page->refcnt);
-    mm_zone_unlock(zone);
+    zone_unlock(zone);
     return 0;
 }
 
 int page_decrement(page_t *page) {
     int         err     = 0;
-    mm_zone_t   *zone   = NULL;
+    zone_t  *zone   = NULL;
 
     if (page == NULL)
         return -EINVAL;
 
-    if ((err = mmzone_bypage(page, &zone)))
+    if ((err = getzone_bypage(page, &zone)))
         return err;
     
     atomic_dec(&page->refcnt);
-    mm_zone_unlock(zone);
+    zone_unlock(zone);
     return 0;
 }
 
-int page_getcount(page_t *page, usize *pcnt) {
-    int         err     = 0;
-    mm_zone_t   *zone   = NULL;
-
-    if (pcnt == NULL)
-        return -EINVAL;
-
-    if ((err = mmzone_bypage(page, &zone)))
-        return err;
-
-    *pcnt = atomic_read(&page->refcnt);
-    mm_zone_unlock(zone);
-    return 0;
-}
-
-int __page_alloc_n(gfp_mask_t gfp, usize order, void **pp) {
+int __page_alloc_n(gfp_t gfp, usize order, void **pp) {
     int     err     = 0;
     page_t  *page   = NULL;
 
@@ -353,14 +316,14 @@ int __page_alloc_n(gfp_mask_t gfp, usize order, void **pp) {
     return 0;
 }
 
-int __page_alloc(gfp_mask_t gfp, void **pp) {
+int __page_alloc(gfp_t gfp, void **pp) {
     return __page_alloc_n(gfp, 0, pp);
 }
 
 void __page_free_n(uintptr_t paddr, usize order) {
     usize       npage   = 0;
     page_t      *page   = NULL;
-    mm_zone_t   *zone   = NULL;
+    zone_t      *zone   = NULL;
 
     assert(paddr, "Attemp to free NULL.");
 
@@ -370,20 +333,20 @@ void __page_free_n(uintptr_t paddr, usize order) {
 
     npage   = BS(order);
 
-    zone    = get_mmzone(paddr, npage * PGSZ);
+    getzone_byaddr(paddr, npage * PGSZ, &zone);
 
     assert_msg(zone, "%s:%d: zone not "
         "found for paddr: %p\n", __FILE__, __LINE__, paddr);
 
-    if (npage > zone->nrpages) {
+    if (npage > zone->npages) {
         panic("%s:%d: How did we get access with npage out of bounds.", __FILE__, __LINE__);
-        mm_zone_unlock(zone);
+        zone_unlock(zone);
         return;
     }
 
-    page = &zone->pages[(paddr - zone->start) / PAGESZ];
+    page = &zone->pages[(paddr - zone->start) / PGSZ];
     
-    assert(page_addr(page, zone) != zones[MM_ZONE_NORM].start, "Page belongs to kernel");
+    assert(page_addr(page, zone) != zones[ZONEi_NORM].start, "Page belongs to kernel");
     
     for (usize count = 0; count < npage; ++count, page++) {
         assert(atomic_read(&page->refcnt),"Page already free..??");
@@ -393,10 +356,10 @@ void __page_free_n(uintptr_t paddr, usize order) {
             
             page_resetflags(page);
             page_setswappable(page);
-            zone->free_pages++;
+            zone->upages--;
         }
     }
-    mm_zone_unlock(zone);
+    zone_unlock(zone);
     return;
 }
 
@@ -405,49 +368,36 @@ void __page_free(uintptr_t paddr) {
 }
 
 int __page_increment(uintptr_t paddr) {
-    mm_zone_t   *zone   = NULL;
+    int     err     = 0;
+    zone_t  *zone   = NULL;
 
     if (!paddr)
         return -EINVAL;
 
-    if ((zone = get_mmzone(paddr, PGSZ)) == NULL)
-        return -EADDRNOTAVAIL;
+    if ((err = getzone_byaddr(paddr, PGSZ, &zone)))
+        return err;
 
     atomic_inc(&zone->pages[(paddr - zone->start) / PGSZ].refcnt);
-    mm_zone_unlock(zone);
+    zone_unlock(zone);
     return 0;
 }
 
 int __page_decrement(uintptr_t paddr) {
-    mm_zone_t   *zone   = NULL;
+    int     err     = 0;
+    zone_t  *zone   = NULL;
 
     if (!paddr)
         return -EINVAL;
 
-    if ((zone = get_mmzone(paddr, PGSZ)) == NULL)
-        return -EADDRNOTAVAIL;
+    if ((err = getzone_byaddr(paddr, PGSZ, &zone)))
+        return err;
 
     atomic_dec(&zone->pages[(paddr - zone->start) / PGSZ].refcnt);
-    mm_zone_unlock(zone);
-    return 0;
-}
-
-int __page_getcount(uintptr_t paddr, usize *pcnt) {
-    mm_zone_t   *zone   = NULL;
-
-    if (!paddr || pcnt == NULL)
-        return -EINVAL;
-
-    if ((zone = get_mmzone(paddr, PGSZ)) == NULL)
-        return -EADDRNOTAVAIL;
-
-    *pcnt = atomic_read(&zone->pages[(paddr - zone->start) / PGSZ].refcnt);
-    mm_zone_unlock(zone);
+    zone_unlock(zone);
     return 0;
 }
 
 int page_getref(page_t *page) {
-
     return page_increment(page);
 }
 
@@ -467,3 +417,50 @@ int __page_putref(uintptr_t paddr) {
     return __page_decrement(paddr);
 }
 
+int page_get_address(page_t *page, void **ppa) {
+    int     err = 0;
+    zone_t  *z  = NULL;
+
+    if (page == NULL || ppa == NULL)
+        return -EINVAL;
+    
+    if ((err = getzone_bypage(page, &z)))
+        return err;
+    
+    // convert the page to a physical address.
+    *ppa = (void *)((page_index(page, z) * PGSZ) + z->start);
+    // or simply: *ppa = page->phys_addr; ?
+
+    zone_unlock(z);
+    return 0;
+}
+
+int page_getcount(page_t *page, usize *pcnt) {
+    int     err = 0;
+    zone_t  *z  = NULL;
+
+    if (page == NULL || pcnt == NULL)
+        return -EINVAL;
+
+    if ((err = getzone_bypage(page, &z)))
+        return err;
+    
+    *pcnt = atomic_read(&page->refcnt);
+    zone_unlock(z);
+    return 0;
+}
+
+int __page_getcount(uintptr_t paddr, usize *pcnt) {
+    int     err = 0;
+    zone_t  *zone   = NULL;
+
+    if (!paddr || pcnt == NULL)
+        return -EINVAL;
+
+    if ((err = getzone_byaddr(paddr, PGSZ, &zone)))
+        return err;
+
+    *pcnt = atomic_read(&zone->pages[(paddr - zone->start) / PGSZ].refcnt);
+    zone_unlock(zone);
+    return 0;
+}

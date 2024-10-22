@@ -126,7 +126,7 @@ int mmap_mapin(mmap_t *mm, vmr_t *r) {
     if (mm == NULL || r == NULL)
         return -EINVAL;
 
-    assert((u64)r > VMA(0), "vmr too small");
+    assert((u64)r > V2HI(0), "vmr too small");
 
     // Check if the memory region already exists in the map
     if (mmap_contains(mm, r))

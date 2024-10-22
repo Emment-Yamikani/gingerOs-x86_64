@@ -4,7 +4,7 @@
 #include <fs/inode.h>
 #include <sys/thread.h>
 #include <mm/mmap.h>
-#include <mm/mm_zone.h>
+#include <mm/zone.h>
 #include <mm/pmm.h>
 #include <mm/page.h>
 #include <arch/signal.h>

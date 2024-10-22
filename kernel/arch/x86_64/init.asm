@@ -11,7 +11,7 @@ extern x86_64_init
 
 PGSZ    equ 0x1000
 DEVADDR equ 0xFE000000
-VMA     equ 0xFFFFFF8000000000
+VMA     equ 0xFFFF800000000000
 
 [bits 32]
 start32:
@@ -22,7 +22,7 @@ start32:
     mov     ebp, esp
     push    dword 0x0
     push    eax
-    push    dword 0xFFFFFF80
+    push    dword 0xFFFF8000
     push    ebx
 
     xor     eax, eax
@@ -34,12 +34,12 @@ start32:
     mov     edi, (_PML4_ - VMA)
     mov     eax, edi
     or      eax, 0x3
-    mov     dword [edi + 0xFF0], eax    ; PML4E510 -> _PML4_
+    mov     dword [edi + 0xFF8], eax    ; PML4E511 -> _PML4_
 
     mov     eax, (PDPT - VMA)
     or      eax, 0x3
     mov     dword [edi], eax            ; PML4E0 -> PDPT0
-    mov     dword [edi + 0xFF8], eax    ; PML4E511 -> PDPT0
+    mov     dword [edi + 0x800], eax    ; PML4E256 -> PDPT0
     
     mov     edi, (PDPT - VMA)
     mov     eax, (PDT - VMA)
