@@ -38,13 +38,6 @@ int early_init(void) {
 
     earlycons_usefb();
 
-    boot_mmap_dump();
-
-    printk("addr: %p\n", pmman.alloc());
-    loop() {
-        memset((void *)V2HI(pmman.alloc()), 0, PGSZ);
-    }
-
     if ((err = acpi_init()))
         panic("Failed to initialize ACPI, error: %d\n", err);
 

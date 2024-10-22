@@ -260,7 +260,7 @@ int physical_memory_init(void) {
     size = GiB(2) - PGROUNDUP(zones[ZONEi_NORM].size);
 
     if ((long)size > 0) {
-        addr = PGROUNDUP(zones[ZONEi_NORM].start + zones[ZONEi_NORM].size);
+        addr = PGROUNDUP(zone_end(&zones[ZONEi_NORM]));
         arch_unmap_n(V2HI(addr), size);
     }
 

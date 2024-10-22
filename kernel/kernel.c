@@ -20,6 +20,12 @@ __noreturn void kthread_main(void) {
 
     builtin_threads_begin(NULL);
 
+    int f = open("/ramfs/sample", O_RDONLY, 00);
+    char buf [100];
+    read(f, buf, sizeof buf);
+    printk("data: %s\n", buf);
+    close(f);
+
     if ((err = load_init("/ramfs/startup.conf"))) {
         printk("Failed to read or parse startup.conf"
             "\nexit_code: %d\n", err
