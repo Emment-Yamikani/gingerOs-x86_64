@@ -689,11 +689,12 @@ int thread_execve(thread_t *thread, thread_entry_t entry,
 
     thread_assert_locked(thread);
 
+    debugloc();
     // TODO: implement a function to reverse this.
     if ((err = mmap_argenvcpy(thread->t_mmap, (const char **)argp,
         (const char **)envp, &arg, &argc, &env)))
         return err;
-
+    debugloc();
     tmp_stack = thread->t_arch.t_ustack;
 
     if ((err = mmap_alloc_stack(thread->t_mmap, USTACKSZ, &ustack)))

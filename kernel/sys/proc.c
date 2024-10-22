@@ -352,10 +352,12 @@ int proc_init(const char *initpath) {
     thread_lock(proc->main_thread);
     thread = thread_getref(proc->main_thread);
 
+    debugloc();
     if ((err = thread_execve(thread, proc->entry, argp, envp))) {
         thread_release(thread);
         goto error;
     }
+    debugloc();
 
     proc_mmap_unlock(proc);
 

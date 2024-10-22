@@ -270,13 +270,13 @@ int physical_memory_init(void) {
 
         if ((V2LO(map[i].addr) < GiB(4)) &&
                 (map[i].type != MULTIBOOT_MEMORY_AVAILABLE)) {
-            uint32_t flags = PTE_KRW | PTE_PCDWT;
+            uint32_t flags = PTE_KRW | PTE_WTCD;
             arch_map_i(addr, V2LO(addr), size, flags);
         }
     }
 
     arch_map_i(bootinfo.fb.addr, V2LO(bootinfo.fb.addr),
-        bootinfo.fb.size, PTE_KRW | PTE_PCDWT);
+        bootinfo.fb.size, PTE_KRW | PTE_WTCD);
 
     return 0;
 }

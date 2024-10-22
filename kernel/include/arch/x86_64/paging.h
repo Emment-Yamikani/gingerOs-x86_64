@@ -9,19 +9,19 @@
 #define PTE_P        BS(0)  // page is present.
 #define PTE_W        BS(1)  // page is writtable.
 #define PTE_U        BS(2)  // page is user accesible.
-#define PTE_PWT      BS(3)  // page write through.
-#define PTE_PCD      BS(4)  // page cache disabled.
+#define PTE_WT       BS(3)  // page write through.
+#define PTE_CD       BS(4)  // page cache disabled.
 #define PTE_A        BS(5)  // page is accessed.
 #define PTE_D        BS(6)  // page is dirty.
 #define PTE_PS       BS(7)  // page size.
 #define PTE_G        BS(8)  // page is global.
 #define PTE_ZERO     BS(9)  // is to be zero before allocation?, (NB: cleared when setting paging-structures).
 #define PTE_REMAP    BS(10) // remap page-table entry? (NB: also like PTE_ZERO, cleared when setting paging-structures).
-#define PTE_ALOC     BS(11) // page frame was implicitly allocated?.
+#define PTE_ALLOC    BS(11) // page frame was implicitly allocated?.
 
 
 #define PTE_X        (PTE_P /*| BS(64)*/)// page is executable?
-#define PTE_PCDWT    (PTE_PCD | PTE_PWT) // page level caching disabled and write through enabled.
+#define PTE_WTCD     (PTE_WT | PTE_CD) // page level caching disabled and write through enabled.
 
 #define PTE_R        (PTE_P)
 #define PTE_KR       (PTE_R)
@@ -38,7 +38,13 @@
 #define _isPS(f)                ((f) & PTE_PS)
 #define _iszero(f)              ((f) & PTE_ZERO)
 #define _isremap(f)             ((f) & PTE_REMAP)
-#define _isalloc(f)             ((f) & PTE_ALOC)
+#define _isalloc(f)             ((f) & PTE_ALLOC)
+
+#define pte_isP(pte)        (_isP((pte)->raw))      // is present?
+#define pte_isW(pte)        (_isW((pte)->raw))      // is writable?
+#define pte_isU(pte)        (_isU((pte)->raw))      // is a user page?
+#define pte_isPS(pte)       (_isPS((pte)->raw))     // is page size flags set?
+#define pte_isalloc(pte)    (_isalloc((pte)->raw))  // is allocated?
 
 typedef union pte {
     struct {
@@ -92,7 +98,6 @@ typedef union viraddr {
 #define NPTE                    512
 #define iL_INV(i)               (((i) < 0) || ((i) >= NPTE))
 
-
 #define PML4                    ((pte_t *)(0xFFFFFFFFFFFFF000ull))
 #define PDPT(i4)                ((pte_t *)(0xFFFFFFFFFFE00000ull + (PGSZ * (u64)(i4))))
 #define PDT(i4, i3)             ((pte_t *)(0xFFFFFFFFC0000000ull + (PGSZ2MB * (u64)(i4)) + (PGSZ * (u64)(i3))))
@@ -103,27 +108,10 @@ typedef union viraddr {
 #define PDTE(i4, i3, i2)        ({ &PDT(i4, i3)[i2]; })
 #define PTE(i4, i3, i2, i1)     ({ &PT(i4, i3, i2)[i1]; })
 
-#define PTE_ALLOC_PAGE          0x800   // page was allocated.
-#define PTE_REMAPPG             0x1000  // remap page.
-
-#define _iswritable(flags)      ((flags) & PTE_W)
-#define _ispresent(flags)       ((flags) & PTE_P)
-#define _isreadable(flags)      ((flags) & PTE_R)
-#define _isexecutable(flags)    ((flags) & PTE_X)
-#define _isuser_page(flags)     ((flags) & PTE_U)    // is page a user page?
-#define _isalloc_page(flags)    ((flags) & PTE_ALLOC_PAGE) // page frame was allocated?.
-
-#define pte_ispresent(pte)      (_ispresent((pte)->raw))
-#define pte_iswritable(pte)     (_iswritable((pte)->raw))
-#define pte_isuser_page(pte)    (_isuser_page((pte)->raw))    // is page a user page?
-#define pte_isPS(pte)           (_isPS((pte)->raw))           // is page size flags set?
-#define pte_isalloc_page(pte)   (_isalloc_page((pte)->raw))
-
 // extract flags used to map a page.
 #define extract_vmflags(flags)  ({ PGOFF(flags); })
 
 #define GETPHYS(entry)          ((uintptr_t)((entry) ? PGROUND((entry)->raw) : 0))
-
 
 /**
  * 

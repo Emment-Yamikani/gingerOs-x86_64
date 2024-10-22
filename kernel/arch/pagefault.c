@@ -27,12 +27,12 @@ int map_anonymous_page(vmr_t *vmr, vm_fault_t *fault) {
 
 int copy_page_on_write(vmr_t *vmr, vm_fault_t *fault, uintptr_t srcpaddr) {
     int err = 0;
-    // virtual flags for vmr, maskout PTE_ALLOC_PAGE??
-    int vflags = vmr->vflags | (PGOFF(fault->COW->raw) & ~PTE_ALLOC_PAGE);
+    // virtual flags for vmr, maskout PTE_ALLOC??
+    int vflags = vmr->vflags | (PGOFF(fault->COW->raw) & ~PTE_ALLOC);
 
     /// remap the page to a new location for COW
     /// vflags OR'ed with PTE_REMAPPG to force page remap.
-    if ((err = arch_map_n(fault->addr, PGSZ, (PTE_REMAPPG | vflags)))) {
+    if ((err = arch_map_n(fault->addr, PGSZ, (PTE_REMAP | vflags)))) {
         return err;
     }
 

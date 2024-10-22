@@ -214,8 +214,6 @@ int mmap_mapin(mmap_t *mm, vmr_t *r) {
     return 0;
 }
 
-
-
 int mmap_forced_mapin(mmap_t *mmap, vmr_t *r) {
     int err = 0;
 
@@ -527,7 +525,6 @@ int mmap_find_hole(mmap_t *mmap, size_t size, uintptr_t *paddr, int whence) {
     return -ENOMEM;
 }
 
-
 int mmap_find_holeat(mmap_t *mmap, uintptr_t addr, size_t size, uintptr_t *paddr, int whence) {
     size_t  holesz      = 0;        // Variable to store the size of the current hole
     vmr_t   *near_vmr   = NULL;     // Pointer to the nearest VMR (Virtual Memory Region)
@@ -629,7 +626,6 @@ int mmap_find_holeat(mmap_t *mmap, uintptr_t addr, size_t size, uintptr_t *paddr
     // Fallback to a general hole search if no specific hole is found
     return mmap_find_hole(mmap, size, paddr, whence);
 }
-
 
 int mmap_map_region(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flags, vmr_t **pvmr) {
     int     err     = 0;
@@ -1090,16 +1086,13 @@ int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
         goto arg_array;
 
     argc++;
-
     // allocate space for the arg_array and args
     if ((err = mmap_alloc_vmr(mmap, argslen, PROT_RW, MAP_PRIVATE | MAP_DONTEXPAND, &argvmr)))
         goto error;
 
-
     // Page the region in
     if ((err = arch_map_n(argvmr->start, argslen, argvmr->vflags)))
         goto error;
-
     mmap->arg = argvmr;
     arglist = (char *)argvmr->start;
 
@@ -1108,6 +1101,8 @@ int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
         err = -ENOMEM;
         goto error;
     }
+    debugloc();
+    printk("arglist: %p\n", arglist);
 
     if (src_argp) {
         // Do actual copyout of args
@@ -1118,6 +1113,7 @@ int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
             arglist += arglen;
         }
     }
+    debugloc();
 
     // copyout the array of arg pointers
     memcpy(arglist, argp, argc * sizeof(char *));
