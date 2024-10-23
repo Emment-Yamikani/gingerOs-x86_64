@@ -58,9 +58,9 @@
 // C('A') == Control-A
 #define CTRL(x)                 ((x) - '@')
 
-#define KiB(x)                  ((size_t)(1024ul      * ((size_t)(x))))
-#define MiB(x)                  ((size_t)(KiB(1024ul) * ((size_t)(x))))
-#define GiB(x)                  ((size_t)(MiB(1024ul) * ((size_t)(x))))
+#define KiB(x)                  ((size_t)(1024ull      * ((size_t)(x))))
+#define MiB(x)                  ((size_t)(KiB(1024ull) * ((size_t)(x))))
+#define GiB(x)                  ((size_t)(MiB(1024ull) * ((size_t)(x))))
 
 #define B2KiB(x)        ((usize)(x) / KiB(1))   // convert bytes to KiB.
 #define B2MiB(x)        ((usize)(x) / MiB(1))   // convert bytes to MiB.
@@ -75,11 +75,11 @@
 #define G2KiB(x)        ((usize)(x) * MiB(1))   // convert GiB from to KiB.
 #define G2MiB(x)        ((usize)(x) * KiB(1))   // convert GiB from to MiB.
 
-#define PGSZ                    (0x1000ul)
+#define PGSZ                    (0x1000ull)
 #define PAGESZ                  (PGSZ)
 #define PGMASK                  (PGSZ - 1)
 #define PAGEMASK                (PGMASK)
-#define PGSZ2M                  (0x200000ul)
+#define PGSZ2M                  (0x200000ull)
 #define PGSZ2MASK               (PGSZ2M -1)
 #define ALIGN16(x)              (AND((uintptr_t)(x), NOT(0xf)))
 #define ALIGN4K(x)              (AND((uintptr_t)(x), NOT(PGMASK)))
@@ -92,19 +92,19 @@
 #define is_aligned64(p)         ((((u64)(p)) & 0x3f) == 0)
 
 #define MAGIC_RETADDR           (-1ul)
-#define MEMMDEV                 ((uintptr_t)0xFE000000ul)
+#define MEMMDEV                 ((uintptr_t)0xFE000000ull)
 #define ismmio_addr(x)          ((((uintptr_t)(x)) >= MEMMDEV) && (((uintptr_t)(x)) < GiB(4)))
 
 #if defined __i386__
-    #define USTACK              ((uintptr_t)0xC0000000ul)
+    #define USTACK              ((uintptr_t)0xC0000000ull)
 #elif defined __x86_64__
-    #define USTACK              ((uintptr_t)0x800000000000ul)
+    #define USTACK              ((uintptr_t)0x800000000000ull)
 #endif
 
 #if defined __i386__
-    #define VMA_BASE            ((uintptr_t)0xC0000000ul)
+    #define VMA_BASE            ((uintptr_t)0xC0000000ull)
 #elif defined __x86_64__
-    #define VMA_BASE            ((uintptr_t)0xFFFF800000000000ul)
+    #define VMA_BASE            ((uintptr_t)0xFFFF800000000000ull)
 #endif 
 
 // physical address of memory mapped I/O space.

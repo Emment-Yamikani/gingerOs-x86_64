@@ -231,7 +231,7 @@ int x86_64_map(uintptr_t pa, int i4, int i3, int i2, int i1, int flags) {
         PML4E(i4)->raw = l3 | PGOFF(flags | PTE_WT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDPTE(i4, 0));
         invlpg((uintptr_t)PDPTE(i4, 0));
-        printk("%s:%d: l3: %p\n", __FILE__, __LINE__, l3);
+        printk("%s:%d: i4(%d) l3: %p -> %p\n", __FILE__, __LINE__, i4, PDPTE(i4, 0), l3);
     }
 
     if (!pte_isP(PDPTE(i4, i3))) {
@@ -242,7 +242,7 @@ int x86_64_map(uintptr_t pa, int i4, int i3, int i2, int i1, int flags) {
         PDPTE(i4, i3)->raw = l2 | PGOFF(flags | PTE_WT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDTE(i4, i3, 0));
         invlpg((uintptr_t)PDTE(i4, i3, 0));
-        printk("%s:%d: l2: %p\n", __FILE__, __LINE__, l2);
+        printk("%s:%d: i3(%d, %d) l2: %p -> %p\n", __FILE__, __LINE__, i4, i3, PDTE(i4, i3, 0), l2);
     }
 
     if (!pte_isP(PDTE(i4, i3, i2))) {
@@ -253,7 +253,7 @@ int x86_64_map(uintptr_t pa, int i4, int i3, int i2, int i1, int flags) {
         PDTE(i4, i3, i2)->raw = l1 | PGOFF(flags | PTE_WT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PTE(i4, i3, i2, 0));
         invlpg((uintptr_t)PTE(i4, i3, i2, 0));
-        printk("%s:%d: l1: %p\n", __FILE__, __LINE__, l1);
+        printk("%s:%d: i2(%d, %d, %d) l1: %p -> %p\n", __FILE__, __LINE__, i4, i3, i2, PTE(i4, i3, i2, 0), l1);
     }
 
     if (!pte_isP(PTE(i4, i3, i2, i1)))
