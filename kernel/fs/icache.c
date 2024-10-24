@@ -1,4 +1,4 @@
-#include <mm/mm_zone.h>
+#include <mm/zone.h>
 #include <fs/icache.h>
 #include <mm/page.h>
 #include <arch/paging.h>
@@ -62,6 +62,7 @@ int icache_getpage(icache_t *icache, off_t pgno, page_t **ref) {
     int     err         = 0;
     ssize_t size        = 0;
     int     new_page    = 0;
+    uintptr_t paddr     = 0;
     page_t *page        = NULL;
     char    buff[PGSZ]  = {0};
 
@@ -80,7 +81,7 @@ int icache_getpage(icache_t *icache, off_t pgno, page_t **ref) {
     icache_btree_unlock(icache);
 
     err = -ENOMEM;
-    if ((page = alloc_page(GFP_KERNEL | GFP_ZERO)) == NULL)
+    if ((err = page_alloc(GFP_KERNEL | GFP_ZERO, &page)))
         goto error;
 
     new_page = 1;
@@ -88,8 +89,11 @@ int icache_getpage(icache_t *icache, off_t pgno, page_t **ref) {
 update:
     if ((err = (size = iread_data(icache->pc_inode, pgno * PGSZ, buff, PGSZ))) < 0)
         goto error;
+    
+    if ((err = page_get_address(page, (void **)&paddr)))
+        goto error;
 
-    if ((err = arch_memcpyvp(page_address(page), (uintptr_t)buff, size)))
+    if ((err = arch_memcpyvp(paddr, (uintptr_t)buff, size)))
         goto error;
     
     page_setvalid(page);
@@ -108,27 +112,34 @@ done:
     return 0;
 error:
     if (new_page)
-        page_put(page);
+        page_putref(page);
     printk("[\e[025453;04mERROR\e[0m]: %s:%ld: in %s(): error=%d\n", __FILE__, __LINE__, __func__, err);
     return err;
 }
 
 ssize_t icache_read(icache_t *icache, off_t off, void *buff, size_t sz) {
-    ssize_t err         = 0;
-    off_t   pgno        = 0;    /*page number*/
-    size_t  size        = 0;    /*size to read*/
-    ssize_t  total      = 0;    /*total bytes read*/
-    off_t   offset      = off;  /*current offset*/
-    page_t *page        = NULL;
+    ssize_t     err         = 0;
+    uintptr_t   paddr       = 0;
+    off_t       pgno        = 0;    /*page number*/
+    size_t      size        = 0;    /*size to read*/
+    ssize_t     total       = 0;    /*total bytes read*/
+    off_t       offset      = off;  /*current offset*/
+    page_t      *page       = NULL;
 
     icache_assert_locked(icache);
     for (; sz; sz -= size, total += size, offset += size) {
         pgno = offset / PGSZ;
+
         if ((err = (ssize_t)icache_getpage(icache, pgno, &page)))
             goto error;
+
         size = MIN(PAGESZ - (offset % PGSZ), sz);
+
+        if ((err = page_get_address(page, (void **)&paddr)))
+            goto error;
+
         if ((err = (ssize_t)arch_memcpypv((uintptr_t)buff + total,
-            page_address(page) + (offset % PGSZ), size)))
+            paddr + (offset % PGSZ), size)))
             goto error;
     }
 
@@ -141,8 +152,9 @@ error:
 ssize_t icache_write(icache_t *icache, off_t off, void *buff, size_t sz) {
     ssize_t     err     = 0;
     off_t       pgno    = 0;    /*page number*/
-    ssize_t     total   = 0;    /*total bytes written*/
     size_t      size    = 0;    /*size to write*/
+    ssize_t     total   = 0;    /*total bytes written*/
+    uintptr_t   paddr   = 0;
     size_t      pagesz  = 0;
     off_t       offset  = off;  /*current offset*/
     page_t      *page   = NULL;
@@ -153,16 +165,23 @@ ssize_t icache_write(icache_t *icache, off_t off, void *buff, size_t sz) {
         pgno = offset / PGSZ;
     try:
         if ((err = (ssize_t)icache_getpage(icache, pgno, &page)) == -1) { //EOF rechead.
-            if ((page = alloc_page(GFP_KERNEL | GFP_ZERO)) == NULL)
-                goto try;
+            if ((err = page_alloc(GFP_KERNEL | GFP_ZERO, &page))) {
+                if (err == -ENOMEM)
+                    goto try;
+                goto error;
+            }
             new_page = 1;
         } else if (err)
             goto error;
 
-        pagesz = PAGESZ - (offset % PGSZ);
-        size = MIN(pagesz, sz);
-        if ((err = (ssize_t)arch_memcpyvp(page_address(page) + (offset % PGSZ),
-                                 (uintptr_t)buff + total, size)))
+        pagesz  = PAGESZ - (offset % PGSZ);
+        size    = MIN(pagesz, sz);
+
+        if ((err = page_get_address(page, (void **)&paddr)))
+            goto error;
+
+        if ((err = (ssize_t)arch_memcpyvp(paddr + (offset % PGSZ),
+            (uintptr_t)buff + total, size)))
             goto error;
 
         if (new_page) {
@@ -182,7 +201,7 @@ ssize_t icache_write(icache_t *icache, off_t off, void *buff, size_t sz) {
     return total;
 error:
     if (new_page)
-        page_put(page);
+        page_putref(page);
     printk("[\e[025453;04mERROR\e[0m]: %s:%ld: in %s(): error=%d\n", __FILE__, __LINE__, __func__, err);
     return err;
 }

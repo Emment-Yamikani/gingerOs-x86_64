@@ -8,7 +8,7 @@
 #include <sys/thread.h>
 #include <arch/signal.h>
 #include <sys/syscall.h>
-#include <mm/mm_zone.h>
+#include <mm/zone.h>
 #include <mm/pmm.h>
 
 void arch_dumptable(pte_t *table) {
@@ -130,12 +130,11 @@ int arch_pagealloc(size_t sz, uintptr_t *addr) {
     if (addr == NULL)
         return -EINVAL;
 
-    if ((v = vmman.alloc(sz)) == 0)
+    if ((v = vmman.alloc(sz)) == 0) {
         return -ENOMEM;
-    
+    }
 
-    if ((err = arch_map_n(v, sz, PTE_KRW))) {
-        debugloc();
+    if ((err = arch_map_n(v, sz, PTE_KRW | PTE_WTCD))) {
         vmman.free(v);
         return err;
     }

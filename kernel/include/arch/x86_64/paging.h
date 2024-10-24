@@ -6,17 +6,22 @@
 #include <sync/spinlock.h>
 #include <lib/types.h>
 
-#define PTE_P        (BS(0))             // page is present.
-#define PTE_W        (BS(1))             // page is writtable.
-#define PTE_U        (BS(2))             // page is user accesible.
-#define PTE_PWT      (BS(3))             // page write through.
-#define PTE_PCD      (BS(4))             // page cache disabled.
-#define PTE_A        (BS(5))             // page is accessed.
-#define PTE_D        (BS(6))             // page is dirty.
-#define PTE_PS       (BS(7))             // page size.
-#define PTE_G        (BS(8))             // page is global.
+#define PTE_P        BS(0)  // page is present.
+#define PTE_W        BS(1)  // page is writtable.
+#define PTE_U        BS(2)  // page is user accesible.
+#define PTE_WT       BS(3)  // page write through.
+#define PTE_CD       BS(4)  // page cache disabled.
+#define PTE_A        BS(5)  // page is accessed.
+#define PTE_D        BS(6)  // page is dirty.
+#define PTE_PS       BS(7)  // page size.
+#define PTE_G        BS(8)  // page is global.
+#define PTE_ZERO     BS(9)  // is to be zero before allocation?, (NB: cleared when setting paging-structures).
+#define PTE_REMAP    BS(10) // remap page-table entry? (NB: also like PTE_ZERO, cleared when setting paging-structures).
+#define PTE_ALLOC    BS(11) // page frame was implicitly allocated?.
+
+
 #define PTE_X        (PTE_P /*| BS(64)*/)// page is executable?
-#define PTE_PCDWT    (PTE_PCD | PTE_PWT) // page level caching disabled and write through enabled.
+#define PTE_WTCD     (PTE_WT | PTE_CD) // page level caching disabled and write through enabled.
 
 #define PTE_R        (PTE_P)
 #define PTE_KR       (PTE_R)
@@ -25,28 +30,37 @@
 #define PTE_UR       (PTE_U  | PTE_R)
 #define PTE_URW      (PTE_UR | PTE_W)
 
-#define PTE_2MB      (PTE_PS)
-#define PTE_K2MBR    (PTE_KR  | PTE_2MB)
-#define PTE_K2MBRW   (PTE_KRW | PTE_2MB)
+#define _isP(f)                 ((f) & PTE_P)
+#define _isX(f)                 ((f) & PTE_X)
+#define _isW(f)                 ((f) & PTE_W)
+#define _isR(f)                 ((f) & PTE_R)
+#define _isU(f)                 ((f) & PTE_U)
+#define _isPS(f)                ((f) & PTE_PS)
+#define _iszero(f)              ((f) & PTE_ZERO)
+#define _isremap(f)             ((f) & PTE_REMAP)
+#define _isalloc(f)             ((f) & PTE_ALLOC)
 
-#define PTE_U2MBR    (PTE_UR  | PTE_2MB)
-#define PTE_U2MBRW   (PTE_URW | PTE_2MB)
+#define pte_isP(pte)        (_isP((pte)->raw))      // is present?
+#define pte_isW(pte)        (_isW((pte)->raw))      // is writable?
+#define pte_isU(pte)        (_isU((pte)->raw))      // is a user page?
+#define pte_isPS(pte)       (_isPS((pte)->raw))     // is page size flags set?
+#define pte_isalloc(pte)    (_isalloc((pte)->raw))  // is allocated?
 
 typedef union pte {
     struct {
-        u64 p : 1;
-        u64 w : 1;
-        u64 u : 1;
-        u64 pwt : 1;
-        u64 pcd : 1;
-        u64 a : 1;
-        u64 d : 1;
-        u64 ps : 1;
-        u64 g : 1;
-        u64 ign1 : 2;
-        u64 alloc : 1;
-        u64 phys : 40;
-        u64 ign2 : 12;
+        u64 p       : 1;
+        u64 w       : 1;
+        u64 u       : 1;
+        u64 pwt     : 1;
+        u64 pcd     : 1;
+        u64 a       : 1;
+        u64 d       : 1;
+        u64 ps      : 1;
+        u64 g       : 1;
+        u64 ign1    : 2;
+        u64 alloc   : 1;
+        u64 phys    : 40;
+        u64 ign2    : 12;
         //011
     };
     u64 raw;
@@ -56,79 +70,56 @@ extern pte_t _PML4_[512] __aligned(0x1000);
 
 typedef union viraddr {
     struct {
-        u64 off : 12;
-        u64 pti : 9;
-        u64 pdi : 9;
-        u64 pdpti : 9;
-        u64 pml4i : 9;
-        u64 resvd : 16;
+        u64 off     : 12;
+        u64 pti     : 9;
+        u64 pdi     : 9;
+        u64 pdpti   : 9;
+        u64 pml4i   : 9;
+        u64 resvd   : 16;
     };
     u64 raw;
 } __packed viraddr_t;
 
-#define __viraddr(pml4e, pdpte, pde, pte) ((viraddr_t){ \
-    .pdi = (pde),                                       \
-    .pti = (pte),                                       \
-    .pml4i = (pml4e),                                   \
-    .pdpti = (pdpte),                                   \
-}.raw)
+// page indices to a virtual address.
+#define i2v(i4, i3, i2, i1) ((viraddr_t){  \
+    .off    = 0,                           \
+    .pti    = (i1),                        \
+    .pdi    = (i2),                        \
+    .pdpti  = (i3),                        \
+    .pml4i  = (i4),                        \
+    .resvd  = (((i4) >= 256) ? 0xFFFFu : 0)}\
+.raw)
 
-#define PTI(v)                  ((viraddr_t){.raw = (uintptr_t)(v)}.pti)
-#define PDI(v)                  ((viraddr_t){.raw = (uintptr_t)(v)}.pdi)
-#define PDPTI(v)                ((viraddr_t){.raw = (uintptr_t)(v)}.pdpti)
-#define PML4I(v)                ((viraddr_t){.raw = (uintptr_t)(v)}.pml4i)
+#define PML4I(p)                (((u64)(p) >> 39) & 0x1FFu)
+#define PDPTI(p)                (((u64)(p) >> 30) & 0x1FFu)
+#define PDI(p)                  (((u64)(p) >> 21) & 0x1FFu)
+#define PTI(p)                  (((u64)(p) >> 12) & 0x1FFu)
 
-#define LVL_PTE                 (1)
-#define LVL_PDTE                (2)
-#define LVL_PDPTE               (3)
-#define LVL_PML4E               (4)
-
-#define NPTE                    (512)
+#define PML4_Recursion          511
+#define NPTE                    512
 #define iL_INV(i)               (((i) < 0) || ((i) >= NPTE))
 
-/**
- * PML4 -> (0xFFFFFF7FBFDFE000)
- * PDPT -> (0xFFFFFF7FBFC00000)
- * PDT  -> (0xFFFFFF7F80000000)
- * PT   -> (0xFFFFFF0000000000)
- */
+#define PML4                    ((pte_t *)(0xFFFFFFFFFFFFF000ull))
+#define PDPT(i4)                ((pte_t *)(0xFFFFFFFFFFE00000ull + (PGSZ * (u64)(i4))))
+#define PDT(i4, i3)             ((pte_t *)(0xFFFFFFFFC0000000ull + (PGSZ2MB * (u64)(i4)) + (PGSZ * (u64)(i3))))
+#define PT(i4, i3, i2)          ((pte_t *)(0xFFFFFF8000000000ull + (PGSZ1GB * (u64)(i4)) + (PGSZ2MB * (u64)(i3)) + (PGSZ * (u64)(i2))))
 
-#define PML4                    ({ (pte_t *)(0xFFFFFF7FBFDFE000ull); })
-#define PDPT(PDPi)              ({ (pte_t *)(0xFFFFFF7FBFC00000ull + (0x1000ul * ((usize)PDPi))); })
-#define PDT(PDPi, PDi)          ({ (pte_t *)(0xFFFFFF7F80000000ull + (0x200000ul * ((usize)PDPi)) + (0x1000ul * ((usize)PDi)) ); })
-#define PT(PDPi, PDi, PTi)      ({ (pte_t *)(0xFFFFFF0000000000ull + (0x40000000ul * ((usize)PDPi)) + (0x200000ul * ((usize)PDi)) + (0x1000ul * ((usize)PTi))); })
+/*
+#define PML4                    ({(pte_t *)(0xFFFF_FF7F_BFDF_E000ull); })
+#define PDPT(PDPi)              ({(pte_t *)(0xFFFF_FF7F_BFC0_0000ull + (0x1000ul * ((usize)PDPi))); })
+#define PDT(PDPi, PDi)          ({(pte_t *)(0xFFFF_FF7F_8000_0000ull + (0x200000ul * ((usize)PDPi)) + (0x1000ul * ((usize)PDi)) ); })
+#define PT(PDPi, PDi, PTi)      ({(pte_t *)(0xFFFF_FF00_0000_0000ull + (0x40000000ul * ((usize)PDPi)) + (0x200000ul * ((usize)PDi)) + (0x1000ul * ((usize)PTi))); })
+*/
 
 #define PML4E(i4)               ({ &PML4[i4]; })
 #define PDPTE(i4, i3)           ({ &PDPT(i4)[i3]; })
 #define PDTE(i4, i3, i2)        ({ &PDT(i4, i3)[i2]; })
 #define PTE(i4, i3, i2, i1)     ({ &PT(i4, i3, i2)[i1]; })
 
-#define PTE_ALLOC_PAGE          0x800   // page was allocated.
-#define PTE_REMAPPG             0x1000  // remap page.
-#define PTE_ZERO                0x2000  // zero the page associated with pte.
-
-#define _iswritable(flags)      ((flags) & PTE_W)
-#define _ispresent(flags)       ((flags) & PTE_P)
-#define _isreadable(flags)      ((flags) & PTE_R)
-#define _isexecutable(flags)    ((flags) & PTE_X)
-#define _isuser_page(flags)     ((flags) & PTE_U)    // is page a user page?
-#define _isPS(flags)            ((flags) & PTE_PS)   // is page size flags set?
-#define _isalloc_page(flags)    ((flags) & PTE_ALLOC_PAGE) // page frame was allocated?.
-#define _isremap(flags)         ((flags) & PTE_REMAPPG) // page remap(force remap) requested?.
-#define _iszero(flags)          ((flags) & PTE_ZERO)
-
-#define pte_ispresent(pte)      (_ispresent((pte)->raw))
-#define pte_iswritable(pte)     (_iswritable((pte)->raw))
-#define pte_isuser_page(pte)    (_isuser_page((pte)->raw))    // is page a user page?
-#define pte_is2mb_page(pte)     (_is2mb_page((pte)->raw))     // is a 2mb page?
-#define pte_isPS(pte)           (_isPS((pte)->raw))           // is page size flags set?
-#define pte_isalloc_page(pte)   (_isalloc_page((pte)->raw))
-
 // extract flags used to map a page.
 #define extract_vmflags(flags)  ({ PGOFF(flags); })
 
 #define GETPHYS(entry)          ((uintptr_t)((entry) ? PGROUND((entry)->raw) : 0))
-
 
 /**
  * 

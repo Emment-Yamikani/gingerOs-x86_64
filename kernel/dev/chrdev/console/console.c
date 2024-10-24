@@ -14,7 +14,7 @@ static int use_fb = 0;
 
 static int console_init(void) {
     printk("Initializing \e[025453;011m%s\e[0m chardev...\n", "console");
-    if (bootinfo.fb.framebuffer_type == 1)
+    if (bootinfo.fb.type == 1)
         use_fb = 1;
 
     if (use_fb)

@@ -4,7 +4,7 @@
 #include <sys/thread.h>
 #include <mm/mmap.h>
 #include <sys/proc.h>
-#include <mm/mm_zone.h>
+#include <mm/zone.h>
 #include <mm/kalloc.h>
 
 int load_init(const char *conf_fn);
@@ -26,7 +26,10 @@ __noreturn void kthread_main(void) {
         );
     }
 
-    loop() thread_join(0, NULL, NULL);
+    loop() {
+        thread_join(0, NULL, NULL);
+        thread_yield();
+    }
 }
 
 static int conf_find(const char *buf, const char *str, char **ret) {

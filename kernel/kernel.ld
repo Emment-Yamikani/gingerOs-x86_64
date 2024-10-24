@@ -4,7 +4,7 @@ OUTPUT_ARCH(i386:x86-64)
 
 TRAMPOLINE = 0x8000;
 KERNEL_LMA = 0x1000000;
-KERNEL_VMA = 0xFFFFFF8000000000;
+KERNEL_VMA = 0xFFFF800000000000;
 
 
 SECTIONS {
@@ -16,7 +16,7 @@ SECTIONS {
     }
 
     . = KERNEL_LMA + KERNEL_VMA;
-    _kernel_start = .;
+    kstart = .;
     .text ALIGN (4K) : AT (ADDR (.text) - KERNEL_VMA) {
         *(.text)
     }
@@ -59,5 +59,5 @@ SECTIONS {
       *(.eh_frame)
     }
 
-    _kernel_end = .;
+    kend = .;
 }

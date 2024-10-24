@@ -21,27 +21,33 @@
 #endif
 
 static int page_size = -1;
-static spinlock_t *spinlock = &SPINLOCK_INIT();
+static SPINLOCK(liballoc_lk);
 
 
 int liballoc_lock() {
-	spin_lock(spinlock);
+	spin_lock(liballoc_lk);
 	return 0;
 }
 
 int liballoc_unlock() {
-	spin_unlock(spinlock);
+	spin_unlock(liballoc_lk);
 	return 0;
 }
 
 void* liballoc_alloc( int pages ) {
-	char *p2 = NULL;
-	if ( page_size < 0 ) page_size = getpagesize();
+	void *p2 = NULL;
+	
+	if ( page_size < 0 )
+		page_size = getpagesize();
+	
 	size_t size = pages * page_size;
+	
 	// printk("\nliballoc_alloc(): pointer: request pages: %d\n", pages);
 	if (arch_pagealloc(size, (uintptr_t *)&p2))
 		return NULL;
 	// printk("liballoc_alloc(): pointer: %p request pages: %d\n", p2, pages);
+	
+	assert((u64)p2 >= V2HI(0), "p2 below kernel virtual address space");
 	return p2;
 }
 

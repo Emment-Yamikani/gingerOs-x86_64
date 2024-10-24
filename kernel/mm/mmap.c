@@ -6,7 +6,7 @@
 
 
 void vmr_dump(vmr_t *r, int i) {
-    printk("memory %4d: [0x%08p : 0x%08p] %13ld [%7s] [%s%s%s%s] [%s-%s] refs: %ld|\n", i++,
+    printk("memory %4d: [0x%08p : 0x%08p] %13ld [%7s] [%s%s%s%s] [%s-%s] refs: %ld|\n", i,
            r->start, r->end, __vmr_size(r) / 1024,
            __isstack(r) ? "stack" : __vmr_exec(r) ? ".text"
                                 : __vmr_rw(r)     ? ".data"
@@ -29,7 +29,7 @@ void mmap_dump_list(mmap_t mmap) {
     printk("_________ ____________________________________________ _____________ _________ ______ _____ _______\n");
     
     if (mmap.vmr_head == NULL) {
-        mmap_holesize(&mmap, 0, &holesz);
+        mmap_getholesize(&mmap, 0, &holesz);
         if (holesz) {
             printk("hole   %4d: [0x%08p : 0x%08p] %13ld [%7s]                     |\n",
                    j++, (uintptr_t)0, holesz - 1, holesz / 1024, "free");
@@ -53,7 +53,7 @@ void mmap_dump_list(mmap_t mmap) {
                     __vmr_upper_bound(r), __vmr_lower_bound(r->next), holesz / 1024, "free");
             continue;
         }
-        mmap_holesize(&mmap, __vmr_upper_bound(r), &holesz);
+        mmap_getholesize(&mmap, __vmr_upper_bound(r), &holesz);
         if (holesz) {
             printk("hole   %4d: [0x%08p : 0x%08p] %13ld [%7s]                     |\n", j++,
                 __vmr_upper_bound(r), __vmr_upper_bound(r) + holesz - 1, holesz / 1024, "free");
@@ -117,105 +117,100 @@ int mmap_alloc(mmap_t **ref) {
     return 0;
 }
 
-int mmap_mapin(mmap_t *mmap, vmr_t *r) {
-    size_t    holesz = 0;
-    uintptr_t addr   = 0;
-    vmr_t     *left  = NULL, *right = NULL;
+int mmap_mapin(mmap_t *mm, vmr_t *r) {
+    int err = 0;
+    uintptr_t addr = 0;
+    usize hole = 0;
 
-    if (mmap == NULL || r == NULL)
+    // Validate the input parameters
+    if (mm == NULL || r == NULL)
         return -EINVAL;
 
-    mmap_assert_locked(mmap);
+    assert((u64)r > V2HI(0), "vmr too small");
 
-    if (__vmr_size(r) == 0)
-        return -EINVAL;
-
-    if (r->end > __mmap_limit)
-        return -EINVAL;
-
-    if (mmap_contains(mmap, r))
+    // Check if the memory region already exists in the map
+    if (mmap_contains(mm, r))
         return -EEXIST;
 
-    addr = r->start;
-    while (addr <= r->end) {
-        if (mmap_find(mmap, addr))
+    // Validate the size and bounds of the memory region
+    if ((__vmr_size(r) == 0) || (__vmr_end(r) > __mmap_limit))
+        return -EINVAL;
+
+    addr = __vmr_start(r);
+
+    // Ensure that the new region does not overlap with existing regions
+    while (addr <= __vmr_end(r)) {
+        if (mmap_find(mm, addr))
             return -EEXIST;
-        mmap_holesize(mmap, addr, &holesz);
-        addr += holesz;
-        if (holesz == 0)
-            panic("%s:%d: endless loop\n", __FILE__, __LINE__);
+
+        if ((err = mmap_getholesize(mm, addr, &hole)))
+            return err;
+
+        addr += hole;
+
+        // Prevent an endless loop in case of errors in hole size calculation
+        assert(hole, "Endless loop");
     }
 
+    // If the list is empty, initialize it with the new region
+    if (mm->vmr_head == NULL) {
+        r->refs += 2;  // Increment references by 2: one for mm->vmr_head and one for mm->vmr_tail
+        mm->vmr_head = mm->vmr_tail = r;
+
+        mm->refs++;  // Increment mmap references
+        r->mmap = mm;
+        mm->used_space += __vmr_size(r);
+        return 0;
+    }
+
+    // Insert the new region into the sorted list
+    forlinked(node, mm->vmr_head, node->next) {
+        // Check if the new node should be inserted before the current node
+        if (r->start < node->start) {
+            // Insert 'r' before 'node'
+            r->next = node;
+            r->prev = node->prev;
+
+            if (node->prev) {
+                node->prev->next = r;
+                r->refs++;
+            } else {
+                // If there is no previous node, 'r' becomes the new head of the list
+                mm->vmr_head = r;
+                node++;
+                r->refs++;
+            }
+
+            node->prev = r;
+            r->refs++;  // Increment reference for the new node
+            
+            r->mmap = mm;
+            mm->refs++;
+            mm->used_space += __vmr_size(r);
+            return 0;
+        }
+    }
+
+    // If the loop completes without inserting, 'r' should be inserted at the end
     r->next = NULL;
-    r->prev = NULL;
+    r->prev = mm->vmr_tail;
 
-    if (mmap->vmr_head == NULL) {
-        mmap->vmr_head = mmap->vmr_tail = r;
+    if (mm->vmr_tail) {
+        mm->vmr_tail->next = r;
         r->refs++;
-        r->refs++;
-        goto done;
-    }
-
-    right = mmap->vmr_head;
-    for (; right && right->start < r->start;) {
-        if (__vmr_upper_bound(right) <= r->start)
-            left = right;
-        right = right->next;
-    }
-
-    if (left && left->start > r->start) {
-        left = NULL;
-    }
-
-    if (left) {
-        r->prev = left;
-        
-        if (left->next == NULL)
-            left->refs++;
-        
-        r->next = left->next;
-
-        if (left->next) {
-            //left->next->refs++;
-            left->next->prev = r;
-            r->refs++;
-        }
-        else {
-            mmap->vmr_tail->refs--;
-            mmap->vmr_tail = r;
-            r->refs++;
-        }
-        
-        left->next = r;
-        r->refs++;
-    }
-    else if (right) {
-        r->next = right;
-        
-        if (right->prev == NULL)
-            right->refs++;
-        
-        r->prev = right->prev;
-
-        if (right->prev) {
-            //right->prev->refs++;
-            right->prev->next = r;
-            r->refs++;
-        }
-        else {
-            mmap->vmr_head->refs--;
-            mmap->vmr_head = r;
-            r->refs++;
-        }
-        
-        right->prev = r;
+        mm->vmr_tail++;
+    } else {
+        // If the list was empty, 'r' becomes the new head
+        mm->vmr_head = r;
         r->refs++;
     }
 
-done:
-    r->mmap = mmap;
-    mmap->refs++;
-    mmap->used_space += __vmr_size(r);
+    mm->vmr_tail = r;
+    r->refs++;  // Increment reference for the new node
+    
+    r->mmap = mm;
+    mm->refs++;
+    mm->used_space += __vmr_size(r);
     return 0;
 }
 
@@ -321,6 +316,7 @@ vmr_t *mmap_find_exact(mmap_t *mmap, uintptr_t start, uintptr_t end) {
 
 vmr_t *mmap_find_vmr_next(mmap_t *mmap, uintptr_t addr, vmr_t **pnext) {
     vmr_t *r = NULL;
+
     if (mmap == NULL || pnext == NULL)
         return NULL;
 
@@ -377,10 +373,11 @@ vmr_t *mmap_find_vmr_overlap(mmap_t *mmap, uintptr_t start, uintptr_t end) {
     r = mmap_find(mmap, start);
     if (r && end <= r->end)
         return r;
+
     return NULL;
 }
 
-int mmap_holesize(mmap_t *mmap, uintptr_t addr, size_t *plen) {
+int mmap_getholesize(mmap_t *mmap, uintptr_t addr, size_t *plen) {
     vmr_t *next = NULL;
 
     if (mmap == NULL || plen == NULL)
@@ -424,8 +421,7 @@ int mmap_unmap(mmap_t *mmap, uintptr_t start, size_t len) {
             len -= end - start;
             start += end - start;
             mmap_remove(mmap, vmr);
-        }
-        else if ((vmr = mmap_find(mmap, start))) {
+        } else if ((vmr = mmap_find(mmap, start))) {
             if (vmr->start == start) {
                 if (__vmr_size(vmr) > len) {
                     vmr->start += len;
@@ -442,9 +438,8 @@ int mmap_unmap(mmap_t *mmap, uintptr_t start, size_t len) {
             }
             else
                 vmr_split(vmr, start, NULL);
-        }
-        else {
-            mmap_holesize(mmap, start, &holesz);
+        } else {
+            mmap_getholesize(mmap, start, &holesz);
             if (holesz == 0) {
                 printk("[%lX] Is Not a valid hole\n", start);
                 break;
@@ -459,178 +454,176 @@ int mmap_unmap(mmap_t *mmap, uintptr_t start, size_t len) {
 }
 
 int mmap_find_hole(mmap_t *mmap, size_t size, uintptr_t *paddr, int whence) {
-    size_t  holesz = 0;
+    size_t  holesz = 0;  // Variable to store the size of the current hole
 
+    // Validate input parameters
     if (mmap == NULL || paddr == NULL || size == 0)
         return -EINVAL;
 
-    mmap_assert_locked(mmap);
+    mmap_assert_locked(mmap);  // Ensure that the mmap is locked
 
-    *paddr = 0;
+    *paddr = 0;  // Initialize the output address to 0
 
+    // If searching from the start of the memory region
     if (whence == __whence_start) {
-        mmap_holesize(mmap, 0, &holesz);
+        // Get the size of the hole at the very beginning
+        mmap_getholesize(mmap, 0, &holesz);
         if (holesz >= size) {
-            *paddr = 0;
+            *paddr = 0;  // If the hole is large enough, return 0 as the address
             return 0;
         }
 
+        // Iterate over the VMR list to find a suitable hole
         forlinked(tmp, mmap->vmr_head, __vmr_next(tmp)) {
             if (__vmr_next(tmp)) {
                 holesz = __vmr_next(tmp)->start - __vmr_upper_bound(tmp);
                 if (holesz >= size) {
-                    *paddr = __vmr_upper_bound(tmp);
+                    *paddr = __vmr_upper_bound(tmp);  // Return the start of the hole
                     return 0;
                 }
-                continue;
+            } else {
+                // Get the size of the hole after the last VMR
+                mmap_getholesize(mmap, __vmr_upper_bound(tmp), &holesz);
+                if (holesz >= size) {
+                    *paddr = __vmr_upper_bound(tmp);  // Return the start of the hole
+                    return 0;
+                }
             }
-            mmap_holesize(mmap, __vmr_upper_bound(tmp), &holesz);
-            if (holesz >= size) {
-                *paddr = __vmr_upper_bound(tmp);
-                return 0;
-            }
-            goto error;
         }
-    }
+    } 
+    // If searching from the end of the memory region
     else if (whence == __whence_end) {
-        mmap_holesize(mmap, (mmap->limit + 1) - size, &holesz);
+        // Get the size of the hole at the very end
+        mmap_getholesize(mmap, mmap->limit + 1 - size, &holesz);
         if (holesz >= size) {
-            *paddr = (mmap->limit + 1) - size;
+            *paddr = mmap->limit + 1 - size;  // Return the end of the hole
             return 0;
         }
 
+        // Iterate over the VMR list in reverse to find a suitable hole
         forlinked(tmp, mmap->vmr_tail, __vmr_prev(tmp)) {
             if (__vmr_prev(tmp)) {
                 holesz = tmp->start - __vmr_upper_bound(__vmr_prev(tmp));
                 if (holesz >= size) {
-                    *paddr = tmp->start - size;
+                    *paddr = tmp->start - size;  // Return the end of the hole
                     return 0;
                 }
-                continue;
-            }
-
-            if (__vmr_lower_bound(tmp) > (uintptr_t)NULL) {
-                holesz = tmp->start;
-                if (holesz >= size) {
-                    *paddr = tmp->start - size;
-                    return 0;
+            } else {
+                // Check if there is space before the first VMR
+                if (__vmr_lower_bound(tmp) > (uintptr_t)NULL) {
+                    holesz = tmp->start;
+                    if (holesz >= size) {
+                        *paddr = tmp->start - size;  // Return the end of the hole
+                        return 0;
+                    }
                 }
             }
         }
     }
 
-error:
+    // If no suitable hole is found, return -ENOMEM
     return -ENOMEM;
 }
 
 int mmap_find_holeat(mmap_t *mmap, uintptr_t addr, size_t size, uintptr_t *paddr, int whence) {
-    size_t  holesz      = 0;
-    vmr_t   *near_vmr   = NULL;
+    size_t  holesz      = 0;        // Variable to store the size of the current hole
+    vmr_t   *near_vmr   = NULL;     // Pointer to the nearest VMR (Virtual Memory Region)
 
+    // Validate input parameters
     if (mmap == NULL || paddr == NULL || size == 0)
         return -EINVAL;
 
-    mmap_assert_locked(mmap);
+    mmap_assert_locked(mmap);       // Ensure that the mmap is locked
 
+    *paddr = 0;                     // Initialize the output address to 0
+
+    // If an address is provided, find the nearest VMR based on the whence value
     if (addr) {
         if (whence == __whence_start)
-            mmap_find_vmr_next(mmap, addr, &near_vmr);
+            mmap_find_vmr_next(mmap, addr, &near_vmr);  // Find the next VMR after addr
         else if (whence == __whence_end)
-            mmap_find_vmr_prev(mmap, addr, &near_vmr);
+            mmap_find_vmr_prev(mmap, addr, &near_vmr);  // Find the previous VMR before addr
     }
 
-    *paddr = 0;
-
+    // If searching from the start
     if (whence == __whence_start) {
-
-        mmap_holesize(mmap, addr, &holesz);
+        mmap_getholesize(mmap, addr, &holesz);  // Get the size of the hole starting at addr
         if (holesz >= size) {
-            *paddr = addr;
+            *paddr = addr;                   // If the hole is large enough, return addr
             return 0;
         }
 
+        // If no specific address is given, start from the head of the VMR list
         near_vmr = near_vmr ? near_vmr : mmap->vmr_head;
 
+        // Check the hole before the current VMR
         if (near_vmr && near_vmr->prev) {
             holesz = near_vmr->start - __vmr_upper_bound(__vmr_prev(near_vmr));
             if (holesz >= size) {
-                *paddr = __vmr_upper_bound(__vmr_prev(near_vmr));
+                *paddr = __vmr_upper_bound(__vmr_prev(near_vmr));  // Return the start of the hole
                 return 0;
             }
         }
 
+        // Iterate over the VMR list to find a suitable hole
         forlinked(tmp, near_vmr, __vmr_next(tmp)) {
             if (__vmr_next(tmp)) {
                 holesz = __vmr_next(tmp)->start - __vmr_upper_bound(tmp);
                 if (holesz >= size) {
+                    *paddr = __vmr_upper_bound(tmp);  // Return the start of the hole
+                    return 0;
+                }
+            } else {
+                mmap_getholesize(mmap, __vmr_upper_bound(tmp), &holesz);  // Check the hole after the last VMR
+                if (holesz >= size) {
                     *paddr = __vmr_upper_bound(tmp);
                     return 0;
                 }
-                continue;
             }
-            mmap_holesize(mmap, __vmr_upper_bound(tmp), &holesz);
-            if (holesz >= size) {
-                *paddr = __vmr_upper_bound(tmp);
-                return 0;
-            }
-            goto error;
         }
-    }
+    } 
+    // If searching from the end
     else if (whence == __whence_end) {
-        near_vmr = near_vmr ? near_vmr : mmap->vmr_tail;
+        near_vmr = near_vmr ? near_vmr : mmap->vmr_tail;  // Start from the tail of the VMR list
 
-        if (near_vmr)
-            goto find1;
-
-        mmap_holesize(mmap, (mmap->limit + 1) - size, &holesz);
-        if (holesz >= size) {
-            *paddr = (mmap->limit + 1) - size;
-            return 0;
-        }
-
-    find1:
         if (near_vmr) {
             if (near_vmr->next) {
                 holesz = __vmr_next(near_vmr)->start - __vmr_upper_bound(near_vmr);
                 if (holesz >= size) {
-                    *paddr = __vmr_next(near_vmr)->start - size;
+                    *paddr = __vmr_next(near_vmr)->start - size;  // Return the end of the hole
                     return 0;
                 }
-            }
-            else {
-                mmap_holesize(mmap, __vmr_upper_bound(near_vmr), &holesz);
-                if (holesz > size) {
+            } else {
+                mmap_getholesize(mmap, __vmr_upper_bound(near_vmr), &holesz);  // Check the hole after the last VMR
+                if (holesz >= size) {
                     *paddr = __vmr_upper_bound(near_vmr) + holesz - size;
                     return 0;
                 }
-                else if (holesz == size) {
-                    *paddr = __vmr_upper_bound(near_vmr);
-                    return 0;
-                }
+            }
+        } else {
+            // Check the hole at the very end of the address space
+            mmap_getholesize(mmap, (mmap->limit + 1) - size, &holesz);
+            if (holesz >= size) {
+                *paddr = (mmap->limit + 1) - size;
+                return 0;
             }
         }
 
+        // Iterate over the VMR list in reverse to find a suitable hole
         forlinked(tmp, near_vmr, __vmr_prev(tmp)) {
+            // printk("vmr: [%p<-%p->%p]\n", tmp->prev, tmp, tmp->next);
+            // vmr_dump(tmp, 0);
             if (__vmr_prev(tmp)) {
                 holesz = tmp->start - __vmr_upper_bound(__vmr_prev(tmp));
                 if (holesz >= size) {
-                    *paddr = tmp->start - size;
-                    return 0;
-                }
-                continue;
-            }
-
-            if (__vmr_lower_bound(tmp) > (uintptr_t)NULL) {
-                holesz = tmp->start;
-                if (holesz >= size) {
-                    *paddr = tmp->start - size;
+                    *paddr = tmp->start - size;  // Return the end of the hole
                     return 0;
                 }
             }
         }
     }
 
-error:
+    // Fallback to a general hole search if no specific hole is found
     return mmap_find_hole(mmap, size, paddr, whence);
 }
 
@@ -640,24 +633,10 @@ int mmap_map_region(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flag
     vmr_t   *r      = NULL;
 
     if (mmap == NULL || (!__flags_fixed(flags) && pvmr == NULL) || len == 0){
-        // printk(
-        //     "mmap:   %p\n"
-        //     "flags:  %p\n"
-        //     "fixed?: %s\n"
-        //     "pvmr:   %p\n"
-        //     "len:    %ld\n",
-        //     mmap,
-        //     flags,
-        //     __flags_fixed(flags) ? "yes" : "no",
-        //     pvmr,
-        //     len
-        // );
         return -EINVAL;
     }
 
     mmap_assert_locked(mmap);
-
-    if (pvmr) *pvmr = NULL;
 
     /*If MAP_FIXED is set ensure 'addr' is Page aligned.*/
     if (__flags_fixed(flags) && !__isaligned(addr))
@@ -692,7 +671,7 @@ int mmap_map_region(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flag
         return err;
 
     r->start = addr;
-    r->end   = addr + len - 1;
+    r->end   = (addr + len) - 1;
 
     r->flags |= __prot_exec(prot)           ? VM_EXEC : 0;
     r->flags |= __prot_read(prot)           ? VM_READ : 0;
@@ -714,6 +693,8 @@ int mmap_map_region(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flag
             return err;
         }
     } else if ((err = mmap_mapin(mmap, r))) {
+        mmap_dump_list(*mmap);
+        vmr_dump(r, 0);
         vmr_free(r);
         return err;
     }
@@ -725,24 +706,28 @@ int mmap_map_region(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flag
 int mmap_alloc_vmr(mmap_t *mmap, size_t size, int prot, int flags, vmr_t **pvmr) {
     if (mmap == NULL || pvmr == NULL)
         return -EINVAL;
+
     mmap_assert_locked(mmap);
+
     if (__flags_fixed(flags))
         return -EINVAL;
-    *pvmr = NULL;
+
     return mmap_map_region(mmap, 0, size, prot, flags, pvmr);
 }
 
 int mmap_alloc_stack(mmap_t *mmap, size_t size, vmr_t **pstack) {
+    int prot  = PROT_READ | PROT_WRITE;
+    int flags = MAP_STACK | MAP_PRIVATE;
+
     if (mmap == NULL || pstack == NULL)
         return -EINVAL;
 
     mmap_assert_locked(mmap);
 
-    *pstack = NULL;
-    return mmap_map_region(mmap, 0, size, PROT_READ | PROT_WRITE, MAP_STACK | MAP_PRIVATE, pstack);
+    return mmap_map_region(mmap, 0, size, prot, flags, pstack);
 }
 
-int mmap_vmr_expand(mmap_t *mmap, vmr_t *r, intptr_t incr) {
+int mmap_vmr_expand(mmap_t *mmap, vmr_t *r, isize incr) {
     int         err       = 0;
     isize       oldsz     = 0;
     isize       newsz     = 0;
@@ -767,10 +752,12 @@ int mmap_vmr_expand(mmap_t *mmap, vmr_t *r, intptr_t incr) {
     if (__vmr_growsup(r)) {
         if (newsz > oldsz) {
             hole_addr = __vmr_upper_bound(r);
-            if ((err = mmap_holesize(mmap, hole_addr, &holesz)))
+            
+            if ((err = mmap_getholesize(mmap, hole_addr, &holesz)))
                 return err;
+            
             if (holesz >= (size_t)incr) {
-                r->end = r->start + newsz - 1;
+                r->end = (r->start + (usize)newsz) - 1;
                 return 0;
             }
             return -ENOMEM;
@@ -782,18 +769,21 @@ int mmap_vmr_expand(mmap_t *mmap, vmr_t *r, intptr_t incr) {
             return mmap_remove(mmap, r);
 
         /*Reduce the size of the region*/
-        r->end -= oldsz - newsz;
+        r->end -= (usize)oldsz - (usize)newsz;
+        
         return 0;
-    }
-    else if (__vmr_growsdown(r)) {
+    } else if (__vmr_growsdown(r)) {
         if (newsz > oldsz) {
             hole_addr = r->start - incr;
-            if ((err = mmap_holesize(mmap, hole_addr, &holesz)))
+
+            if ((err = mmap_getholesize(mmap, hole_addr, &holesz)))
                 return err;
+
             if (holesz >= (size_t)incr) {
                 r->start = hole_addr;
                 return 0;
             }
+
             return -ENOMEM;
         }
 
@@ -803,7 +793,8 @@ int mmap_vmr_expand(mmap_t *mmap, vmr_t *r, intptr_t incr) {
             return mmap_remove(mmap, r);
 
         /*Reduce the size of the region*/
-        r->start += oldsz - newsz;
+        r->start += (usize)oldsz - (usize)newsz;
+
         return 0;
     }
 
@@ -811,11 +802,11 @@ int mmap_vmr_expand(mmap_t *mmap, vmr_t *r, intptr_t incr) {
 }
 
 int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
-    int       err           = 0;
-    int       flags         = 0;
-    int       forge_prot    = 0; // forged prot
-    uintptr_t end           = addr + len - 1;
-    vmr_t     *r            = NULL, *split0 = NULL, *split1 = NULL, tmp = {0};
+    int       err       = 0;
+    int       flags     = 0;
+    int       _prot_    = 0; // forged prot
+    uintptr_t end       = addr + len - 1;
+    vmr_t     *r        = NULL, *split0 = NULL, *split1 = NULL, tmp = {0};
     
     if (mmap == NULL || len == 0)
         return -EINVAL;
@@ -834,20 +825,20 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
     if (__isstack(r))
         return -EACCES;
 
-    forge_prot |= __vmr_read(r)     ? PROT_READ     : 0;
-    forge_prot |= __vmr_write(r)    ? PROT_WRITE    : 0;
-    forge_prot |= __vmr_exec(r)     ? PROT_EXEC     : 0;
+    _prot_ |= __vmr_read(r)     ? PROT_READ     : 0;
+    _prot_ |= __vmr_write(r)    ? PROT_WRITE    : 0;
+    _prot_ |= __vmr_exec(r)     ? PROT_EXEC     : 0;
 
-    if (forge_prot == prot)
+    if (_prot_ == prot)
         return 0;
 
     if (__prot_write(prot) && __prot_exec(prot))
         return -EACCES;
 
-    if (__prot_write(prot) && __prot_exec(forge_prot))
+    if (__prot_write(prot) && __prot_exec(_prot_))
         return -EACCES;
 
-    if (__prot_exec(prot) && __prot_write(forge_prot))
+    if (__prot_exec(prot) && __prot_write(_prot_))
         return -EACCES;
         
     if (len < __vmr_size(r)) {
@@ -859,16 +850,15 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
         split0->prev  = split0->next = NULL;
 
         if (r->start == addr) {
-            r->end = end;
-            split0->start = __vmr_upper_bound(r);
+            r->end          = end;
+            split0->start   = __vmr_upper_bound(r);
             if ((err = mmap_mapin(mmap, split0))) {
                 r->end = split0->end;
                 vmr_free(split0);
                 return err;
             }
-        }
-        else if (r->end == end) {
-            r->start = addr;
+        } else if (r->end == end) {
+            r->start    = addr;
             split0->end = __vmr_lower_bound(r);
 
             if ((err = mmap_mapin(mmap, split0))) {
@@ -876,8 +866,7 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
                 vmr_free(split0);
                 return err;
             }
-        }
-        else {
+        } else {
             if ((err = vmr_alloc(&split1))) {
                 vmr_free(split0);
                 return err;
@@ -912,8 +901,8 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
     __vmr_mask_rwx(r);
 
     flags |= __prot_read(prot)   ? VM_READ : 0;
-    flags |= __prot_exec(prot)   ? VM_EXEC : 0;
     flags |= __prot_write(prot)  ? VM_WRITE: 0;
+    flags |= __prot_exec(prot)   ? VM_EXEC : 0;
     r->flags = flags;
 
     flags = 0;
@@ -942,11 +931,11 @@ int mmap_clean(mmap_t *mmap) {
 
     arch_fullvm_unmap(mmap->pgdir);
 
-    pgdir = mmap->pgdir;
+    pgdir               = mmap->pgdir;
 
     mmap->refs          = 0;
     mmap->used_space    = 0;
-    
+
     mmap->brk           = 0;
     mmap->arg           = NULL;
     mmap->env           = NULL;
@@ -1014,7 +1003,7 @@ int mmap_copy(mmap_t *dst, mmap_t *src) {
 
     dst->arg    = src->arg  ? mmap_find(dst, src->arg->start) : NULL;
     dst->env    = src->env  ? mmap_find(dst, src->env->start) : NULL;
-    dst->heap   = src->heap ? mmap_find(dst, src->heap->start) : NULL;
+    dst->heap   = src->heap ? mmap_find(dst, src->heap->start): NULL;
 
     if ((err = arch_lazycpy(dst->pgdir, src->pgdir)))
         return err;
@@ -1023,17 +1012,15 @@ int mmap_copy(mmap_t *dst, mmap_t *src) {
 }
 
 int mmap_clone(mmap_t *mmap, mmap_t **pclone) {
-    int err = 0;
-    mmap_t  *clone = NULL;
+    int     err     = 0;
+    mmap_t  *clone  = NULL;
 
     if (mmap == NULL || pclone == NULL)
         return -EINVAL;
 
     mmap_assert_locked(mmap);
 
-    *pclone = NULL;
-
-    if ((err = mmap_alloc (&clone)))
+    if ((err = mmap_alloc(&clone)))
         return err;
 
     mmap_lock(clone);
@@ -1043,7 +1030,7 @@ int mmap_clone(mmap_t *mmap, mmap_t **pclone) {
         return err;
     }
 
-    *pclone             = clone;
+    *pclone   = clone;
     mmap_unlock(clone);
 
     return 0;
@@ -1099,16 +1086,13 @@ int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
         goto arg_array;
 
     argc++;
-
     // allocate space for the arg_array and args
     if ((err = mmap_alloc_vmr(mmap, argslen, PROT_RW, MAP_PRIVATE | MAP_DONTEXPAND, &argvmr)))
         goto error;
 
-
     // Page the region in
     if ((err = arch_map_n(argvmr->start, argslen, argvmr->vflags)))
         goto error;
-
     mmap->arg = argvmr;
     arglist = (char *)argvmr->start;
 
@@ -1213,14 +1197,12 @@ error:
 /**
  * *******************************************************************
  * @brief           Virtual memory region Helpers.                   *
- * *******************************************************************
- */
+ * *******************************************************************/
 
 void vmr_free(vmr_t *r) {
     if (r == NULL)
         return;
-    if (r->refs <= 0) {
-        *r = (vmr_t){0};
+    if (--r->refs <= 0) {
         kfree(r);
     }
 }
@@ -1228,8 +1210,12 @@ void vmr_free(vmr_t *r) {
 int vmr_alloc(vmr_t **ref) {
     vmr_t *r = NULL;
 
+    if (ref == NULL)
+        return -EINVAL;
+
     if ((r = kmalloc(sizeof *r)) == NULL)
         return -ENOMEM;
+
     memset(r, 0, sizeof *r);
     *ref = r;
     return 0;
@@ -1238,7 +1224,7 @@ int vmr_alloc(vmr_t **ref) {
 int vmr_can_split(vmr_t *r, uintptr_t addr) {
     if (r == NULL)
         return 0;
-    return r->start < addr && addr < r->end;
+    return (r->start < addr) && (addr < r->end);
 }
 
 int vmr_split(vmr_t *r, uintptr_t addr, vmr_t **pvmr) {
@@ -1262,7 +1248,7 @@ int vmr_split(vmr_t *r, uintptr_t addr, vmr_t **pvmr) {
     if (new->file)
         new->file_pos += addr - r->start;
 
-    r->end          = addr - 1;
+    r->end      = addr - 1;
 
     if ((err = mmap_mapin(r->mmap, new))) {
         vmr_free(new);
@@ -1278,7 +1264,7 @@ int vmr_copy(vmr_t *rdst, vmr_t *rsrc) {
     if (rdst == NULL || rsrc == NULL)
         return -EINVAL;
 
-    if (rdst->mmap && rdst->mmap == rsrc->mmap)
+    if (rdst->mmap && (rdst->mmap == rsrc->mmap))
         return -EINVAL;
     
     *rdst       = *rsrc;
@@ -1295,8 +1281,6 @@ int vmr_clone(vmr_t *src, vmr_t **pclone) {
 
     if (src == NULL || pclone == NULL)
         return -EINVAL;
-    
-    *pclone = NULL;
 
     if ((err = vmr_alloc(&clone)))
         return err;

@@ -42,7 +42,8 @@ static tid_t tid_alloc(void) {
 }
 
 int thread_kstack_alloc(usize size, uintptr_t *ret) {
-    uintptr_t addr = 0;
+    int         err     = 0;
+    uintptr_t   addr    = 0;
 
     if (ret == NULL)
         return -EINVAL;
@@ -50,9 +51,9 @@ int thread_kstack_alloc(usize size, uintptr_t *ret) {
     if (BADSTACKSZ(size))
         return -ERANGE;
     
-    if (0 == (addr = (uintptr_t)kmalloc(size)))
-        return -ENOMEM;
-    
+    if ((err = arch_pagealloc(size, &addr)))
+        return err;
+
     *ret = addr;
     return 0;
 }
@@ -129,7 +130,7 @@ int thread_alloc(usize ksz /*kstacksz*/, int __flags, thread_t **ret) {
     thread_setflags(thread, flags); // set the flags.
 
     err = thread_enqueue(threads_queue, thread, NULL);
-    assert(err == 0, "Thread not enqueued!!!");
+    assert_msg(err == 0, "%s:%d: Thread not enqueued, err: %d!!!\n", __FILE__, __LINE__, err);
     thread_getref(thread);
 
     *ret = thread;
@@ -205,7 +206,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
     vmr_t           *ustack     = NULL;
     thread_t        *thread     = NULL;
 
-    t_attr = attr ? *attr : (thread_attr_t){
+    t_attr = attr ? *attr : (thread_attr_t) {
         .detachstate    = 0,
         .stackaddr      = 0,
         .guardsz        = PGSZ,
@@ -271,13 +272,14 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, thread_t
         thread_unlock(thread);
     return 0;
 error:
+    printk("%s:%d: Failed to create thread, err: %d\n", __FILE__, __LINE__, err);
     if (thread) thread_free(thread);
     return err;
 }
 
 void thread_free(thread_t *thread) {
-    queue_t *queue = NULL;
-    queue_node_t *next = NULL;
+    queue_node_t    *next  = NULL;
+    queue_t         *queue = NULL;
 
     assert (current != thread, "current called freeing it's own kstack???");
 
@@ -362,7 +364,7 @@ int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode) {
 
     return 0;
 error:
-    printk("fialed to enqueue thread, error: %d\n", err);
+    printk("%s:%d: fialed to enqueue thread, error: %d\n", __FILE__, __LINE__, err);
     return err;
 }
 

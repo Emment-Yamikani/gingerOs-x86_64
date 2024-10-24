@@ -39,8 +39,8 @@ void cga_clr(void) {
 }
 
 int cga_init(void) {
-    if (bootinfo.fb.framebuffer_type == 2)
-        cga_addr = (uint16_t *)bootinfo.fb.framebuffer_addr;
+    if (bootinfo.fb.type == 2)
+        cga_addr = (uint16_t *)bootinfo.fb.addr;
     else
         cga_addr = (uint16_t *)VMA2HI(0xb8000);
     cga_setcolor(CGA_BLACK, CGA_WHITE);

@@ -218,7 +218,7 @@ static int ramdisk_init(void) {
     memset(ramdisks, 0, sizeof ramdisks);
 
     for (size_t i = 0; i < bootinfo.modcnt; ++i) {
-        if ((err = ramdisk_new(bootinfo.mods[i].cmdline, &rd)))
+        if ((err = ramdisk_new(bootinfo.mods[i].cmd, &rd)))
             return err;
         
         rd->size = bootinfo.mods[i].size;

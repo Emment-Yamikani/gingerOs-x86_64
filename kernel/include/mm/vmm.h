@@ -24,4 +24,10 @@ void memory_usage(void);
 
 int getpagesize(void);
 
+void dump_free_node_list(void);
+void dump_freevmr_list(void);
+void dump_usedvmr_list(void);
+void dump_all_lists(void);
+
+
 #endif // VMM_H
