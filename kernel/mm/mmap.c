@@ -1101,8 +1101,6 @@ int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
         err = -ENOMEM;
         goto error;
     }
-    debugloc();
-    printk("arglist: %p\n", arglist);
 
     if (src_argp) {
         // Do actual copyout of args
@@ -1113,7 +1111,6 @@ int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
             arglist += arglen;
         }
     }
-    debugloc();
 
     // copyout the array of arg pointers
     memcpy(arglist, argp, argc * sizeof(char *));

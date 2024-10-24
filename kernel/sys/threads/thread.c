@@ -130,8 +130,7 @@ int thread_alloc(usize ksz /*kstacksz*/, int __flags, thread_t **ret) {
     thread_setflags(thread, flags); // set the flags.
 
     err = thread_enqueue(threads_queue, thread, NULL);
-    assert_msg(err == 0, "%s:%d: Thread not enqueued, err: %d!!!\n",
-        __FILE__, __LINE__, err);
+    assert_msg(err == 0, "%s:%d: Thread not enqueued, err: %d!!!\n", __FILE__, __LINE__, err);
     thread_getref(thread);
 
     *ret = thread;
@@ -365,7 +364,7 @@ int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **rnode) {
 
     return 0;
 error:
-    printk("fialed to enqueue thread, error: %d\n", err);
+    printk("%s:%d: fialed to enqueue thread, error: %d\n", __FILE__, __LINE__, err);
     return err;
 }
 
@@ -689,12 +688,11 @@ int thread_execve(thread_t *thread, thread_entry_t entry,
 
     thread_assert_locked(thread);
 
-    debugloc();
     // TODO: implement a function to reverse this.
     if ((err = mmap_argenvcpy(thread->t_mmap, (const char **)argp,
         (const char **)envp, &arg, &argc, &env)))
         return err;
-    debugloc();
+
     tmp_stack = thread->t_arch.t_ustack;
 
     if ((err = mmap_alloc_stack(thread->t_mmap, USTACKSZ, &ustack)))

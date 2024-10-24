@@ -25,7 +25,7 @@ void x86_64_dumptable(pte_t *table) {
 
 static inline int x86_64_map_pdpt(int i4, int flags) {
     int        err  = 0;
-    uintptr_t  l3 = 0;
+    uintptr_t  l3   = 0;
 
     if (iL_INV(i4))
         return -EINVAL;
@@ -47,8 +47,8 @@ static inline int x86_64_map_pdpt(int i4, int flags) {
 }
 
 static inline int x86_64_map_pdt(int i4, int i3, int flags) {
-    int         err     = -ENOMEM;
-    uintptr_t   l3    = 0, l2 = 0;
+    int         err = -ENOMEM;
+    uintptr_t   l3  = 0, l2 = 0;
 
     if (iL_INV(i4) || iL_INV(i3))
         return -EINVAL;
@@ -88,8 +88,8 @@ error:
 }
 
 static inline int x86_64_map_pt(int i4, int i3, int i2, int flags) {
-    int err = -ENOMEM;
-    uintptr_t l3 = 0, l2 = 0, l1 = 0;
+    int         err = -ENOMEM;
+    uintptr_t   l3  = 0, l2 = 0, l1 = 0;
 
     if (iL_INV(i4) || iL_INV(i3) || iL_INV(i2))
         return -EINVAL;
@@ -212,8 +212,8 @@ void x86_64_swtchvm(uintptr_t pdbr, uintptr_t *old) {
 int x86_64_map(uintptr_t pa, int i4, int i3, int i2, int i1, int flags) {
     int         err     = -ENOMEM;
     int         do_remap= _isremap(flags);
-    uintptr_t   l3    = 0, l2 = 0, l1 = 0;
-    uintptr_t   va   = i2v(i4, i3, i2, i1);
+    uintptr_t   l3      = 0, l2 = 0, l1 = 0;
+    uintptr_t   va      = i2v(i4, i3, i2, i1);
 
     flags   = extract_vmflags(flags);
 
@@ -231,7 +231,7 @@ int x86_64_map(uintptr_t pa, int i4, int i3, int i2, int i1, int flags) {
         PML4E(i4)->raw = l3 | PGOFF(flags | PTE_WT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDPTE(i4, 0));
         invlpg((uintptr_t)PDPTE(i4, 0));
-        printk("%s:%d: i4(%d) l3: %p -> %p\n", __FILE__, __LINE__, i4, PDPTE(i4, 0), l3);
+        // printk("%s:%d: i4(%d) l3: %p -> %p\n", __FILE__, __LINE__, i4, PDPTE(i4, 0), l3);
     }
 
     if (!pte_isP(PDPTE(i4, i3))) {
@@ -242,7 +242,7 @@ int x86_64_map(uintptr_t pa, int i4, int i3, int i2, int i1, int flags) {
         PDPTE(i4, i3)->raw = l2 | PGOFF(flags | PTE_WT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PDTE(i4, i3, 0));
         invlpg((uintptr_t)PDTE(i4, i3, 0));
-        printk("%s:%d: i3(%d, %d) l2: %p -> %p\n", __FILE__, __LINE__, i4, i3, PDTE(i4, i3, 0), l2);
+        // printk("%s:%d: i3(%d, %d) l2: %p -> %p\n", __FILE__, __LINE__, i4, i3, PDTE(i4, i3, 0), l2);
     }
 
     if (!pte_isP(PDTE(i4, i3, i2))) {
@@ -253,18 +253,21 @@ int x86_64_map(uintptr_t pa, int i4, int i3, int i2, int i1, int flags) {
         PDTE(i4, i3, i2)->raw = l1 | PGOFF(flags | PTE_WT | PTE_KRW);
         send_tlb_shootdown(rdcr3(), (uintptr_t)PTE(i4, i3, i2, 0));
         invlpg((uintptr_t)PTE(i4, i3, i2, 0));
-        printk("%s:%d: i2(%d, %d, %d) l1: %p -> %p\n", __FILE__, __LINE__, i4, i3, i2, PTE(i4, i3, i2, 0), l1);
+        // printk("%s:%d: i2(%d, %d, %d) l1: %p -> %p\n", __FILE__, __LINE__, i4, i3, i2, PTE(i4, i3, i2, 0), l1);
     }
 
     if (!pte_isP(PTE(i4, i3, i2, i1)))
         PTE(i4, i3, i2, i1)->raw = PGROUND(pa) | PGOFF(flags);
     else if (do_remap) // acknowledge remap request.
         PTE(i4, i3, i2, i1)->raw = PGROUND(pa) | PGOFF(flags);
+    // else
+    //     panic("%s:%d: already mapped, (%d, %d, %d, %d): %p -> %p\n",
+    //         __FILE__, __LINE__, i4, i3, i2, i1,
+    //         i2v(i4, i3, i2, i1), PTE(i4, i3, i2, i1)->raw);
 
     send_tlb_shootdown(rdcr3(), va);
     invlpg(va);
 
-    assert(va != 0x1000000, "Reached\n");
     return 0;
 error:
     if (l2 != 0) {
@@ -320,9 +323,9 @@ void x86_64_unmap_n(uintptr_t va, usize sz) {
 }
 
 int x86_64_map_i(uintptr_t va, uintptr_t pa, usize sz, int flags) {
-    int err = 0;
-    uintptr_t vr = va;
-    usize nr = NPAGE(sz);
+    int         err = 0;
+    uintptr_t   vr  = va;
+    usize       nr  = NPAGE(sz);
 
     for (; nr; --nr, pa += PGSZ, va += PGSZ) {
         if ((err = x86_64_map(pa, PML4I(va),
@@ -341,8 +344,9 @@ int x86_64_mprotect(uintptr_t va, usize sz, int flags) {
     int     err     = 0;
     int     mask    = 0;
     pte_t   *pte    = NULL;
-    usize  nr      = NPAGE(sz);
-    va   = PGROUND(va);
+    usize   nr      = NPAGE(sz);
+
+    va      = PGROUND(va);
     flags   = extract_vmflags(flags);
 
     if (_isP(flags) == 0)
@@ -396,8 +400,8 @@ error:
 }
 
 int x86_64_mount(uintptr_t pa, void **pvp) {
-    int         err   = 0;
-    uintptr_t   va = 0;
+    int         err = 0;
+    uintptr_t   va  = 0;
 
     if (pa == 0 || pvp == NULL)
         return -EINVAL;
@@ -422,6 +426,7 @@ void x86_64_unmount(uintptr_t va) {
 
 void x86_64_unmap_full(void) {
     usize i4 = 0, i3 = 0, i2 = 0, i1 = 0;
+
     for (i4 = 0; i4 < PML4I(USTACK); ++i4) {
         if (!pte_isP(PML4E(i4)))
             continue;
@@ -468,7 +473,7 @@ static int x86_64_kvmcpy(uintptr_t dstp) {
     for (usize i = PML4I(USTACK); i < NPTE; ++i)
         dstv[i] = PML4[i];
     
-    dstv[510].raw = dstp | PTE_KRW | PTE_WTCD;
+    dstv[PML4_Recursion].raw = dstp | PTE_KRW | PTE_WTCD;
     /// TODO: unlock higer vmmap and kernel pDBr.
 
     x86_64_unmount((uintptr_t)dstv);
@@ -710,6 +715,5 @@ error:
 }
 
 void x86_64_pml4free(uintptr_t pgdir) {
-    if (pgdir)
-        pmman.free(pgdir);
+    if (pgdir) pmman.free(pgdir);
 }

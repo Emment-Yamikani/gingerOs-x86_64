@@ -95,6 +95,7 @@ typedef union viraddr {
 #define PDI(p)                  (((u64)(p) >> 21) & 0x1FFu)
 #define PTI(p)                  (((u64)(p) >> 12) & 0x1FFu)
 
+#define PML4_Recursion          511
 #define NPTE                    512
 #define iL_INV(i)               (((i) < 0) || ((i) >= NPTE))
 
@@ -102,6 +103,13 @@ typedef union viraddr {
 #define PDPT(i4)                ((pte_t *)(0xFFFFFFFFFFE00000ull + (PGSZ * (u64)(i4))))
 #define PDT(i4, i3)             ((pte_t *)(0xFFFFFFFFC0000000ull + (PGSZ2MB * (u64)(i4)) + (PGSZ * (u64)(i3))))
 #define PT(i4, i3, i2)          ((pte_t *)(0xFFFFFF8000000000ull + (PGSZ1GB * (u64)(i4)) + (PGSZ2MB * (u64)(i3)) + (PGSZ * (u64)(i2))))
+
+/*
+#define PML4                    ({(pte_t *)(0xFFFF_FF7F_BFDF_E000ull); })
+#define PDPT(PDPi)              ({(pte_t *)(0xFFFF_FF7F_BFC0_0000ull + (0x1000ul * ((usize)PDPi))); })
+#define PDT(PDPi, PDi)          ({(pte_t *)(0xFFFF_FF7F_8000_0000ull + (0x200000ul * ((usize)PDPi)) + (0x1000ul * ((usize)PDi)) ); })
+#define PT(PDPi, PDi, PTi)      ({(pte_t *)(0xFFFF_FF00_0000_0000ull + (0x40000000ul * ((usize)PDPi)) + (0x200000ul * ((usize)PDi)) + (0x1000ul * ((usize)PTi))); })
+*/
 
 #define PML4E(i4)               ({ &PML4[i4]; })
 #define PDPTE(i4, i3)           ({ &PDPT(i4)[i3]; })

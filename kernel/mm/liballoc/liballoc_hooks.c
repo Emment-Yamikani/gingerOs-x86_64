@@ -52,7 +52,7 @@ void* liballoc_alloc( int pages ) {
 }
 
 int liballoc_free( void* ptr, int pages ) {
-	printk("liballoc_free(): release pointer: %p, pages: %d\n", ptr, pages);
+	// printk("liballoc_free(): release pointer: %p, pages: %d\n", ptr, pages);
 	arch_pagefree((uintptr_t)ptr, pages * page_size);
 	return 0;
 }
