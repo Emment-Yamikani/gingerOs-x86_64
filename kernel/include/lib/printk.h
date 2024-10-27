@@ -126,6 +126,7 @@ size_t printk(const char *restrict __fmt__, ...);
 
 #include <lib/types.h>
 extern pid_t getpid(void);
+extern pid_t getppid(void);
 extern tid_t gettid(void);
 
 #define debugloc() ({                                     \

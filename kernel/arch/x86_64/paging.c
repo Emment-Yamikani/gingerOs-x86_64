@@ -312,7 +312,7 @@ done:
     /** Deallocate this page frame
      * if it was allocated at the time of mapping.*/
     if (_isalloc(pa)) {
-        printk("%s:%ld: %s: [NOTE]: Freeing page frame{0x%p}...\n", __FILE__, __LINE__, __func__, PGROUND(pa));
+        printk("%s:%ld: %s: [NOTE]: Freeing frame{0x%p}...\n", __FILE__, __LINE__, __func__, PGROUND(pa));
         pmman.free(PGROUND(pa));
     }
 }
@@ -342,7 +342,7 @@ error:
 
 int x86_64_mprotect(uintptr_t va, usize sz, int flags) {
     int     err     = 0;
-    int     mask    = 0;
+    u64     mask    = 0;
     pte_t   *pte    = NULL;
     usize   nr      = NPAGE(sz);
 
@@ -352,24 +352,26 @@ int x86_64_mprotect(uintptr_t va, usize sz, int flags) {
     if (_isP(flags) == 0)
         return -EINVAL;
 
-    mask |= _isU(flags)   == 0 ? PTE_U : 0;
-    mask |= _isR(flags)   == 0 ? PTE_R : 0;
-    mask |= _isW(flags)   == 0 ? PTE_W : 0;
-    mask |= _isX(flags)   == 0 ? PTE_X : 0;
+    mask |= _isU(flags) == 0 ? PTE_U : 0;
+    mask |= _isR(flags) == 0 ? PTE_R : 0;
+    mask |= _isW(flags) == 0 ? PTE_W : 0;
+    mask |= _isX(flags) == 0 ? PTE_X : 0;
     mask = extract_vmflags(mask);
 
-    while (nr--) {
-        if ((err = x86_64_getmapping(va, &pte)))
-            return err;
+    for (; nr ; nr--, va += PGSZ) {
+        if ((err = x86_64_getmapping(va, &pte))) {
+            /// a page may have not been mapped in to begin with.
+            /// so, only catch errors for with a page was mapped.
+            if (err == -ENOENT)
+                continue;
+            else return err;
+        }
 
-        /**
-         * @brief Mask out the page permissions we dont want
-         */
+        /// Mask out page permissions we dont want
+        /// ~mask only turns on flags that are needed.
         pte->raw &= ~mask; // Smart huh? ;)
         send_tlb_shootdown(rdcr3(), va);
-        va += PGSZ;
     }
-
     return 0;
 }
 
@@ -408,7 +410,7 @@ int x86_64_mount(uintptr_t pa, void **pvp) {
 
     if ((va = vmman.alloc(PGSZ)) == 0)
         return -ENOMEM;
-    
+
     if ((err = x86_64_map_i(va, pa, PGSZ, PTE_KRW)))
         goto error;
 
@@ -465,14 +467,14 @@ static int x86_64_kvmcpy(uintptr_t dstp) {
 
     if ((dstp == 0) || PGOFF(dstp))
         return -EINVAL;
-    
+
     if ((err = x86_64_mount(dstp, (void **)&dstv)))
         return err;
 
     /// TODO: lock higer vmmap and kernel pDBr.
     for (usize i = PML4I(USTACK); i < NPTE; ++i)
         dstv[i] = PML4[i];
-    
+
     dstv[PML4_Recursion].raw = dstp | PTE_KRW | PTE_WTCD;
     /// TODO: unlock higer vmmap and kernel pDBr.
 
@@ -496,9 +498,9 @@ int x86_64_lazycpy(uintptr_t dst, uintptr_t src) {
     */
     if ((err = x86_64_mount(src, (void **)&pml4)))
         return err;
-    
+
     x86_64_swtchvm(dst, &oldpdbr);
-    
+
     /**
      * Begin the process of copying the various table entries.
      * this for copies only the currently mapped PDPT/PML4
@@ -571,7 +573,7 @@ int x86_64_lazycpy(uintptr_t dst, uintptr_t src) {
                         pt[i1].w = 0;
                         send_tlb_shootdown(rdcr3(), i2v(i4, i3, i2, i1));
                     }
-                    
+
                     // Do page copy.
                     PTE(i4, i3, i2, i1)->raw = pt[i1].raw;
 
@@ -636,7 +638,7 @@ int x86_64_memcpyvp(uintptr_t pa, uintptr_t va, usize size) {
     int         err     = 0;
     usize       len     = 0;
     uintptr_t   vdst    = 0;
-    
+
     for (; size; size -= len, pa += len, va += len) {
         if ((err = x86_64_mount(PGROUND(pa), (void **)&vdst)))
             return err;
@@ -653,7 +655,7 @@ int x86_64_memcpypv(uintptr_t va, uintptr_t pa, usize size) {
     int         err     = 0;
     usize       len     = 0;
     uintptr_t   vsrc    = 0;
-    
+
     for (; size; size -= len, pa += len, va += len) {
         if ((err = x86_64_mount(PGROUND(pa), (void **)&vsrc)))
             return err;
@@ -677,16 +679,16 @@ int x86_64_getmapping(uintptr_t addr, pte_t **pte) {
 
     if (!pte_isP(PML4E(i4)))
         return -ENOENT;
-    
+
     if (!pte_isP(PDPTE(i4, i3)))
         return -ENOENT;
-    
+
     if (!pte_isP(PDTE(i4, i3, i2)))
         return -ENOENT;
-    
+
     if (!pte_isP(PTE(i4, i3, i2, i1)))
         return -ENOENT;
-    
+
     if (pte) {
         *pte = PTE(i4, i3, i2, i1);
     }
@@ -699,11 +701,11 @@ int x86_64_pml4alloc(uintptr_t *ref) {
 
     if (ref == NULL)
         return -EINVAL;
-    
+
     if ((err = pmman.get_page(GFP_NORMAL | GFP_ZERO, (void **)&pml4))) {
         return err;
     }
-    
+
     if ((err = x86_64_kvmcpy(pml4)))
         goto error;
 

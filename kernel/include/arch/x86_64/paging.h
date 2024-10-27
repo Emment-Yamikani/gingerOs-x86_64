@@ -51,8 +51,8 @@ typedef union pte {
         u64 p       : 1;
         u64 w       : 1;
         u64 u       : 1;
-        u64 pwt     : 1;
-        u64 pcd     : 1;
+        u64 wt      : 1;
+        u64 cd      : 1;
         u64 a       : 1;
         u64 d       : 1;
         u64 ps      : 1;
@@ -66,7 +66,7 @@ typedef union pte {
     u64 raw;
 } __packed pte_t;
 
-extern pte_t _PML4_[512] __aligned(0x1000);
+extern pte_t _PML4_[512] __aligned(0x1000ull);
 
 typedef union viraddr {
     struct {
@@ -100,16 +100,9 @@ typedef union viraddr {
 #define iL_INV(i)               (((i) < 0) || ((i) >= NPTE))
 
 #define PML4                    ((pte_t *)(0xFFFFFFFFFFFFF000ull))
-#define PDPT(i4)                ((pte_t *)(0xFFFFFFFFFFE00000ull + (PGSZ * (u64)(i4))))
-#define PDT(i4, i3)             ((pte_t *)(0xFFFFFFFFC0000000ull + (PGSZ2MB * (u64)(i4)) + (PGSZ * (u64)(i3))))
-#define PT(i4, i3, i2)          ((pte_t *)(0xFFFFFF8000000000ull + (PGSZ1GB * (u64)(i4)) + (PGSZ2MB * (u64)(i3)) + (PGSZ * (u64)(i2))))
-
-/*
-#define PML4                    ({(pte_t *)(0xFFFF_FF7F_BFDF_E000ull); })
-#define PDPT(PDPi)              ({(pte_t *)(0xFFFF_FF7F_BFC0_0000ull + (0x1000ul * ((usize)PDPi))); })
-#define PDT(PDPi, PDi)          ({(pte_t *)(0xFFFF_FF7F_8000_0000ull + (0x200000ul * ((usize)PDPi)) + (0x1000ul * ((usize)PDi)) ); })
-#define PT(PDPi, PDi, PTi)      ({(pte_t *)(0xFFFF_FF00_0000_0000ull + (0x40000000ul * ((usize)PDPi)) + (0x200000ul * ((usize)PDi)) + (0x1000ul * ((usize)PTi))); })
-*/
+#define PDPT(i4)                ((pte_t *)(0xFFFFFFFFFFE00000ull + (0x1000ull * (u64)(i4))))
+#define PDT(i4, i3)             ((pte_t *)(0xFFFFFFFFC0000000ull + (0x200000ull * (u64)(i4)) + (0x1000ull * (u64)(i3))))
+#define PT(i4, i3, i2)          ((pte_t *)(0xFFFFFF8000000000ull + (0x40000000ull * (u64)(i4)) + (0x200000ull * (u64)(i3)) + (0x1000ull * (u64)(i2))))
 
 #define PML4E(i4)               ({ &PML4[i4]; })
 #define PDPTE(i4, i3)           ({ &PDPT(i4)[i3]; })

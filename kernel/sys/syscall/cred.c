@@ -67,8 +67,8 @@ uid_t getuid(void) {
 }
 
 gid_t getgid(void) {
-    gid_t            gid    = 0;
-    cred_t          *cred   = NULL;
+    gid_t    gid    = 0;
+    cred_t  *cred   = NULL;
 
     current_lock();
     cred = current->t_cred;
@@ -82,8 +82,8 @@ gid_t getgid(void) {
 }
 
 uid_t geteuid(void) {
-    uid_t uid = 0;
-    cred_t *cred = NULL;
+    uid_t   uid     = 0;
+    cred_t  *cred   = NULL;
 
     current_lock();
     
@@ -113,8 +113,8 @@ gid_t getegid(void) {
 }
 
 int setuid(uid_t uid) {
-    int             err     = 0;
-    cred_t          *cred   = NULL;
+    int     err     = 0;
+    cred_t  *cred   = NULL;
 
     current_lock();
 
@@ -136,8 +136,8 @@ int setuid(uid_t uid) {
 }
 
 int setgid(gid_t gid) {
-    int          err    = 0;
-    cred_t       *cred  = NULL;
+    int     err    = 0;
+    cred_t  *cred  = NULL;
 
     current_lock();
     
@@ -158,8 +158,8 @@ int setgid(gid_t gid) {
 }
 
 int seteuid(uid_t euid) {
-    int             err     = 0;
-    cred_t          *cred   = NULL;
+    int     err     = 0;
+    cred_t  *cred   = NULL;
 
     current_lock();
     
@@ -180,8 +180,8 @@ int seteuid(uid_t euid) {
 }
 
 int setegid(gid_t egid) {
-    int             err     = 0;
-    cred_t          *cred   = NULL;
+    int     err     = 0;
+    cred_t  *cred   = NULL;
 
     current_lock();
     
@@ -202,8 +202,8 @@ int setegid(gid_t egid) {
 }
 
 mode_t umask(mode_t cmask) {
-    mode_t      omask   = 0;
-    cred_t      *cred = NULL;
+    mode_t  omask   = 0;
+    cred_t  *cred = NULL;
 
     current_lock();
     cred = current->t_cred;
@@ -219,9 +219,9 @@ mode_t umask(mode_t cmask) {
 }
 
 int getcwd(char *buf, size_t size) {
-    int ret     = 0;
-    char *path  = NULL;
-    size_t      len = 0;
+    int         ret       = 0;
+    size_t      len       = 0;
+    char        *path     = NULL;
     file_ctx_t  *file_ctx = NULL;
 
     if (buf == NULL)

@@ -118,9 +118,9 @@ int mmap_alloc(mmap_t **ref) {
 }
 
 int mmap_mapin(mmap_t *mm, vmr_t *r) {
-    int err = 0;
-    uintptr_t addr = 0;
-    usize hole = 0;
+    int         err  = 0;
+    uintptr_t   addr = 0;
+    usize       hole = 0;
 
     // Validate the input parameters
     if (mm == NULL || r == NULL)
@@ -183,7 +183,7 @@ int mmap_mapin(mmap_t *mm, vmr_t *r) {
 
             node->prev = r;
             r->refs++;  // Increment reference for the new node
-            
+
             r->mmap = mm;
             mm->refs++;
             mm->used_space += __vmr_size(r);
@@ -659,8 +659,8 @@ int mmap_map_region(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flag
     if (__flags_stack(flags) && !__prot_rw(prot))
         return -EINVAL;
 
-    len = __flags_stack(flags) ? len + mmap->guard_len : len;
-    whence = __flags_stack(flags) ? __whence_end : __whence_start;
+    len     = __flags_stack(flags) ? len + mmap->guard_len : len;
+    whence  = __flags_stack(flags) ? __whence_end : __whence_start;
 
     if (!__flags_fixed(flags)) {
         if ((err = mmap_find_holeat(mmap, addr, len, &addr, whence)))
@@ -808,7 +808,11 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
     uintptr_t end       = addr + len - 1;
     vmr_t     *r        = NULL, *split0 = NULL, *split1 = NULL, tmp = {0};
     
-    if (mmap == NULL || len == 0)
+    printk("[%d:%d:%d]: %s:%d: mmap_protect(mmap(%p), addr(%p), len(%d), prot(%x));\n",
+        gettid(), getpid(), getppid(), __FILE__, __LINE__, mmap, addr, len, prot
+    );
+
+    if ((mmap == NULL) || (len == 0))
         return -EINVAL;
 
     mmap_assert_locked(mmap);
@@ -825,9 +829,9 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
     if (__isstack(r))
         return -EACCES;
 
-    _prot_ |= __vmr_read(r)     ? PROT_READ     : 0;
-    _prot_ |= __vmr_write(r)    ? PROT_WRITE    : 0;
-    _prot_ |= __vmr_exec(r)     ? PROT_EXEC     : 0;
+    _prot_ |= __vmr_read(r)  ? PROT_READ  : 0;
+    _prot_ |= __vmr_write(r) ? PROT_WRITE : 0;
+    _prot_ |= __vmr_exec(r)  ? PROT_EXEC  : 0;
 
     if (_prot_ == prot)
         return 0;
@@ -840,7 +844,7 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
 
     if (__prot_exec(prot) && __prot_write(_prot_))
         return -EACCES;
-        
+
     if (len < __vmr_size(r)) {
         if ((err = vmr_alloc(&split0)))
             return err;
@@ -912,7 +916,6 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
     flags |= (mmap->flags & MMAP_USER)  ? PTE_U : 0;
 
     r->vflags = flags;
-
     // TODO: reverse split if failure.
     return arch_mprotect(__vmr_start(r), __vmr_size(r), __vmr_vflags(r));
 }

@@ -14,6 +14,26 @@ void main(void) {
         NULL
     };
 
+    int err = 0;
+    int fd  = 0;
+    struct stat st;
+    char *buf = NULL;
+
+    if ((err = stat("/ramfs/dev", &st)))
+        panic("error: %d.", err);
+
+    if (NULL == (buf = malloc(st.st_size + 1)))
+        panic("Failed to allocate memory.");
+
+    memset(buf, 0, st.st_size);
+
+    if ((err = fd = open("/ramfs/dev", O_RDONLY, 0)))
+        panic("Failed to read device lookup list. err: %d", err);
+
+    read(fd, buf, st.st_size);
+
+    printf("BUF: %s\n", buf);
+
     loop() {
         if ((sh = fork()) < 0)
             panic("Failed to fork shell\n");
