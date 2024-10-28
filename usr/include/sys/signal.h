@@ -108,7 +108,6 @@ typedef unsigned long sigset_t;
 
 int pause(void);
 int kill(pid_t pid, int signo);
-unsigned long alarm(unsigned long sec);
 sigfunc_t signal(int signo, sigfunc_t func);
 
 #define SIG_BLOCK   (1)

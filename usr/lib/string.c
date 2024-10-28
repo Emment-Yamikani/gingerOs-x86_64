@@ -631,10 +631,11 @@ int compare_strings(const char *s0, const char *s1) {
     return strcmp((char *)s0, (char *)s1);
 }
 
-#if 0
+#include <stdlib.h>
+
 char *strdup(const char *s) {
     int len = strlen((const char *)s) + 1;
-    char *str = (char *)kmalloc(len);
+    char *str = (char *)malloc(len);
     if (!str)
         return (char *)0;
     strcpy(str, (char *)s);
@@ -652,7 +653,7 @@ grabtok(char *s, int *rlen, int c) {
     while (*s && (*s++ != c))
         len++;
     s = buf;
-    tok = kmalloc(len + 1);
+    tok = malloc(len + 1);
     memset(tok, 0, len + 1);
     safestrncpy(tok, s, len + 1);
     if (rlen)
@@ -671,7 +672,7 @@ char **tokenize(char *s, int c, size_t *ntoks, char **plast_tok) {
         return NULL;
 
     len = strlen(s);
-    buf = kmalloc(len + 1);
+    buf = malloc(len + 1);
 
     memset(buf, 0, len + 1);
     strncpy(buf, s, len);
@@ -682,7 +683,7 @@ char **tokenize(char *s, int c, size_t *ntoks, char **plast_tok) {
         *tmp2-- = '\0';
 
     for (int len = 0; *buf; ++i) {
-        tokens = krealloc(tokens, (sizeof(char *) * (i + 1)));
+        tokens = realloc(tokens, (sizeof(char *) * (i + 1)));
         while (*buf && (*buf == c))
             buf++;
         char *tok = grabtok(buf, &len, c);
@@ -692,9 +693,9 @@ char **tokenize(char *s, int c, size_t *ntoks, char **plast_tok) {
         buf += len;
     }
 
-    tokens = krealloc(tokens, (sizeof(char *) * (i + 1)));
+    tokens = realloc(tokens, (sizeof(char *) * (i + 1)));
     tokens[i] = NULL;
-    kfree(tmp);
+    free(tmp);
 
     if (ntoks)
         *ntoks = i;
@@ -707,8 +708,8 @@ void tokens_free(char **tokens) {
     if (!tokens)
         return;
     foreach (token, tokens)
-        kfree(token);
-    kfree(tokens);
+        free(token);
+    free(tokens);
 }
 
 char **canonicalize_path(const char *path, size_t *ntoks, char **plast) {
@@ -723,7 +724,7 @@ char *combine_strings(const char *s0, const char *s1) {
         return NULL;
 
     size_t string_len = strlen(s0) + strlen(s1) + 1;
-    char *string = (typeof(string))kmalloc(string_len);
+    char *string = (typeof(string))malloc(string_len);
 
     if (!string)
         return NULL;
@@ -734,4 +735,5 @@ char *combine_strings(const char *s0, const char *s1) {
     return string;
 }
 
+#if 0
 #endif

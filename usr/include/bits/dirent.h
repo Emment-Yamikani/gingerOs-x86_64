@@ -8,8 +8,7 @@
 #define MAX_NAME_LEN 256
 
 
-struct dirent
-{
+struct dirent {
     ino_t d_ino;             /* Inode number */
     off_t d_off;             /* Not an offset; see below */
     unsigned short d_reclen; /* Length of this record */
@@ -18,8 +17,7 @@ struct dirent
     char d_name[MAX_NAME_LEN];        /* Null-terminated filename */
 };
 
-typedef struct 
-{
+typedef struct {
     int fd; // open file descriptoy
     int next;
 } DIR;

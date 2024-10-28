@@ -878,6 +878,23 @@ int printf(const char *restrict format, ...) {
   return ret;
 }
 
+static int cb_fprintf(void * user, char c) {
+	fputc(c,(FILE*)user);
+	return 0;
+}
+
+int fprintf(FILE *stream, const char * fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	int out = _vsnprintf((void *)cb_fprintf, (char *)stream, (size_t)-1, fmt, args);
+	va_end(args);
+	return out;
+}
+
+int vfprintf(FILE * stream, const char *fmt, va_list args) {
+  return _vsnprintf((void *)cb_fprintf, (char *)stream, (size_t)-1, fmt, args);
+}
+
 void panic(const char *restrict format, ...) {
   va_list va;
   va_start(va, format);
@@ -888,7 +905,6 @@ void panic(const char *restrict format, ...) {
   va_end(va);
   loop();
 }
-
 
 int sprintf(char* buffer, const char* format, ...)
 {

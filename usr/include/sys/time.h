@@ -27,7 +27,16 @@ typedef struct timeval {
 } timeval_t;
 int gettimeofday(struct timeval *restrict tp, void *restrict tzp);
 
+struct timezone
+{
+    int tz_minuteswest; /* minutes west of Greenwich */
+    int tz_dsttime;     /* type of DST correction */
+};
+
+extern int settimeofday(struct timeval *p, void *z);
+
 clock_t clock(void);
+
 
 struct tm *localtime(const time_t *timer);
 struct tm *localtime_r(const time_t *restrict timer,

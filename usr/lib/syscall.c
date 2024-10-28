@@ -1,6 +1,6 @@
 #include <api.h>
 
-void putc(int c) {
+void xputc(int c) {
     sys_putc(c);
 }
 

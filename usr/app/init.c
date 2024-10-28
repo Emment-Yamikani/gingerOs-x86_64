@@ -31,9 +31,7 @@ void main(void) {
         panic("Failed to read device lookup list. err: %d", err);
 
     read(fd, buf, st.st_size);
-
-    printf("BUF: %s\n", buf);
-
+    
     loop() {
         if ((sh = fork()) < 0)
             panic("Failed to fork shell\n");

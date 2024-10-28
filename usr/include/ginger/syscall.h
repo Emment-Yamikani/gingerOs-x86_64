@@ -3,11 +3,11 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <types.h>
-#include <sys/_signal.h>
+#include <sys/signal.h>
 #include <bits/stat.h>
 #include <ginger/ginger.h>
-#include <sys/_time.h>
-#include <sys/_utsname.h>
+#include <sys/time.h>
+#include <sys/utsname.h>
 #include <sys/mman.h>
 
 
