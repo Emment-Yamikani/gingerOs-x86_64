@@ -24,7 +24,8 @@
 #define DEV_UART    6   // minor=0
 #define DEV_PSAUX   10  // minor=1
 #define DEV_HPET    10  // minor=228
-#define DEV_MOUSE0  13  // minor=
+#define DEV_KBD0    13  // minor=0
+#define DEV_MOUSE0  13  // minor=1
 #define DEV_FB      29  // minor=0
 #define DEV_PTS     136 // minor=x
 #define DEV_CPU     202 // minor=x
