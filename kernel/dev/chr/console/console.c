@@ -19,7 +19,7 @@ static int console_probe(void) {
 }
 
 static int console_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", "console");
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", consoledev.devname);
     if (bootinfo.fb.type == 1)
         use_fb = 1;
 
@@ -49,6 +49,9 @@ static int console_ioctl(struct devid *dd __unused, int req __unused, void *argp
 }
 
 static isize console_write(struct devid *dd __unused, off_t off __unused, void *buf __unused, usize sz __unused) {
+    for (char *c = buf; sz--; ++c) {
+        console_putc(*c);
+    }
     return 0;
 }
 

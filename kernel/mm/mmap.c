@@ -808,9 +808,9 @@ int mmap_protect(mmap_t *mmap, uintptr_t addr, size_t len, int prot) {
     uintptr_t end       = addr + len - 1;
     vmr_t     *r        = NULL, *split0 = NULL, *split1 = NULL, tmp = {0};
     
-    printk("[%d:%d:%d]: %s:%d: mmap_protect(mmap(%p), addr(%p), len(%d), prot(%x));\n",
-        gettid(), getpid(), getppid(), __FILE__, __LINE__, mmap, addr, len, prot
-    );
+    // printk("[%d:%d:%d]: %s:%d: mmap_protect(mmap(%p), addr(%p), len(%d), prot(%x));\n",
+        // gettid(), getpid(), getppid(), __FILE__, __LINE__, mmap, addr, len, prot
+    // );
 
     if ((mmap == NULL) || (len == 0))
         return -EINVAL;

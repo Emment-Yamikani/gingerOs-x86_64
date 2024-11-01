@@ -15,7 +15,7 @@ void main(void) {
     if ((err = ptmx = open("/dev/ptmx", O_RDWR, 0)) < 0)
         panic("Failed to open ptmx,, err: %d\n", err);
 
-    read(ptmx, NULL, 0);    
+    write(ptmx, "Hello world. :)\n", 17);    
 
     panic("Sucessfully opened device\n");
 }
