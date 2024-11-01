@@ -1,16 +1,7 @@
 #include <bits/errno.h>
 #include <dev/dev.h>
 
-static int      ps2kbd_init(void);
-static int      ps2kbd_probe(void);
-static int      ps2kbd_close(struct devid *dd);
-static int      ps2kbd_getinfo(struct devid *dd, void *info);
-static int      ps2kbd_open(struct devid *dd);
-static int      ps2kbd_ioctl(struct devid *dd, int req, void *argp);
-static off_t    ps2kbd_lseek(struct devid *dd, off_t off, int whence);
-static ssize_t  ps2kbd_read(struct devid *dd, off_t off, void *buf, size_t sz);
-static ssize_t  ps2kbd_write(struct devid *dd, off_t off, void *buf, size_t sz);
-static int      ps2kbd_mmap(struct devid *dd, vmr_t *region);
+DEV_DECL_OPS(static, ps2kbd);
 
 static DEV_INIT(ps2kbd, FS_CHR, DEV_KBD0, 0);
 
