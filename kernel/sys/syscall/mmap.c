@@ -14,11 +14,13 @@ void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off) {
     file_t  *file   = NULL;
     vmr_t   *region = NULL;
 
-    printk("[%d:%d:%d]: mmap(%p, %d, %d, %d, %d, %d)\n",
-        thread_self(), getpid(), getppid(), addr, len, prot, flags, fd, off);
+    // printk("[%d:%d:%d]: mmap(%p, %d, %d, %d, %d, %d)\n",
+        // thread_self(), getpid(), getppid(),
+        // addr, len, prot, flags, fd, off
+    // );
 
     // MAP_ANON can only be passed with fd == -1, return error otherwise.
-    if (__flags_anon(flags) && fd != -1)
+    if (__flags_anon(flags) && (fd != -1))
         return (void *)-EINVAL;
 
     // get the address space(mmap) struct of the current process.
@@ -40,7 +42,7 @@ void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off) {
     */
     if ((err = file_get(fd, &file)))
         goto error;
-    
+
     region->filesz  = len;
     region->file_pos= off;
     region->flags  |= VM_FILE;

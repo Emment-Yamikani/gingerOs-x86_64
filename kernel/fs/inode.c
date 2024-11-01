@@ -239,14 +239,18 @@ error:
 }
 
 int iopen(inode_t *ip) {
+    int err = 0;
+
     if (ip == NULL)
         return -EINVAL;
     iassert_locked(ip);
 
-    idupcnt(ip);
+    // idupcnt(ip);
 
-    // TODO: add filesystem specific open here if need be.
-    return 0;
+    if ((err = icheck_op(ip, iopen)))
+        return err;
+
+    return ip->i_ops->iopen(ip);
 }
 
 int ibind(inode_t *dir, struct dentry *dentry, inode_t *ip) {
@@ -388,9 +392,13 @@ int iunlink(inode_t *ip) {
 }
 
 int ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
-    int err = 0;
+    int     err = 0;
+    inode_t *ip = NULL;
     
     iassert_locked(dir);
+
+    if (dir == NULL || fname == NULL || pipp == NULL)
+        return -EINVAL;
 
     if (IISDIR(dir) == 0)
         return -ENOTDIR;
@@ -398,7 +406,18 @@ int ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     if ((err = icheck_op(dir, ilookup)))
         return err;
     
-    return dir->i_ops->ilookup(dir, fname, pipp);
+    if ((err = dir->i_ops->ilookup(dir, fname, &ip)))
+        return err;
+
+    /// perform an inode open operation on the newly looked up inode.
+    /// TODO: is this the best place for this though?
+    if ((err = iopen(ip))) {
+        irelease(ip);
+        return err;
+    }
+
+    *pipp = ip;
+    return 0;
 }
 
 int icreate(inode_t *dir, const char *fname, mode_t mode) {

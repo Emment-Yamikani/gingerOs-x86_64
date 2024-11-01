@@ -111,20 +111,19 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
         goto error;
 
     thread->t_mmap = mmap;
+
     thread_setmain(thread);
     thread_setlast(thread);
     thread_set_killexcept(thread);
     assert_msg(0 == (err = thread_join_group(thread)),
         "%s:%d: Failed to joing tgroup. error: %d\n", __FILE__, __LINE__, err);
 
-
     thread->t_entry  = entry;
     thread->t_sched  = current->t_sched;
     sigdesc          = current->t_sigdesc;
     thread->t_sigmask= current->t_sigmask;
 
-    if ((err = thread_execve(
-        thread, entry,
+    if ((err = thread_execve(thread, entry,
         (const char **)args.argv,
         (const char **)args.envp
     ))) goto error;

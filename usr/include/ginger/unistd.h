@@ -2,7 +2,7 @@
 
 #include <api.h>
 
-void putc(int c);
+void xputc(int c);
 int close(int fd);
 int unlink(int fd);
 int dup(int fd);

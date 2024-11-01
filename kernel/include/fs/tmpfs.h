@@ -3,6 +3,7 @@
 int tmpfs_init(void);
 int tmpfs_new_inode(itype_t type, inode_t **pip);
 
+int     tmpfs_iopen(inode_t *idev);
 int     tmpfs_isync(inode_t *ip);
 int     tmpfs_iclose(inode_t *ip);
 int     tmpfs_iunlink(inode_t *ip);

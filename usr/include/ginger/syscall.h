@@ -3,11 +3,11 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <types.h>
-#include <sys/_signal.h>
+#include <sys/signal.h>
 #include <bits/stat.h>
 #include <ginger/ginger.h>
-#include <sys/_time.h>
-#include <sys/_utsname.h>
+#include <sys/time.h>
+#include <sys/utsname.h>
 #include <sys/mman.h>
 
 
@@ -42,71 +42,70 @@ extern int      sys_pipe(int fds[2]);
 extern int      sys_mkdir(const char *filename, mode_t mode);
 extern int      sys_mknod(const char *filename, mode_t mode, int devid);
 
-extern pid_t    sys_wait(int *stat_loc);
-extern int      sys_uname(struct utsname *name);
-extern int      sys_chown(const char *pathname, uid_t uid, gid_t gid);
-extern int      sys_fchown(int fd, uid_t uid, gid_t gid);
-extern int      sys_gettimeofday(struct timeval *restrict tp, void *restrict tzp);
-extern mode_t   sys_umask(mode_t cmask);
 extern int      sys_isatty(int fd);
+extern pid_t    sys_wait(int *stat_loc);
+extern mode_t   sys_umask(mode_t cmask);
+extern int      sys_uname(struct utsname *name);
+extern int      sys_fchown(int fd, uid_t uid, gid_t gid);
+extern int      sys_chown(const char *pathname, uid_t uid, gid_t gid);
+extern int      sys_gettimeofday(struct timeval *restrict tp, void *restrict tzp);
 
 /** @brief PROTECTION */
 
 extern uid_t    sys_getuid(void);
+extern gid_t    sys_getgid(void);
 extern uid_t    sys_geteuid(void);
 extern gid_t    sys_getegid(void);
-extern gid_t    sys_getgid(void);
 extern int      sys_setuid(uid_t uid);
+extern int      sys_setgid(gid_t gid);
 extern int      sys_seteuid(uid_t euid);
 extern int      sys_setegid(gid_t egid);
-extern int      sys_setgid(gid_t gid);
 
 extern int      sys_park(void);
 extern int      sys_unpark(tid_t);
 
 extern pid_t    sys_fork(void);
-extern pid_t    sys_waitpid(pid_t __pid, int *__stat_loc, int __options);
-extern void     sys_exit(int exit_code);
 extern pid_t    sys_getpid(void);
 extern pid_t    sys_getppid(void);
-extern int      sys_execve(const char *pathname, char *const argv[],
-                  char *const envp[]);
+extern void     sys_exit(int exit_code);
+extern pid_t    sys_waitpid(pid_t __pid, int *__stat_loc, int __options);
+extern int      sys_execve(const char *pathname, char *const argv[], char *const envp[]);
 
-extern long     sys_sleep(long seconds);
 extern tid_t    sys_gettid(void);
-extern void     sys_thread_exit(int exit_code);
-extern int      sys_thread_create(tid_t *ptidp, void *attr, void *(*entry)(void *arg), void *arg);
-extern int      sys_thread_join(tid_t tid, void **retval);
-extern tid_t    sys_thread_self(void);
 extern void     sys_thread_yield();
+extern tid_t    sys_thread_self(void);
+extern long     sys_sleep(long seconds);
+extern void     sys_thread_exit(int exit_code);
+extern int      sys_thread_join(tid_t tid, void **retval);
+extern int      sys_thread_create(tid_t *ptidp, void *attr, void *(*entry)(void *arg), void *arg);
 
 /** @brief SIGNALS */
 
 extern int      sys_pause(void);
 extern int      sys_raise(int signo);
-extern int      sys_kill(pid_t pid, int signo);
 extern unsigned sys_alarm(unsigned sec);
-extern sigfunc_t sys_signal(int signo, sigfunc_t func);
-extern int      sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
+extern int      sys_kill(pid_t pid, int signo);
 extern int      sys_sigpending(sigset_t *set);
-extern int      sys_sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact);
+extern sigfunc_t sys_signal(int signo, sigfunc_t func);
 extern int      sys_pthread_kill(tid_t thread, int signo);
 extern int      sys_sigwait(const sigset_t *restrict set, int *restrict signop);
+extern int      sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 extern int      sys_pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
+extern int      sys_sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact);
 
 /** @brief MEMORY MANAGEMENT */
 
-void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
-int sys_munmap(void *addr, size_t len);
-int sys_mprotect(void *addr, size_t len, int prot);
 int sys_getpagesize(void);
 int sys_getmemusage(meminfo_t *info);
+int sys_munmap(void *addr, size_t len);
+int sys_mprotect(void *addr, size_t len, int prot);
+void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
 
 /** @brief  PROCESS(JOB) RELATIONSHIPS. */
 
-pid_t   sys_getsid(pid_t pid);
 pid_t   sys_setsid(void);
 pid_t   sys_getpgrp(void);
 pid_t   sys_setpgrp(void);
+pid_t   sys_getsid(pid_t pid);
 pid_t   sys_getpgid(pid_t pid);
 int     sys_setpgid(pid_t pid, pid_t pgid);

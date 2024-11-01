@@ -68,7 +68,7 @@
 - [x] ginger ramfs
 - [x] tmpfs
 - [x] devfs
-- [ ] pipefs
+- [x] pipefs
 - [ ] sysfs
 - [ ] ext2fs
 - [ ] FAT32

@@ -50,6 +50,8 @@ typedef struct file_t {
 #define fislocked(file)       ({ fassert(file); spin_islocked(&(file)->f_lock); })
 #define fassert_locked(file)  ({ fassert(file); spin_assert_locked(&(file)->f_lock); })
 
+int     file_alloc(int *ref, file_t **fref);
+
 int     falloc(file_t **pfp);
 void    fdestroy(file_t *file);
 int     fdup(file_t *file);

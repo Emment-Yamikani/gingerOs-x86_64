@@ -10,8 +10,7 @@
 #define __magic_len 16
 #define __max_fname 64
 
-typedef struct ramfs2_node
-{
+typedef struct ramfs2_node {
     int         mode;
     int         type;
     int         uid, gid;
@@ -20,8 +19,7 @@ typedef struct ramfs2_node
     char        name[__max_fname];
 } ramfs2_node_t;
 
-typedef struct ramfs2_super_header
-{
+typedef struct ramfs2_super_header {
     char        magic[__magic_len];
     uint32_t    nfile;
     uint32_t    checksum; // checksum of magic, node->size(s), ramfs2_size and super_size.
@@ -31,8 +29,7 @@ typedef struct ramfs2_super_header
     uint32_t    data_offset;
 } ramfs2_super_header_t;
 
-typedef struct ramfs2_super
-{
+typedef struct ramfs2_super {
     ramfs2_super_header_t   header;
     ramfs2_node_t           nodes[];
 } ramfs2_super_t;

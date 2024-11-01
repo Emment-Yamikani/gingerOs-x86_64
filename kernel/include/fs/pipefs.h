@@ -55,6 +55,7 @@ typedef struct __pipe_t {
 int     pipefs_init(void);
 int     pipe_mkpipe(pipe_t **pref);
 
+int     pipefs_iopen(inode_t *idev);
 int     pipefs_isync(inode_t *ip);
 int     pipefs_iclose(inode_t *ip);
 int     pipefs_iunlink(inode_t *ip);

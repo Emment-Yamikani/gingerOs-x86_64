@@ -47,7 +47,7 @@ USR_SOURCES := $(wildcard $(USR_DIR)/*.c $(USR_DIR)/*.asm)
 USR_OBJS := $(patsubst $(USR_DIR)/%.c, $(USR_DIR)/%.o, $(patsubst $(USR_DIR)/%.asm, $(USR_DIR)/%.o, $(USR_SOURCES)))
 
 # User library source files
-USER_LIB_SOURCES := $(wildcard $(USR_LIB)/*.c $(USR_LIB)/*.asm)
+USER_LIB_SOURCES := $(shell find $(USR_LIB) -type f \( -name '*.c' -o -name '*.asm' -o -name '*.S' \))
 USER_LIB_OBJS := $(patsubst $(USR_LIB)/%.c, $(USR_LIB)/%.o, $(patsubst $(USR_LIB)/%.asm, $(USR_LIB)/%.o, $(USER_LIB_SOURCES)))
 
 # Shared object file
@@ -89,8 +89,8 @@ debug:
 	objdump -d $(ISO_DIR)/boot/lime.elf -M intel > lime.asm
 
 run:
-	qemu-system-x86_64 -smp 1 \
-	-m size=64M -cdrom ginger.iso \
+	qemu-system-x86_64 -smp 2 \
+	-m size=512M -cdrom ginger.iso \
 	-no-reboot -no-shutdown -vga std \
 	-chardev stdio,id=char0,logfile=serial.log,signal=off \
 	-serial chardev:char0
@@ -136,5 +136,7 @@ clean_debug:
 	rm lime.asm
 
 clean:
-	rm -rf $(KERNEL_OBJS) $(KERNEL_OBJS:.o=.d) $(LINKED_OBJS) $(LINKED_OBJS:.o=.d) $(USR_LIB)/*.o $(USR_LIB)/*.d $(LIBC_SO) $(USR_OBJS) $(USR_LIB)/libc.a $(USR_OBJS:.o=.d) $(APP_DIR)/*.o $(APP_DIR)/*.d ginger.iso $(ISO_DIR)/modules/initrd $(ISO_DIR)/boot/lime.elf $(ISO_DIR)/modules/* serial.log
+	rm -rf $(KERNEL_OBJS) $(KERNEL_OBJS:.o=.d) $(LINKED_OBJS) $(LINKED_OBJS:.o=.d) $(USER_LIB_OBJS) $(USER_LIB_OBJS:.o=.d) $(LIBC_SO) $(USR_OBJS) $(USR_LIB)/libc.a $(USR_OBJS:.o=.d) $(APP_DIR)/*.o $(APP_DIR)/*.d ginger.iso $(ISO_DIR)/modules/initrd $(ISO_DIR)/boot/lime.elf $(ISO_DIR)/modules/* serial.log
 
+clean_usr:
+	rm -rf $(USER_LIB_OBJS) $(USER_LIB_OBJS:.o=.d) $(LIBC_SO) $(USR_OBJS) $(USR_LIB)/libc.a $(USR_OBJS:.o=.d) $(APP_DIR)/*.o $(APP_DIR)/*.d

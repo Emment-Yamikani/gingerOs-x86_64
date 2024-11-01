@@ -7,6 +7,7 @@
 #include <fs/devtmpfs.h>
 
 iops_t dev_iops = {
+    .iopen      = dev_iopen,
     .isync      = dev_isync,
     .iclose     = dev_iclose,
     .iunlink    = dev_iunlink,
@@ -27,6 +28,13 @@ iops_t dev_iops = {
     .ilink      = dev_ilink,
     .irename    = dev_irename,
 };
+
+int dev_iopen(inode_t *idev) {
+    if (idev == NULL)
+        return -EINVAL;
+    
+    return kdev_open(IDEVID(idev));
+}
 
 int dev_isync(inode_t *idev) {
     if (idev == NULL)

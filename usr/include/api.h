@@ -11,9 +11,9 @@
 #include <ginger/syscall.h>
 #include <ginger/rtc.h>
 
-#include <sys/_signal.h>
-#include <sys/_time.h>
-#include <sys/_wait.h>
+#include <sys/signal.h>
+#include <sys/time.h>
+#include <sys/wait.h>
 #include <sys/system.h>
 
 #include <cpuid.h>

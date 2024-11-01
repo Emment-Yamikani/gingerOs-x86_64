@@ -10,16 +10,13 @@ pid_t getppid(void) {
     proc_lock(curproc);
 
     if (curproc->parent == NULL) {
-        pid = -EINVAL;
-        goto out;
+        proc_unlock(curproc);
+        return -1;
     }
 
     proc_lock(curproc->parent);
     pid = curproc->parent->pid;
     proc_unlock(curproc->parent);
-
-out:
-    proc_unlock(curproc);
-
+    
     return pid;
 }

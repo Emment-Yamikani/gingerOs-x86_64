@@ -14,6 +14,7 @@ static filesystem_t *pipefs = NULL;
 __unused static superblock_t *pipefs_sb = NULL;
 
 static iops_t pipefs_iops = {
+    .iopen      = pipefs_iopen,
     .isync      = pipefs_isync,
     .iclose     = pipefs_iclose,
     .iunlink    = pipefs_iunlink,
@@ -153,6 +154,10 @@ error:
 
 int pipefs_isync(inode_t *ip __unused) {
     return -ENOSYS;
+}
+
+int pipefs_iopen(inode_t *ip __unused) {
+    return 0;
 }
 
 int pipefs_iclose(inode_t *ip) {

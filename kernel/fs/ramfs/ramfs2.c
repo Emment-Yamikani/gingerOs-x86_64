@@ -215,7 +215,7 @@ static int ramfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     return 0;
 };
 
-__unused static int ramfs2_open(inode_t *ip __unused, int mode __unused, ...) {
+static int ramfs2_open(inode_t *ip __unused) {
     return 0;
 }
 
@@ -328,7 +328,7 @@ int ramfs2_mmap(file_t *file __unused, vmr_t *vmr __unused) {
 
 static iops_t ramfs2_iops = {
     .ibind      = NULL,
-    // .iopen   = ramfs2_open,
+    .iopen      = ramfs2_open,
     .isync      = ramfs2_sync,
     // .ilseek  = ramfs2_lseek,
     // .ichown  = ramfs2_chown,
