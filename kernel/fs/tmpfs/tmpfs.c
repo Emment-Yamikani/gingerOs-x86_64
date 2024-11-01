@@ -48,6 +48,7 @@ static hash_ctx_t tmpfs_hash_ctx = {
 };
 
 static iops_t tmpfs_iops = {
+    .iopen      = tmpfs_iopen,
     .ibind      = tmpfs_ibind,
     .isync      = tmpfs_isync,
     .ilink      = tmpfs_ilink,
@@ -337,6 +338,10 @@ int tmpfs_imkdir(inode_t *dir, const char *fname, mode_t mode) {
 
 int tmpfs_icreate(inode_t *dir, const char *fname, mode_t mode) {
     return tmpfs_create_node(dir, fname, mode, FS_RGL, 0);
+}
+
+int tmpfs_iopen(inode_t *ip __unused) {
+    return 0;
 }
 
 int tmpfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {

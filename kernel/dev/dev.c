@@ -124,14 +124,14 @@ int     kdev_close(struct devid *dd) {
     return dev->devops.close(dd);
 }
 
-int     kdev_open(struct devid *dd, int oflags, ...) {
+int     kdev_open(struct devid *dd) {
     dev_t *dev = NULL;
     if (!(dev = kdev_get(dd)))
         return -ENXIO;
     
     if (!(dev->devops.open))
         return -ENOSYS;
-    return dev->devops.open(dd, oflags);
+    return dev->devops.open(dd);
 }
 
 off_t   kdev_lseek(struct devid *dd, off_t off, int whence) {

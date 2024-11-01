@@ -7,7 +7,7 @@ static int      ptmx_probe(void);
 static int      ptmx_close(struct devid *dd);
 static int      ptmx_mmap(struct devid *dd, vmr_t *region);
 static int      ptmx_getinfo(struct devid *dd, void *info);
-static int      ptmx_open(struct devid *dd, int oflags, ...);
+static int      ptmx_open(struct devid *dd);
 static int      ptmx_ioctl(struct devid *dd, int req, void *argp);
 static off_t    ptmx_lseek(struct devid *dd, off_t off, int whence);
 static ssize_t  ptmx_read(struct devid *dd, off_t off, void *buf, size_t sz);
@@ -36,7 +36,8 @@ static int ptmx_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-static int ptmx_open(struct devid *dd __unused, int oflags __unused, ...) {
+static int ptmx_open(struct devid *dd __unused) {
+    printk("Hello: %s: %d\n", __FILE__, __LINE__);
     return 0;
 }
 

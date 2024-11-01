@@ -9,12 +9,12 @@
 #include <mm/vmm.h>
 #include <boot/boot.h>
 
-static int pos = 0;
-static int cga_esc = 0;
-static uint8_t cga_attr = 0;
-static uint16_t *cga_addr = 0;
-static stack_t *cga_chars = STACK_NEW();
-static stack_t *cga_themes = STACK_NEW();
+static int      pos         = 0;
+static int      cga_esc     = 0;
+static uint8_t  cga_attr    = 0;
+static uint16_t *cga_addr   = 0;
+static stack_t  *cga_chars  = STACK_NEW();
+static stack_t  *cga_themes = STACK_NEW();
 
 void cga_setcolor(int back, int fore) {
     cga_attr = (back << 4) | fore;

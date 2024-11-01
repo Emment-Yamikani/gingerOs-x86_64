@@ -64,7 +64,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
      * use the currently set directory as the
      * requested path entry.
      */
-    if (!compare_strings("/", path->absolute)) {
+    if (string_eq("/", path->absolute)) {
         if (current_fctx()) {
             fctx_lock(current_fctx());
             if (path->directory != current_fctx()->fc_root) {
@@ -77,13 +77,20 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
             fctx_unlock(current_fctx());
         }
 
-        // test is we have an inode, needed especially during kernel startup.
+        // test if we have an inode, needed especially during kernel startup.
         if (path->directory->d_inode) {
             ilock(path->directory->d_inode);
             if ((err = icheck_perm(path->directory->d_inode, cred, oflags))) {
                 iunlock(path->directory->d_inode);
                 return err;
             }
+
+            // perform an inode open operation.
+            if ((err = iopen(path->directory->d_inode))) {
+                iunlock(path->directory->d_inode);
+                return err;
+            }
+
             iunlock(path->directory->d_inode);
         }
 
@@ -126,7 +133,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                         ilock(path->directory->d_inode);
                         if ((err = ilookup(path->directory->d_inode, token, &ip))) {
                             // reached the end of the path?
-                            if (!compare_strings(token, path->lasttoken)) {
+                            if (string_eq(token, path->lasttoken)) {
                                 vfspath_set_lasttoken(path);
                             }
                             iunlock(path->directory->d_inode);
@@ -160,7 +167,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                         irelease(ip);
 
                         // reached the end of the path?
-                        if (!compare_strings(token, path->lasttoken)) {
+                        if (string_eq(token, path->lasttoken)) {
                             vfspath_set_lasttoken(path);
                             /**
                              * we've reached the end of the path.
@@ -210,7 +217,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
         }
 
         // reached the end of the path?
-        if (!compare_strings(token, path->lasttoken)) {
+        if (string_eq(token, path->lasttoken)) {
             vfspath_set_lasttoken(path);
             /**
              * we've reached the end of the path.

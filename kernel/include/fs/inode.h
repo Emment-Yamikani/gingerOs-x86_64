@@ -85,6 +85,7 @@ typedef struct inode {
 } inode_t;
 
 typedef struct iops {
+    int     (*iopen)(inode_t *ip);
     int     (*irmdir)(inode_t *ip);
     int     (*isync)(inode_t *ip);
     int     (*iclose)(inode_t *ip);

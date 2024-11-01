@@ -8,7 +8,7 @@ static int null_init(void);
 static int null_probe(void);
 static int null_close(struct devid *dd);
 static int null_getinfo(struct devid *dd, void *info);
-static int null_open(struct devid *dd, int oflags, ...);
+static int null_open(struct devid *dd);
 static int null_ioctl(struct devid *dd, int req, void *argp);
 static off_t null_lseek(struct devid *dd, off_t off, int whence);
 static ssize_t null_read(struct devid *dd, off_t off, void *buf, size_t sz);
@@ -34,7 +34,7 @@ static int null_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-static int null_open(struct devid *dd __unused, int oflags __unused, ...) {
+static int null_open(struct devid *dd __unused) {
     return 0;
 }
 

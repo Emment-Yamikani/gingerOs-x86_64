@@ -8,7 +8,7 @@ static int full_init(void);
 static int full_probe(void);
 static int full_close(struct devid *dd);
 static int full_getinfo(struct devid *dd, void *info);
-static int full_open(struct devid *dd, int oflags, ...);
+static int full_open(struct devid *dd);
 static int full_ioctl(struct devid *dd, int req, void *argp);
 static off_t full_lseek(struct devid *dd, off_t off, int whence);
 static ssize_t full_read(struct devid *dd, off_t off, void *buf, size_t sz);
@@ -34,7 +34,7 @@ static int full_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-static int full_open(struct devid *dd __unused, int oflags __unused, ...) {
+static int full_open(struct devid *dd __unused) {
     return 0;
 }
 

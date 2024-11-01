@@ -6,6 +6,7 @@
 static filesystem_t *devtmpfs = NULL;
 
 static iops_t devtmpfs_iops = {
+    .iopen      = tmpfs_iopen,
     .ibind      = tmpfs_ibind,
     .isync      = tmpfs_isync,
     .ilink      = tmpfs_ilink,
@@ -81,8 +82,7 @@ int devtmpfs_init(void) {
     devtmpfs->get_sb = devtmpfs_getsb;
     devtmpfs->mount = NULL;
 
-    if ((err = vfs_register_fs(devtmpfs)))
-    {
+    if ((err = vfs_register_fs(devtmpfs))) {
         fsunlock(devtmpfs);
         goto error;
     }

@@ -42,7 +42,7 @@
 typedef struct {
     int     (*close)(struct devid *dd);
     int     (*getinfo)(struct devid *dd, void *info);
-    int     (*open)(struct devid *dd, int oflags, ...);
+    int     (*open)(struct devid *dd);
     off_t   (*lseek)(struct devid *dd, off_t off, int whence);
     int     (*ioctl)(struct devid *dd, int request, void *arg);
     ssize_t (*read)(struct devid *dd, off_t off, void *buf, size_t nbyte);
@@ -112,7 +112,7 @@ extern dev_t *kdev_get(struct devid *dd);
 extern int kdev_register(dev_t *, uint8_t major, uint8_t type);
 
 extern int     kdev_close(struct devid *dd);
-extern int     kdev_open(struct devid *dd, int oflags, ...);
+extern int     kdev_open(struct devid *dd);
 extern off_t   kdev_lseek(struct devid *dd, off_t off, int whence);
 extern int     kdev_ioctl(struct devid *dd, int request, void *argp);
 extern ssize_t kdev_read(struct devid *dd, off_t off, void *buf, size_t nbyte);

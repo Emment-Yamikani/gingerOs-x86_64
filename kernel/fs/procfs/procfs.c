@@ -9,6 +9,7 @@
 static filesystem_t *procfs = NULL;
 
 static iops_t procfs_iops = {
+    .iopen      = procfs_iopen,
     .isync      = procfs_isync,
     .iclose     = procfs_iclose,
     .iunlink    = procfs_iunlink,
@@ -95,6 +96,10 @@ error:
     if (procfs)
         fs_free(procfs);
     return err;
+}
+
+int procfs_iopen(inode_t *ip __unused) {
+    return 0;
 }
 
 int procfs_isync(inode_t *ip __unused) {

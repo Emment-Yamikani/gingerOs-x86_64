@@ -8,7 +8,7 @@ static int zero_init(void);
 static int zero_probe(void);
 static int zero_close(struct devid *dd);
 static int zero_getinfo(struct devid *dd, void *info);
-static int zero_open(struct devid *dd, int oflags, ...);
+static int zero_open(struct devid *dd);
 static int zero_ioctl(struct devid *dd, int req, void *argp);
 static off_t zero_lseek(struct devid *dd, off_t off, int whence);
 static ssize_t zero_read(struct devid *dd, off_t off, void *buf, size_t sz);
@@ -34,7 +34,7 @@ static int zero_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-static int zero_open(struct devid *dd __unused, int oflags __unused, ...) {
+static int zero_open(struct devid *dd __unused) {
     return 0;
 }
 

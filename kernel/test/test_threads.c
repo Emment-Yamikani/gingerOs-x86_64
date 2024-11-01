@@ -49,4 +49,4 @@ void test_main(void) {
 
     assert_msg(err == 0,
         "Failed to send signal to thread[%d], errno: %d\n", tid, err);
-} // BUILTIN_THREAD(test_main, test_main, NULL);
+} BUILTIN_THREAD(test_main, test_main, NULL);

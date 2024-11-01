@@ -12,9 +12,9 @@
 
 static int      fb_init(void);
 static int      fb_probe(void);
+static int      fb_open(struct devid *dd);
 static int      fb_close(struct devid *dd);
 static int      fb_getinfo(struct devid *dd, void *info);
-static int      fb_open(struct devid *dd, int oflags, ...);
 static int      fb_ioctl(struct devid *dd, int req, void *argp);
 static off_t    fb_lseek(struct devid *dd, off_t off, int whence);
 static ssize_t  fb_read(struct devid *dd, off_t off, void *buf, size_t sz);
@@ -108,7 +108,7 @@ static int fb_getinfo(struct devid *dd, void *info __unused) {
     return 0;
 }
 
-static int fb_open(struct devid *dd, int oflags __unused, ...) {
+static int fb_open(struct devid *dd) {
     if (dd == NULL || dd->major != DEV_FB ||
         dd->minor >= NFBDEV || dd->type != FS_CHR)
         return -EINVAL;

@@ -8,7 +8,7 @@ static int random_init(void);
 static int random_probe(void);
 static int random_close(struct devid *dd);
 static int random_getinfo(struct devid *dd, void *info);
-static int random_open(struct devid *dd, int oflags, ...);
+static int random_open(struct devid *dd);
 static int random_ioctl(struct devid *dd, int req, void *argp);
 static off_t random_lseek(struct devid *dd, off_t off, int whence);
 static ssize_t random_read(struct devid *dd, off_t off, void *buf, size_t sz);
@@ -34,7 +34,7 @@ static int random_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-static int random_open(struct devid *dd __unused, int oflags __unused, ...) {
+static int random_open(struct devid *dd __unused) {
     return 0;
 }
 

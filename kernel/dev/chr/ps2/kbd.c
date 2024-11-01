@@ -5,7 +5,7 @@ static int      ps2kbd_init(void);
 static int      ps2kbd_probe(void);
 static int      ps2kbd_close(struct devid *dd);
 static int      ps2kbd_getinfo(struct devid *dd, void *info);
-static int      ps2kbd_open(struct devid *dd, int oflags, ...);
+static int      ps2kbd_open(struct devid *dd);
 static int      ps2kbd_ioctl(struct devid *dd, int req, void *argp);
 static off_t    ps2kbd_lseek(struct devid *dd, off_t off, int whence);
 static ssize_t  ps2kbd_read(struct devid *dd, off_t off, void *buf, size_t sz);
@@ -31,7 +31,7 @@ static int ps2kbd_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-static int ps2kbd_open(struct devid *dd __unused, int oflags __unused, ...) {
+static int ps2kbd_open(struct devid *dd __unused) {
     return 0;
 }
 

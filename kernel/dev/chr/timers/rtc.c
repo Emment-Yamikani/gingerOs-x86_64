@@ -15,7 +15,7 @@
 int rtc_probe();
 int rtc_close(struct devid *dd);
 int rtc_getinfo(struct devid *dd, void *info);
-int rtc_open(struct devid *dd, int oflags, ...);
+int rtc_open(struct devid *dd);
 int rtc_ioctl(struct devid *dd, int req, void *argp);
 off_t rtc_lseek(struct devid *dd, off_t off, int whence);
 ssize_t rtc_read(struct devid *dd, off_t off, void *buf, size_t sz);
@@ -169,7 +169,7 @@ int rtc_probe(void) {
     return 0;
 }
 
-int rtc_open(struct devid *dd __unused, int oflags __unused, ...) {
+int rtc_open(struct devid *dd __unused) {
     return 0;
 }
 

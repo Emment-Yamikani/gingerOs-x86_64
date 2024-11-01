@@ -9,6 +9,7 @@
 static filesystem_t *sysfs = NULL;
 
 static iops_t sysfs_iops = {
+    .iopen      = sysfs_iopen,
     .isync      = sysfs_isync,
     .iclose     = sysfs_iclose,
     .iunlink    = sysfs_iunlink,
@@ -95,6 +96,10 @@ error:
     if (sysfs)
         fs_free(sysfs);
     return err;
+}
+
+int sysfs_iopen(inode_t *ip __unused) {
+    return 0;
 }
 
 int sysfs_isync(inode_t *ip __unused) {

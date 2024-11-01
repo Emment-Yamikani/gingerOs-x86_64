@@ -3,6 +3,7 @@
 
 int     procfs_init(void);
 
+int     procfs_iopen(inode_t *idev, int oflags, ...);
 int     procfs_isync(inode_t *ip);
 int     procfs_iclose(inode_t *ip);
 int     procfs_iunlink(inode_t *ip);
