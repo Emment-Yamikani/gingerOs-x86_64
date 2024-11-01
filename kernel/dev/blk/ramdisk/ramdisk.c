@@ -92,7 +92,7 @@ int     ramdisk_close(struct devid *dd __unused) {
     return 0;
 }
 
-int     ramdisk_open(struct devid *dd __unused, int oflags __unused, ...) {
+int     ramdisk_open(struct devid *dd __unused) {
     return 0;
 }
 

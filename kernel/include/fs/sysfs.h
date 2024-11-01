@@ -2,7 +2,7 @@
 
 int     sysfs_init(void);
 
-int     sysfs_iopen(inode_t *idev, int oflags, ...);
+int     sysfs_iopen(inode_t *idev);
 int     sysfs_isync(inode_t *ip);
 int     sysfs_iclose(inode_t *ip);
 int     sysfs_iunlink(inode_t *ip);
