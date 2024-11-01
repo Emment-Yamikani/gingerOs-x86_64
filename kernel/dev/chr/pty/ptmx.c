@@ -44,6 +44,7 @@ int ptmx_alloc(PTY *ref) {
 
             pty->slave   = slave;
             pty->master  = master;
+            pty->pt_id   = pty - pseudo_terms;
             pty->pt_flags |= PTY_USED | PTY_LOCKED;
             pty->pt_lock = SPINLOCK_INIT(); 
             

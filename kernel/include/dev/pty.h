@@ -36,3 +36,4 @@ typedef struct pty_t {
 
 
 extern int pseudo_init(void);
+extern int ptmx_alloc(PTY *ref);

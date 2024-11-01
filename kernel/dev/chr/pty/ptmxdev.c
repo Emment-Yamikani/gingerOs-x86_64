@@ -1,6 +1,8 @@
 #include <bits/errno.h>
 #include <dev/dev.h>
 #include <dev/pty.h>
+#include <lib/printk.h>
+#include <lib/string.h>
 
 DEV_DECL_OPS(static, ptmx);
 
@@ -28,7 +30,16 @@ static int ptmx_getinfo(struct devid *dd __unused, void *info __unused) {
 }
 
 static int ptmx_open(struct devid *dd __unused) {
-    
+    int     err = 0;
+    PTY     pty = NULL;
+    char    ptyname[64];
+
+    if ((err = pty_alloc(&pty)))
+        return err;
+
+    memset(ptyname, 0, sizeof ptyname);
+    snprintf(ptyname, sizeof ptyname, "/dev/pts/%d", pty->pt_id);
+
     return 0;
 }
 
