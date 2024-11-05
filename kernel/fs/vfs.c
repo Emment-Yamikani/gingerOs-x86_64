@@ -74,6 +74,11 @@ int vfs_init(void) {
         "/ramfs/", "/proc/", "/sys/", NULL,
     };
 
+    const char *dev_dirs[] = {
+        "/dev/block", "/dev/bus", "/dev/char", "/dev/cpu", "/dev/disk",
+        "/dev/input", "/dev/net", "/dev/pts", "/dev/shm", NULL
+    };
+
     if ((err = dalloc("/", &droot)))
         return err;
 
@@ -99,6 +104,7 @@ int vfs_init(void) {
 
     if ((err = vfs_mount(NULL, "/", "tmpfs", 0, NULL)))
         return err;
+
     mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
 
     for (int i = 0; dir[i] ; ++i) {
@@ -111,6 +117,11 @@ int vfs_init(void) {
 
     if ((err = vfs_mount(NULL, "/dev/", "devtmpfs", 0, NULL)))
         return err;
+    
+    for (int i = 0; dev_dirs[i] ; ++i) {
+        if ((err = vfs_mkdir(dev_dirs[i], NULL, mode | S_IFDIR)))
+            return err;
+    }
 
     if ((err = vfs_mount(NULL, "/sys/", "sysfs", 0, NULL)))
         return err;

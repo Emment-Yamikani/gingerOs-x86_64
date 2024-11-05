@@ -47,7 +47,7 @@ int thread_kstack_alloc(usize size, uintptr_t *ret) {
 
     if (ret == NULL)
         return -EINVAL;
-    
+
     if (BADSTACKSZ(size))
         return -ERANGE;
     

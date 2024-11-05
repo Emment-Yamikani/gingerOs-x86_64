@@ -6,7 +6,8 @@
 #include <lib/string.h>
 #include <fs/stat.h>
 
-int vfs_mknodat(const char *pathname, dentry_t *dir, cred_t *cred, mode_t mode, devid_t dev) {
+int vfs_mknodat(const char *pathname, dentry_t *dir,
+                    cred_t *cred, mode_t mode, devid_t dev) {
     int         err   = 0;
     vfspath_t   *path = NULL;
     
@@ -15,7 +16,8 @@ int vfs_mknodat(const char *pathname, dentry_t *dir, cred_t *cred, mode_t mode, 
         mode |= S_IFREG; // Default to regular file
     }
     
-    if (!S_ISCHR(mode) && !S_ISBLK(mode) && !S_ISFIFO(mode) && !S_ISSOCK(mode) && !S_ISREG(mode)) {
+    if (!S_ISCHR(mode) && !S_ISBLK(mode) &&
+        !S_ISFIFO(mode) && !S_ISSOCK(mode) && !S_ISREG(mode)) {
         return -EINVAL; // Invalid argument
     }
 

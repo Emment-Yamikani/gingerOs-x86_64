@@ -53,8 +53,7 @@ typedef struct {
 /**
  * @brief Macro to declare function ops for a device driver.
  * This is for easy and faster implemention to avoid duplication
- * as much as possible.
- */
+ * as much as possible.*/
 #define DEV_DECL_OPS(__privacy__, __prefix__)                                                     \
     __privacy__ int __prefix__##_init(void);                                                      \
     __privacy__ int __prefix__##_probe(void);                                                     \

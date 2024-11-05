@@ -31,10 +31,8 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
     /**
      * If no directory was specified
      * use the system's root directory.
-     * TODO: perhaps use the thread group's
-     * root directory?
-     * 
-     */
+     * TODO: perhaps use the thread's group
+     * root directory?*/
     if (path->directory == NULL) {
         if (current_fctx()) {
             fctx_lock(current_fctx());
@@ -62,8 +60,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
      * If the root directory was intended
      * do not perform the traversal but rather
      * use the currently set directory as the
-     * requested path entry.
-     */
+     * requested path entry.*/
     if (string_eq("/", path->absolute)) {
         if (current_fctx()) {
             fctx_lock(current_fctx());
@@ -119,7 +116,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
         }
         iunlock(path->directory->d_inode);
 
-        /** Lookup 'token' in the dentry's cache
+        /** Lookup 'token' in the dentry cache
          * of children. unlock 'path->directory' if err != -ENOENT*/
         if ((err = dlookup(path->directory, token, &dentry))) {
             if (err == -ENOENT) { // path component not found.

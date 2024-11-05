@@ -5,6 +5,14 @@
 #include <fs/dentry.h>
 #include <sys/system.h>
 
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
+
+#ifndef NAME_MAX
+#define NAME_MAX 255
+#endif
+
 typedef struct vfspath_t {
     int         flags;          // flags specifying how to parse the given path.
     dentry_t    *dentry;        // if lookup succeeded, this is the dentry we were searching for.
