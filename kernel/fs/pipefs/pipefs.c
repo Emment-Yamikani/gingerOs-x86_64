@@ -156,7 +156,7 @@ int pipefs_isync(inode_t *ip __unused) {
     return -ENOSYS;
 }
 
-int pipefs_iopen(inode_t *ip __unused) {
+int pipefs_iopen(inode_t *ip __unused, inode_t **pip __unused) {
     return 0;
 }
 

@@ -41,9 +41,9 @@ error:
 }
 
 static int ramdisk_new(const char *name, ramdisk_t **ref) {
-    int err = 0;
-    int minor = 0;
-    ramdisk_t *rd = NULL;
+    int         err     = 0;
+    int         minor   = 0;
+    ramdisk_t   *rd     = NULL;
 
     if (!ref || !name)
         return -EINVAL;
@@ -60,9 +60,9 @@ static int ramdisk_new(const char *name, ramdisk_t **ref) {
         goto error;
 
     rd->dd.minor = minor;
+    rd->dd.type  = FS_BLK;
     rd->dd.major = DEV_RAMDISK;
-    rd->lock = SPINLOCK_INIT();
-    rd->dd.type = FS_BLK;
+    rd->lock     = SPINLOCK_INIT();
 
     *ref = rd;
     return 0;
@@ -92,7 +92,7 @@ int     ramdisk_close(struct devid *dd __unused) {
     return 0;
 }
 
-int     ramdisk_open(struct devid *dd __unused) {
+int     ramdisk_open(struct devid *dd __unused, inode_t **pip __unused) {
     return 0;
 }
 

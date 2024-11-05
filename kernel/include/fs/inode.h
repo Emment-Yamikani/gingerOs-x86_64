@@ -85,12 +85,12 @@ typedef struct inode {
 } inode_t;
 
 typedef struct iops {
-    int     (*iopen)(inode_t *ip);
     int     (*irmdir)(inode_t *ip);
     int     (*isync)(inode_t *ip);
     int     (*iclose)(inode_t *ip);
     int     (*iunlink)(inode_t *ip);
     int     (*itruncate)(inode_t *ip);
+    int     (*iopen)(inode_t *ip, inode_t **pip);
     int     (*igetattr)(inode_t *ip, void *attr);
     int     (*isetattr)(inode_t *ip, void *attr);
     int     (*ifcntl)(inode_t *ip, int cmd, void *argp);
@@ -161,7 +161,6 @@ typedef struct iops {
 
 
 int     ialloc(itype_t type, int flags, inode_t **pip);
-int     iopen(inode_t *ip);
 void    iputcnt(inode_t *ip);
 void    idupcnt(inode_t *ip);
 void    iputlink(inode_t *ip);
@@ -173,6 +172,7 @@ int     imkalias(inode_t *ip, const char *name, struct dentry **dentry);
 
 int     icheck_perm(inode_t *ip, cred_t *cred, int oflags);
 
+int     iopen(inode_t *ip, inode_t **pip);
 int     istat(inode_t *ip, struct stat *buf);
 int     isync(inode_t *ip);
 int     iclose(inode_t *ip);

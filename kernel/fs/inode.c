@@ -238,19 +238,17 @@ error:
     return err;
 }
 
-int iopen(inode_t *ip) {
+int iopen(inode_t *ip __unused, inode_t **pip __unused) {
     int err = 0;
 
     if (ip == NULL)
         return -EINVAL;
     iassert_locked(ip);
 
-    // idupcnt(ip);
-
     if ((err = icheck_op(ip, iopen)))
         return err;
 
-    return ip->i_ops->iopen(ip);
+    return ip->i_ops->iopen(ip, pip);
 }
 
 int ibind(inode_t *dir, struct dentry *dentry, inode_t *ip) {
@@ -408,13 +406,6 @@ int ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     
     if ((err = dir->i_ops->ilookup(dir, fname, &ip)))
         return err;
-
-    /// perform an inode open operation on the newly looked up inode.
-    /// TODO: is this the best place for this though?
-    if ((err = iopen(ip))) {
-        irelease(ip);
-        return err;
-    }
 
     *pipp = ip;
     return 0;

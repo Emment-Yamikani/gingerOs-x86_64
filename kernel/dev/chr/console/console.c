@@ -36,7 +36,7 @@ int console_putc(int c) {
     return 0;
 }
 
-static int console_open(struct devid *dd __unused) {
+static int console_open(struct devid *dd __unused, inode_t **pip __unused) {
     return 0;
 }
 

@@ -98,7 +98,7 @@ error:
     return err;
 }
 
-int sysfs_iopen(inode_t *ip __unused) {
+int sysfs_iopen(inode_t *ip __unused, inode_t **pip __unused) {
     return 0;
 }
 

@@ -4,16 +4,7 @@
 #include <lib/printk.h>
 #include <bits/errno.h>
 
-static int zero_init(void);
-static int zero_probe(void);
-static int zero_close(struct devid *dd);
-static int zero_getinfo(struct devid *dd, void *info);
-static int zero_open(struct devid *dd);
-static int zero_ioctl(struct devid *dd, int req, void *argp);
-static off_t zero_lseek(struct devid *dd, off_t off, int whence);
-static ssize_t zero_read(struct devid *dd, off_t off, void *buf, size_t sz);
-static ssize_t zero_write(struct devid *dd, off_t off, void *buf, size_t sz);
-static int zero_mmap(struct devid *dd, vmr_t *region);
+DEV_DECL_OPS(static, zero);
 
 static DEV_INIT(zero, FS_CHR, DEV_ZERO, 5);
 
@@ -34,7 +25,7 @@ static int zero_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-static int zero_open(struct devid *dd __unused) {
+static int zero_open(struct devid *dd __unused, inode_t **pip __unused) {
     return 0;
 }
 

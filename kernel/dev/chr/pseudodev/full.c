@@ -4,16 +4,7 @@
 #include <bits/errno.h>
 #include <lib/printk.h>
 
-static int full_init(void);
-static int full_probe(void);
-static int full_close(struct devid *dd);
-static int full_getinfo(struct devid *dd, void *info);
-static int full_open(struct devid *dd);
-static int full_ioctl(struct devid *dd, int req, void *argp);
-static off_t full_lseek(struct devid *dd, off_t off, int whence);
-static ssize_t full_read(struct devid *dd, off_t off, void *buf, size_t sz);
-static ssize_t full_write(struct devid *dd, off_t off, void *buf, size_t sz);
-static int full_mmap(struct devid *dd, vmr_t *region);
+DEV_DECL_OPS(static, full);
 
 static DEV_INIT(full, FS_CHR, DEV_FULL, 7);
 
@@ -34,7 +25,7 @@ static int full_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-static int full_open(struct devid *dd __unused) {
+static int full_open(struct devid *dd __unused, inode_t **pip __unused) {
     return 0;
 }
 

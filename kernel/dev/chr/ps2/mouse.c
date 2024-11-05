@@ -1,16 +1,7 @@
 #include <bits/errno.h>
 #include <dev/dev.h>
 
-static int      ps2mouse_init(void);
-static int      ps2mouse_probe(void);
-static int      ps2mouse_close(struct devid *dd);
-static int      ps2mouse_getinfo(struct devid *dd, void *info);
-static int      ps2mouse_open(struct devid *dd);
-static int      ps2mouse_ioctl(struct devid *dd, int req, void *argp);
-static off_t    ps2mouse_lseek(struct devid *dd, off_t off, int whence);
-static ssize_t  ps2mouse_read(struct devid *dd, off_t off, void *buf, size_t sz);
-static ssize_t  ps2mouse_write(struct devid *dd, off_t off, void *buf, size_t sz);
-static int      ps2mouse_mmap(struct devid *dd, vmr_t *region);
+DEV_DECL_OPS(static, ps2mouse);
 
 static DEV_INIT(ps2mouse, FS_CHR, DEV_MOUSE0, 1);
 
@@ -31,7 +22,7 @@ static int ps2mouse_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-static int ps2mouse_open(struct devid *dd __unused) {
+static int ps2mouse_open(struct devid *dd __unused, inode_t **pip __unused) {
     return 0;
 }
 

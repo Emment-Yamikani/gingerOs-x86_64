@@ -22,7 +22,7 @@ static int ps2kbd_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-static int ps2kbd_open(struct devid *dd __unused) {
+static int ps2kbd_open(struct devid *dd __unused, inode_t **pip __unused) {
     return 0;
 }
 

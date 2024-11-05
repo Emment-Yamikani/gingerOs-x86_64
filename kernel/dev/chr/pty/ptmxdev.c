@@ -30,7 +30,7 @@ static int ptmx_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-static int ptmx_open(struct devid *dd __unused) {
+static int ptmx_open(struct devid *dd __unused, inode_t **pip __unused) {
     char    name[64];
     int     err     = 0;
     PTY     pty     = NULL;

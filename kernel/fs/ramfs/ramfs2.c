@@ -215,7 +215,7 @@ static int ramfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
     return 0;
 };
 
-static int ramfs2_open(inode_t *ip __unused) {
+static int ramfs2_open(inode_t *ip __unused, inode_t **pip __unused) {
     return 0;
 }
 

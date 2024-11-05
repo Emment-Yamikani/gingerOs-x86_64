@@ -10,15 +10,7 @@
 #include <arch/paging.h>
 #include <modules/module.h>
 
-static int      fb_init(void);
-static int      fb_probe(void);
-static int      fb_open(struct devid *dd);
-static int      fb_close(struct devid *dd);
-static int      fb_getinfo(struct devid *dd, void *info);
-static int      fb_ioctl(struct devid *dd, int req, void *argp);
-static off_t    fb_lseek(struct devid *dd, off_t off, int whence);
-static ssize_t  fb_read(struct devid *dd, off_t off, void *buf, size_t sz);
-static ssize_t  fb_write(struct devid *dd, off_t off, void *buf, size_t sz);
+DEV_DECL_OPS(static, fb);
 
 static int fb_mmap(struct devid *dd, vmr_t *region);
 static int fb_vmr_fault(vmr_t *region, vm_fault_t *fault);
@@ -108,7 +100,7 @@ static int fb_getinfo(struct devid *dd, void *info __unused) {
     return 0;
 }
 
-static int fb_open(struct devid *dd) {
+static int fb_open(struct devid *dd __unused, inode_t **pip __unused) {
     if (dd == NULL || dd->major != DEV_FB ||
         dd->minor >= NFBDEV || dd->type != FS_CHR)
         return -EINVAL;

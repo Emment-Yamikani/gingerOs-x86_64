@@ -81,13 +81,6 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                 iunlock(path->directory->d_inode);
                 return err;
             }
-
-            // perform an inode open operation.
-            if ((err = iopen(path->directory->d_inode))) {
-                iunlock(path->directory->d_inode);
-                return err;
-            }
-
             iunlock(path->directory->d_inode);
         }
 

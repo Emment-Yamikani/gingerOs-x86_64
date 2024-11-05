@@ -41,13 +41,13 @@
 
 typedef struct {
     int     (*close)(struct devid *dd);
+    int     (*open)(struct devid *dd, inode_t **pip);
+    int     (*mmap)(struct devid *dd, vmr_t *region);
     int     (*getinfo)(struct devid *dd, void *info);
-    int     (*open)(struct devid *dd);
     off_t   (*lseek)(struct devid *dd, off_t off, int whence);
     int     (*ioctl)(struct devid *dd, int request, void *arg);
     ssize_t (*read)(struct devid *dd, off_t off, void *buf, size_t nbyte);
     ssize_t (*write)(struct devid *dd, off_t off, void *buf, size_t nbyte);
-    int     (*mmap)(struct devid *dd, vmr_t *region);
 } devops_t;
 
 /**
@@ -59,7 +59,7 @@ typedef struct {
     __privacy__ int __prefix__##_probe(void);                                                     \
     __privacy__ int __prefix__##_close(struct devid *dd);                                         \
     __privacy__ int __prefix__##_getinfo(struct devid *dd, void *info);                           \
-    __privacy__ int __prefix__##_open(struct devid *dd);                                          \
+    __privacy__ int __prefix__##_open(struct devid *dd, inode_t **pip);                           \
     __privacy__ off_t __prefix__##_lseek(struct devid *dd, off_t off, int whence);                \
     __privacy__ int __prefix__##_ioctl(struct devid *dd, int request, void *arg);                 \
     __privacy__ ssize_t __prefix__##_read(struct devid *dd, off_t off, void *buf, size_t nbyte);  \
@@ -90,10 +90,10 @@ typedef struct dev {
 
 #define DEVID_PTR(_type, _rdev) (&DEVID(_type, _rdev))
 
-#define IDEVID(inode)       (&(struct devid){                  \
-    .major = ((devid_t)((inode)->i_rdev)) & 0xff,        \
-    .minor = (((devid_t)((inode)->i_rdev)) >> 8) & 0xff, \
-    .type = ((itype_t)(inode)->i_type),                  \
+#define IDEVID(__ip__) (&(struct devid){                  \
+    .major = ((devid_t)((__ip__)->i_rdev)) & 0xff,        \
+    .minor = (((devid_t)((__ip__)->i_rdev)) >> 8) & 0xff, \
+    .type = ((itype_t)(__ip__)->i_type),                  \
 })
 
 #define DEVID_CMP(dd0, dd1) ({((dd0)->major == (dd1)->major && (dd0)->minor == (dd1)->minor);})
@@ -129,12 +129,12 @@ extern dev_t *kdev_get(struct devid *dd);
 extern int kdev_register(dev_t *, uint8_t major, uint8_t type);
 
 extern int     kdev_close(struct devid *dd);
-extern int     kdev_open(struct devid *dd);
+extern int     kdev_open(struct devid *dd, inode_t **pip);
+extern int     kdev_mmap(struct devid *dd, vmr_t *region);
 extern off_t   kdev_lseek(struct devid *dd, off_t off, int whence);
 extern int     kdev_ioctl(struct devid *dd, int request, void *argp);
 extern ssize_t kdev_read(struct devid *dd, off_t off, void *buf, size_t nbyte);
 extern ssize_t kdev_write(struct devid *dd, off_t off, void *buf, size_t nbyte);
-extern int     kdev_mmap(struct devid *dd, vmr_t *region);
 
 typedef struct {
     size_t bi_size;

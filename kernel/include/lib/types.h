@@ -62,11 +62,6 @@ typedef     int                     susseconds_t;
 typedef     struct timeval          timeval_t;
 typedef     struct timespec         timespec_t;
 
-struct devid {
-    uint8_t     major;
-    uint8_t     minor;
-    uint8_t     type;
-};
 
 typedef     uint16_t                devid_t;
 typedef     signed long             ssize_t;
@@ -74,6 +69,13 @@ typedef     signed long             ssize_t;
 typedef     struct inode*           INODE;
 typedef     struct inode            inode_t;
 typedef     struct __pipe_t         pipe_t;
+
+struct devid {
+    inode_t     *inode;
+    uint8_t     major;
+    uint8_t     minor;
+    uint8_t     type;
+};
 
 struct devid;
 typedef     struct dev              dev_t;

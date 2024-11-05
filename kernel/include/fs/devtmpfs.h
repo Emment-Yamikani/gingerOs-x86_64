@@ -9,7 +9,7 @@
 
 int devtmpfs_init(void);
 
-int     dev_iopen(inode_t *idev);
+int     dev_iopen(inode_t *ip, inode_t **pip);
 int     dev_isync(inode_t *ip);
 int     dev_iclose(inode_t *ip);
 int     dev_iunlink(inode_t *ip);

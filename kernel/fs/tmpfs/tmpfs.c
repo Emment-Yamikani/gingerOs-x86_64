@@ -340,7 +340,7 @@ int tmpfs_icreate(inode_t *dir, const char *fname, mode_t mode) {
     return tmpfs_create_node(dir, fname, mode, FS_RGL, 0);
 }
 
-int tmpfs_iopen(inode_t *ip __unused) {
+int tmpfs_iopen(inode_t *ip __unused, inode_t **pip __unused) {
     return 0;
 }
 
@@ -452,6 +452,7 @@ ssize_t tmpfs_iread(inode_t *ip, off_t off, void *buf, size_t sz) {
 
     if ((off >= tino->size) || data == NULL)
         return -1;
+
     sz = MIN((tino->size - off), sz);
     memcpy(buf, (data + off), sz);
 

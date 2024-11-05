@@ -28,7 +28,7 @@ int vfs_mknodat(const char *pathname, dentry_t *dir,
                 goto creat;
         }
         
-         if (path) {
+        if (path) {
             assert(path->directory, "On error, path has no directory\n");
             dclose(path->directory);
         }

@@ -4,17 +4,7 @@
 #include <lib/printk.h>
 #include <bits/errno.h>
 
-static int null_init(void);
-static int null_probe(void);
-static int null_close(struct devid *dd);
-static int null_getinfo(struct devid *dd, void *info);
-static int null_open(struct devid *dd);
-static int null_ioctl(struct devid *dd, int req, void *argp);
-static off_t null_lseek(struct devid *dd, off_t off, int whence);
-static ssize_t null_read(struct devid *dd, off_t off, void *buf, size_t sz);
-static ssize_t null_write(struct devid *dd, off_t off, void *buf, size_t sz);
-static int null_mmap(struct devid *dd, vmr_t *region);
-
+DEV_DECL_OPS(static, null);
 static DEV_INIT(null, FS_CHR, DEV_NULL, 3);
 
 static int null_init(void) {
@@ -34,7 +24,7 @@ static int null_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-static int null_open(struct devid *dd __unused) {
+static int null_open(struct devid *dd __unused, inode_t **pip __unused) {
     return 0;
 }
 

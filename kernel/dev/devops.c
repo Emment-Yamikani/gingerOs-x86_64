@@ -29,11 +29,18 @@ iops_t dev_iops = {
     .irename    = dev_irename,
 };
 
-int dev_iopen(inode_t *idev) {
+int dev_iopen(inode_t *idev, inode_t **pip) {
+    int     err = 0;
+    inode_t *ip = NULL;
+
     if (idev == NULL)
         return -EINVAL;
     
-    return kdev_open(IDEVID(idev));
+    if ((err = kdev_open(IDEVID(idev), &ip)))
+        return err;
+    
+    if (pip) *pip = ip;
+    return 0;
 }
 
 int dev_isync(inode_t *idev) {
