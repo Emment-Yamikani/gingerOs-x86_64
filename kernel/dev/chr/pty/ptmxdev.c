@@ -30,30 +30,47 @@ static int ptmx_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-static int ptmx_open(struct devid *dd __unused, inode_t **pip __unused) {
-    char    name[64];
+static int ptmx_open(struct devid *dd __unused, inode_t **pip) {
     int     err     = 0;
     PTY     pty     = NULL;
-    mode_t  mode    = S_IFCHR | 0; // mode will be set by grantpt().
     cred_t  *cred   = NULL;
+    inode_t *ip     = NULL; 
 
     if ((err = ptmx_alloc(&pty)))
         return err;
 
-    memset(name, 0, sizeof name);
-    snprintf(name, sizeof name, "/dev/pts/%d", pty->pt_id);
+    if ((err = ialloc(FS_CHR, 0, &ip))) {
+        ptmx_free(pty);
+        return err;
+    }
 
     cred = current_cred();
 
-    if ((err = vfs_mknod(name, cred, mode, DEV_T(DEV_PTS, pty->pt_id)))) {
-        printk("%s:%d: Failed, error: %d\n", __FILE__, __LINE__, err);
-        goto error;
+    cred_lock(cred);
+    ip->i_mode= 0644;
+    ip->i_gid = cred->c_gid;
+    ip->i_uid = cred->c_uid;
+    cred_unlock(cred);
+
+    ip->i_size= 1;
+    ip->i_priv=(void *)(u64)pty->pt_id;
+    ip->i_rdev= DEV_T(DEV_PTMX, 2);
+
+    pty->pt_imaster = ip;
+    ip->i_priv      = (void *)pty;
+
+    idupcnt(ip);
+
+    if ((err = pts_create_slave(pty))) {
+        idupcnt(ip);
+        irelease(ip);
+        ptmx_free(pty);
+        return err;
     }
 
-
+    pty_unlock(pty);
+    *pip = ip;
     return 0;
-error:
-    return err;
 }
 
 static int ptmx_ioctl(struct devid *dd __unused, int req __unused, void *argp __unused) {

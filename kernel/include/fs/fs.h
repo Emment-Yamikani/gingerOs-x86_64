@@ -108,7 +108,7 @@ int vfs_lookup(const char *fn, cred_t *cred, int oflags, dentry_t **pdp);
 int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred, int oflags, dentry_t **pdp);
 
 int vfs_mknod(const char *pathname, cred_t *cred, mode_t mode, devid_t dev);
-int vfs_mknodat(const char *pathname, dentry_t *dir, cred_t *cred, mode_t mode, devid_t dev);
+int vfs_mknodat(dentry_t *dir, const char *pathname, cred_t *cred, mode_t mode, devid_t dev);
 
 int vfs_mkdir(const char *path, cred_t *cred, mode_t mode);
 int vfs_mkdirat(const char *pathname, dentry_t *dir, cred_t *cred, mode_t mode);

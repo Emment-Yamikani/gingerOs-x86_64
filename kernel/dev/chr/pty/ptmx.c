@@ -42,11 +42,12 @@ int ptmx_alloc(PTY *ref) {
                 return err;
             }
 
+            pty->pt_refs = 1;
             pty->slave   = slave;
             pty->master  = master;
+            pty->pt_lock = SPINLOCK_INIT(); 
             pty->pt_id   = pty - pseudo_terms;
             pty->pt_flags |= PTY_USED | PTY_LOCKED;
-            pty->pt_lock = SPINLOCK_INIT(); 
             
             pty_lock(pty);
 
@@ -59,4 +60,23 @@ int ptmx_alloc(PTY *ref) {
     pseudo_unlock();
 
     return -ENOMEM;
+}
+
+void ptmx_free(PTY pty) {
+    pty_assert(pty);
+
+    pseudo_lock();
+
+    if (!pty_islocked(pty))
+        pty_lock(pty);
+
+    if (--pty->pt_refs <= 0) {
+        pty->pt_refs  = 0;
+        pty->pt_flags = 0; // mark it free.
+        ringbuf_free(pty->slave);
+        ringbuf_free(pty->master);
+    }
+
+    pty_unlock(pty);
+    pseudo_unlock();
 }

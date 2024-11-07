@@ -393,7 +393,8 @@ builtin_thread_t __used_section(.__builtin_thrds) \
         .thread_entry = entry,                    \
 }
 
-#define BUILTIN_THREAD_ANOUNCE(name)    ({ printk("\"%s\" thread [tid: %d] running...\n", name, thread_self()); })
+#define BUILTIN_THREAD_ANOUNCE(name)    ({ printk("%s:%d: \"%s\" thread [tid: %d] running...\n", \
+    __FILE__, __LINE__, name, thread_self()); })
 
 #define STACKSZMIN      (KiB(32))
 #define KSTACKSZ        (STACKSZMIN)

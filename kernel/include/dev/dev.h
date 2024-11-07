@@ -9,8 +9,7 @@
 #include <sync/spinlock.h>
 #include <modules/module.h>
 
-/**
- * Character Devices */
+/*Character Devices */
 
 #define DEV_MEM     1   // minor=1
 #define DEV_NULL    1   // minor=3
@@ -32,8 +31,7 @@
 #define DEV_CPU_MSR 203 // minor=x
 #define DEV_RTC0    248 // minor=0
 
-/**
- * Block Devices*/
+/*Block Devices*/
 
 #define DEV_RAMDISK 0   // minor=1
 #define DEV_SDA     8   // minor=x
@@ -64,8 +62,18 @@ typedef struct {
     __privacy__ int __prefix__##_ioctl(struct devid *dd, int request, void *arg);                 \
     __privacy__ ssize_t __prefix__##_read(struct devid *dd, off_t off, void *buf, size_t nbyte);  \
     __privacy__ ssize_t __prefix__##_write(struct devid *dd, off_t off, void *buf, size_t nbyte); \
-    __privacy__ int __prefix__##_mmap(struct devid *dd, vmr_t *region);
-;
+    __privacy__ int __prefix__##_mmap(struct devid *dd, vmr_t *region)
+
+#define DEVOPS(__prefix__)(devops_t){\
+    .close = __prefix__##_close,     \
+    .open = __prefix__##_open,       \
+    .mmap = __prefix__##_mmap,       \
+    .getinfo = __prefix__##_getinfo, \
+    .lseek = __prefix__##_lseek,     \
+    .ioctl = __prefix__##_ioctl,     \
+    .read = __prefix__##_read,       \
+    .write = __prefix__##_write,     \
+}
 
 typedef struct dev {
     struct devid    devid;

@@ -3,7 +3,7 @@
 
 void main(void) {
     int     err  = 0;
-    __unused int     pts  = 0;
+    int     pts  = 0;
     int     ptmx = 0;
     mode_t  mode =  S_IFCHR | S_IRUSR | S_IWUSR |
                     S_IRGRP | S_IWGRP | S_IROTH;
@@ -15,7 +15,20 @@ void main(void) {
     if ((err = ptmx = open("/dev/ptmx", O_RDWR, 0)) < 0)
         panic("Failed to open ptmx,, err: %d\n", err);
 
-    write(ptmx, "Hello world. :)\n", 17);    
+    write(ptmx, "Hello world. :)\n", 17);
+
+    if ((err = pts = open("/dev/pts/0", O_RDWR, 0)) < 0)
+        panic("Failed to open pts,, err: %d\n", err);
+
+    printf("Sucessfully opened device\n");
+
+    if ((err = ptmx = open("/dev/ptmx", O_RDWR, 0)) < 0)
+        panic("Failed to open ptmx,, err: %d\n", err);
+
+    write(ptmx, "Hello world. :)\n", 17);
+
+    if ((err = pts = open("/dev/pts/1", O_RDWR, 0)) < 0)
+        panic("Failed to open pts,, err: %d\n", err);
 
     panic("Sucessfully opened device\n");
 }

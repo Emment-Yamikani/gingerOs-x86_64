@@ -18,6 +18,8 @@ typedef struct pty_t {
     ringbuf_t   *master;
     ringbuf_t   *slave;
 
+    isize       pt_refs;        // pty ref count.
+
     #define PTY_USED    0x01    // is pseudoterminal struct used?
     #define PTY_LOCKED  0x02    // is pseudoterminal locked?
     u32         pt_flags;       // pseudoterminal flags.
@@ -37,3 +39,5 @@ typedef struct pty_t {
 
 extern int pseudo_init(void);
 extern int ptmx_alloc(PTY *ref);
+extern int pts_create_slave(PTY pty);
+extern void ptmx_free(PTY pty);
