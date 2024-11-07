@@ -80,3 +80,23 @@ void ptmx_free(PTY pty) {
     pty_unlock(pty);
     pseudo_unlock();
 }
+
+int pty_find(int id, PTY *pp) {
+    PTY pty = NULL;
+
+    if (pp == NULL)
+        return -EINVAL;
+    
+    pseudo_lock();
+    for (pty = pseudo_terms; pty < &pseudo_terms[NPTMX]; ++pty) {
+        if (pty->pt_id == id) {
+            pty_lock(pty);
+            pty->pt_refs++;
+            *pp = pty;
+            return 0;
+        }
+    }
+    pseudo_unlock();
+
+    return -ENOENT;
+}

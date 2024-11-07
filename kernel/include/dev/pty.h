@@ -41,3 +41,4 @@ extern int pseudo_init(void);
 extern int ptmx_alloc(PTY *ref);
 extern int pts_create_slave(PTY pty);
 extern void ptmx_free(PTY pty);
+extern int pty_find(int id, PTY *pp);

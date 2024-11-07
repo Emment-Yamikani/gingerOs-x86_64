@@ -15,20 +15,16 @@ void main(void) {
     if ((err = ptmx = open("/dev/ptmx", O_RDWR, 0)) < 0)
         panic("Failed to open ptmx,, err: %d\n", err);
 
-    write(ptmx, "Hello world. :)\n", 17);
-
     if ((err = pts = open("/dev/pts/0", O_RDWR, 0)) < 0)
         panic("Failed to open pts,, err: %d\n", err);
 
     printf("Sucessfully opened device\n");
 
-    if ((err = ptmx = open("/dev/ptmx", O_RDWR, 0)) < 0)
-        panic("Failed to open ptmx,, err: %d\n", err);
-
     write(ptmx, "Hello world. :)\n", 17);
 
-    if ((err = pts = open("/dev/pts/1", O_RDWR, 0)) < 0)
-        panic("Failed to open pts,, err: %d\n", err);
+    char buf[100] = {0};
+    read(pts, buf, sizeof buf);
 
+    printf("pts data: %s", buf);
     panic("Sucessfully opened device\n");
 }

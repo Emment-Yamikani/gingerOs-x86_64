@@ -81,11 +81,43 @@ static off_t ptmx_lseek(struct devid *dd __unused, off_t off __unused, int whenc
     return -ENOTSUP;
 }
 
-static ssize_t ptmx_read(struct devid *dd __unused, off_t off __unused, void *buf __unused, size_t sz __unused) {
-    return 0;
+static ssize_t ptmx_read(struct devid *dd, off_t off __unused, void *buf, size_t sz) {
+    PTY pty = NULL;
+
+    if (buf == NULL || dd->inode == NULL)
+        return -EINVAL;
+
+    if ((pty = (PTY)dd->inode->i_priv) == NULL)
+        return -EINVAL;
+
+    pty_lock(pty);
+
+    ringbuf_lock(pty->slave);
+    sz = ringbuf_read(pty->slave, buf, sz);
+    ringbuf_unlock(pty->slave);
+
+    pty_unlock(pty);
+
+    return sz;
 }
 
-static ssize_t ptmx_write(struct devid *dd __unused, off_t off __unused, void *buf __unused, size_t sz) {
+static ssize_t ptmx_write(struct devid *dd, off_t off __unused, void *buf, size_t sz) {
+    PTY     pty = NULL;
+
+    if (buf == NULL || dd->inode == NULL)
+        return -EINVAL;
+
+    if ((pty = (PTY)dd->inode->i_priv) == NULL)
+        return -EINVAL;
+
+    pty_lock(pty);
+
+    ringbuf_lock(pty->master);
+    sz = ringbuf_write(pty->master, buf, sz);
+    ringbuf_unlock(pty->master);
+
+    pty_unlock(pty);
+
     return sz;
 }
 

@@ -73,11 +73,43 @@ static off_t pts_lseek(struct devid *dd __unused, off_t off __unused, int whence
     return -ENOTSUP;
 }
 
-static ssize_t pts_read(struct devid *dd __unused, off_t off __unused, void *buf __unused, size_t sz __unused) {
-    return 0;
+static ssize_t pts_read(struct devid *dd, off_t off __unused, void *buf, size_t sz) {
+    int err = 0;
+    PTY pty = NULL;
+
+    if (buf == NULL)
+        return -EINVAL;
+
+    if ((err = pty_find(dd->minor, &pty)))
+        return err;
+
+    ringbuf_lock(pty->master);
+    sz = ringbuf_read(pty->master, buf, sz);
+    ringbuf_unlock(pty->master);
+
+    pty->pt_refs++;
+    pty_unlock(pty);
+
+    return sz;
 }
 
-static ssize_t pts_write(struct devid *dd __unused, off_t off __unused, void *buf __unused, size_t sz) {
+static ssize_t pts_write(struct devid *dd, off_t off __unused, void *buf, size_t sz) {
+    int err = 0;
+    PTY pty = NULL;
+
+    if (buf == NULL)
+        return -EINVAL;
+
+    if ((err = pty_find(dd->minor, &pty)))
+        return err;
+
+    ringbuf_lock(pty->slave);
+    sz = ringbuf_write(pty->slave, buf, sz);
+    ringbuf_unlock(pty->slave);
+
+    pty->pt_refs++;
+    pty_unlock(pty);
+
     return sz;
 }
 

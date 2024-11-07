@@ -99,6 +99,7 @@ typedef struct dev {
 #define DEVID_PTR(_type, _rdev) (&DEVID(_type, _rdev))
 
 #define IDEVID(__ip__) (&(struct devid){                  \
+    .inode = (inode_t *)(__ip__),                         \
     .major = ((devid_t)((__ip__)->i_rdev)) & 0xff,        \
     .minor = (((devid_t)((__ip__)->i_rdev)) >> 8) & 0xff, \
     .type = ((itype_t)(__ip__)->i_type),                  \
