@@ -119,7 +119,7 @@
 #include <ginger/syscall.h>
 
 void _putchar(char character) {
-  sys_putc(character);
+  sys_kputc(character);
 }
 
 // output function type

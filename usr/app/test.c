@@ -9,6 +9,8 @@ void main(void) {
                     S_IRGRP | S_IWGRP | S_IROTH;
     dev_t   dev  = mkdev(5, 2);
 
+    printf("Hello, World!\n");
+
     if ((err = mknod("/dev/ptmx", mode, dev)))
         panic("Failed to make device node. err= %d\n", err);
 

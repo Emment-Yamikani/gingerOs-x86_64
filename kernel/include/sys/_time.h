@@ -23,10 +23,15 @@ struct tm {
 
 typedef struct timeval {
     time_t          tv_sec;  // Seconds.
-    susseconds_t    tv_usec; // Microseconds.
+    suseconds_t    tv_usec; // Microseconds.
 } timeval_t;
 
-#define TIMESPEC_TO_TIMEVAL(ts, tv) ({           \
+struct timezone {
+    int tz_minuteswest; /* minutes west of Greenwich */
+    int tz_dsttime;     /* type of DST correction */
+};
+
+#define TIMESPEC_TO_TIMEVAL(ts, tv) ({        \
     do                                        \
     {                                         \
         (tv)->tv_sec = (ts)->tv_sec;          \

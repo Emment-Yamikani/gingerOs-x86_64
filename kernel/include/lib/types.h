@@ -58,7 +58,7 @@ typedef     long                    time_t;
 typedef     long                    timer_t;
 typedef     long                    clock_t;
 typedef     long                    clockid_t;
-typedef     int                     susseconds_t;
+typedef     int                     suseconds_t;
 typedef     struct timeval          timeval_t;
 typedef     struct timespec         timespec_t;
 

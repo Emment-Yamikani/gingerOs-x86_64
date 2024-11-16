@@ -11,7 +11,7 @@
 #include <sys/mman.h>
 
 
-extern void     sys_putc(int c);
+extern void     sys_kputc(int c);
 extern int      sys_close(int fd);
 extern int      sys_unlink(int fd);
 extern int      sys_dup(int fd);

@@ -59,6 +59,8 @@ typedef struct inode {
     devid_t         i_rdev;     // Device description.
     mode_t          i_mode;     // Inode's access mode.
     size_t          i_size;     // Inode's data size.
+    
+    #define INO_PTMX    0x0001
     int             i_flags;    // Inode flags.
     ssize_t         i_refcnt;   // Number of references to this inode.
     ssize_t         i_hlinks;   // Number of hard links to this inode. 
@@ -142,6 +144,10 @@ typedef struct iops {
 #define IISPIPE(ip)({ IISTYPE(ip, FS_PIPE); })
 #define IISSOCK(ip)({ IISTYPE(ip, FS_SOCK); })
 #define IISDEV(ip) ({ IISCHR(ip) || IISBLK(ip); })
+
+
+
+#define IISPTMX(ip) ({ IISDEV(ip) && ((ip)->i_flags & INO_PTMX); })
 
 #define igetsize(ip) ({ \
     iassert_locked(ip); \

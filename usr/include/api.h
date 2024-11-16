@@ -31,5 +31,7 @@
 #include <stdnoreturn.h>
 #include <string.h>
 #include <types.h>
+#include <sys/syscall_nums.h>
+#include <sys/socket.h>
 
 dev_t mkdev(int major, int minor);

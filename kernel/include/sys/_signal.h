@@ -60,6 +60,7 @@ extern const char *signal_str[];
 extern const int sig_defaults[];
 
 typedef unsigned long sigset_t;
+typedef sigset_t __sigset_t;
 
 #define SIGBAD(signo) ({ ((signo) < 1 || (signo) > NSIG); })
 

@@ -14,8 +14,10 @@
 #include <sys/_time.h>
 #include <sys/_utsname.h>
 #include <mm/kalloc.h>
+#include <dev/pty.h>
+#include <sys/poll.h>
 
-void sys_putc(int c) {
+void sys_kputc(int c) {
     printk("%c", c);
 }
 
@@ -389,4 +391,197 @@ int sys_getmemusage(meminfo_t *info) {
     info->used = pmman.mem_used();
 
     return 0;
+}
+
+int sys_ptsname_r(int fd, char buf[], size_t buflen) {
+    return ptsname_r(fd, buf, buflen);
+}
+
+int sys_mount(const char *source __unused, const char *target __unused, const char *type __unused, unsigned long flags __unused, const void *data __unused) {
+    return -ENOSYS;
+}
+
+int sys_chmod(const char *pathname __unused, mode_t mode __unused) {
+    return -ENOSYS;
+}
+
+int sys_chroot(const char *path __unused) {
+    return -ENOSYS;
+}
+
+int sys_rename(const char *oldpath __unused, const char *newpath __unused) {
+    return -ENOSYS;
+}
+
+int sys_utimes(const char *filename __unused, const struct timeval times[2] __unused) {
+    return -ENOSYS;
+}
+
+
+/* Poll the file descriptors described by the NFDS structures starting at
+   FDS.  If TIMEOUT is nonzero and not -1, allow TIMEOUT milliseconds for
+   an event to occur; if TIMEOUT is -1, block until an event occurs.
+   Returns the number of file descriptors with events, zero if timed out,
+   or -1 for errors.
+
+   This function is a cancellation point and therefore not marked with
+   __THROW.  */
+int sys_poll(struct pollfd fds[] __unused, nfds_t nfds __unused, int timeout __unused) {
+    return -ENOSYS; //poll(fds, nfds, timeout);
+}
+
+int sys_connect(int sockfd __unused, const struct sockaddr *addr __unused, socklen_t addrlen __unused) {
+    return -ENOSYS;
+}
+
+int sys_accept(int sockfd __unused, struct sockaddr *restrict addr __unused, socklen_t *restrict addrlen __unused) {
+    return -ENOSYS;
+}
+
+isize sys_send(int sockfd __unused, const void *buf __unused, usize len __unused, int flags __unused) {
+    return -ENOSYS;
+}
+
+isize sys_sendto(int sockfd __unused, const void *buf __unused, size_t len __unused, int flags __unused, const struct sockaddr *dest_addr __unused, socklen_t addrlen __unused) {
+    return -ENOSYS;
+}
+
+isize sys_recv(int sockfd __unused, void *buf __unused, usize len __unused, int flags __unused) {
+    return -ENOSYS;
+}
+
+int sys_socket(int domain __unused, int type __unused, int protocol __unused) {
+    return -ENOSYS;
+}
+
+int sys_bind(int sockfd __unused, const struct sockaddr *addr __unused, socklen_t addrlen __unused) {
+    return -ENOSYS;
+}
+
+int sys_getsockname(int sockfd __unused, struct sockaddr *restrict addr __unused, socklen_t *restrict addrlen __unused) {
+    return -ENOSYS;
+}
+
+int sys_listen(int sockfd __unused, int backlog __unused) {
+    return -ENOSYS;
+}
+
+int sys_shutdown(int sockfd __unused, int how __unused) {
+    return -ENOSYS;
+}
+
+int sys_getpeername(int sockfd __unused, struct sockaddr *restrict addr __unused, socklen_t *restrict addrlen __unused) {
+    return -ENOSYS;
+}
+
+int sys_getsockopt(int sockfd __unused, int level __unused, int optname __unused, void *optval __unused, socklen_t *restrict optlen __unused) {
+    return -ENOSYS;
+}
+
+isize sys_recvmsg(int sockfd __unused, struct msghdr *msg __unused, int flags __unused) {
+    return -ENOSYS;
+}
+
+isize sys_sendmsg(int sockfd __unused, const struct msghdr *msg __unused, int flags __unused) {
+    return -ENOSYS;
+}
+
+isize sys_recvfrom(int sockfd __unused, void *buf __unused, size_t len __unused, int flags __unused, struct sockaddr *restrict src_addr __unused, socklen_t *restrict addrlen __unused) {
+    return -ENOSYS;
+}
+
+long sys_ptrace(enum __ptrace_request op __unused, pid_t pid __unused, void *addr __unused, void *data __unused) {
+    return -ENOSYS;
+}
+
+pid_t sys_vfork(void) {
+    return -ENOSYS;
+}
+
+int sys_set_thread_area(void *addr __unused) {
+    return -ENOSYS;
+}
+
+int sys_get_thread_area(void *addr __unused) {
+    return -ENOSYS;
+}
+
+void sys_sigreturn() {
+    return;
+}
+
+int sys_settimeofday(const struct timeval *tv __unused, const struct timezone *tz __unused) {
+    return -ENOSYS;
+}
+
+int sys_clock_getres(clockid_t clockid __unused, struct timespec *res __unused) {
+    return -ENOSYS;
+}
+
+int sys_clock_gettime(clockid_t clockid __unused, struct timespec *tp __unused) {
+    return -ENOSYS;
+}
+
+int sys_clock_settime(clockid_t clockid __unused, const struct timespec *tp __unused) {
+    return -ENOSYS;
+}
+
+int sys_mlock(const void *addr __unused, size_t len __unused) {
+    return -ENOSYS;
+}
+
+int sys_mlock2(const void *addr __unused, size_t len __unused, unsigned int flags __unused) {
+    return -ENOSYS;
+}
+
+int sys_munlock(const void *addr __unused, size_t len __unused) {
+    return -ENOSYS;
+}
+
+int sys_mlockall(int flags __unused) {
+    return -ENOSYS;
+}
+
+int sys_munlockall(void) {
+    return -ENOSYS;
+}
+
+int sys_madvise(void *addr __unused, size_t length __unused, int advice __unused) {
+    return -ENOSYS;
+}
+
+void *sys_mremap(void *old_address __unused, size_t old_size __unused, size_t new_size __unused, int flags __unused, ... /* void *new_address */) {
+    return NULL;
+}
+
+int sys_msync(void *addr __unused, size_t length __unused, int flags __unused) {
+    return -ENOSYS;
+}
+
+void *sys_sbrk(intptr_t increment __unused) {
+    return (void *)NULL;
+}
+
+int sys_getrlimit(int resource __unused, void /*struct rlimit*/ *rlim __unused) {
+    return -ENOSYS;
+}
+
+int sys_setrlimit(int resource __unused, const void /*struct rlimit*/ *rlim __unused) {
+    return -ENOSYS;
+}
+
+int sys_getrusage(int who __unused, void /*struct rusage*/ *usage __unused) {
+    return -ENOSYS;
+}
+
+pid_t sys_wait4(pid_t pid __unused, int *wstatus __unused, int options __unused, void /*struct rusage*/ *rusage __unused) {
+    return -ENOSYS;
+}
+
+int sys_sigsuspend(const sigset_t *mask __unused) {
+    return -ENOSYS;
+}
+
+int sys_sigaltstack(const stack_t *restrict ss __unused, stack_t *restrict old_ss __unused) {
+    return -ENOSYS;
 }

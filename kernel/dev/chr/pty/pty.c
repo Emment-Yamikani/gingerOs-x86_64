@@ -21,7 +21,7 @@ int pseudo_init(void) {
     return 0;
 }
 
-int ptmx_alloc(PTY *ref) {
+int pty_alloc(PTY *ref) {
     int         err     = 0;
     PTY         pty     = NULL;
     ringbuf_t   *slave  = NULL;
@@ -62,7 +62,7 @@ int ptmx_alloc(PTY *ref) {
     return -ENOMEM;
 }
 
-void ptmx_free(PTY pty) {
+void pty_free(PTY pty) {
     pty_assert(pty);
 
     pseudo_lock();

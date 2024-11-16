@@ -1,7 +1,114 @@
 #include <api.h>
 
+// Define SYSCALL macros using int 0x80 for 64-bit mode with up to 6 arguments
+#define SYSCALL0(name, num) \
+sys_##name(void) { \
+    long ret; \
+    asm volatile ( \
+        "movq %1, %%rax\n\t" \
+        "int $0x80" \
+        : "=a" (ret) \
+        : "g" ((long)(num)) \
+        : "memory"); \
+    return ret; \
+}
+
+#define SYSCALL1(name, num, arg1_type, arg1) \
+sys_##name(arg1_type arg1) { \
+    long ret; \
+    asm volatile ( \
+        "movq %1, %%rax\n\t" \
+        "movq %2, %%rdi\n\t" \
+        "int $0x80" \
+        : "=a" (ret) \
+        : "g" ((long)(num)), "g" ((long)(arg1)) \
+        : "memory"); \
+    return ret; \
+}
+
+#define SYSCALL2(name, num, arg1_type, arg1, arg2_type, arg2) \
+sys_##name(arg1_type arg1, arg2_type arg2) { \
+    long ret; \
+    asm volatile ( \
+        "movq %1, %%rax\n\t" \
+        "movq %2, %%rdi\n\t" \
+        "movq %3, %%rsi\n\t" \
+        "int $0x80" \
+        : "=a" (ret) \
+        : "g" ((long)(num)), "g" ((long)(arg1)), "g" ((long)(arg2)) \
+        : "memory"); \
+    return ret; \
+}
+
+#define SYSCALL3(name, num, arg1_type, arg1, arg2_type, arg2, arg3_type, arg3) \
+sys_##name(arg1_type arg1, arg2_type arg2, arg3_type arg3) { \
+    long ret; \
+    asm volatile ( \
+        "movq %1, %%rax\n\t" \
+        "movq %2, %%rdi\n\t" \
+        "movq %3, %%rsi\n\t" \
+        "movq %4, %%rdx\n\t" \
+        "int $0x80" \
+        : "=a" (ret) \
+        : "g" ((long)(num)), "g" ((long)(arg1)), "g" ((long)(arg2)), "g" ((long)(arg3)) \
+        : "memory"); \
+    return ret; \
+}
+
+#define SYSCALL4(name, num, arg1_type, arg1, arg2_type, arg2, arg3_type, arg3, arg4_type, arg4) \
+sys_##name(arg1_type arg1, arg2_type arg2, arg3_type arg3, arg4_type arg4) { \
+    long ret; \
+    asm volatile ( \
+        "movq %1, %%rax\n\t" \
+        "movq %2, %%rdi\n\t" \
+        "movq %3, %%rsi\n\t" \
+        "movq %4, %%rdx\n\t" \
+        "movq %5, %%r10\n\t" \
+        "int $0x80" \
+        : "=a" (ret) \
+        : "g" ((long)(num)), "g" ((long)(arg1)), "g" ((long)(arg2)), "g" ((long)(arg3)), "g" ((long)(arg4)) \
+        : "memory"); \
+    return ret; \
+}
+
+#define SYSCALL5(name, num, arg1_type, arg1, arg2_type, arg2, arg3_type, arg3, arg4_type, arg4, arg5_type, arg5) \
+sys_##name(arg1_type arg1, arg2_type arg2, arg3_type arg3, arg4_type arg4, arg5_type arg5) { \
+    long ret; \
+    asm volatile ( \
+        "movq %1, %%rax\n\t" \
+        "movq %2, %%rdi\n\t" \
+        "movq %3, %%rsi\n\t" \
+        "movq %4, %%rdx\n\t" \
+        "movq %5, %%r10\n\t" \
+        "movq %6, %%r8\n\t" \
+        "int $0x80" \
+        : "=a" (ret) \
+        : "g" ((long)(num)), "g" ((long)(arg1)), "g" ((long)(arg2)), "g" ((long)(arg3)), "g" ((long)(arg4)), "g" ((long)(arg5)) \
+        : "memory"); \
+    return ret; \
+}
+
+#define SYSCALL6(name, num, arg1_type, arg1, arg2_type, arg2, arg3_type, arg3, arg4_type, arg4, arg5_type, arg5, arg6_type, arg6) \
+sys_##name(arg1_type arg1, arg2_type arg2, arg3_type arg3, arg4_type arg4, arg5_type arg5, arg6_type arg6) { \
+    long ret; \
+    asm volatile ( \
+        "movq %1, %%rax\n\t" \
+        "movq %2, %%rdi\n\t" \
+        "movq %3, %%rsi\n\t" \
+        "movq %4, %%rdx\n\t" \
+        "movq %5, %%r10\n\t" \
+        "movq %6, %%r8\n\t" \
+        "movq %7, %%r9\n\t" \
+        "int $0x80" \
+        : "=a" (ret) \
+        : "g" ((long)(num)), "g" ((long)(arg1)), "g" ((long)(arg2)), "g" ((long)(arg3)), "g" ((long)(arg4)), "g" ((long)(arg5)), "g" ((long)(arg6)) \
+        : "memory"); \
+    return ret; \
+}
+
+
 void xputc(int c) {
-    sys_putc(c);
+    sys_kputc(c);
 }
 
 int close(int fd) {
@@ -118,7 +225,7 @@ int chdir(const char *path) {
 }
 
 pid_t wait(int *stat_loc) {
-    return sys_wait(stat_loc);
+    return waitpid(-1, stat_loc, 0);
 }
 
 int uname(struct utsname *name) {

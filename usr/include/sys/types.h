@@ -13,14 +13,13 @@ typedef     int                 gid_t;
 typedef     int                 ino_t;
 typedef     int                 mode_t;
 typedef     long                time_t;
-typedef     int                 susseconds_t;
+typedef     int                 suseconds_t;
 typedef     long                timer_t;
 typedef     long                clock_t;
 typedef     long                clockid_t;
 
-typedef unsigned long useconds_t;
-typedef long suseconds_t;
-typedef int pid_t;
+typedef unsigned long   useconds_t;
+typedef int             pid_t;
 
 #define FD_SETSIZE 64 /* compatibility with newlib */
 typedef unsigned int fd_mask;

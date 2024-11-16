@@ -36,35 +36,35 @@ static int ptmx_open(struct devid *dd __unused, inode_t **pip) {
     cred_t  *cred   = NULL;
     inode_t *ip     = NULL; 
 
-    if ((err = ptmx_alloc(&pty)))
+    if ((err = pty_alloc(&pty)))
         return err;
 
     if ((err = ialloc(FS_CHR, 0, &ip))) {
-        ptmx_free(pty);
+        pty_free(pty);
         return err;
     }
 
     cred = current_cred();
 
     cred_lock(cred);
-    ip->i_mode= 0644;
-    ip->i_gid = cred->c_gid;
-    ip->i_uid = cred->c_uid;
+    ip->i_mode  = 0644;
+    ip->i_gid   = cred->c_gid;
+    ip->i_uid   = cred->c_uid;
     cred_unlock(cred);
 
-    ip->i_size= 1;
-    ip->i_priv=(void *)(u64)pty->pt_id;
-    ip->i_rdev= DEV_T(DEV_PTMX, 2);
-
+    ip->i_size  = 1;
+    ip->i_rdev  = DEV_T(DEV_PTMX, 2);
+    ip->i_priv  = (void *)pty;
+    ip->i_flags|= INO_PTMX;
+ 
     pty->pt_imaster = ip;
-    ip->i_priv      = (void *)pty;
 
     idupcnt(ip);
 
-    if ((err = pts_create_slave(pty))) {
+    if ((err = pts_mkslave(pty))) {
         idupcnt(ip);
         irelease(ip);
-        ptmx_free(pty);
+        pty_free(pty);
         return err;
     }
 

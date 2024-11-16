@@ -23,7 +23,7 @@ struct tm {
 
 typedef struct timeval {
     time_t          tv_sec;  // Seconds.
-    susseconds_t    tv_usec; // Microseconds.
+    suseconds_t    tv_usec; // Microseconds.
 } timeval_t;
 int gettimeofday(struct timeval *restrict tp, void *restrict tzp);
 

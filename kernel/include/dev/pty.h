@@ -36,9 +36,13 @@ typedef struct pty_t {
 #define pty_islocked(pt)        ({ pty_assert(pt); spin_islocked(&(pt)->pt_lock); })
 #define pty_assert_locked(pt)   ({ pty_assert(pt); spin_assert_locked(&(pt)->pt_lock); })
 
+#
 
 extern int pseudo_init(void);
-extern int ptmx_alloc(PTY *ref);
-extern int pts_create_slave(PTY pty);
-extern void ptmx_free(PTY pty);
+
+extern void pty_free(PTY pty);
+extern int pty_alloc(PTY *ref);
+extern int pts_mkslave(PTY pty);
 extern int pty_find(int id, PTY *pp);
+
+int ptsname_r(int fd, char buf[], size_t buflen);

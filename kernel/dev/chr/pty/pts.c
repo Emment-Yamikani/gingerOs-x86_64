@@ -8,7 +8,7 @@
 
 DEV_DECL_OPS(static, pts);
 
-int pts_create_slave(PTY pty) {
+int pts_mkslave(PTY pty) {
     char    name[32];
     int     err     = 0;
     dev_t   *dev    = NULL;
