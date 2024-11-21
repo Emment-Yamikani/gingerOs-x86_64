@@ -8,6 +8,7 @@
 #include <arch/cpu.h>
 #include <sys/thread.h>
 #include <dev/clocks.h>
+#include <dev/ps2.h>
 #include <arch/chipset.h>
 #include <sys/_signal.h>
 #include <dev/rtc.h>
@@ -145,6 +146,10 @@ void trap(ucontext_t *uctx) {
         break;
     case IRQ(0):
         pit_intr();
+        lapic_eoi();
+        break;
+    case IRQ(PS2_KBD):
+        ps2kbd_intr();
         lapic_eoi();
         break;
     case IRQ(HPET):
