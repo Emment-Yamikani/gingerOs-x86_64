@@ -16,7 +16,7 @@
 #define DEV_ZERO    1   // minor=5
 #define DEV_FULL    1   // minor=7
 #define DEV_RANDOM  1   // minor=8
-#define DEV_TTY     4   // minor=x
+#define DEV_TTY     4   // minor=[0..n-1]
 #define DEV_CONSOLE 5   // minor=1
 #define DEV_PTMX    5   // minor=2
 #define DEV_CGA     5   // minor=3
@@ -26,16 +26,16 @@
 #define DEV_KBD0    13  // minor=0
 #define DEV_MOUSE0  13  // minor=1
 #define DEV_FB      29  // minor=0
-#define DEV_PTS     136 // minor=x
-#define DEV_CPU     202 // minor=x
-#define DEV_CPU_MSR 203 // minor=x
+#define DEV_PTS     136 // minor=[0..n-1]
+#define DEV_CPU     202 // minor=[0..n-1]
+#define DEV_CPU_MSR 203 // minor=[0..n-1]
 #define DEV_RTC0    248 // minor=0
 
 /*Block Devices*/
 
-#define DEV_RAMDISK 0   // minor=1
-#define DEV_SDA     8   // minor=x
-#define DEV_CDROM   11  // minor=0
+#define DEV_RAMDISK 1   // minor=[0..n-1]
+#define DEV_SDA     8   // minor=[0..n-1]
+#define DEV_CDROM   11  // minor=[0..n-1]
 
 typedef struct {
     int     (*close)(struct devid *dd);
@@ -76,23 +76,27 @@ typedef struct {
 }
 
 typedef struct dev {
-    struct devid    devid;
-    devops_t        devops;
-    char            *devname;
-    int             (*devprobe)();
-    int             (*devmount)();
-    struct dev      *devprev, *devnext;
-    spinlock_t      devlock;
+    struct devid    dev_id;             // device id.
+    devops_t        dev_ops;            // device operations.
+    char            *dev_name;          // name of device.
+    void            *dev_priv;          // device private data.
+    int             (*dev_probe)();     // dev prober, call by kdev_register().
+    int             (*dev_mount)();     // dev mount function. (TODO: may we don't need this?)
+    void            (*dev_fini)(struct devid *dd);
+    struct dev      *dev_prev;          // prev in this dev major(driver)'s list.
+    struct dev      *dev_next;          // next in this dev major(driver)'s list.
+    spinlock_t      dev_lck;            // dev struct lock.
 } dev_t;
 
 #define dev_assert(dev)         ({ assert((dev), "No dev"); })
-#define dev_lock(dev)           ({ dev_assert(dev); spin_lock(&(dev)->devlock); })
-#define dev_unlock(dev)         ({ dev_assert(dev); spin_unlock(&(dev)->devlock); })
-#define dev_assert_locked(dev)  ({ dev_assert(dev); spin_assert_locked(&(dev)->devlock); })
+#define dev_lock(dev)           ({ dev_assert(dev); spin_lock(&(dev)->dev_lck); })
+#define dev_unlock(dev)         ({ dev_assert(dev); spin_unlock(&(dev)->dev_lck); })
+#define dev_islocked(dev)       ({ dev_assert(dev); spin_islocked(&(dev)->dev_lck); })
+#define dev_assert_locked(dev)  ({ dev_assert(dev); spin_assert_locked(&(dev)->dev_lck); })
 
 #define DEVID(_type, _rdev) ((struct devid){   \
-    .major = ((devid_t)(_rdev)) & 0xff,        \
-    .minor = (((devid_t)(_rdev)) >> 8) & 0xff, \
+    .major = ((devid_t)(_rdev)) & 0xffu,       \
+    .minor = (((devid_t)(_rdev)) >> 8) & 0xffu,\
     .type = ((itype_t)_type),                  \
 })
 
@@ -100,28 +104,28 @@ typedef struct dev {
 
 #define IDEVID(__ip__) (&(struct devid){                  \
     .inode = (inode_t *)(__ip__),                         \
-    .major = ((devid_t)((__ip__)->i_rdev)) & 0xff,        \
-    .minor = (((devid_t)((__ip__)->i_rdev)) >> 8) & 0xff, \
+    .major = ((devid_t)((__ip__)->i_rdev)) & 0xffu,       \
+    .minor = (((devid_t)((__ip__)->i_rdev)) >> 8) & 0xffu,\
     .type = ((itype_t)(__ip__)->i_type),                  \
 })
 
-#define DEVID_CMP(dd0, dd1) ({((dd0)->major == (dd1)->major && (dd0)->minor == (dd1)->minor);})
+#define DEVID_CMP(dd0, dd1) ({((dd0)->major == (dd1)->major) && ((dd0)->minor == (dd1)->minor); })
 
-#define DEV_T(major, minor) ((devid_t)(((devid_t)(minor) << 8) & 0xff00) | ((devid_t)(major) & 0xff))
+#define DEV_T(major, minor) ((devid_t)(((devid_t)(minor) << 8) & 0xff00u) | ((devid_t)(major) & 0xffu))
 
 #define DEV_INIT(name, _type, _major, _minor) \
 dev_t name##dev = {                       \
-    .devlock = SPINLOCK_INIT(),           \
-    .devname = #name,                     \
-    .devnext = NULL,                      \
-    .devprev = NULL,                      \
-    .devprobe = name##_probe,             \
-    .devid = {                            \
+    .dev_lck = SPINLOCK_INIT(),           \
+    .dev_name = #name,                    \
+    .dev_next = NULL,                     \
+    .dev_prev = NULL,                     \
+    .dev_probe = name##_probe,            \
+    .dev_id = {                           \
         .type = (_type),                  \
         .major = (_major),                \
         .minor = (_minor),                \
     },                                    \
-    .devops = {                           \
+    .dev_ops = {                          \
         .close = name##_close,            \
         .getinfo = name##_getinfo,        \
         .open = name##_open,              \
@@ -134,6 +138,7 @@ dev_t name##dev = {                       \
 }
 
 extern int dev_init(void);
+extern int kdev_unregister(struct devid *dd);
 extern dev_t *kdev_get(struct devid *dd);
 extern int kdev_register(dev_t *, uint8_t major, uint8_t type);
 
@@ -150,6 +155,7 @@ typedef struct {
     size_t bi_blocksize;
 } bdev_info_t;
 
-int kdev_getinfo(struct devid *dd, void *info);
-int kdev_open_bdev(const char *bdev_name, struct devid *pdd);
-int kdev_create(const char *devname, uint8_t type, uint8_t major, uint8_t minor, dev_t **pdd);
+extern void kdev_free(dev_t *dev);
+extern int kdev_getinfo(struct devid *dd, void *info);
+extern int kdev_open_bdev(const char *bdev_name, struct devid *pdd);
+extern int kdev_create(const char *devname, uint8_t type, uint8_t major, uint8_t minor, dev_t **pdd);

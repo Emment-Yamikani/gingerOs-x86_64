@@ -38,14 +38,14 @@ static const char *minors[] = {
     "250", "251", "252", "253", "254", "255", NULL,
 };
 
-int getsb(filesystem_t * fs, struct devid *devid, superblock_t **psb) {
+int getsb(filesystem_t * fs, struct devid *dev_id, superblock_t **psb) {
     int err = 0;
     superblock_t *sb = NULL;
     queue_node_t *next = NULL;
 
     fsassert_locked(fs);
 
-    if (psb == NULL || devid == NULL)
+    if (psb == NULL || dev_id == NULL)
         return -EINVAL;
 
     queue_lock(fs->fs_superblocks);
@@ -53,7 +53,7 @@ int getsb(filesystem_t * fs, struct devid *devid, superblock_t **psb) {
         next = node->next;
         sb = node->data;
         sblock(sb);
-        if (DEVID_CMP(devid, &sb->sb_devid)) {
+        if (DEVID_CMP(dev_id, &sb->sb_devid)) {
             *psb = sb;
             queue_unlock(fs->fs_superblocks);
             return 0;
@@ -74,7 +74,7 @@ int getsb(filesystem_t * fs, struct devid *devid, superblock_t **psb) {
         .sb_flags       = 0,
         .sb_filesystem  = fs,
         .sb_priv        = NULL,
-        .sb_devid       = *devid,
+        .sb_devid       = *dev_id,
         .sb_id          = atomic_inc_fetch(&sbID),
     };
 
@@ -91,11 +91,11 @@ int getsb(filesystem_t * fs, struct devid *devid, superblock_t **psb) {
 }
 
 int getsb_bdev(filesystem_t *fs, const char *bdev_name, const char *target,
-                unsigned long flags, void *data __unused, superblock_t **psbp,
+                usize flags, void *data __unused, superblock_t **psbp,
                 int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb)) {
     int             err     = 0;
     superblock_t    *sb     = NULL;
-    struct devid    devid   = {0};
+    struct devid    dev_id   = {0};
     bdev_info_t     bdevinfo= {0};
 
     fsassert_locked(fs);
@@ -106,21 +106,21 @@ int getsb_bdev(filesystem_t *fs, const char *bdev_name, const char *target,
     if (sb_fill == NULL)
         return -ENOSYS;
 
-    if ((err = kdev_open_bdev(bdev_name, &devid)))
+    if ((err = kdev_open_bdev(bdev_name, &dev_id)))
         return err;
     
-    if ((err = getsb(fs, &devid, &sb))) {
+    if ((err = getsb(fs, &dev_id, &sb))) {
         if (err == -EINVAL)
             return err;
     }
 
-    kdev_getinfo(&devid, &bdevinfo);
+    kdev_getinfo(&dev_id, &bdevinfo);
 
     sb->sb_flags        |= flags;
     sb->sb_size         = bdevinfo.bi_size;
     sb->sb_blocksize    = bdevinfo.bi_blocksize;
 
-    if ((err = sb_fill(fs, target, &devid, sb)))
+    if ((err = sb_fill(fs, target, &dev_id, sb)))
         return err;
 
     *psbp = sb;
@@ -128,7 +128,7 @@ int getsb_bdev(filesystem_t *fs, const char *bdev_name, const char *target,
 }
 
 int getsb_nodev(filesystem_t *fs, const char *target,
-                unsigned long flags __unused, void *data __unused,
+                usize flags __unused, void *data __unused,
                 superblock_t **psbp, int (*sb_fill)(filesystem_t *fs,
                 const char *target, struct devid *dd, superblock_t *sb)) {
     int             err     = 0;
@@ -154,12 +154,12 @@ int getsb_nodev(filesystem_t *fs, const char *target,
     if ((err = kdev_create(name, FS_BLK, 0, minor, &dev)))
         return err;
 
-    if ((err = getsb(fs, &dev->devid, &sb))) {
+    if ((err = getsb(fs, &dev->dev_id, &sb))) {
         dev_unlock(dev);
         return err;
     }
     
-    if ((err = sb_fill(fs, target, &dev->devid, sb))) {
+    if ((err = sb_fill(fs, target, &dev->dev_id, sb))) {
         dev_unlock(dev);
         return err;
     }
@@ -170,11 +170,11 @@ int getsb_nodev(filesystem_t *fs, const char *target,
 }
 
 int getsb_pseudo(filesystem_t *fs, const char *target,
-    unsigned long flags, void *data, superblock_t **psbp,
+    usize flags, void *data, superblock_t **psbp,
     int (*sb_fill)(filesystem_t *fs, const char *target,
     struct devid *dd, superblock_t *sb));
 
 int getsb_single(filesystem_t *fs, const char *target,
-    unsigned long flags, void *data, superblock_t **psbp,
+    usize flags, void *data, superblock_t **psbp,
     int (*sb_fill)(filesystem_t *fs, const char *target,
     struct devid *dd, superblock_t *sb));

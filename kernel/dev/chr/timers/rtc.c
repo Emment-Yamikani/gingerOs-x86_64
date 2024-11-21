@@ -317,7 +317,7 @@ void rtc_intr(void) {
 }
 
 int rtc_init(void) {
-    printk("Initializing Real Time Clock (RTC) timer...\n");
+    printk("Initializing Real Time Clock (RTC)...\n");
     return kdev_register(&rtcdev, DEV_RTC0, FS_CHR);
 }
 

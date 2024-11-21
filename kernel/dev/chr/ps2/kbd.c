@@ -6,7 +6,7 @@ DEV_DECL_OPS(static, ps2kbd);
 static DEV_INIT(ps2kbd, FS_CHR, DEV_KBD0, 0);
 
 static int ps2kbd_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ps2kbddev.devname);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ps2kbddev.dev_name);
     return kdev_register(&ps2kbddev, DEV_KBD0, FS_CHR);
 }
 

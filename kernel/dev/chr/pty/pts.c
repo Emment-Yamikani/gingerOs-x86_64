@@ -20,8 +20,8 @@ int pts_mkslave(PTY pty) {
     if ((err = kdev_create(name, FS_CHR, DEV_PTS, pty->pt_id, &dev)))
         return err;
 
-    dev->devops = DEVOPS(pts);
-    dev->devprobe = pts_probe;
+    dev->dev_probe  = pts_probe;
+    dev->dev_ops    = DEVOPS(pts);
 
     if ((err = kdev_register(dev, DEV_PTS, FS_CHR))) {
         dev_unlock(dev);

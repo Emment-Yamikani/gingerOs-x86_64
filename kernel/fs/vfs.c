@@ -112,7 +112,7 @@ int vfs_init(void) {
             return err;
     }
 
-    if ((err = vfs_mount("ramdisk", "/ramfs/", "ramfs", 0, NULL)))
+    if ((err = vfs_mount("ramdisk0", "/ramfs/", "ramfs", 0, NULL)))
         return err;
 
     if ((err = vfs_mount(NULL, "/dev/", "devtmpfs", 0, NULL)))

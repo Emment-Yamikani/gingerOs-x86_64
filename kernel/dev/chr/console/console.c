@@ -19,7 +19,7 @@ static int console_probe(void) {
 }
 
 static int console_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", consoledev.devname);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", consoledev.dev_name);
     if (bootinfo.fb.type == 1)
         use_fb = 1;
 

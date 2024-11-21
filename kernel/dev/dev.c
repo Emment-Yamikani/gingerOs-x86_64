@@ -37,8 +37,8 @@ dev_t *kdev_get(struct devid *dd) {
     switch (dd->type) {
     case FS_BLK:
         spin_lock(blkdevlk);
-        forlinked(dev, blkdev[dd->major], dev->devnext) {
-            if (DEVID_CMP(&dev->devid, dd)) {
+        forlinked(dev, blkdev[dd->major], dev->dev_next) {
+            if (DEVID_CMP(&dev->dev_id, dd)) {
                 spin_unlock(blkdevlk);
                 return dev;
             }
@@ -47,8 +47,8 @@ dev_t *kdev_get(struct devid *dd) {
         break;
     case FS_CHR:
         spin_lock(chrdevlk);
-        forlinked(dev, chrdev[dd->major], dev->devnext) {
-            if (DEVID_CMP(&dev->devid, dd)) {
+        forlinked(dev, chrdev[dd->major], dev->dev_next) {
+            if (DEVID_CMP(&dev->dev_id, dd)) {
                 spin_unlock(chrdevlk);
                 return dev;
             }
@@ -60,13 +60,13 @@ dev_t *kdev_get(struct devid *dd) {
     return NULL;
 }
 
-int    kdev_register(dev_t *dev, uint8_t major, uint8_t type) {
+int    kdev_register(dev_t *dev, u8 major, u8 type) {
     int     err     = 0;
     dev_t   *tail   = NULL;
     dev_t   **table = NULL;
     spinlock_t *lock= NULL;
 
-    if (!dev) return -EINVAL;
+    if (!dev || (dev->dev_id.type != type)) return -EINVAL;
 
     switch (type) {
     case FS_BLK:
@@ -85,9 +85,9 @@ int    kdev_register(dev_t *dev, uint8_t major, uint8_t type) {
     }
 
     spin_lock(lock);
-    forlinked(node, table[major], node->devnext) {
+    forlinked(node, table[major], node->dev_next) {
         tail = node;
-        if (node->devid.minor == dev->devid.minor) {
+        if (node->dev_id.minor == dev->dev_id.minor) {
             err = -EEXIST;
             spin_unlock(lock);
             goto error;
@@ -95,14 +95,14 @@ int    kdev_register(dev_t *dev, uint8_t major, uint8_t type) {
     }
 
     if (tail)
-        tail->devnext = dev;
+        tail->dev_next = dev;
     else table[major] = dev;
 
-    dev->devprev = tail;
-    dev->devnext = NULL;
+    dev->dev_prev = tail;
+    dev->dev_next = NULL;
 
-    if (dev->devprobe) {
-        if ((err = dev->devprobe())) {
+    if (dev->dev_probe) {
+        if ((err = dev->dev_probe())) {
             spin_unlock(lock);
             goto error;
         }
@@ -114,14 +114,60 @@ error:
     return err;
 }
 
+int kdev_unregister(struct devid *dd) {
+    spinlock_t  *lock   = NULL;
+    dev_t       *next   = NULL;
+    dev_t       **table = NULL;
+
+    if (dd == NULL)
+        return -EINVAL;
+    
+    switch (dd->type) {
+    case FS_CHR:
+        table   = chrdev;
+        lock    = chrdevlk;
+        break;
+    case FS_BLK:
+        table   = blkdev;
+        lock    = blkdevlk;
+        break;
+    default:
+        return -ENXIO;
+    }
+
+    spin_lock(lock);
+
+    forlinked(dev, table[dd->major], next) {
+        // secure the next dev struct before removal of this dev.
+        next = dev->dev_next;
+
+        // check if this dev struct matched the dev_id.
+        if (DEVID_CMP(&dev->dev_id, dd)) {
+            // call the finalizer function on this device.
+            if (dev->dev_fini != NULL)
+                dev->dev_fini(dd);
+            
+            // remove the dev struct from the device table.
+            if (dev->dev_prev != NULL)
+                dev->dev_prev->dev_next = dev->dev_next;
+            if (dev->dev_next != NULL)
+                dev->dev_next->dev_prev = dev->dev_prev;
+            break; // done.
+        }
+    }
+
+    spin_unlock(lock);
+    return 0;
+}
+
 int     kdev_close(struct devid *dd) {
     dev_t *dev = NULL;
     if (!(dev = kdev_get(dd)))
         return -ENXIO;
     
-    if (!(dev->devops.close))
+    if (!(dev->dev_ops.close))
         return -ENOSYS;
-    return dev->devops.close(dd);
+    return dev->dev_ops.close(dd);
 }
 
 int     kdev_open(struct devid *dd, inode_t **pip) {
@@ -129,9 +175,9 @@ int     kdev_open(struct devid *dd, inode_t **pip) {
     if (!(dev = kdev_get(dd)))
         return -ENXIO;
     
-    if (!(dev->devops.open))
+    if (!(dev->dev_ops.open))
         return -ENOSYS;
-    return dev->devops.open(dd, pip);
+    return dev->dev_ops.open(dd, pip);
 }
 
 off_t   kdev_lseek(struct devid *dd, off_t off, int whence) {
@@ -139,9 +185,9 @@ off_t   kdev_lseek(struct devid *dd, off_t off, int whence) {
     if (!(dev = kdev_get(dd)))
         return -ENXIO;
     
-    if (!(dev->devops.lseek))
+    if (!(dev->dev_ops.lseek))
         return -ENOSYS;
-    return dev->devops.lseek(dd, off, whence);
+    return dev->dev_ops.lseek(dd, off, whence);
 }
 
 int     kdev_ioctl(struct devid *dd, int request, void *argp) {
@@ -149,9 +195,9 @@ int     kdev_ioctl(struct devid *dd, int request, void *argp) {
     if (!(dev = kdev_get(dd)))
         return -ENXIO;
     
-    if (!(dev->devops.ioctl))
+    if (!(dev->dev_ops.ioctl))
         return -ENOSYS;
-    return dev->devops.ioctl(dd, request, argp);
+    return dev->dev_ops.ioctl(dd, request, argp);
 }
 
 ssize_t kdev_read(struct devid *dd, off_t off, void *buf, size_t nbyte) {
@@ -159,9 +205,9 @@ ssize_t kdev_read(struct devid *dd, off_t off, void *buf, size_t nbyte) {
     if (!(dev = kdev_get(dd)))
         return -ENXIO;
     
-    if (!(dev->devops.read))
+    if (!(dev->dev_ops.read))
         return -ENOSYS;
-    return dev->devops.read(dd, off, buf, nbyte);
+    return dev->dev_ops.read(dd, off, buf, nbyte);
 }
 
 ssize_t kdev_write(struct devid *dd, off_t off, void *buf, size_t nbyte) {
@@ -173,9 +219,9 @@ ssize_t kdev_write(struct devid *dd, off_t off, void *buf, size_t nbyte) {
     if (!(dev = kdev_get(dd)))
         return -ENXIO;
     
-    if (!(dev->devops.write))
+    if (!(dev->dev_ops.write))
         return -ENOSYS;
-    return dev->devops.write(dd, off, buf, nbyte);
+    return dev->dev_ops.write(dd, off, buf, nbyte);
 }
 
 int kdev_open_bdev(const char *bdev_name, struct devid *pdev) {
@@ -190,9 +236,9 @@ int kdev_open_bdev(const char *bdev_name, struct devid *pdev) {
         if (dev == NULL)
             continue;
     
-        if (!compare_strings(bdev_name, dev->devname)) {
+        if (!compare_strings(bdev_name, dev->dev_name)) {
             spin_unlock(blkdevlk);
-            *pdev = dev->devid;
+            *pdev = dev->dev_id;
             return 0;
         }
     }
@@ -209,17 +255,16 @@ int kdev_getinfo(struct devid *dd, void *info) {
     if ((dev = kdev_get(dd)) == NULL)
         return -ENOENT;
 
-    if (NULL == dev->devops.getinfo)
+    if (NULL == dev->dev_ops.getinfo)
         return -ENOSYS;
 
-    return dev->devops.getinfo(dd, info);
+    return dev->dev_ops.getinfo(dd, info);
 }
 
-int kdev_create(const char *dev_name,
-                uint8_t type, uint8_t major,
-                uint8_t minor, dev_t **pdev) {
+int kdev_create(const char *dev_name, u8 type, u8 major, u8 minor, dev_t **pdev) {
     int     err     = 0;
     dev_t   *dev    = NULL;
+    char    *name   = NULL;
 
     if (type != FS_BLK && type != FS_CHR)
         return -EINVAL;
@@ -230,20 +275,40 @@ int kdev_create(const char *dev_name,
     if (dev_name == NULL || pdev == NULL)
         return -EINVAL;
 
-    if ((dev = kmalloc(sizeof *dev)) == NULL)
+    if ((dev = (dev_t *)kmalloc(sizeof *dev)) == NULL)
         return -ENOMEM;
+    
+    if (NULL == (name = strdup(dev_name))) {
+        kfree((void *)dev);
+        return -ENOMEM;
+    }
 
     memset(dev, 0, sizeof *dev);
 
-    dev->devlock = SPINLOCK_INIT();
+    dev->dev_name = name;
+    dev->dev_lck  = SPINLOCK_INIT();
     dev_lock(dev);
 
-    dev->devid = DEVID(type, DEV_T(major, minor));
+    dev->dev_id = DEVID(type, DEV_T(major, minor));
     *pdev = dev;
 
     return 0;
     if (dev) kfree(dev);
     return err;
+}
+
+void kdev_free(dev_t *dev) {
+    if (dev == NULL)
+        return;
+    
+    if (!dev_islocked(dev))
+        dev_lock(dev);
+    
+    if (dev->dev_name)
+        kfree(dev->dev_name);
+    
+    dev_unlock(dev);
+    kfree(dev);
 }
 
 int kdev_mmap(struct devid *dd, vmr_t *region) {
@@ -255,8 +320,8 @@ int kdev_mmap(struct devid *dd, vmr_t *region) {
     if ((dev = kdev_get(dd)) == NULL)
         return -ENXIO;
     
-    if (NULL == dev->devops.mmap)
+    if (NULL == dev->dev_ops.mmap)
         return -ENOSYS;
 
-    return dev->devops.mmap(dd, region);
+    return dev->dev_ops.mmap(dd, region);
 }

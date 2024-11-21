@@ -1,241 +1,262 @@
-#include <dev/dev.h>
-#include <mm/kalloc.h>
-#include <lib/printk.h>
-#include <lib/string.h>
 #include <bits/errno.h>
 #include <boot/boot.h>
+#include <dev/dev.h>
+#include <lib/string.h>
+#include <mm/kalloc.h>
 #include <sync/atomic.h>
 
+#define NRAMDISK    64
+
+#define RAMDISK_GETINFO 0   // ioctl command to get ramdisk info.
+
 typedef struct {
-    void            *addr;
-    char            *name;
-    size_t          size;
-    struct devid    dd;
-    spinlock_t      lock;
+    int         rd_id;
+    void        *rd_addr;
+    dev_t       *rd_dev;
+    usize       rd_size;
+    spinlock_t  rd_lock;
 } ramdisk_t;
 
-static ramdisk_t    *ramdisks [256];
-static int          ramdisk_cnt = 0;
-static atomic_t     ramdisk_minor = {0};
-static spinlock_t   *ramdisks_lk = &SPINLOCK_INIT();
+#define ramdisk_lock(rd)             ({ spin_lock(&(rd)->rd_lock); })
+#define ramdisk_unlock(rd)           ({ spin_unlock(&(rd)->rd_lock); })
+#define ramdisk_islocked(rd)         ({ spin_islocked(&(rd)->rd_lock); })
+#define ramdisk_assert_locked(rd)    ({ spin_assert_locked(&(rd)->rd_lock); })
 
-#define ramdisks_lock()   ({ spin_lock(ramdisks_lk); })
-#define ramdisks_unlock() ({ spin_unlock(ramdisks_lk); })
+static atomic_t  ramdisk_count = 0;     // ramdisk count.
+static ramdisk_t *ramdisks[NRAMDISK];   // ramdisk table.
+static SPINLOCK(ramdisks_lk);           // spinlock for ramdisk table.
 
-static int ramdisk_alloc_id(void) {
-    int id = 0;
-    
-    spin_lock(ramdisks_lk);
-    id = atomic_read(&ramdisk_minor);
-    
-    if (id >= (int)NELEM(ramdisks))
-        goto error;
-    
-    atomic_inc(&ramdisk_minor);
-    spin_unlock(ramdisks_lk);
+#define ramdisks_lock()             ({ spin_lock(ramdisks_lk); })
+#define ramdisks_unlock()           ({ spin_unlock(ramdisks_lk); })
+#define ramdisks_islocked()         ({ spin_islocked(ramdisks_lk); })
+#define ramdisks_assert_locked()    ({ spin_assert_locked(ramdisks_lk); })
 
-    return id;
-error:
-    spin_unlock(ramdisks_lk);
-    return -ENOMEM;
+// declare device operations for ramdisk.
+DEV_DECL_OPS(static, ramdisk);
+
+static int ramdisk_probe(void) {
+    return 0;
 }
 
-static int ramdisk_new(const char *name, ramdisk_t **ref) {
-    int         err     = 0;
-    int         minor   = 0;
-    ramdisk_t   *rd     = NULL;
+static void ramdisk_fini(struct devid *dd __unused) {
+    printk("%s:%d: %s()\n", __FILE__, __LINE__, __func__);
+}
 
-    if (!ref || !name)
+/// allocate a ramdisk instance.
+/// these ramdisks may be modules passed by the bootloader.
+static int ramdisk_alloc(ramdisk_t **ref) {
+    ramdisk_t *ramdisk = NULL;
+
+    if (ref == NULL)
         return -EINVAL;
 
-    if (!(rd = kmalloc(sizeof *rd)))
+    if (NULL == (ramdisk = (ramdisk_t *)kmalloc(sizeof *ramdisk)))
         return -ENOMEM;
 
-    memset(rd, 0, sizeof *rd);
-
-    if (!(rd->name = strdup(name)))
-        goto error;
-
-    if ((err = minor = ramdisk_alloc_id()) < 0)
-        goto error;
-
-    rd->dd.minor = minor;
-    rd->dd.type  = FS_BLK;
-    rd->dd.major = DEV_RAMDISK;
-    rd->lock     = SPINLOCK_INIT();
-
-    *ref = rd;
-    return 0;
-error:
-    if (rd)
-        kfree(rd);
-    if (rd->name)
-        kfree(rd->name);
+    memset(ramdisk, 0, sizeof *ramdisk);
     
-    return err;
-}
+    ramdisk->rd_lock= SPINLOCK_INIT();
+    ramdisk_lock(ramdisk);
 
-static ramdisk_t *ramdisk_get(int minor) {
-    ramdisk_t *rd = NULL;
-
-    if (minor < 0 || minor > (int)NELEM(ramdisks))
-        return NULL;
-
-    ramdisks_lock();
-    rd = ramdisks[minor];
-    ramdisks_unlock();
-
-    return rd;
-}
-
-int     ramdisk_close(struct devid *dd __unused) {
+    *ref = ramdisk;
     return 0;
 }
 
-int     ramdisk_open(struct devid *dd __unused, inode_t **pip __unused) {
-    return 0;
-}
+static int ramdisk_init(void) {
+    char        name[16];
+    int         err      = 0;
+    mod_t       *mod     = NULL;
+    dev_t       *dev     = NULL;
+    ramdisk_t   *ramdisk = NULL;
 
-off_t   ramdisk_lseek(struct devid *dd __unused, off_t off __unused, int whence __unused) {
-    return -EINVAL;
-}
+    mod     = (mod_t *)bootinfo.mods; // get the first module in the array.
 
-int     ramdisk_ioctl(struct devid *dd __unused, int request __unused, void *argp __unused) {
-    return -ENOTTY;
-}
+    /// Do not allow more than what the kernel expects for
+    /// No. of ramdisks.
+    if (bootinfo.modcnt > NRAMDISK)
+        return -EAGAIN;
 
-ssize_t ramdisk_read(struct devid *dd, off_t off, void *buf, size_t nbyte) {
-    int locked = 0;
-    ssize_t retval = 0;
-    ramdisk_t *rd = NULL;
+    for (usize i = 0; i < bootinfo.modcnt; ++i, mod++) {
+        if ((err = ramdisk_alloc(&ramdisk)))
+            return err;
 
-    if (!(rd = ramdisk_get(dd->minor)))
-        return -ENOENT;
+        snprintf(name, sizeof name, "ramdisk%d", i);
 
-    if (!(locked = spin_islocked(&rd->lock)))
-        spin_lock(&rd->lock);
-
-    retval = MIN(rd->size - off, nbyte);
-    memcpy(buf, rd->addr + off, retval);
-
-    if (!locked)
-        spin_unlock(&rd->lock);
-
-    return retval;
-}
-
-ssize_t ramdisk_write(struct devid *dd, off_t off, void *buf, size_t nbyte) {
-    int locked = 0;
-    ssize_t retval = 0;
-    ramdisk_t *rd = NULL;
-
-    if (!(rd = ramdisk_get(dd->minor)))
-        return -ENOENT;
-
-    if (!(locked = spin_islocked(&rd->lock)))
-        spin_lock(&rd->lock);
-
-    retval = MIN(rd->size - off, nbyte);
-    memcpy(rd->addr + off,  buf, retval);
-
-    if (!locked)
-        spin_unlock(&rd->lock);
-
-    return retval;
-}
-
-static int ramdisk_mount(void) {
-    int err = 0;
-    ramdisk_t *rd = NULL;
-
-    for (int i = 0; i < ramdisk_cnt; ++i) {
-        if (!(rd = ramdisk_get(i)))
-            continue;
-
-        spin_lock(&rd->lock);
+        if ((err = kdev_create(name, FS_BLK, DEV_RAMDISK, i, &dev)))
+            return err;
         
-        spin_unlock(&rd->lock);
+        dev->dev_fini   = ramdisk_fini;
+        dev->dev_probe  = ramdisk_probe;
+        dev->dev_priv   = (void *)ramdisk;
+        dev->dev_ops    = DEVOPS(ramdisk);
+
+        printk("Initializing '\e[025453;011m%s\e[0m' chardev...\n", dev->dev_name);
+
+        if ((err = kdev_register(dev, DEV_RAMDISK, FS_BLK))) {
+            printk("%s:%d: failed to register '%s'\n",
+                __FILE__, __LINE__, dev->dev_name);
+            kdev_free(dev);
+            return err;
+        }
+
+        ramdisk->rd_dev = dev;        
+        ramdisk->rd_size= mod->size;
+        ramdisk->rd_addr= (void *)mod->addr;
+        ramdisk->rd_id  = dev->dev_id.minor; // set ramdisk id.
+
+        atomic_inc(&ramdisk_count);
+
+        ramdisks[i] = ramdisk;
+
+        ramdisk_unlock(ramdisk);
+        dev_unlock(dev);
     }
 
     return 0;
-    goto error;
-error:
-    return err;
+} MODULE_INIT(ramdisk, NULL, ramdisk_init, NULL);
+
+static int ramdisk_get(int minor, ramdisk_t **ref) {
+    if (ref == NULL)
+        return -EINVAL;
+
+    if ((minor >= NRAMDISK) || (minor < 0) ||
+        (minor >= (int)atomic_read(&ramdisk_count)))
+        return -EINVAL;
+
+    ramdisks_lock();
+    *ref = ramdisks[minor];
+    ramdisks_unlock();
+
+    return 0;
+}
+
+static int ramdisk_close(struct devid *dd __unused) {
+    return 0;
+}
+
+static int ramdisk_open(struct devid *dd __unused, inode_t **pip __unused) {
+    return 0;
+}
+
+static int ramdisk_mmap(struct devid *dd __unused, vmr_t *region __unused) {
+    return -ENOSYS;
 }
 
 static int ramdisk_getinfo(struct devid *dd, void *info) {
-    int locked = 0;
-    ramdisk_t *rd = NULL;
-    bdev_info_t *bdev_info = info;
+    int         err         = 0;
+    int         locked      = 0;
+    ramdisk_t   *ramdisk    = NULL;
+    bdev_info_t *bdev_info  = (bdev_info_t *)info;
 
-    if (dd == NULL || bdev_info == NULL)
+    if (bdev_info == NULL)
         return -EINVAL;
 
-    if (!(rd = ramdisk_get(dd->minor)))
-        return -ENOENT;
+    if (dd->major != DEV_RAMDISK)
+        return -EINVAL;
 
-    if (!(locked = spin_islocked(&rd->lock)))
-        spin_lock(&rd->lock);
-    
-    *bdev_info = (bdev_info_t) {
-        .bi_blocksize = 1,
-        .bi_size = rd->size,
-    };
-
-    if (!locked)
-        spin_unlock(&rd->lock);
-
-    return 0;
-}
-
-static dev_t ramdiskdev = (dev_t) {
-    .devlock = {0},
-    .devname = "ramdisk",
-    .devprobe = NULL,
-    .devmount = ramdisk_mount,
-    .devid = {
-        .minor = 0,
-        .type = FS_BLK,
-        .major = DEV_RAMDISK,
-    },
-    .devops = {
-        .open = ramdisk_open,
-        .read = ramdisk_read,
-        .write = ramdisk_write,
-        .lseek = ramdisk_lseek,
-        .ioctl = ramdisk_ioctl,
-        .close = ramdisk_close,
-        .getinfo = ramdisk_getinfo,
-    },
-};
-
-static int ramdisk_init(void) {
-    int err = 0;
-    ramdisk_t *rd = NULL;
-
-    printk("initializing ramdisks...\n");
-
-    memset(ramdisks, 0, sizeof ramdisks);
-
-    for (size_t i = 0; i < bootinfo.modcnt; ++i) {
-        if ((err = ramdisk_new(bootinfo.mods[i].cmd, &rd)))
-            return err;
-        
-        rd->size = bootinfo.mods[i].size;
-        rd->addr = (void *)bootinfo.mods[i].addr;
-
-        ramdisks_lock();
-        ramdisk_cnt++;
-        ramdisks[rd->dd.minor] = rd;
-        ramdisks_unlock();
-
-        printk("\'%s\' ramdisk installed\n", rd->name);
-    }
-
-    if ((err = kdev_register(&ramdiskdev, DEV_RAMDISK, FS_BLK)))
+    if ((err = ramdisk_get(dd->minor, &ramdisk)))
         return err;
 
+    if ((locked = !ramdisk_islocked(ramdisk)))
+        ramdisk_lock(ramdisk);
+
+    *bdev_info = (bdev_info_t) {
+        .bi_blocksize = 1,
+        .bi_size      = ramdisk->rd_size
+    };
+
+    if (locked != 0)
+        ramdisk_unlock(ramdisk);
+
     return 0;
 }
 
-MODULE_INIT(ramdiskdev, NULL, ramdisk_init, NULL);
+static off_t ramdisk_lseek(struct devid *dd __unused, off_t off __unused, int whence __unused) {
+    return -ENOSYS;
+}
+
+static int ramdisk_ioctl(struct devid *dd, int request, void *argp) {
+    int         err         = 0;
+    int         locked      = 0;
+    ramdisk_t   *ramdisk    = NULL;
+    bdev_info_t *bdev_info  = (bdev_info_t *)argp;
+
+    if (bdev_info == NULL)
+        return -EINVAL;
+
+    if (dd->major != DEV_RAMDISK)
+        return -EINVAL;
+
+    if ((err = ramdisk_get(dd->minor, &ramdisk)))
+        return err;
+
+    if ((locked = !ramdisk_islocked(ramdisk)))
+        ramdisk_lock(ramdisk);
+    
+    switch(request) {
+    case RAMDISK_GETINFO:
+        *bdev_info = (bdev_info_t) {
+            .bi_blocksize = 1,
+            .bi_size      = ramdisk->rd_size
+        };
+        break;
+    default:
+        err = -EINVAL;
+    }
+
+    if (locked != 0)
+        ramdisk_unlock(ramdisk);
+    return err;
+}
+
+static ssize_t ramdisk_read(struct devid *dd, off_t off, void *buf, size_t nbyte) {
+    int         err         = 0;
+    int         locked      = 0;
+    isize       retval      = 0;
+    ramdisk_t   *ramdisk    = NULL;
+
+    if (buf == NULL)
+        return -EINVAL;
+
+    if (dd->major != DEV_RAMDISK)
+        return -EINVAL;
+
+    if ((err = ramdisk_get(dd->minor, &ramdisk)))
+        return err;
+
+    if ((locked = !ramdisk_islocked(ramdisk)))
+        ramdisk_lock(ramdisk);
+    
+    retval = MIN(ramdisk->rd_size - off, nbyte);
+    memcpy(buf, ramdisk->rd_addr + off, retval);
+
+    if (locked != 0)
+        ramdisk_unlock(ramdisk);
+    return retval;
+}
+
+static ssize_t ramdisk_write(struct devid *dd, off_t off, void *buf, size_t nbyte) {
+    int         err         = 0;
+    int         locked      = 0;
+    isize       retval      = 0;
+    ramdisk_t   *ramdisk    = NULL;
+
+    if (buf == NULL)
+        return -EINVAL;
+
+    if (dd->major != DEV_RAMDISK)
+        return -EINVAL;
+
+    if ((err = ramdisk_get(dd->minor, &ramdisk)))
+        return err;
+
+    if ((locked = !ramdisk_islocked(ramdisk)))
+        ramdisk_lock(ramdisk);
+    
+    retval = MIN(ramdisk->rd_size - off, nbyte);
+    memcpy(ramdisk->rd_addr + off,  buf, retval);
+
+    if (locked != 0)
+        ramdisk_unlock(ramdisk);
+    return retval;
+}

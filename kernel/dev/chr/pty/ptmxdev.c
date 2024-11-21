@@ -12,7 +12,7 @@ static DEV_INIT(ptmx, FS_CHR, DEV_PTMX, 2);
 static int ptmx_init(void) {
     int err = 0;
 
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ptmxdev.devname);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ptmxdev.dev_name);
     if ((err = pseudo_init()))
         return err;
     return kdev_register(&ptmxdev, DEV_PTMX, FS_CHR);

@@ -6,7 +6,7 @@ DEV_DECL_OPS(static, ps2mouse);
 static DEV_INIT(ps2mouse, FS_CHR, DEV_MOUSE0, 1);
 
 static int ps2mouse_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ps2mousedev.devname);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ps2mousedev.dev_name);
     return kdev_register(&ps2mousedev, DEV_MOUSE0, FS_CHR);
 }
 

@@ -8,7 +8,7 @@ DEV_DECL_OPS(static, null);
 static DEV_INIT(null, FS_CHR, DEV_NULL, 3);
 
 static int null_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", nulldev.devname);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", nulldev.dev_name);
     return kdev_register(&nulldev, DEV_NULL, FS_CHR);
 }
 

@@ -3,30 +3,23 @@
 
 void main(void) {
     int     err  = 0;
-    int     pts  = 0;
-    int     ptmx = 0;
+    int     tty  = 0;
     mode_t  mode =  S_IFCHR | S_IRUSR | S_IWUSR |
                     S_IRGRP | S_IWGRP | S_IROTH;
-    dev_t   dev  = mkdev(5, 2);
+    dev_t   dev  = mkdev(4, 0);
 
-    printf("Hello, World!\n");
+    printf("\n%s is now running...\n", __FILE__);
 
-    if ((err = mknod("/dev/ptmx", mode, dev)))
+    if ((err = mknod("/dev/tty0", mode, dev)))
         panic("Failed to make device node. err= %d\n", err);
 
-    if ((err = ptmx = open("/dev/ptmx", O_RDWR, 0)) < 0)
-        panic("Failed to open ptmx,, err: %d\n", err);
+    if ((err = tty = open("/dev/tty0", O_RDWR, 0)) < 0)
+        panic("Failed to open tty0, err: %d\n", err);
 
-    if ((err = pts = open("/dev/pts/0", O_RDWR, 0)) < 0)
-        panic("Failed to open pts,, err: %d\n", err);
+    char buf [100];
+    read(tty, buf, sizeof buf);
+    write(tty, buf, sizeof buf);
 
-    printf("Sucessfully opened device\n");
-
-    write(ptmx, "Hello world. :)\n", 17);
-
-    char buf[100] = {0};
-    read(pts, buf, sizeof buf);
-
-    printf("pts data: %s", buf);
-    panic("Sucessfully opened device\n");
+    printf("Reached end of %s:%s()\n", __FILE__, __func__);
+    loop();
 }

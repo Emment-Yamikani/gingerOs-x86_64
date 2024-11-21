@@ -74,7 +74,7 @@ int framebuffer_gfx_init(void) {
 }
 
 static int fb_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", fbdev.devname);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", fbdev.dev_name);
     return kdev_register(&fbdev, DEV_FB, FS_CHR);
 }
 
