@@ -65,8 +65,11 @@ void path_free(vfspath_t *path) {
 
 int path_get_lasttoken(const char *pathname, char **ltok) {
     int         err         = 0;
+    size_t      index       = 0;
+    size_t      ntok        = 0;
     char        *last       = NULL;
     char        **tokenized = NULL;
+    char        **canonical = NULL;
 
     if (ltok == NULL)
         return -EINVAL;
@@ -74,8 +77,28 @@ int path_get_lasttoken(const char *pathname, char **ltok) {
     if ((err = verify_path(pathname)))
         return err;
     
-    if ((err = canonicalize_path(pathname, NULL, &tokenized, &last)))
+    if ((err = canonicalize_path(pathname, &ntok, &canonical, &last)))
         return err;
+
+    if (NULL == (tokenized = (char **)kcalloc(ntok + 1, sizeof (char *)))) {
+        tokens_free(canonical);
+        return -ENOMEM;
+    }
+
+    foreach (token, canonical) {
+        if (string_eq(".", token)) {
+            kfree(token);
+            continue;
+        }
+    
+        if (string_eq("..", token)) {
+            if (index > 0)
+                index--;
+            kfree(token);
+            continue;
+        }
+        tokenized[index++] = token;
+    }
 
     if (last != NULL){
         if (NULL == (*ltok = strdup(last)))
@@ -85,6 +108,7 @@ int path_get_lasttoken(const char *pathname, char **ltok) {
             err = -ENOMEM;
     } else err = -EINVAL;
 
+    kfree(canonical);
     tokens_free(tokenized);
     return err;
 }
@@ -100,7 +124,7 @@ int vfspath_parse(const char *pathname, int flags, vfspath_t **rp) {
     char        *absolute   = NULL;
     char        *lasttoken  = NULL;
     char        **tokenized = NULL;
-    char         **canonocal= NULL;
+    char         **canonical= NULL;
 
     if (pathname == NULL || *pathname == '\0')
         return -ENOTNAM;
@@ -122,7 +146,7 @@ int vfspath_parse(const char *pathname, int flags, vfspath_t **rp) {
     if (tmppath[strlen(tmppath) - 1] == '/')
         isdir = 1;
 
-    if ((err = canonicalize_path(tmppath, &pathtoks, &canonocal, &lasttoken)))
+    if ((err = canonicalize_path(tmppath, &pathtoks, &canonical, &lasttoken)))
         goto error;
 
     if (NULL == (tokenized = kcalloc(pathtoks + 1, sizeof (char *)))) {
@@ -130,7 +154,7 @@ int vfspath_parse(const char *pathname, int flags, vfspath_t **rp) {
         goto error;
     }
 
-    foreach (token, canonocal) {
+    foreach (token, canonical) {
         if (string_eq(".", token)) {
             kfree(token);
             continue;
@@ -217,7 +241,7 @@ int vfspath_parse(const char *pathname, int flags, vfspath_t **rp) {
     vfspath->lasttoken  = lasttoken;
 
     kfree(tmppath);
-    kfree(canonocal);
+    kfree(canonical);
 
     *rp = vfspath;
     return 0;
@@ -229,8 +253,8 @@ error1:
     if (tokenized)
         tokens_free(tokenized);
 
-    if (canonocal)
-        kfree(canonocal);
+    if (canonical)
+        kfree(canonical);
 
     if (absolute)
         kfree(absolute);
@@ -246,8 +270,8 @@ error:
     if (tokenized)
         kfree(tokenized);
 
-    if (canonocal)
-        tokens_free(canonocal);    
+    if (canonical)
+        tokens_free(canonical);    
     
     if (absolute)
         kfree(absolute);
