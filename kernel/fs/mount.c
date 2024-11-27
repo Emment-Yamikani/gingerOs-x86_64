@@ -186,7 +186,7 @@ int vfs_mount(const char *src, const char *target, const char *type, u64 flags, 
 
     if ((err = vfs_getfs(type, &fs)))
         return err;
-    
+
     if ((err = path_get_lasttoken(target, &ltok))) {
         fsunlock(fs);
         return err;

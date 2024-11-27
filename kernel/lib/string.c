@@ -630,9 +630,13 @@ char *safestrncpy(char *restrict s, const char *restrict t, size_t n) {
 }
 
 int compare_strings(const char *s0, const char *s1) {
-    if (strlen(s0) != strlen(s1))
+    if (s0 == s1) // str 0 and str 1 are definitely the same.
+        return 0;
+
+    if (strlen(s0) != strlen(s1)) // cmp the lengths of the strings
         return -1;
-    return strcmp((char *)s0, (char *)s1);
+
+    return strcmp((char *)s0, (char *)s1); // returns 0 if the strs are the same.
 }
 
 int string_eq(const char *str0, const char *str1) {
