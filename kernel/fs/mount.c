@@ -234,3 +234,7 @@ error:
     panic("%s: error: %d\n", __func__, err);
     return err;
 }
+
+int mount(const char *src, const char *target, const char *type, unsigned long flags, const void *data) {
+    return vfs_mount(src, target, type, flags, data);
+}

@@ -106,6 +106,7 @@ struct timezone {
 })
 
 int gettimeofday(struct timeval *restrict tp, void *restrict tzp);
+int settimeofday(const struct timeval *tv, const struct timezone *tz);
 
 clock_t clock(void);
 

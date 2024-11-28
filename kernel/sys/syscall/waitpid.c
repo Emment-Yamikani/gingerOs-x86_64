@@ -186,14 +186,3 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options) {
 
     return err;
 }
-
-/**
- * @brief Wait for any child process to change state.
- * 
- * @param stat_loc Pointer to an integer to store the status information.
- * 
- * @return The process ID of the child process that changed state, or a negative error code.
- */
-pid_t wait(int *stat_loc) {
-    return waitpid(-1, stat_loc, 0);
-}

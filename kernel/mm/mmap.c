@@ -280,6 +280,14 @@ int mmap_remove(mmap_t *mmap, vmr_t *r) {
     r->refs--;
     r->mmap = NULL;
     mmap->refs--;
+    
+    if (r == mmap->heap) {
+        mmap->brk   = 0;
+        mmap->heap  = NULL;
+    } else if (r == mmap->arg)
+        mmap->arg = NULL;
+    else if (r == mmap->env)
+        mmap->env = NULL;
 
     arch_unmap_n(r->start, __vmr_size(r));
     vmr_free(r);
@@ -734,8 +742,11 @@ int mmap_vmr_expand(mmap_t *mmap, vmr_t *r, isize incr) {
     size_t      holesz    = 0;
     uintptr_t   hole_addr = 0;
 
-    if (mmap == NULL || r == NULL || incr == 0)
+    if (mmap == NULL || r == NULL)
         return -EINVAL;
+
+    if (incr == 0)
+        return 0;
 
     mmap_assert_locked(mmap);
 

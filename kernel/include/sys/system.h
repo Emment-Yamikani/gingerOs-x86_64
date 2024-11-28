@@ -102,6 +102,12 @@
 #endif
 
 #if defined __i386__
+    #define UHEAP_MAX           ((uintptr_t)0x10000000ull)
+#elif defined __x86_64__
+    #define UHEAP_MAX           ((uintptr_t)0x40000000ull)
+#endif
+
+#if defined __i386__
     #define VMA_BASE            ((uintptr_t)0xC0000000ull)
 #elif defined __x86_64__
     #define VMA_BASE            ((uintptr_t)0xFFFF800000000000ull)

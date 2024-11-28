@@ -166,7 +166,7 @@ int vfspath_parse(const char *pathname, int flags, vfspath_t **rp) {
             kfree(token);
             continue;
         }
-        tokenized[index++] = token;
+        tokenized[index++] = lasttoken = token;
     }
 
     pathtoks = index;

@@ -9,3 +9,5 @@ extern void *mmap(void *__addr, size_t __len, int __prot,
 
 extern int munmap(void *addr, size_t length);
 extern int mprotect(void *addr, size_t len, int prot);
+
+extern void *sbrk(intptr_t increment);

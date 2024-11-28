@@ -126,18 +126,19 @@ int     ioctl(int fd, int req, void *argp);
 #define SEEK_END 2
 
 int     isatty(int fd);
-mode_t  umask(mode_t cmask);
 int     pipe(int fds[2]);
+mode_t  umask(mode_t cmask);
 off_t   lseek(int fd, off_t off, int whence);
 ssize_t read(int fd, void *buf, size_t size);
 ssize_t write(int fd, void *buf, size_t size);
+int     mkdir(const char *filename, mode_t mode);
 int     create(const char *filename, mode_t mode);
 int     mkdirat(int fd, const char *filename, mode_t mode);
-int     mkdir(const char *filename, mode_t mode);
+int     mknod(const char *filename, mode_t mode, int devid);
 ssize_t readdir(int fd, off_t off, void *buf, size_t count);
 int     open(const char *pathname, int oflags, mode_t mode);
 int     openat(int fd, const char *pathn, int oflags, mode_t);
 int     linkat(int fd, const char *oldname, const char *newname);
 int     openat(int fd, const char *pathname, int oflags, mode_t mode);
 int     mknodat(int fd, const char *filename, mode_t mode, int devid);
-int     mknod(const char *filename, mode_t mode, int devid);
+int     mount(const char *source, const char *target, const char *type, unsigned long flags, const void *data);

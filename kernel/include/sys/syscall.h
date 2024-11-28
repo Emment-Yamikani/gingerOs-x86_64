@@ -74,7 +74,6 @@ extern pid_t    sys_fork(void);
 extern void     sys_exit(int exit_code);
 extern long     sys_sleep(long seconds);
 extern pid_t    sys_waitpid(pid_t __pid, int *__stat_loc, int __options);
-extern pid_t    sys_wait(int *stat_loc);
 extern int      sys_execve(const char *pathname, char *const argv[],
                   char *const envp[]);
 

@@ -141,10 +141,6 @@ int      sys_fchown(int fd, uid_t uid, gid_t gid) {
     return fchown(fd, uid, gid);
 }
 
-int      sys_gettimeofday(struct timeval *restrict tp, void *restrict tzp) {
-    return gettimeofday(tp, tzp);
-}
-
 mode_t   sys_umask(mode_t cmask) {
     return umask(cmask);
 }
@@ -234,10 +230,6 @@ pid_t sys_waitpid(pid_t __pid, int *__stat_loc, int __options) {
     return waitpid( __pid, __stat_loc, __options);
 }
 
-pid_t sys_wait(int *stat_loc) {
-    return wait(stat_loc);
-}
-
 void     sys_exit(int exit_code) {
     exit(exit_code);
 }
@@ -250,8 +242,7 @@ pid_t    sys_getppid(void) {
     return getppid();
 }
 
-int sys_execve(const char *pathname, char *const argv[],
-           char *const envp[]) {
+int sys_execve(const char *pathname, char *const argv[], char *const envp[]) {
     return execve(pathname, argv, envp);
 }
 
@@ -323,6 +314,14 @@ void sys_thread_yield(void) {
     thread_yield();
 }
 
+int sys_set_thread_area(void *addr __unused) {
+    return -ENOSYS;
+}
+
+int sys_get_thread_area(void *addr __unused) {
+    return -ENOSYS;
+}
+
 int sys_pause(void) {
     return pause();
 }
@@ -367,6 +366,18 @@ int sys_pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restric
     return pthread_sigmask(how, set, oset);
 }
 
+int sys_sigsuspend(const sigset_t *mask __unused) {
+    return -ENOSYS;
+}
+
+int sys_sigaltstack(const stack_t *restrict ss __unused, stack_t *restrict old_ss __unused) {
+    return -ENOSYS;
+}
+
+void sys_sigreturn() {
+    return;
+}
+
 void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off) {
     return mmap(addr, len, prot, flags, fd, off);
 }
@@ -393,12 +404,12 @@ int sys_getmemusage(meminfo_t *info) {
     return 0;
 }
 
-int sys_ptsname_r(int fd, char buf[], size_t buflen) {
+int sys_ptsname_r(int fd, char buf[/*..buflen*/], size_t buflen) {
     return ptsname_r(fd, buf, buflen);
 }
 
-int sys_mount(const char *source __unused, const char *target __unused, const char *type __unused, unsigned long flags __unused, const void *data __unused) {
-    return -ENOSYS;
+int sys_mount(const char *src, const char *target, const char *type, unsigned long flags, const void *data) {
+    return mount(src, target, type, flags, data);
 }
 
 int sys_chmod(const char *pathname __unused, mode_t mode __unused) {
@@ -498,20 +509,12 @@ pid_t sys_vfork(void) {
     return -ENOSYS;
 }
 
-int sys_set_thread_area(void *addr __unused) {
-    return -ENOSYS;
+int      sys_gettimeofday(struct timeval *restrict tp, void *restrict tzp) {
+    return gettimeofday(tp, tzp);
 }
 
-int sys_get_thread_area(void *addr __unused) {
-    return -ENOSYS;
-}
-
-void sys_sigreturn() {
-    return;
-}
-
-int sys_settimeofday(const struct timeval *tv __unused, const struct timezone *tz __unused) {
-    return -ENOSYS;
+int sys_settimeofday(const struct timeval *tv, const struct timezone *tz) {
+    return settimeofday(tv, tz);
 }
 
 int sys_clock_getres(clockid_t clockid __unused, struct timespec *res __unused) {
@@ -558,8 +561,8 @@ int sys_msync(void *addr __unused, size_t length __unused, int flags __unused) {
     return -ENOSYS;
 }
 
-void *sys_sbrk(intptr_t increment __unused) {
-    return (void *)NULL;
+void *sys_sbrk(intptr_t increment) {
+    return sbrk(increment);
 }
 
 int sys_getrlimit(int resource __unused, void /*struct rlimit*/ *rlim __unused) {
@@ -575,13 +578,5 @@ int sys_getrusage(int who __unused, void /*struct rusage*/ *usage __unused) {
 }
 
 pid_t sys_wait4(pid_t pid __unused, int *wstatus __unused, int options __unused, void /*struct rusage*/ *rusage __unused) {
-    return -ENOSYS;
-}
-
-int sys_sigsuspend(const sigset_t *mask __unused) {
-    return -ENOSYS;
-}
-
-int sys_sigaltstack(const stack_t *restrict ss __unused, stack_t *restrict old_ss __unused) {
     return -ENOSYS;
 }

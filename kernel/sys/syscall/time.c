@@ -13,3 +13,7 @@ int gettimeofday(struct timeval *restrict tp, void *restrict tzp __unused) {
     tp->tv_sec  = time;
     return 0;
 }
+
+int settimeofday(const struct timeval *tv __unused, const struct timezone *tz __unused) {
+    return -ENOTSUP;
+}
