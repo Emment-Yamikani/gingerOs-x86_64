@@ -1,8 +1,6 @@
 #include <api.h>
 #include <ginger/unistd.h>
 
-void *sys_sbrk(intptr_t);
-
 void main(void) {
     int     err  = 0;
     int     tty  = 0;
@@ -21,9 +19,7 @@ void main(void) {
     if ((err = tty = open("tty0", O_RDWR, 0)) < 0)
         panic("Failed to open tty0, err: %d\n", err);
 
-    char *buf = sys_sbrk(100);
-    for (int i = 6; i ; --i)
-        printf("brk: %p\n", sys_sbrk(100));
+    char buf [100];
     read(tty, buf, sizeof buf);
     write(tty, buf, sizeof buf);
 

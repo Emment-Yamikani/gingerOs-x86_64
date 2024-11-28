@@ -20,8 +20,6 @@ int vfs_mkdirat(const char *pathname, dentry_t *dir, cred_t *cred, mode_t mode) 
             // only goto create dir if the traversal reached the last token of the path.
             if (vfspath_islasttoken(path))
                 goto creat;
-            printk("%s(%s)\n", __func__, path->lasttoken);
-            debugloc();
         }
         
         if (path) {
@@ -33,8 +31,9 @@ int vfs_mkdirat(const char *pathname, dentry_t *dir, cred_t *cred, mode_t mode) 
 
     assert(path->directory == NULL, "On success, path has directory\n");
     assert(path->dentry, "On success, path has no dentry\n");
+
     err = -EEXIST;
-    dclose(path->directory);
+    dclose(path->dentry);
     goto error;
 creat:
     ilock(path->directory->d_inode);
