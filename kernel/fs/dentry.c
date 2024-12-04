@@ -145,29 +145,30 @@ void dunbind(dentry_t *dp) {
 }
 
 int dbind(dentry_t *d_parent, dentry_t *d_child) {
-    dentry_t *next = NULL, *d_last = NULL;
+    dentry_t *next = NULL;
+
     dassert_locked(d_child);
     dassert_locked(d_parent);
 
     if (d_child->d_parent)
         return -EALREADY;
 
-    if ((d_child == d_parent) ||
-        (d_child->d_name == NULL) ||
+    if ((d_child == d_parent) || (d_child->d_name == NULL) ||
         (d_parent->d_name == NULL))
         return -EINVAL;
 
-    /**
-     * Check for d_child dentry in d_parent dentry.
+    if (d_child == d_parent)
+        return -EINVAL;
+
+    /**Check for d_child dentry in d_parent dentry.
      * If d_parent dentry already contains d_child dentry
-     * fail and return -EEXIST.
-    */
+     * fail and return -EEXIST.*/
     forlinked(node, d_parent->d_child, next) {
         if (node == d_child)
             return -EEXIST;
         dlock(node);
         next = node->d_next;
-        if (!compare_strings(node->d_name, d_child->d_name)) {
+        if (string_eq(node->d_name, d_child->d_name)) {
             dunlock(node);
             return -EEXIST;
         }
@@ -175,24 +176,19 @@ int dbind(dentry_t *d_parent, dentry_t *d_child) {
     }
 
     if (d_parent->d_child == NULL) {
-        d_parent->d_child = d_child;
+        d_parent->d_child   = d_child;
+        d_child->d_next     = NULL;
         goto done;
+    } else {
+        d_child->d_next = d_parent->d_child;
+        dlock(d_parent->d_child);
+        d_parent->d_child->d_prev = d_child;
+        dunlock(d_parent->d_child);
     }
 
-    forlinked(node, d_parent->d_child, next) {
-        d_last = node;
-        dlock(node);
-        next = node->d_next;
-        if (next)
-            dunlock(node);
-    }
-
-    d_child->d_prev = d_last;
-    d_last->d_next = d_child;
-    dunlock(d_last);
 done:
-    d_child->d_next = NULL;
-    d_child->d_parent = d_parent;
+    d_child->d_prev     = NULL;
+    d_child->d_parent   = d_parent;
     // dsetflags(d_parent, DCACHE_REFERENCED);
     return 0;
 }
@@ -215,10 +211,10 @@ int dlookup(dentry_t *d_parent, const char *name, dentry_t **pchild) {
     if (name == NULL)
         return -EINVAL;
     
-    if (!compare_strings(".", name)) {
+    if (string_eq(".", name)) {
         dp = d_parent;
         goto done;
-    } else if (!compare_strings("..", name)) {
+    } else if (string_eq("..", name)) {
         dp = d_parent->d_parent;
         if (dp)
             dlock(dp);
@@ -230,7 +226,7 @@ int dlookup(dentry_t *d_parent, const char *name, dentry_t **pchild) {
     forlinked(dentry, d_parent->d_child, d_next) {
         dlock(dentry);
         d_next = dentry->d_next;
-        if (!compare_strings(dentry->d_name, name)) {
+        if (string_eq(dentry->d_name, name)) {
             dopen((dp = dentry));
             goto done;
         }
@@ -275,83 +271,105 @@ int dopen(dentry_t *dentry) {
 }
 
 int dretrieve_path(dentry_t *dentry, char **ret, size_t *rlen) {
-    int         err         = 0;
-    size_t      count       = 0;
-    size_t      size        = 0;
-    size_t      len         = 0;
-    size_t      ntok        = 0;
-    char        **tokens    = NULL;
-    char        **tmp_toks  = NULL;
-    char        *tmp_path   = NULL;
-    char        *path       = NULL;
-    dentry_t    *parent     = NULL;
+    int         err     = 0;
+    size_t      nt      = 1;  // No. of tokens.
+    dentry_t    *next   = NULL;
+    char        **tokens= NULL;
+    char        *path   = NULL;
 
-    if (dentry == NULL || ret == NULL)
+
+    if (dentry == NULL || dentry->d_name == NULL || ret == NULL)
         return -EINVAL;
     
-    forlinked(cur_dir, dentry, parent) {
-        ntok++; // increment ntok of tokens.
+    if (NULL == (tokens = (char **)kcalloc(2, sizeof (char *))))
+        return -ENOMEM;
 
-        if (NULL == (tmp_toks = krealloc(tokens,
-            (ntok + 1) * (sizeof (char *))))) {
-            err     = -ENOMEM;
-            break;
-        }
-
-        dlock(cur_dir);
-        parent  = cur_dir->d_parent;
-        path    = strdup(cur_dir->d_name);
-        dunlock(cur_dir);
-
-        if (path == NULL) {
-            err     =  -ENOMEM;
-            break;
-        }
-
-        tokens              = tmp_toks;
-        tokens[ntok]       = path;
-        if (ntok == 1)
-            tokens[0]       = (char *)NULL;
-        path                = (char *)NULL;
-    }
-
-    if (err == 0) {
-        foreach_reverse(token, &tokens[count = ntok]) {
-            len += size = strlen(token);
-            if (NULL == (tmp_path = krealloc(path,
-                len + 1))) {
-                err = -ENOMEM;
-                if (path)
-                    kfree(path);
-                break;    
-            }
-            
-            path = tmp_path;
-            strncpy(path + (len - size), token, size);
-
-            if (compare_strings(token, "/") == 0)
-                path[len] = '\0';
-            else
-                path[len] = (--count > 1) ? '/' : '\0';
-            // printk("path: %s, token: %s len: %d, index: %d, count: %d\n",
-                // path, token, len, index, count);
-            len += (path[len] == '/' ? 1 : 0);
-        }
-    }
-
-    if (err != 0)
-        kfree(path);
-    else {
-        *ret = path;
-        if (rlen)
-            *rlen = len;
-    }
-
-    if (tokens) {
-        foreach_reverse(token, &tokens[ntok])
-            kfree(token);
+    if (NULL == (tokens[nt - 1] = strdup(dentry->d_name))) {
         kfree(tokens);
+        return -ENOMEM;
     }
+
+    forlinked(parent, dentry->d_parent, next) {
+        char **tmp = NULL; // tmp tokenized path.
+        nt  += 1; // we have a valid parent, so count it.
+
+        if (NULL == (tmp = (char **)krealloc(tokens, (nt + 1) * sizeof (char *)))) {
+            tokens_free(tokens);
+            return -ENOMEM;
+        }
+
+        tokens = tmp;
+        if (nt == 1) { // First time allocating tokens, so clear it.
+            memset(tokens, 0, (nt + 1) * sizeof (char *));
+        }
+
+        dlock(parent);
+        next = parent->d_parent;
+        if (NULL == (tokens[nt - 1] = strdup(parent->d_name))) {
+            dunlock(parent);
+            tokens_free(tokens);
+            return -ENOMEM;
+        }
+        dunlock(parent);
+
+        tokens[nt] = NULL;
+    }
+
+    // allocate space for the resultant absolute path.
+    if (NULL == (path = (char *)kmalloc(2)))
+        goto error;
+
+    *path   = '/';  // account for the root fs.
+    path[1] = '\0'; // terminate the string.
+
+    if (rlen) *rlen = 1;    // if requested return the path length.
+
+    foreach_reverse(token, &tokens[nt - 1]) {
+        static size_t   len     = 1;    // keep track of the length of the resultant absolute path.
+        size_t          toklen  = 0;    // length of the token.
+        static size_t   off     = 1;    // where to write the next token.
+        char            *tmp    = NULL; // for temporal use.
+
+        if (string_eq(token, "/")){
+            nt -= 1; // we discard '/'
+            continue; // skip the root fs "/".
+        }
+
+        /// get the length of the current token. 
+        /// NOTE: 'nt > 1 ? 1 : 0' this is to account for separator(/) and the path terminator(\0).
+        /// if nt > 1, more tokens ahead so leave room for '/'.
+        len += (toklen = strlen(token)) + (nt > 1 ? 1 : 0);
+
+        // reallocate space for more tokens.
+        if (NULL == (tmp = (char *)krealloc(path, len + 1))) {
+            err = -ENOMEM;
+            goto error;
+        }
+
+        path = tmp;
+        strncpy(path + off, token, toklen); // copy the current token.
+        off += toklen; // increment the offset for the next token if any.
+
+        nt -= 1; // decrement No. of tokens.
+        if (nt != 0) {
+            path[len - 1] = '/'; // not the last token add a '/'.
+            off += 1;
+        } else path[len] = '\0'; // we're at the end, terminate the path.
+
+        if (rlen) *rlen = len;  // if requested return the path length.
+    }
+
+    tokens_free(tokens);
+
+    *ret = path;
+
+    return 0;
+error:
+    if (tokens != NULL)
+        tokens_free(tokens);
+
+    if (path != NULL)
+        kfree(path);
 
     return err;
 }

@@ -118,7 +118,7 @@ int vfspath_parse(const char *pathname, int flags, vfspath_t **rp) {
     int         isdir       = 0;
     size_t      index       = 0;
     size_t      pathlen     = 0;
-    size_t      pathtoks    = 0;
+    size_t      nt          = 0; // No. of tokens.
     char        *tmppath    = NULL;
     vfspath_t   *vfspath    = NULL;
     char        *absolute   = NULL;
@@ -146,10 +146,10 @@ int vfspath_parse(const char *pathname, int flags, vfspath_t **rp) {
     if (tmppath[strlen(tmppath) - 1] == '/')
         isdir = 1;
 
-    if ((err = canonicalize_path(tmppath, &pathtoks, &canonical, &lasttoken)))
+    if ((err = canonicalize_path(tmppath, &nt, &canonical, &lasttoken)))
         goto error;
 
-    if (NULL == (tokenized = kcalloc(pathtoks + 1, sizeof (char *)))) {
+    if (NULL == (tokenized = kcalloc(nt + 1, sizeof (char *)))) {
         err = -ENOMEM;
         goto error;
     }
@@ -169,7 +169,7 @@ int vfspath_parse(const char *pathname, int flags, vfspath_t **rp) {
         tokenized[index++] = lasttoken = token;
     }
 
-    pathtoks = index;
+    nt = index;
 
     // reset index.
     index = 0;
@@ -233,7 +233,7 @@ int vfspath_parse(const char *pathname, int flags, vfspath_t **rp) {
     if (flags & PATH_NOTOKENIZED) {
         tokens_free(tokenized);
     } else {
-        vfspath->tokencount = pathtoks;
+        vfspath->tokencount = nt;
         vfspath->tokenized  = tokenized;
     }
 
@@ -279,5 +279,117 @@ error:
     if (vfspath)
         kfree(vfspath);
     
+    return err;
+}
+
+int vfspath_untokenize(char **tokens, size_t nt, int flags, char **ppath, size_t *plen, char **plasttok) {
+    int         err         = 0;
+    char        *path       = NULL;
+    char        *lasttoken  = NULL;
+
+
+    if (tokens == NULL || ppath == NULL)
+        return -EINVAL;
+
+    // allocate space for the resultant absolute path.
+    if (NULL == (path = (char *)kmalloc(2)))
+        return -ENOMEM;
+
+    *path   = '/';  // account for the root fs.
+    path[1] = '\0'; // terminate the string.
+
+    if (plen) *plen = 1;    // if requested return the path length.
+
+    if (flags & PATH_REVERSED) {
+        lasttoken = tokens[0];  // get the last token.
+        foreach_reverse(token, &tokens[nt - 1]) {
+            static size_t   len     = 1;    // keep track of the length of the resultant absolute path.
+            size_t          toklen  = 0;    // length of the token.
+            static size_t   off     = 1;    // where to write the next token.
+            char            *tmp    = NULL; // for temporal use.
+
+            if (string_eq(token, "/")){
+                nt -= 1; // we discard '/'
+                continue; // skip the root fs "/".
+            }
+
+            /// get the length of the current token. 
+            /// NOTE: 'nt > 1 ? 1 : 0' this is to account for separator(/) and the path terminator(\0).
+            /// if nt > 1, more tokens ahead so leave room for '/'.
+            len += (toklen = strlen(token)) + (nt > 1 ? 1 : 0);
+
+            // reallocate space for more tokens.
+            if (NULL == (tmp = (char *)krealloc(path, len + 1))) {
+                err = -ENOMEM;
+                goto error;
+            }
+
+            path = tmp;
+            strncpy(path + off, token, toklen); // copy the current token.
+            off += toklen; // increment the offset for the next token if any.
+
+            nt -= 1; // decrement No. of tokens.
+            if (nt != 0) {
+                path[len - 1] = '/'; // not the last token add a '/'.
+                off += 1;
+            } else path[len] = '\0'; // we're at the end, terminate the path.
+
+            if (plen) *plen = len;  // if requested return the path length.
+        }
+    } else {
+        lasttoken = tokens[nt - 1];  // get the last token.
+        foreach(token, tokens) {
+            static size_t   len     = 1;    // keep track of the length of the resultant absolute path.
+            size_t          toklen  = 0;    // length of the token.
+            static size_t   off     = 1;    // where to write the next token.
+            char            *tmp    = NULL; // for temporal use.
+
+            if (string_eq(token, "/")){
+                nt -= 1; // we discard '/'
+                continue; // skip the root fs "/".
+            }
+
+            /// get the length of the current token. 
+            /// NOTE: 'nt > 1 ? 1 : 0' this is to account for separator(/) and the path terminator(\0).
+            /// if nt > 1, more tokens ahead so leave room for '/'.
+            len += (toklen = strlen(token)) + (nt > 1 ? 1 : 0);
+
+            // reallocate space for more tokens.
+            if (NULL == (tmp = (char *)krealloc(path, len + 1))) {
+                err = -ENOMEM;
+                goto error;
+            }
+
+            path = tmp;
+            strncpy(path + off, token, toklen); // copy the current token.
+            off += toklen; // increment the offset for the next token if any.
+
+            nt -= 1; // decrement No. of tokens.
+            if (nt != 0) {
+                path[len - 1] = '/'; // not the last token add a '/'.
+                off += 1;
+            } else path[len] = '\0'; // we're at the end, terminate the path.
+
+            if (plen) *plen = len;  // if requested return the path length.
+        }
+
+    }
+
+    if (plasttok != NULL) {
+        if (lasttoken == NULL)
+            lasttoken = "/";
+    
+        if (NULL == (*plasttok = strdup(lasttoken))) {
+            err = -ENOMEM;
+            goto error;
+        }
+    }
+
+    *ppath = path;
+
+    return 0;
+error:
+    if (path != NULL)
+        kfree(path);
     return err;
 }

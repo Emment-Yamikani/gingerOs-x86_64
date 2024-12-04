@@ -1,6 +1,8 @@
 #include <api.h>
 #include <ginger/unistd.h>
 
+extern int sys_mount();
+
 void main(void) {
     int     err  = 0;
     int     tty  = 0;
@@ -24,5 +26,17 @@ void main(void) {
     write(tty, buf, sizeof buf);
 
     printf("Reached end of %s:%s()\n", __FILE__, __func__);
+
+    mode = S_IRUSR | S_IWUSR |
+           S_IRGRP | S_IWGRP | S_IROTH;
+    mkdir("/mnt/ramfs", mode | S_IFDIR);
+
+    sys_mount("ramdisk0", "/mnt/ramfs/", "ramfs", 0, NULL);
+
+    chdir("/mnt/ramfs/");
+
+    char *const argp[] = {"/ramfs/shell", NULL};
+    execve(*argp, argp, argp);
+
     loop();
 }

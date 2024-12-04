@@ -219,7 +219,7 @@ mode_t umask(mode_t cmask) {
 }
 
 int getcwd(char *buf, size_t size) {
-    int         ret       = 0;
+    int         err       = 0;
     size_t      len       = 0;
     char        *path     = NULL;
     file_ctx_t  *file_ctx = NULL;
@@ -234,21 +234,23 @@ int getcwd(char *buf, size_t size) {
     
     file_ctx = current->t_fctx;
     fctx_lock(file_ctx);
-    ret = dretrieve_path(file_ctx->fc_cwd, &path, &len);
+    if ((err = dretrieve_path(file_ctx->fc_cwd, &path, &len))) {
+        fctx_unlock(file_ctx);
+        current_unlock();
+        return err;
+    }
     fctx_unlock(file_ctx);
 
     current_unlock();
 
-    if (ret == 0) {
-        if (len >= size)
-            ret = -ERANGE;
-        else
-            safestrncpy(buf, path, len);
-        
+    if (size <= len) {
         kfree(path);
+        return -ERANGE;
     }
 
-    return ret;
+    safestrncpy(buf, path, len + 1);
+    kfree(path);
+    return err;
 }
 
 int chdir(const char *path) {
