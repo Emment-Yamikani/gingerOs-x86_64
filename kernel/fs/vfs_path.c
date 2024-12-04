@@ -310,6 +310,7 @@ int vfspath_untokenize(char **tokens, size_t nt, int flags, char **ppath, size_t
 
             if (string_eq(token, "/")){
                 nt -= 1; // we discard '/'
+                if (nt == 0) path[len - 1] = '\0';
                 continue; // skip the root fs "/".
             }
 
@@ -346,6 +347,7 @@ int vfspath_untokenize(char **tokens, size_t nt, int flags, char **ppath, size_t
 
             if (string_eq(token, "/")){
                 nt -= 1; // we discard '/'
+                if (nt == 0) path[len - 1] = '\0';
                 continue; // skip the root fs "/".
             }
 
