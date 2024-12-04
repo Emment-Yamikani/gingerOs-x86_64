@@ -175,10 +175,12 @@ int dbind(dentry_t *d_parent, dentry_t *d_child) {
         dunlock(node);
     }
 
+    /**
+     * @brief Just put the new child
+     * at the very begining of the parent's child-list.*/
     if (d_parent->d_child == NULL) {
         d_parent->d_child   = d_child;
         d_child->d_next     = NULL;
-        goto done;
     } else {
         d_child->d_next = d_parent->d_child;
         dlock(d_parent->d_child);
@@ -186,7 +188,6 @@ int dbind(dentry_t *d_parent, dentry_t *d_child) {
         dunlock(d_parent->d_child);
     }
 
-done:
     d_child->d_prev     = NULL;
     d_child->d_parent   = d_parent;
     // dsetflags(d_parent, DCACHE_REFERENCED);

@@ -31,7 +31,7 @@ typedef struct vfspath_t {
 #define PATH_NOLAST_TOK     BS(3)   // Do not return last token of path.
 #define PATH_ISDIR          BS(4)   // Is a directory implied by the pathname?
 #define PATH_TOKEN_ISLAST   BS(5)   // path->token is the last element in the path.
-#define PATH_ABSOLUTE       BS(6)   // path is relative.
+#define PATH_ABSOLUTE       BS(6)   // path is absolute.
 
 #define PATH_REVERSED       BS(7)   // return a reversed path.
 
@@ -70,4 +70,12 @@ int verify_path(const char *__path);
 int path_get_lasttoken(const char *path, char **ltok);
 int vfspath_parse(const char *pathname, int flags, vfspath_t **rp);
 int parse_path(const char *path, const char *cwd, int flags, vfspath_t **pref);
+
+// TODO: implement logic to manipulate this struct.
+typedef struct pathname_t {
+    char    *path;
+    usize   length;
+    int     flags;
+} pathname_t;
+
 int vfspath_untokenize(char **tokens, size_t nt, int flags, char **ppath, size_t *plen, char **plasttok);
