@@ -25,8 +25,7 @@
 #define MS_NOATIME      0x00002000
 #define MS_SILENT       0x00004000
 
-typedef struct fs_mount
-{
+typedef struct fs_mount {
     struct superblock   *mnt_sb;
     int                 mnt_flags;
     char                *mnt_path;

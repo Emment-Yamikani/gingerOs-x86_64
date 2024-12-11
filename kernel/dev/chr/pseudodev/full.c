@@ -55,4 +55,4 @@ static int full_mmap(struct devid *dd, vmr_t *region) {
     return -ENOSYS;
 }
 
-MODULE_INIT(full, NULL, full_init, NULL);
+MODULE_INIT(full, full_init, NULL, NULL);

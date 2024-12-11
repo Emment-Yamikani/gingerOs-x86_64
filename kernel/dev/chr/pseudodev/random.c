@@ -52,4 +52,4 @@ static int random_mmap(struct devid *dd, vmr_t *region) {
     return -ENOSYS;
 }
 
-MODULE_INIT(random, NULL, random_init, NULL);
+MODULE_INIT(random, random_init, NULL, NULL);

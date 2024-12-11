@@ -321,4 +321,4 @@ int rtc_init(void) {
     return kdev_register(&rtcdev, DEV_RTC0, FS_CHR);
 }
 
-MODULE_INIT(rtcdev, NULL, rtc_init, NULL);
+MODULE_INIT(rtcdev, rtc_init, NULL, NULL);

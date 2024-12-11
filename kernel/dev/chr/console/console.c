@@ -23,9 +23,6 @@ static int console_init(void) {
     if (bootinfo.fb.type == 1)
         use_fb = 1;
 
-    if (use_fb)
-        printk("console will use framebuffer\n");
-
     return kdev_register(&consoledev, DEV_CONSOLE, FS_CHR);
 }
 
@@ -71,4 +68,4 @@ static off_t console_lseek(struct devid *dd __unused, off_t off __unused, int wh
     return -EOPNOTSUPP;
 }
 
-MODULE_INIT(console, NULL, console_init, NULL);
+MODULE_INIT(console, console_init, NULL, NULL);

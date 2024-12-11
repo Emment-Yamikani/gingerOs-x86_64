@@ -1,11 +1,12 @@
 #include <bits/errno.h>
 #include <dev/dev.h>
+#include <dev/ps2.h>
 
 DEV_DECL_OPS(static, ps2mouse);
 
 static DEV_INIT(ps2mouse, FS_CHR, DEV_MOUSE0, 1);
 
-static int ps2mouse_init(void) {
+int ps2mouse_init(void) {
     printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ps2mousedev.dev_name);
     return kdev_register(&ps2mousedev, DEV_MOUSE0, FS_CHR);
 }
@@ -35,17 +36,15 @@ static off_t ps2mouse_lseek(struct devid *dd __unused, off_t off __unused, int w
 }
 
 static ssize_t ps2mouse_read(struct devid *dd __unused, off_t off __unused, void *buf __unused, size_t sz __unused) {
-    return 0;
+    return -ENOTSUP;
 }
 
-static ssize_t ps2mouse_write(struct devid *dd __unused, off_t off __unused, void *buf __unused, size_t sz) {
-    return sz;
+static ssize_t ps2mouse_write(struct devid *dd __unused, off_t off __unused, void *buf __unused, size_t sz __unused) {
+    return -ENOTSUP;
 }
 
 static int ps2mouse_mmap(struct devid *dd, vmr_t *region) {
     if (dd == NULL || region == NULL)
         return -EINVAL;
-    return -ENOSYS;
+    return -ENOTSUP;
 }
-
-MODULE_INIT(ps2mouse, NULL, ps2mouse_init, NULL);

@@ -69,6 +69,7 @@ typedef struct filesystem {
     iops_t      *fs_iops;
     void        *fs_priv;
     queue_t     *fs_superblocks;
+    int         (*remount)(filesystem_t *fs, fs_mount_t *mnt, u64 flags, const void *data);
     int         (*get_sb)(struct filesystem *fs, const char *src, const char *target, unsigned long flags, void *data, superblock_t **psbp);
     int         (*mount)(struct filesystem *fs, dentry_t *src, dentry_t *dst, unsigned long flags, void *data);
     spinlock_t  fs_lock;

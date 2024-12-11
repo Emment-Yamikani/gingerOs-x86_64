@@ -113,7 +113,7 @@ static int ramdisk_init(void) {
     }
 
     return 0;
-} MODULE_INIT(ramdisk, NULL, ramdisk_init, NULL);
+} MODULE_INIT(ramdisk, ramdisk_init, NULL, NULL);
 
 static int ramdisk_get(int minor, ramdisk_t **ref) {
     if (ref == NULL)

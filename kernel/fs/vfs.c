@@ -70,8 +70,9 @@ int vfs_init(void) {
     int         err    = 0;
     mode_t      mode   = 0;
     const char  *dir[] = {
-        "/dev/", "/mnt/", "/tmp/",
-        "/ramfs/", "/proc/", "/sys/", NULL,
+        "/bin", "/boot", "/home", "/lib", "/dev",
+        "/etc", "/var", "usr", "/root", "/mnt", "/tmp",
+        "/ramfs", "/proc", "/sys", NULL,
     };
 
     const char *dev_dirs[] = {

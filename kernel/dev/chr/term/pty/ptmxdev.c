@@ -127,4 +127,4 @@ static int ptmx_mmap(struct devid *dd, vmr_t *region) {
     return -ENOSYS;
 }
 
-MODULE_INIT(ptmx, NULL, ptmx_init, NULL);
+MODULE_INIT(ptmx, ptmx_init, NULL, NULL);

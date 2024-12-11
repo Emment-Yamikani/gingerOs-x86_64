@@ -51,7 +51,7 @@ static int tty_init(void) {
     }
 
     return 0;
-} MODULE_INIT(tty, NULL, tty_init, NULL);
+} MODULE_INIT(tty, tty_init, NULL, NULL);
 
 static int     tty_close(struct devid *dd __unused) {
     return 0;

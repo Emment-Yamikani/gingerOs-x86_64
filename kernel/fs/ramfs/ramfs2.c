@@ -14,9 +14,9 @@ static superblock_t     *ramfs2_sb    = NULL;
 static ramfs2_super_t   *ramfs2_super = NULL;
 // static vmr_ops_t ramfs2_vmr_ops __unused;
 
-static int ramfs_getsb(filesystem_t *fs, const char *src, const char *target, unsigned long flags, void *data, superblock_t **);
-
 static int ramfs_fill_sb(filesystem_t *fs, const char *target, struct devid *devid, superblock_t *sb);
+static int ramfs_getsb(filesystem_t *fs, const char *src, const char *target,
+                        unsigned long flags, void *data, superblock_t **);
 
 filesystem_t ramfs2 = {
     .fs_iops        = &ramfs2_iops,
@@ -42,13 +42,11 @@ int ramfs_init(void) {
 }
 
 static int ramfs_getsb(filesystem_t *fs, const char *src,
-            const char *target, unsigned long flags,
-            void *data, superblock_t **psb) {
+        const char *target, unsigned long flags, void *data, superblock_t **psb) {
     return getsb_bdev(fs, src, target, flags, data, psb, ramfs_fill_sb);
 }
 
-static int ramfs_fill_sb(filesystem_t *fs, const char *target, 
-                    struct devid *devid, superblock_t *sb) {
+static int ramfs_fill_sb(filesystem_t *fs, const char *target, struct devid *devid, superblock_t *sb) {
     ssize_t                 err     = 0;
     size_t                  sbsz    = 0;
     ramfs2_super_header_t   hdr     = {0};
@@ -95,27 +93,26 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target,
     }
 
     memset(node, 0, sizeof *node);
-
     strncpy(node->name, droot->d_name, strlen(droot->d_name));
 
     sb->sb_blocksize = 512;
     sb->sb_size      = ramfs2_super->header.file_size;
-    strncpy(sb->sb_magic0, ramfs2_super->header.magic,
-            strlen(ramfs2_super->header.magic));
-    sb->sb_uio  = (cred_t) {
+    strncpy(sb->sb_magic0, ramfs2_super->header.magic, strlen(ramfs2_super->header.magic));
+    sb->sb_uio   = (cred_t) {
         .c_gid   = 0,
         .c_uid   = 0,
         .c_umask = 0555,
         .c_lock  = SPINLOCK_INIT(),
     };
-    sb->sb_root = droot;
-    ramfs2_sb   = sb;
 
-    node->offset= 0;
-    node->mode  = 0555;
-    node->type  = RAMFS2_DIR;
-    node->gid   = sb->sb_uio.c_gid;
-    node->uid   = sb->sb_uio.c_uid;
+    sb->sb_root     = droot;
+    ramfs2_sb       = sb;
+
+    node->offset    = 0;
+    node->mode      = 0555;
+    node->type      = RAMFS2_DIR;
+    node->gid       = sb->sb_uio.c_gid;
+    node->uid       = sb->sb_uio.c_uid;
 
     iroot->i_mode   = node->mode;
     iroot->i_uid    = node->uid;
@@ -164,10 +161,8 @@ int ramfs2_find(ramfs2_super_t *super, const char *fn, ramfs2_node_t **pnode) {
     if ((strlen(fn) >= __max_fname))
         return -ENAMETOOLONG;
 
-    for (uint32_t indx = 0; indx < super->header.nfile; ++indx)
-    {
-        if (!compare_strings(super->nodes[indx].name, (char *)fn))
-        {
+    for (uint32_t indx = 0; indx < super->header.nfile; ++indx) {
+        if (!compare_strings(super->nodes[indx].name, (char *)fn)) {
             *pnode = &super->nodes[indx];
             return 0;
         }
@@ -330,8 +325,8 @@ static iops_t ramfs2_iops = {
     .ibind      = NULL,
     .iopen      = ramfs2_open,
     .isync      = ramfs2_sync,
-    // .ilseek  = ramfs2_lseek,
-    // .ichown  = ramfs2_chown,
+    // .ilseek     = ramfs2_lseek,
+    .ichown     = ramfs2_chown,
     .iioctl     = ramfs2_ioctl,
     .iclose     = ramfs2_close,
     .icreate    = ramfs2_creat,
@@ -340,20 +335,3 @@ static iops_t ramfs2_iops = {
     .iread      = ramfs2_read_data,
     .iwrite     = ramfs2_write_data,
 };
-
-/*
-static struct fops ramfs2_fops = (struct fops){
-    .mmap       = ramfs2_mmap,
-    .eof        = posix_file_eof,
-    .read       = posix_file_read,
-    .open       = posix_file_open,
-    .close      = posix_file_close,
-    .write      = posix_file_write,
-    .ioctl      = posix_file_ioctl,
-    .lseek      = posix_file_lseek,
-    .stat       = posix_file_ffstat,
-    .readdir    = posix_file_readdir,
-    .can_read   = posix_file_can_read,
-    .can_write  = posix_file_can_write,
-};
-*/

@@ -12,13 +12,12 @@
 
 DEV_DECL_OPS(static, fb);
 
-static int fb_mmap(struct devid *dd, vmr_t *region);
 static int fb_vmr_fault(vmr_t *region, vm_fault_t *fault);
 
-static dev_t    fbdev;
-fb_fixinfo_t    fix_info       = {0};
-fb_varinfo_t    var_info       = {0};
-framebuffer_t   fbs[NFBDEV]    = {0};
+static dev_t            fbdev;
+fb_fixinfo_t     fix_info       = {0};
+fb_varinfo_t     var_info       = {0};
+static framebuffer_t    fbs[NFBDEV]    = {0};
 
 static vmr_ops_t fb_vmrops = {
     .io = NULL,
@@ -32,6 +31,8 @@ static vmr_ops_t fb_vmrops = {
 
 static DEV_INIT(fb, FS_CHR, DEV_FB, 0);
 
+#define VESA_ID    "VESA-VBE3"
+
 int framebuffer_gfx_init(void) {
     if (bootinfo.fb.type != 1)
         return -ENOENT;
@@ -42,33 +43,27 @@ int framebuffer_gfx_init(void) {
 
     fix_info.addr       = bootinfo.fb.addr;
     fix_info.memsz      = bootinfo.fb.pitch * bootinfo.fb.height;
-    fix_info.id[0]      = 'V';
-    fix_info.id[1]      = 'E';
-    fix_info.id[2]      = 'S';
-    fix_info.id[3]      = 'A';
-    fix_info.id[4]      = '_';
-    fix_info.id[5]      = 'V';
-    fix_info.id[6]      = 'B';
-    fix_info.id[7]      = 'E';
-    fix_info.id[8]      = '3';
-    fix_info.line_length= bootinfo.fb.pitch;
+
+    strncpy(fix_info.id, VESA_ID, strlen(VESA_ID));
+
     fix_info.type       = bootinfo.fb.type;
+    fix_info.line_length= bootinfo.fb.pitch;
 
     var_info.colorspace = 1;
+    var_info.bpp        = bootinfo.fb.bpp;
     var_info.red        = bootinfo.fb.red;
     var_info.transp     = bootinfo.fb.resv;
     var_info.blue       = bootinfo.fb.blue;
     var_info.green      = bootinfo.fb.green;
-    var_info.bpp        = bootinfo.fb.bpp;
     var_info.pitch      = bootinfo.fb.pitch;
     var_info.width      = bootinfo.fb.width;
     var_info.height     = bootinfo.fb.height;
 
+    fbs[0].module       = NULL;
     fbs[0].dev          = &fbdev;
-    fbs[0].priv         = &bootinfo.fb;
-    fbs[0].module       = 0;
     fbs[0].fixinfo      = &fix_info;
     fbs[0].varinfo      = &var_info;
+    fbs[0].priv         = &bootinfo.fb;
     earlycons_use_gfx   = 1;
     return 0;
 }
@@ -251,8 +246,7 @@ static int fb_vmr_fault(vmr_t *region, vm_fault_t *fault) {
 static int fb_mmap(struct devid *dd, vmr_t *region) {
     framebuffer_t *fb = NULL;
 
-    if (dd == NULL ||
-        dd->major != DEV_FB ||
+    if (dd == NULL || dd->major != DEV_FB ||
         dd->minor >= NFBDEV || dd->type != FS_CHR)
         return -EINVAL;
 
@@ -282,8 +276,7 @@ static int fb_mmap(struct devid *dd, vmr_t *region) {
 
     region->priv  = fb;
     region->vmops = &fb_vmrops;
-
     return 0;
 }
 
-MODULE_INIT(fbdev, NULL, fb_init, NULL);
+MODULE_INIT(fbdev, fb_init, NULL, NULL);
