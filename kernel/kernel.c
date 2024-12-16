@@ -18,7 +18,7 @@ __noreturn void kthread_main(void) {
         "\e[025453;011mGinger OS\e[0m\'.\n\n"
     );
 
-    builtin_threads_begin(NULL);
+    thread_start_builtin(NULL);
 
     if ((err = load_init("/ramfs/startup.conf"))) {
         printk("Failed to read or parse startup.conf"

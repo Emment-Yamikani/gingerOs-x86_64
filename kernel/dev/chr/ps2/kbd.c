@@ -5,26 +5,30 @@
 #include <arch/traps.h>
 #include <ds/ringbuf.h>
 #include <dev/ps2.h>
+#include <dev/tty.h>
+#include <sys/thread.h>
 
 DEV_DECL_OPS(static, ps2kbd);
-
 static DEV_INIT(ps2kbd, FS_CHR, DEV_KBD0, 0);
 
-// Ring buffer for scancodes
-static ringbuf_t kbd_buffer;
+#define KBD_BUFFSZ      256     // size of keyboard buffer.
+
+static QUEUE(kbd_waiter);       // thread waiting to read the keyboard.
+static ringbuf_t kbd_buffer;    // Ring buffer for scancodes
 
 #define buffer_lock()               ({ ringbuf_lock(&kbd_buffer); })
 #define buffer_unlock()             ({ ringbuf_unlock(&kbd_buffer); })
 #define buffer_islocked()           ({ ringbuf_islocked(&kbd_buffer); })
-#define buffer_asser_locked()       ({ ringbuf_asser_locked(&kbd_buffer); })
+#define buffer_assert_locked()      ({ ringbuf_assert_locked(&kbd_buffer); })
 
 
 void ps2kbd_intr(void) {
-    uint8_t scancode = inb(PS2_DATA_PORT);
+    uint8_t scode = inb(PS2_DATA_PORT);
 
     buffer_lock();
-    ringbuf_write(&kbd_buffer, (void *)&scancode, 1);
+    ringbuf_write(&kbd_buffer, (void *)&scode, 1);
     buffer_unlock();
+    sched_wake1(kbd_waiter);
 }
 
 static int ps2kbd_probe(void) {
@@ -47,7 +51,7 @@ static int ps2kbd_probe(void) {
     ps2_send_command(PS2_CMD_ENABLE_PORT1);
 
     // Initialize the ring buffer
-    if ((err = ringbuf_init(PGSZ, &kbd_buffer)))
+    if ((err = ringbuf_init(KBD_BUFFSZ, &kbd_buffer)))
         return err;
 
     // Reset the keyboard
@@ -81,25 +85,39 @@ static int ps2kbd_open(struct devid *dd __unused, inode_t **pip __unused) {
 }
 
 static int ps2kbd_mmap(struct devid *dd __unused, vmr_t *region __unused) {
-    return -ENOSYS;
+    return -ENOTSUP;
 }
 
 static int ps2kbd_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOSYS;
 }
 
-static off_t ps2kbd_lseek(struct devid *dd __unused, off_t off __unused, int whence __unused __unused) {
+static off_t ps2kbd_lseek(struct devid *dd __unused, off_t off __unused, int whence __unused) {
+    return -ENOTSUP;
+}
+
+static int ps2kbd_ioctl(struct devid *dd __unused, int request __unused, void *arg __unused) {
     return -ENOSYS;
 }
 
-static int ps2kbd_ioctl(struct devid *dd __unused, int request __unused, void *arg __unused __unused) {
-    return -ENOSYS;
+static ssize_t ps2kbd_read(struct devid *dd __unused, off_t off __unused, void *buf, size_t nb) {
+    usize cnt = 0;
+
+    for (; cnt < nb; cnt++) {
+        buffer_lock();
+        // nothing to read, goto sleep.
+        if (ringbuf_isempty(&kbd_buffer)) {
+            current_lock();
+            sched_sleep(kbd_waiter, T_ISLEEP, &kbd_buffer.lock);
+            current_unlock();
+        }
+        ringbuf_read(&kbd_buffer, (char *)buf + cnt, 1);
+        buffer_unlock();
+    }
+
+    return cnt;
 }
 
-static ssize_t ps2kbd_read(struct devid *dd __unused, off_t off __unused, void *buf __unused, size_t nbyte __unused) {
-    return -ENOSYS;
-}
-
-static ssize_t ps2kbd_write(struct devid *dd __unused, off_t off __unused, void *buf __unused, size_t nbyte __unused) {
+static ssize_t ps2kbd_write(struct devid *dd __unused, off_t off __unused, void *buf __unused, size_t nb __unused) {
     return -ENOSYS;
 }

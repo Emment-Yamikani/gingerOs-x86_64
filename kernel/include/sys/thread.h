@@ -49,7 +49,7 @@ typedef struct thread_sched_t {
     time_t      ts_last_sched;  // Last time this thread was scheduled to run.
     cpu_t       *ts_processor;  // Current Processor for which this thread has affinity.
     struct {
-        enum{
+        enum {
             SOFT_AFFINITY = 0,  /*soft affinity for the cpu*/
             HARD_AFFINITY = 1,  /*hard affinity for the cpu*/
         } type;                 // Type of affinity (SOFT or HARD).
@@ -402,7 +402,7 @@ builtin_thread_t __used_section(.__builtin_thrds) \
 #define STACKSZMAX      (KiB(512))
 #define BADSTACKSZ(sz)  ((sz) < STACKSZMIN || (sz) > STACKSZMAX)
 
-int builtin_threads_begin(usize  *nthreads);
+int thread_start_builtin(usize  *nthreads);
 
 #define thread_debugloc() ({                                                                 \
     printk(                                                                                  \

@@ -14,7 +14,6 @@
 #include <sys/sched.h>
 #include <sys/thread.h>
 #include <dev/dev.h>
-#include <sync/mutex.h>
 #include <dev/fb.h>
 #include <dev/console.h>
 #include <mm/kalloc.h>

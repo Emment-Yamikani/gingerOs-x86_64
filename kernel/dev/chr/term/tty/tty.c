@@ -69,11 +69,11 @@ static int     tty_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOSYS;
 }
 
-static off_t   tty_lseek(struct devid *dd __unused, off_t off __unused, int whence __unused __unused) {
+static off_t   tty_lseek(struct devid *dd __unused, off_t off __unused, int whence __unused) {
     return -ENOSYS;
 }
 
-static int     tty_ioctl(struct devid *dd __unused, int request __unused, void *arg __unused __unused) {
+static int     tty_ioctl(struct devid *dd __unused, int request __unused, void *arg __unused) {
     return -ENOSYS;
 }
 
