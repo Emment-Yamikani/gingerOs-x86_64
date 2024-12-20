@@ -11,62 +11,59 @@ CFLAGS := -O2 -g -ffreestanding -nostdinc -nostdlib -lgcc \
 CPPFLAGS :=
 
 # Linker flags
-LDFLAGS := -nostdlib -static -m elf_x86_64 \
-	-z max-page-size=0x1000
+LDFLAGS 		:= -nostdlib -static -m elf_x86_64 -z max-page-size=0x1000
 
 #User linker flags
-USER_LDFLAGS := -nostdlib -static -m elf_x86_64 \
-	-z max-page-size=0x1000
+USER_LDFLAGS 	:= -nostdlib -static -m elf_x86_64 -z max-page-size=0x1000
 
 # Kernel flags
-KERNEL_FLAGS := $(CFLAGS) $(CPPFLAGS) -ffreestanding \
-	-D__x86_64__ -Ikernel/include
+KERNEL_FLAGS 	:= $(CFLAGS) $(CPPFLAGS) -D__x86_64__ -Ikernel/include
 
 #User flags
-USER_FLAGS := $(CFLAGS) $(CPPFLAGS) -Iusr/include
+USER_FLAGS 		:= $(CFLAGS) $(CPPFLAGS) -Iusr/include
 
 # User lib flags
-USER_LIB_FLAGS := $(CFLAGS) $(CPPFLAGS) -fPIC -Iusr/include
+USER_LIB_FLAGS 	:= $(CFLAGS) $(CPPFLAGS) -fPIC -Iusr/include
 
 # Directories
-USR_DIR := usr
-APP_DIR := $(USR_DIR)/app
-USR_LIB := $(USR_DIR)/lib
+USR_DIR 		:= usr
+APP_DIR 		:= $(USR_DIR)/app
+USR_LIB 		:= $(USR_DIR)/lib
 
 # Kernel directories
-ISO_DIR := iso
-RAMFS_DIR := ramfs
-KERNEL_DIR := kernel
-KERNEL_SUBDIRS := $(shell find $(KERNEL_DIR) -type d)
+ISO_DIR 		:= iso
+RAMFS_DIR 		:= ramfs
+KERNEL_DIR 		:= kernel
+KERNEL_SUBDIRS 	:= $(shell find $(KERNEL_DIR) -type d)
 
 # Kernel source files
-KERNEL_SOURCES := $(shell find $(KERNEL_DIR) -type f \( -name '*.c' -o -name '*.asm' -o -name '*.S' \))
-KERNEL_OBJS := $(patsubst $(KERNEL_DIR)/%.c, $(KERNEL_DIR)/%.o, $(patsubst $(KERNEL_DIR)/%.asm, $(KERNEL_DIR)/%.o, $(patsubst $(KERNEL_DIR)/%.S, $(KERNEL_DIR)/%.o, $(KERNEL_SOURCES))))
+KERNEL_SOURCES 	:= $(shell find $(KERNEL_DIR) -type f \( -name '*.c' -o -name '*.asm' -o -name '*.S' \))
+KERNEL_OBJS 	:= $(patsubst $(KERNEL_DIR)/%.c, $(KERNEL_DIR)/%.c.o, $(patsubst $(KERNEL_DIR)/%.asm, $(KERNEL_DIR)/%.asm.o, $(patsubst $(KERNEL_DIR)/%.S, $(KERNEL_DIR)/%.S.o, $(KERNEL_SOURCES))))
 
-USR_SOURCES := $(wildcard $(USR_DIR)/*.c $(USR_DIR)/*.asm)
-USR_OBJS := $(patsubst $(USR_DIR)/%.c, $(USR_DIR)/%.o, $(patsubst $(USR_DIR)/%.asm, $(USR_DIR)/%.o, $(USR_SOURCES)))
+USR_SOURCES 	:= $(wildcard $(USR_DIR)/*.c $(USR_DIR)/*.asm $(USR_DIR)/*.S)
+USR_OBJS 		:= $(patsubst $(USR_DIR)/%.c, $(USR_DIR)/%.c.o, $(patsubst $(USR_DIR)/%.asm, $(USR_DIR)/%.asm.o, $(patsubst $(USR_DIR)/%.S, $(USR_DIR)/%.S.o, $(USR_SOURCES))))
 
 # User library source files
-USER_LIB_SOURCES := $(shell find $(USR_LIB) -type f \( -name '*.c' -o -name '*.asm' -o -name '*.S' \))
-USER_LIB_OBJS := $(patsubst $(USR_LIB)/%.c, $(USR_LIB)/%.o, $(patsubst $(USR_LIB)/%.asm, $(USR_LIB)/%.o, $(USER_LIB_SOURCES)))
+USER_LIB_SOURCES:= $(shell find $(USR_LIB) -type f \( -name '*.c' -o -name '*.asm' -o -name '*.S' \))
+USER_LIB_OBJS 	:= $(patsubst $(USR_LIB)/%.c, $(USR_LIB)/%.c.o, $(patsubst $(USR_LIB)/%.asm, $(USR_LIB)/%.asm.o, $(patsubst $(USR_LIB)/%.S, $(USR_LIB)/%.S.o, $(USER_LIB_SOURCES))))
 
 # Shared object file
-LIBC_SO := $(USR_LIB)/libc.so
+LIBC_SO 		:= $(USR_LIB)/libc.so
 
 # Kernel linked objects
-LINKED_OBJS := $(KERNEL_OBJS) font.o
+LINKED_OBJS 	:= $(KERNEL_OBJS) font.o
 
 # Make rules
 all: lime.elf module _iso_ run
 
 # Kernel rules
-$(KERNEL_DIR)/%.o: $(KERNEL_DIR)/%.c
+$(KERNEL_DIR)/%.c.o: $(KERNEL_DIR)/%.c
 	$(CC) $(KERNEL_FLAGS) -MD -c $< -o $@
 
-$(KERNEL_DIR)/%.o: $(KERNEL_DIR)/%.asm
+$(KERNEL_DIR)/%.asm.o: $(KERNEL_DIR)/%.asm
 	nasm $< -f elf64 -o $@
 
-$(KERNEL_DIR)/%.o: $(KERNEL_DIR)/%.S
+$(KERNEL_DIR)/%.S.o: $(KERNEL_DIR)/%.S
 	$(CC) $(KERNEL_FLAGS) -MD -c $< -o $@
 
 lime.elf: $(ISO_DIR)/boot/lime.elf
@@ -100,24 +97,24 @@ run:
 ###################################### 
 
 # Shared library rules
-$(USR_LIB)/%.o: $(USR_LIB)/%.c
+$(USR_LIB)/%.c.o: $(USR_LIB)/%.c
 	$(CC) $(USER_LIB_FLAGS) -MD -c $< -o $@
 
-$(USR_LIB)/%.o: $(USR_LIB)/%.asm
+$(USR_LIB)/%.asm.o: $(USR_LIB)/%.asm
 	nasm $< -f elf64 -o $@
 
 #$(LIBC_SO): $(USER_LIB_OBJS)
 #	$(LD) $(USER_LDFLAGS) --shared $^ -o $@
 
 $(LIBC_SO): $(USER_LIB_OBJS)
-	$(AR) rcs usr/lib/libc.a $^
+	$(AR) rcs $(USR_LIB)/libc.a $^
 
 LIBC: $(LIBC_SO)
 
-$(USR_DIR)/%.o: $(USR_DIR)/%.c
+$(USR_DIR)/%.c.o: $(USR_DIR)/%.c
 	$(CC) $(USER_FLAGS) -MD -c $< -o $@
 
-$(USR_DIR)/%.o: $(USR_DIR)/%.asm
+$(USR_DIR)/%.asm.o: $(USR_DIR)/%.asm
 	nasm $< -f elf64 -o $@
 
 $(APP_DIR)/%.o: $(APP_DIR)/%.c

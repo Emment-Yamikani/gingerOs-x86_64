@@ -14,9 +14,9 @@ typedef struct mutex_t {
     spinlock_t  mtx_gaurd;
 } mutex_t;
 
-#define MUTEX_INIT()    ((mutex_t){0})
-#define MUTEX_PTR()     (&MUTEX_INIT())
-#define MUTEX(__mtx_name)     mutex_t *__mtx_name = MUTEX_PTR()
+#define MUTEX_INIT()        ((mutex_t){0})
+#define MUTEX_PTR()         (&MUTEX_INIT())
+#define MUTEX(__mtx_name)   mutex_t *__mtx_name = MUTEX_PTR()
 
 /// mutex_assert
 #define mutex_assert(mtx)           ({ assert(mtx, "Not a valid 'mutex'."); })

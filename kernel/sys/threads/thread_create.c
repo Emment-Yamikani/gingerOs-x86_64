@@ -88,6 +88,9 @@ int thread_alloc(usize ksz /*kstacksz*/, int __flags, thread_t **ret) {
         return err;
 
     thread = (thread_t *)ALIGN16((kstack + ksz) - sizeof *thread);
+    // printk("kstack: %p, ksz: %x, thread: %p, sizeof(thread)=%d, EndOfKstack: %p, EndWithThread: %p\n",
+    //     kstack, ksz, thread, sizeof *thread, kstack + ksz, (u64)thread + (sizeof *thread));
+
     memset(thread, 0, sizeof *thread);
     thread->t_lock  = SPINLOCK_INIT();
     thread_lock(thread);

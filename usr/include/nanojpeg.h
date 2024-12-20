@@ -265,12 +265,11 @@ int main(int argc, char *argv[])
 #endif
 
 #if NJ_USE_LIBC
-#include <lib/stdlib.h>
-#include <lib/string.h>
-#include <mm/kalloc.h>
+#include <stdlib.h>
+#include <string.h>
 
-#define njAllocMem kmalloc
-#define njFreeMem kfree
+#define njAllocMem malloc
+#define njFreeMem free
 #define njFillMem memset
 #define njCopyMem memcpy
 #elif NJ_USE_WIN32

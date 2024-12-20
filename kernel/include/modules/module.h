@@ -3,10 +3,10 @@
 #include <sys/system.h>
 
 typedef struct {
-    char *mod_name;
-    void *mod_arg;
-    int (*mod_init)();
-    int (*mod_fini)();
+    char    *mod_name;
+    void    *mod_arg;
+    int     (*mod_init)();
+    int     (*mod_fini)();
 } module_sym_t;
 
 extern module_sym_t __builtin_mods[];

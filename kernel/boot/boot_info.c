@@ -1,8 +1,8 @@
 #include <boot/boot.h>
-#include <sys/system.h>
+#include <lib/printk.h>
 #include <lib/string.h>
 #include <mm/page.h>
-#include <lib/printk.h>
+#include <sys/system.h>
 
 bootinfo_t bootinfo = {0};
 
@@ -79,20 +79,20 @@ void multiboot_info_process(multiboot_info_t *mbi) {
         mmap->addr       = bootinfo.kern_base;
         mmap->size       = bootinfo.kern_size;
         mmap->type       = MULTIBOOT_MEMORY_RESERVED;
-        mmap += 1;  // move the next mmap slot.
+        mmap += 1;      // move the next mmap slot.
 
         for ( ; entry < end; mmap++) {
-            // highly unlikely, but just to be on a safe size ;).
+            // Highly unlikely, but just to be on a safe size ;).
             if (bootinfo.mmapcnt >= NMMAP) break;
 
-            // only consider memory within 32bit address space.
+            // Only consider memory within 32bit address space.
             if (entry->addr < GiB(4)) {
-                mmap->type          = entry->type;
-                mmap->addr          = V2HI(entry->addr);
-                mmap->size          = entry->len;
+                mmap->size  = entry->len;
+                mmap->type  = entry->type;
+                mmap->addr  = V2HI(entry->addr);
 
                 /* FIXME: 
-                sneaky but it works add to the total the size of
+                Sneaky but it works add to the total the size of
                 ACPI-reclaimable memory which according to my observation
                 is located at (memhi + 1Mib) which coinsides with first
                 memory hole mentioned by the multiboot doumentation.*/
@@ -108,15 +108,15 @@ void multiboot_info_process(multiboot_info_t *mbi) {
         }
     }
 
-    // bootinfo.total   = bootinfo.total / KiB(1); 
+    /// Bootinfo.total   = bootinfo.total / KiB(1); 
     /// the first free physical address
     /// is the page frame right after the kernel.
     bootinfo.phyaddr = PGROUNDUP(kend);
-    
+
     // Get modules information
     if (mbi->flags & MULTIBOOT_INFO_MODS) {
         mod_entry_t *mod = (mod_entry_t *)V2HI(mbi->mods_addr);
-        bootinfo.modcnt = mbi->mods_count > NMODS ? NMODS : mbi->mods_count;
+        bootinfo.modcnt  = mbi->mods_count > NMODS ? NMODS : mbi->mods_count;
         for (usize i = 0; i < bootinfo.modcnt; i++) {
             bootinfo.mods[i].addr    = V2HI(mod[i].mod_start);
             bootinfo.mods[i].cmd     = (char *)(V2HI(mod[i].cmdline));
@@ -131,25 +131,25 @@ void multiboot_info_process(multiboot_info_t *mbi) {
     mmap->size = (bootinfo.total / 4) * sizeof(page_t); // divide by 4 because already in Kib.
     mmap->type = MULTIBOOT_MEMORY_RESERVED;
     bootinfo.mmapcnt++;
-    
-    /// subtract to account for space used
+
+    /// Subtract to account for space used
     /// by kernel and by the array of page_t.
     bootinfo.usable -= mmap->size + bootinfo.kern_size;
     // memory sizes must be in KiB for both usable and total memory.
     bootinfo.usable  = PGROUND(bootinfo.usable) / KiB(1);
 
-    // sort mmaps' array.
+    // Sort mmaps' array.
     bubble_sort_mmap(bootinfo.mmap, bootinfo.mmapcnt);
 
     // Get framebuffer information
     if (mbi->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO) {
-        bootinfo.fb.bpp     = mbi->framebuffer_bpp;
-        bootinfo.fb.type    = mbi->framebuffer_type;
-        bootinfo.fb.pitch   = mbi->framebuffer_pitch;
-        bootinfo.fb.width   = mbi->framebuffer_width;
-        bootinfo.fb.height  = mbi->framebuffer_height;
-        bootinfo.fb.addr    = V2HI(mbi->framebuffer_addr);
-        bootinfo.fb.size    = mbi->framebuffer_height * mbi->framebuffer_pitch;
+        bootinfo.fb.bpp    = mbi->framebuffer_bpp;
+        bootinfo.fb.type   = mbi->framebuffer_type;
+        bootinfo.fb.pitch  = mbi->framebuffer_pitch;
+        bootinfo.fb.width  = mbi->framebuffer_width;
+        bootinfo.fb.height = mbi->framebuffer_height;
+        bootinfo.fb.addr   = V2HI(mbi->framebuffer_addr);
+        bootinfo.fb.size   = mbi->framebuffer_height * mbi->framebuffer_pitch;
     }
 
     // Get bootloader name
