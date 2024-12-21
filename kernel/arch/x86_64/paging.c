@@ -312,7 +312,7 @@ done:
     /** Deallocate this page frame
      * if it was allocated at the time of mapping.*/
     if (_isalloc(pa)) {
-        printk("%s:%ld: %s: [NOTE]: Freeing frame{0x%p}...\n", __FILE__, __LINE__, __func__, PGROUND(pa));
+        // printk("%s:%ld: %s: [NOTE]: Freeing frame{0x%p}...\n", __FILE__, __LINE__, __func__, PGROUND(pa));
         pmman.free(PGROUND(pa));
     }
 }

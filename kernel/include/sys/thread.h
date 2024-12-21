@@ -508,12 +508,6 @@ thread_t *thread_dequeue(queue_t *queue);
  */
 int thread_kstack_alloc(usize  size, uintptr_t *ret);
 
-/**
- * \brief Deallocate the kernel thread stack.
- * \param addr base address of the kernel stack.
-*/
-void thread_kstack_free(uintptr_t addr);
-
 /** \brief Kill thread.
  * \param thread is id of the thread to be killed.
  * \param wait if '0' the function doen't wait for thread to die else it will wait.

@@ -58,10 +58,14 @@ int thread_kstack_alloc(usize size, uintptr_t *ret) {
     return 0;
 }
 
-void thread_kstack_free(uintptr_t addr) {
+/**
+ * \brief Deallocate the kernel thread stack.
+ * \param addr base address of the kernel stack.
+*/
+static void thread_kstack_free(uintptr_t addr, usize size) {
     if (addr == 0)
         return;
-    kfree((void *)addr);
+    arch_pagefree(addr, size);
 }
 
 /**
@@ -283,6 +287,7 @@ error:
 void thread_free(thread_t *thread) {
     queue_node_t    *next  = NULL;
     queue_t         *queue = NULL;
+    arch_thread_t   *tarch = NULL;
 
     assert (current != thread, "current called freeing it's own kstack???");
 
@@ -309,10 +314,12 @@ void thread_free(thread_t *thread) {
     }
     queue_unlock(&thread->t_queues);
 
-    assert(thread->t_arch.t_kstack.ss_sp, "??? No kernel stack ???");
+    tarch = &thread->t_arch;
+
+    assert(tarch->t_kstack.ss_sp, "??? No kernel stack ???");
 
     thread_unlock(thread);
-    thread_kstack_free((uintptr_t)thread->t_arch.t_kstack.ss_sp);
+    thread_kstack_free((uintptr_t)tarch->t_kstack.ss_sp, tarch->t_kstack.ss_size);
 }
 
 int thread_detach(thread_t *thread) {

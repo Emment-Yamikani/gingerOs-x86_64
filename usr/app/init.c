@@ -2,8 +2,8 @@
 #include <api.h>
 
 void main(void) {
-    pid_t   sh     = 0;
-    int     staloc = 0;
+    pid_t       sh     = 0;
+    int         staloc = 0;
     char *const envp[] = {
         "SHELL=/test",
         "INIT=/ramfs/init",
@@ -14,10 +14,10 @@ void main(void) {
         NULL
     };
 
-    int err = 0;
-    int fd  = 0;
-    struct stat st;
-    char *buf = NULL;
+    int         err     = 0;
+    int         fd      = 0;
+    struct stat st      = {0};
+    char        *buf    = NULL;
 
     if ((err = stat("/ramfs/dev", &st)))
         panic("error: %d.", err);

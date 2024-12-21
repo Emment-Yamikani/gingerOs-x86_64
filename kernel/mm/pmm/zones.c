@@ -249,9 +249,9 @@ int zones_init(void) {
 }
 
 int physical_memory_init(void) {
-    int err = 0;
-    usize size = 0;
-    uintptr_t addr = 0;
+    int         err  = 0;
+    usize       size = 0;
+    uintptr_t   addr = 0;
     boot_mmap_t *map = bootinfo.mmap;
 
     if ((err = zones_init()))

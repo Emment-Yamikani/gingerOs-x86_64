@@ -13,8 +13,8 @@ static int ps2_init(void) {
 
     // TODO: initialize the ps2 controller.
     
-    if ((err = ps2kbd_init()))
-        return err;
+    // if ((err = ps2kbd_init()))
+    //     return err;
 
     if ((err = ps2mouse_init()))
         return err;

@@ -10,27 +10,15 @@
 __unused static MUTEX(m);
 
 __unused static void th(void) {
+    printk("TID(%d) runnning...\n", gettid());
 }
 
-static void test_grp(void) {
-    int err = 0;
-    thread_info_t info;
-
-    for (int i = 0; i < 24; ++i)
+static void test(void) {
+    for (int i = 0; i < 300; ++i)
         kthread_create(NULL, (thread_entry_t)th,
             NULL, THREAD_CREATE_SCHED, NULL);
 
     loop() {
-        if ((err = thread_join(0, &info, NULL)) == 0)
-            printk("tid(%d), tid: %d exited.\n", gettid(), info.ti_tid);
+        thread_join(0, NULL, NULL);
     }
-}
-
-static void test(void) {
-    return;
-    printk("\n");
-    BUILTIN_THREAD_ANOUNCE(__func__);
-    
-    kthread_create(NULL, (thread_entry_t)test_grp, NULL,
-        THREAD_CREATE_GROUP | THREAD_CREATE_SCHED, NULL);
 } BUILTIN_THREAD(test, test, NULL);

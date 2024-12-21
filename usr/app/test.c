@@ -6,9 +6,9 @@ extern int sys_mount();
 void main(void) {
     int     err  = 0;
     int     tty  = 0;
+    dev_t   dev  = mkdev(4, 0);
     mode_t  mode =  S_IFCHR | S_IRUSR | S_IWUSR |
                     S_IRGRP | S_IWGRP | S_IROTH;
-    dev_t   dev  = mkdev(4, 0);
 
     printf("\n%s is now running...\n", __FILE__);
 

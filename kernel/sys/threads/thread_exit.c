@@ -82,6 +82,6 @@ int thread_kill_all(void) {
 
 void thread_exit(uintptr_t exit_code) {
     current_assert();
-    printk("tid: %d, exiting...\n", gettid());
+    // printk("tid: %d, exiting...\n", gettid());
     arch_thread_exit(exit_code);
 }

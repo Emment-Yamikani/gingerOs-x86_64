@@ -18,6 +18,6 @@ static void tty_input(void) {
 
     loop() {
         kdev_read(DEVID_PTR(FS_CHR, DEV_T(DEV_KBD0, 0)), 0, &ch, sizeof ch);
-        printk("%x;\n", ch);
+        // printk("%x;\n", ch);
     }
 } BUILTIN_THREAD(tty_input, (thread_entry_t)tty_input, NULL);

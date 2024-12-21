@@ -22,46 +22,60 @@ int signal_dispatch(void) {
 
     current_lock();
     oset = current->t_sigmask;
+    
+    /// get a reference to the signal
+    /// desc for the current thread group.
     desc = current->t_sigdesc;
+    
+    /// Check if we have a thread local signal
+    /// by attempting to get signal 'info'.
     thread_sigdequeue(current, &info);
     current_unlock();
 
-    sigdesc_lock(desc);
+    sigdesc_lock(desc); // grab a lock on signal description.
     if (info) {
-        flags = 1;
-        act = desc->sig_action[info->si_signo - 1];
+        /// If we have a valid info.
+        /// get the signal action for it.
+        act     = desc->sig_action[info->si_signo - 1];
         sigdesc_unlock(desc);
-        goto __handle_signal;
+        flags   = 1; // we'll need this flag later.
+        goto __handle_signal; // handle signal that was sent to this thread.
     }
 
+    // debugloc();
+    /// No signal was sent to the current thread so,
+    /// check through thread group signal desc for a global signal.
     for (int signo = 0; signo < NSIG; ++signo) {
-        current_lock();
-        err = sigismember(&current->t_sigmask, signo + 1);
-        current_unlock();
-
-        // signal is masked internally in the thread.
-        if (err == 1)
-            continue;
-
         queue_lock(&desc->sig_queue[signo]);
-        dequeue(&desc->sig_queue[signo], (void **)&info);
-        queue_unlock(&desc->sig_queue[signo]);
-        if (info) {
+        if (queue_count(&desc->sig_queue[signo])) {
+            current_lock();
+            /// Chech if signal is masked internally in the thread.
+            if ((sigismember(&desc->sig_mask, signo + 1)) == 1) {
+                current_unlock();
+                queue_unlock(&desc->sig_queue[signo]);
+                /// signal is masked internally in the thread ignore it.
+                continue;
+            }
+            current_unlock();
+
+            sigdequeue_pending(&desc->sig_queue[signo], &info);
             // save this signal mask.
             oset    = desc->sig_mask;
             // get the sigaction info for this signal.
             act     = desc->sig_action[signo];
             // block recursive signals of this type and those already in sig_mask.
-            sigaddset(&desc->sig_mask, info->si_signo - 1);
-            break;
+            sigaddset(&desc->sig_mask, signo + 1);
         }
+        queue_unlock(&desc->sig_queue[signo]);
     }
     sigdesc_unlock(desc);
 
+    // debugloc();
     if (info == NULL) { // no signal pending...
         return 0;
     }
 
+    debugloc();
 __handle_signal:
     handler = (act.sa_flags & SA_SIGINFO ? (sigfunc_t)act.sa_sigaction : act.sa_handler);
     
@@ -76,10 +90,7 @@ __handle_signal:
         case SIG_TERM_CORE:
         assert_msg(0,
             "%s:%d: SIG_DFL is default action for signo(%d)",
-            __FILE__,
-            __LINE__,
-            info->si_signo
-        );
+            __FILE__, __LINE__, info->si_signo);
         case SIG_IGNORE:
             goto __ignore;
         break;
@@ -88,19 +99,12 @@ __handle_signal:
     case (uintptr_t)SIG_ERR:
         assert_msg(0,
             "%s:%d: SIG_ERR is default action for signo(%d)",
-            __FILE__,
-            __LINE__,
-            info->si_signo
-        );
+            __FILE__, __LINE__, info->si_signo);
         break;
     case (uintptr_t)SIG_IGN:
 __ignore:
-        assert_msg(0,
-            "%s:%d: SIG_IGN is default action for signo(%d)",
-            __FILE__,
-            __LINE__,
-            info->si_signo
-        );
+        assert_msg(0, "%s:%d: SIG_IGN is default action for signo(%d)",
+            __FILE__, __LINE__, info->si_signo);
         goto __exit_handler;
     }
 
