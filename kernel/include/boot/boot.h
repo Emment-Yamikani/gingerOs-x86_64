@@ -58,3 +58,7 @@ typedef multiboot_memory_map_t mmap_entry_t;
 extern bootinfo_t bootinfo;
 
 extern void boot_mmap_dump(void);
+
+/// Alloc memory from scratch space.
+/// returns 4K aligned address.
+void *boot_alloc(usize size, usize alignment);

@@ -10,15 +10,13 @@
 __unused static MUTEX(m);
 
 __unused static void th(void) {
-    printk("TID(%d) runnning...\n", gettid());
+    // printk("TID(%d) runnning...\n", gettid());
 }
 
 static void test(void) {
-    for (int i = 0; i < 300; ++i)
+    for (int i = 0; i < 150; ++i)
         kthread_create(NULL, (thread_entry_t)th,
             NULL, THREAD_CREATE_SCHED, NULL);
 
-    loop() {
-        thread_join(0, NULL, NULL);
-    }
+    loop() ;//thread_join(0, NULL, NULL);
 } BUILTIN_THREAD(test, test, NULL);

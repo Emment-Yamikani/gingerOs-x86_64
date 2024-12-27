@@ -81,6 +81,7 @@
 #define PAGEMASK                (PGMASK)
 #define PGSZ2M                  (0x200000ull)
 #define PGSZ2MASK               (PGSZ2M -1)
+#define __ALIGN(x, s)           (AND((uintptr_t)(x), NOT((usize)(s) - 1)))
 #define ALIGN16(x)              (AND((uintptr_t)(x), NOT(0xf)))
 #define ALIGN4K(x)              (AND((uintptr_t)(x), NOT(PGMASK)))
 #define PGALIGN(x)              (ALIGN4K(x))

@@ -157,3 +157,38 @@ void multiboot_info_process(multiboot_info_t *mbi) {
         // Store or process the bootloader name if needed
     }
 }
+
+void *boot_alloc(usize size, usize alignment) {
+    void        *addr = NULL;
+    uintptr_t   aligned_addr;
+
+    // Validate input size and alignment.
+    if (size == 0 || alignment == 0 || (alignment & (alignment - 1)) != 0) {
+        panic("boot_alloc: Invalid size or alignment.");
+    }
+
+    // Ensure size is rounded up to the nearest alignment size for proper allocation.
+    size = (size + alignment - 1) & ~(alignment - 1);
+
+    // Calculate the aligned address.
+    aligned_addr = bootinfo.phyaddr;
+    if (aligned_addr % alignment != 0) {
+        aligned_addr = (aligned_addr + alignment - 1) & ~(alignment - 1);
+    }
+
+    // Check if the allocation exceeds the usable memory range or causes overflow.
+    if ((aligned_addr + size) < aligned_addr) {
+        panic("boot_alloc: Overflow detected.");
+    }
+
+    if ((aligned_addr + size) > KiB(bootinfo.usable)) {
+        panic("boot_alloc: Exceeded usable memory limit.");
+    }
+
+    addr = (void *)aligned_addr;
+
+    // Update the bootinfo pointer to reflect the new allocation.
+    bootinfo.phyaddr = (uintptr_t)(aligned_addr + size);
+
+    return (void *)V2HI(addr);
+}

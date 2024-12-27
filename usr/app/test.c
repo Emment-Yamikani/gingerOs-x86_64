@@ -10,8 +10,6 @@ void main(void) {
     mode_t  mode =  S_IFCHR | S_IRUSR | S_IWUSR |
                     S_IRGRP | S_IWGRP | S_IROTH;
 
-    printf("\n%s is now running...\n", __FILE__);
-
     if ((err = chdir("/dev/")))
         panic("Failed to change directory. err: %d\n", err);
 

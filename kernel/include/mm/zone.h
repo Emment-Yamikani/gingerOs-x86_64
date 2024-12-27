@@ -9,9 +9,10 @@
 typedef struct zone_t {
     usize       size;       // size of zone in bytes.
     uintptr_t   start;      // start address of this zone.
+    usize       *bitmap;    // zone's bitmap.
     page_t      *pages;     // array of pages.
     usize       npages;     // No. of pages in this zone.
-    usize       upages;     // No . of used pages in this zone.
+    usize       upages;     // No. of used pages in this zone.
     u64         flags;      // zone flags.
     queue_t     queue;
     spinlock_t  lock;       // zone lock for synchronization.
@@ -22,10 +23,11 @@ extern zone_t zones[NZONE];
 /////////////////////////
 /// zone indeices.  /////
 /////////////////////////
-#define ZONEi_DMA    0   // zone from 0-16MiB
-#define ZONEi_NORM   1   // zone from 16MiB-2GiB
-#define ZONEi_HOLE   2   // zone from 2GiB-4GiB.
-#define ZONEi_HIGH   3   // zone from 4GiB and beyond.
+
+#define ZONEi_DMA               0   // zone from 0-16MiB
+#define ZONEi_NORM              1   // zone from 16MiB-2GiB
+#define ZONEi_HOLE              2   // zone from 2GiB-4GiB.
+#define ZONEi_HIGH              3   // zone from 4GiB and beyond.
 
 // assert zone is valid and not a nullptr.
 #define zone_assert(z)          ({ assert(z, "No zone."); })
@@ -42,10 +44,11 @@ extern zone_t zones[NZONE];
 // ensure zone is locked before proceeding.
 #define zone_assert_locked(z)   ({ zone_assert(z); spin_assert_locked(&(z)->lock); })
 
-/////////////////////////
-////// zone flags.  /////
-/////////////////////////
-#define ZONE_VALID  BS(0)   // zone is valid for used.
+///////////////////////////////////////////////////
+//////              zone flags.               /////
+///////////////////////////////////////////////////
+
+#define ZONE_VALID              BS(0)   // zone is valid for used.
 
 #define zone_flags_set(z, f)    ({ zone_assert_locked(z); (z)->flags |= (f);})
 #define zone_flags_mask(z, f)   ({ zone_assert_locked(z); (z)->flags &= ~(f);})

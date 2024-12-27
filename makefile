@@ -83,7 +83,7 @@ _iso_:
 	grub-mkrescue -o ginger.iso $(ISO_DIR)
 
 debug:
-	objdump -d $(ISO_DIR)/boot/lime.elf -M intel > lime.asm
+	objdump -d $(ISO_DIR)/boot/lime.elf -M intel | less > lime.asm
 
 run:
 	qemu-system-x86_64 -smp 1 \

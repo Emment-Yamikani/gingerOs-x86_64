@@ -37,14 +37,14 @@ int getzone_byaddr(uintptr_t paddr, usize size, zone_t **ppz) {
     if (ppz == NULL)
         return -EINVAL;
     
-    for (zone_t *z = zones; z < &zones[NZONE]; ++z) {
-        zone_lock(z);
-        if ((paddr >= z->start) && zone_isvalid(z) &&
-                ((paddr + size) <= (z->start + z->size))) {
-            *ppz = z;
+    for (zone_t *zone = zones; zone < &zones[NZONE]; ++zone) {
+        zone_lock(zone);
+        if ((paddr >= zone->start) && zone_isvalid(zone) &&
+                ((paddr + size) <= (zone->start + zone->size))) {
+            *ppz = zone;
             return 0;
         }
-        zone_unlock(z);
+        zone_unlock(zone);
     }
 
     return -ENOENT;
@@ -54,28 +54,28 @@ int getzone_bypage(page_t *page, zone_t **ppz) {
     if (page == NULL || ppz == NULL)
         return -EINVAL;
     
-    for (zone_t *z = zones; z < &zones[NZONE]; ++z) {
-        zone_lock(z);
-        if ((page >= z->pages) && zone_isvalid(z) &&
-                (page < &z->pages[z->npages])) {
-            *ppz = z;
+    for (zone_t *zone = zones; zone < &zones[NZONE]; ++zone) {
+        zone_lock(zone);
+        if ((page >= zone->pages) && zone_isvalid(zone) &&
+                (page < &zone->pages[zone->npages])) {
+            *ppz = zone;
             return 0;
         }
-        zone_unlock(z);
+        zone_unlock(zone);
     }
 
     return -ENOENT;
 }
 
-int getzone_byindex(int z, zone_t **ref) {
+int getzone_byindex(int zone_i, zone_t **ref) {
     zone_t *zone = NULL;
 
-    if ((z < 0) || (z > (int)NELEM(zones)))
+    if ((zone_i < 0) || (zone_i > (int)NELEM(zones)))
         return -EINVAL;
 
-    zone = &zones[z];
+    zone = &zones[zone_i];
     zone_lock(zone);
-    // printk("requesting zone(%d): %p ,flags: %d\n", z, zone, zone->flags);
+    // printk("requesting zone(%d): %p ,flags: %d\n", zone_i, zone, zone->flags);
     if (!zone_isvalid(zone)) {
         zone_unlock(zone);
         return -EINVAL;
@@ -85,25 +85,23 @@ int getzone_byindex(int z, zone_t **ref) {
     return 0;
 }
 
-static int zone_enumerate(zone_t *z, usize *memsz) {
-    page_t *pages = (page_t *)V2HI(bootinfo.phyaddr);
-
-    if (z == NULL)
+static int zone_enumerate(zone_t *zone, usize *memsz) {
+    if (zone == NULL)
         return -EINVAL;
 
-    zone_assert_locked(z);
+    zone_assert_locked(zone);
 
-    switch (z - zones) {
+    switch (zone - zones) {
     case ZONEi_DMA:
         if (*memsz > M2KiB(16)) {
-            z->size = MiB(16);
-        } else z->size = KiB(*memsz);
+            zone->size = MiB(16);
+        } else zone->size = KiB(*memsz);
 
-        z->start = 0; // DMA zone starts at 0x0
+        zone->start = 0; // DMA zone starts at 0x0
         break;
     case ZONEi_NORM:
         // enure that the previous zone is initialize before this one.
-        if (!((z - 1)->flags & ZONE_VALID))
+        if (!((zone - 1)->flags & ZONE_VALID))
             return -EINVAL;
 
         /// manipulate the available memory size.
@@ -111,16 +109,16 @@ static int zone_enumerate(zone_t *z, usize *memsz) {
         /// else use as is.
         /// memsz is in KiB.
         if (*memsz > M2KiB(2032)) {
-            z->size = MiB(2032);
-        } else z->size = KiB(*memsz);
+            zone->size = MiB(2032);
+        } else zone->size = KiB(*memsz);
 
         /// set this zone starts @ 16MiB.
-        z->start = MiB(16);
+        zone->start = MiB(16);
 
         break;
     case ZONEi_HOLE:
         // enure that the previous zone is initialize before this one.
-        if (!((z - 1)->flags & ZONE_VALID))
+        if (!((zone - 1)->flags & ZONE_VALID))
             return -EINVAL;
 
         /** We add 1 MiB because multiboot says;
@@ -128,39 +126,42 @@ static int zone_enumerate(zone_t *z, usize *memsz) {
          * maximally the address of the first
          * upper memory hole minus 1 megabyte.
          * It is not guaranteed to be this value".*/
-        z->size = KiB((bootinfo.memhi + M2KiB(1))) - GiB(2);
+        zone->size = KiB((bootinfo.memhi + M2KiB(1))) - GiB(2);
 
         /// set this zone starts @ 2GiB.
-        z->start = GiB(2);
+        zone->start = GiB(2);
 
         break;
     case ZONEi_HIGH:
         // enure that the previous zone is initialize before this one.
-        if (!((z - 1)->flags & ZONE_VALID))
+        if (!((zone - 1)->flags & ZONE_VALID))
             return -EINVAL;
 
         /// for HIGH memory zone, no spliting is needed.
-        z->size     = KiB(*memsz);
+        zone->size     = KiB(*memsz);
 
         /// set this zone starts @ 4GiB.
-        z->start = GiB(4);
+        zone->start = GiB(4);
 
         break;
     default: return -EINVAL;
     }
 
-    z->npages   = NPAGE(z->size);
+    zone->npages   = NPAGE(zone->size);
 
-    if (zone_size(z) != 0) {
-        z->pages    = pages;
+    if (zone_size(zone) != 0) {
+        zone->bitmap    = boot_alloc(sizeof(u64) * (zone->npages / 64), 16);
+        zone->pages     = boot_alloc(sizeof(page_t) * zone->npages, 16);
+
         // mark zone as valid for use.
-        zone_flags_set(z, ZONE_VALID);
+        zone_flags_set(zone, ZONE_VALID);
+        // clear the bitmap
+        memset(zone->bitmap, 0, sizeof(u64) * zone->npages);
         // clear the page array.
-        memset(z->pages, 0, sizeof(page_t) * z->npages);
+        memset(zone->pages, 0, sizeof(page_t) * zone->npages);
     }
 
-    *memsz -= B2KiB(z->size);
-    bootinfo.phyaddr = V2LO((pages + z->npages));
+    *memsz -= B2KiB(zone->size);
 
     return 0;
 }
@@ -171,42 +172,41 @@ int zones_init(void) {
     usize       size    = 0;    // size of memory region in bytes.
     usize       np      = 0;    // no. of pages.
     page_t      *page   = NULL;
-    zone_t      *z      = NULL; // memory zone.
+    zone_t      *zone   = NULL; // memory zone.
     mod_t       *mod    = bootinfo.mods;
     boot_mmap_t *map    = bootinfo.mmap;
     usize       memsz   = bootinfo.total;
 
     printk("initializing memory zones...\n");
 
-    for (z = zones; z < &zones[NZONE]; ++z) {
-        memset(z, 0, sizeof *z);
-        z->lock = SPINLOCK_INIT();
+    for (zone = zones; zone < &zones[NZONE]; ++zone) {
+        memset(zone, 0, sizeof *zone);
+        zone->lock = SPINLOCK_INIT();
         
-        zone_lock(z);
+        zone_lock(zone);
         if (memsz != 0) {
-            if ((err = zone_enumerate(z, &memsz))) {
+            if ((err = zone_enumerate(zone, &memsz))) {
                 printk("Failed to init zone. err: %d\n", err);
-                zone_unlock(z);
+                zone_unlock(zone);
                 return err;
             }
         }
-        zone_unlock(z);
+        zone_unlock(zone);
     }
 
-    for (z = NULL; map < &bootinfo.mmap[bootinfo.mmapcnt]; ++map) {
+    for (zone = NULL; map < &bootinfo.mmap[bootinfo.mmapcnt]; ++map) {
         // only mark the regions that aren't available as 'used'.
-        if ((map->addr < V2HI(MEMMIO)) &&
-                (map->type != MULTIBOOT_MEMORY_AVAILABLE)) {
+        if ((map->addr < V2HI(MEMMIO)) && (map->type != MULTIBOOT_MEMORY_AVAILABLE)) {
             size = map->size;
             addr = PGROUND(V2LO(map->addr));
 
-            if ((err = getzone_byaddr(addr, size, &z)))
+            if ((err = getzone_byaddr(addr, size, &zone)))
                 panic("Couldn't get zone for mmap[%p, %d], err: %d\n", addr, size, err);
 
-            page = z->pages + NPAGE(addr - z->start);
+            page = zone->pages + NPAGE(addr - zone->start);
             for (np = NPAGE(size); np; --np, page++, addr += PGSZ) {
                 if (page->refcnt == 0)
-                    z->upages       += 1; // increment no. used pages.
+                    zone->upages       += 1; // increment no. used pages.
                 else printk("%s:%d: [NOTE]: already marked!!!\n", __FILE__, __LINE__);
 
                 page->refcnt    += 1;
@@ -216,21 +216,21 @@ int zones_init(void) {
                 page->virtual   = V2HI(addr);
 
             }
-            zone_unlock(z);
+            zone_unlock(zone);
         }
     }
 
-    for (z = NULL; mod < &bootinfo.mods[bootinfo.modcnt]; ++mod) {
+    for (zone = NULL; mod < &bootinfo.mods[bootinfo.modcnt]; ++mod) {
         size = mod->size;
         addr = PGROUND(V2LO(mod->addr));
 
-        if ((err = getzone_byaddr(addr, size, &z)))
+        if ((err = getzone_byaddr(addr, size, &zone)))
             panic("Couldn't get zone, err: %d\n", err);
 
-        page = z->pages + NPAGE(addr - z->start);
+        page = zone->pages + NPAGE(addr - zone->start);
         for (np = NPAGE(size); np; --np, page++, addr += PGSZ) {
             if (page->refcnt == 0)
-                z->upages       += 1; // increment no. used pages.
+                zone->upages       += 1; // increment no. used pages.
             else printk("%s:%d: [NOTE]: already marked!!!\n", __FILE__, __LINE__);
 
             page->refcnt    += 1;
@@ -241,7 +241,7 @@ int zones_init(void) {
 
         }
 
-        zone_unlock(z);
+        zone_unlock(zone);
     }
 
     printk("Memory zones initialized.\n");
@@ -275,8 +275,11 @@ int physical_memory_init(void) {
         }
     }
 
-    arch_map_i(bootinfo.fb.addr, V2LO(bootinfo.fb.addr),
-        bootinfo.fb.size, PTE_KRW | PTE_WTCD);
+    arch_map_i(
+        bootinfo.fb.addr,
+        V2LO(bootinfo.fb.addr),
+        bootinfo.fb.size, PTE_KRW | PTE_WTCD
+    );
 
     return 0;
 }

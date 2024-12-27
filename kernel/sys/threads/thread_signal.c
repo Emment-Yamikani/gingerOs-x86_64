@@ -13,13 +13,11 @@ int thread_sigqueue(thread_t *thread, siginfo_t *info) {
 
     thread_assert_locked(thread);
 
-    if (thread_iszombie(thread) ||
-        thread_isterminated(thread))
+    if (thread_iszombie(thread) || thread_isterminated(thread))
         return -EINVAL;
 
-    if (thread_isstopped(thread) && (
-        (info->si_signo != SIGKILL) &&
-        (info->si_signo != SIGCONT)))
+    if (thread_isstopped(thread) && ((info->si_signo != SIGKILL) &&
+            (info->si_signo != SIGCONT)))
         return -EINVAL;
 
     switch ((err = sigismember(&thread->t_sigmask, info->si_signo))) {
@@ -43,42 +41,44 @@ int thread_sigqueue(thread_t *thread, siginfo_t *info) {
     return err;
 }
 
-int thread_sigdequeue(thread_t *thread, siginfo_t **ret) {
+int thread_sigdequeue(thread_t *thread, siginfo_t **ret_info) {
     int         signo = 0;
-    siginfo_t   *info = NULL;
 
-    if (!thread || !ret)
+    if (!thread || !ret_info)
         return -EINVAL;
 
     thread_assert_locked(thread);
+
     for ( ; signo < NSIG; ++signo) {
         queue_lock(&thread->t_sigqueue[signo]);
         if (queue_count(&thread->t_sigqueue[signo])) {
-            if ((sigismember(&thread->t_sigmask, signo + 1)) == 1) {
+            if (sigismember(&thread->t_sigmask, signo + 1) == 1) {
                 queue_unlock(&thread->t_sigqueue[signo]);
-                return -EINVAL;
+                continue;
             }
-            sigdequeue_pending(&thread->t_sigqueue[signo], &info);
-            queue_unlock(&thread->t_sigqueue[signo]);
+
+            sigdequeue_pending(&thread->t_sigqueue[signo], ret_info);
             sigaddset(&thread->t_sigmask, signo + 1);
-            *ret = info;
+            queue_unlock(&thread->t_sigqueue[signo]);
             return 0;
         }
         queue_unlock(&thread->t_sigqueue[signo]);
     }
+
     return -ENOENT;
 }
 
 int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset) {
     int err = 0;
+
     thread_assert_locked(thread);
-    
+
     if (oset)
         *oset = thread->t_sigmask;
-    
+
     if (set == NULL)
         return 0;
-    
+
     if (sigismember(set, SIGKILL) || sigismember(set, SIGSTOP))
         return -EINVAL;
 
@@ -96,5 +96,6 @@ int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigs
         err = -EINVAL;
         break;
     }
+
     return err;
 }
