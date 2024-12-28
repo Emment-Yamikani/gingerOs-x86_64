@@ -38,14 +38,14 @@ KERNEL_SUBDIRS 	:= $(shell find $(KERNEL_DIR) -type d)
 
 # Kernel source files
 KERNEL_SOURCES 	:= $(shell find $(KERNEL_DIR) -type f \( -name '*.c' -o -name '*.asm' -o -name '*.S' \))
-KERNEL_OBJS 	:= $(patsubst $(KERNEL_DIR)/%.c, $(KERNEL_DIR)/%.c.o, $(patsubst $(KERNEL_DIR)/%.asm, $(KERNEL_DIR)/%.asm.o, $(patsubst $(KERNEL_DIR)/%.S, $(KERNEL_DIR)/%.S.o, $(KERNEL_SOURCES))))
+KERNEL_OBJS 	:= $(patsubst $(KERNEL_DIR)/%.c, $(KERNEL_DIR)/%.c.o, $(patsubst $(KERNEL_DIR)/%.asm, $(KERNEL_DIR)/%.o, $(patsubst $(KERNEL_DIR)/%.S, $(KERNEL_DIR)/%.S.o, $(KERNEL_SOURCES))))
 
 USR_SOURCES 	:= $(wildcard $(USR_DIR)/*.c $(USR_DIR)/*.asm $(USR_DIR)/*.S)
-USR_OBJS 		:= $(patsubst $(USR_DIR)/%.c, $(USR_DIR)/%.c.o, $(patsubst $(USR_DIR)/%.asm, $(USR_DIR)/%.asm.o, $(patsubst $(USR_DIR)/%.S, $(USR_DIR)/%.S.o, $(USR_SOURCES))))
+USR_OBJS 		:= $(patsubst $(USR_DIR)/%.c, $(USR_DIR)/%.c.o, $(patsubst $(USR_DIR)/%.asm, $(USR_DIR)/%.o, $(patsubst $(USR_DIR)/%.S, $(USR_DIR)/%.S.o, $(USR_SOURCES))))
 
 # User library source files
 USER_LIB_SOURCES:= $(shell find $(USR_LIB) -type f \( -name '*.c' -o -name '*.asm' -o -name '*.S' \))
-USER_LIB_OBJS 	:= $(patsubst $(USR_LIB)/%.c, $(USR_LIB)/%.c.o, $(patsubst $(USR_LIB)/%.asm, $(USR_LIB)/%.asm.o, $(patsubst $(USR_LIB)/%.S, $(USR_LIB)/%.S.o, $(USER_LIB_SOURCES))))
+USER_LIB_OBJS 	:= $(patsubst $(USR_LIB)/%.c, $(USR_LIB)/%.c.o, $(patsubst $(USR_LIB)/%.asm, $(USR_LIB)/%.o, $(patsubst $(USR_LIB)/%.S, $(USR_LIB)/%.S.o, $(USER_LIB_SOURCES))))
 
 # Shared object file
 LIBC_SO 		:= $(USR_LIB)/libc.so
@@ -60,7 +60,7 @@ all: lime.elf module _iso_ run
 $(KERNEL_DIR)/%.c.o: $(KERNEL_DIR)/%.c
 	$(CC) $(KERNEL_FLAGS) -MD -c $< -o $@
 
-$(KERNEL_DIR)/%.asm.o: $(KERNEL_DIR)/%.asm
+$(KERNEL_DIR)/%.o: $(KERNEL_DIR)/%.asm
 	nasm $< -f elf64 -o $@
 
 $(KERNEL_DIR)/%.S.o: $(KERNEL_DIR)/%.S
@@ -100,7 +100,7 @@ run:
 $(USR_LIB)/%.c.o: $(USR_LIB)/%.c
 	$(CC) $(USER_LIB_FLAGS) -MD -c $< -o $@
 
-$(USR_LIB)/%.asm.o: $(USR_LIB)/%.asm
+$(USR_LIB)/%.o: $(USR_LIB)/%.asm
 	nasm $< -f elf64 -o $@
 
 #$(LIBC_SO): $(USER_LIB_OBJS)
@@ -114,7 +114,7 @@ LIBC: $(LIBC_SO)
 $(USR_DIR)/%.c.o: $(USR_DIR)/%.c
 	$(CC) $(USER_FLAGS) -MD -c $< -o $@
 
-$(USR_DIR)/%.asm.o: $(USR_DIR)/%.asm
+$(USR_DIR)/%.o: $(USR_DIR)/%.asm
 	nasm $< -f elf64 -o $@
 
 $(APP_DIR)/%.o: $(APP_DIR)/%.c
