@@ -3,13 +3,14 @@
 #include <sync/spinlock.h>
 #include <mm/page.h>
 #include <ds/queue.h>
+#include <ds/bitmap.h>
 
 #define NZONE   4
 
 typedef struct zone_t {
     usize       size;       // size of zone in bytes.
     uintptr_t   start;      // start address of this zone.
-    usize       *bitmap;    // zone's bitmap.
+    bitmap_t    bitmap;     // zone's bitmap.
     page_t      *pages;     // array of pages.
     usize       npages;     // No. of pages in this zone.
     usize       upages;     // No. of used pages in this zone.

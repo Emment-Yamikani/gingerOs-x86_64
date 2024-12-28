@@ -86,6 +86,8 @@ int getzone_byindex(int zone_i, zone_t **ref) {
 }
 
 static int zone_enumerate(zone_t *zone, usize *memsz) {
+    int err = 0;
+
     if (zone == NULL)
         return -EINVAL;
 
@@ -150,13 +152,19 @@ static int zone_enumerate(zone_t *zone, usize *memsz) {
     zone->npages   = NPAGE(zone->size);
 
     if (zone_size(zone) != 0) {
-        zone->bitmap    = boot_alloc(sizeof(u64) * (zone->npages / 64), 16);
-        zone->pages     = boot_alloc(sizeof(page_t) * zone->npages, 16);
+        usize bitmap_u64s   = 0;
+        usize *bitmap_array = NULL;
+
+        bitmap_u64s = ((zone->npages + BITS_PER_USIZE - 1) / BITS_PER_USIZE);
+        bitmap_array= boot_alloc(bitmap_u64s * sizeof(usize), 16);
+
+        if ((err = bitmap_init(&zone->bitmap, bitmap_array, zone->npages)))
+            return err;
+
+        zone->pages= boot_alloc(sizeof(page_t) * zone->npages, 16);
 
         // mark zone as valid for use.
         zone_flags_set(zone, ZONE_VALID);
-        // clear the bitmap
-        memset(zone->bitmap, 0, sizeof(u64) * zone->npages);
         // clear the page array.
         memset(zone->pages, 0, sizeof(page_t) * zone->npages);
     }

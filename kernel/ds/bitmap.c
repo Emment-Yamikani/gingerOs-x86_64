@@ -3,45 +3,51 @@
 #include <lib/string.h>
 #include <mm/kalloc.h>
 
-#define BITS_PER_USIZE   (sizeof(usize) * 8)
-
 int bitmap_init(bitmap_t *bitmap, usize *bm_array, usize bm_size) {
     if (!bitmap || !bm_array || bm_size == 0) {
-        return -EINVAL; // Invalid parameters
+        return -EINVAL; // Invalid input
     }
 
     bitmap->bm_map = bm_array;
     bitmap->bm_size = bm_size;
-    memset(bitmap->bm_map, 0, sizeof(usize) * bm_size);
     bitmap->bm_lock = SPINLOCK_INIT();
 
-    return 0;
+    // Clear all bits
+    usize num_units = (bm_size + BITS_PER_USIZE - 1) / BITS_PER_USIZE;
+    for (usize i = 0; i < num_units; ++i) {
+        bitmap->bm_map[i] = 0;
+    }
+
+    return 0; // Success
 }
 
+// Allocate a new bitmap and initialize it
 int bitmap_alloc(usize bm_size, bitmap_t **ppbm) {
-    int     err = 0;
+    int err = 0;
+
     if (!ppbm || bm_size == 0) {
-        return -EINVAL; // Invalid parameters
+        return -1; // Invalid input
     }
 
-    // Allocate memory for the bitmap structure
-    bitmap_t *bitmap = kmalloc(sizeof(bitmap_t));
-    if (!bitmap) {
-        return -ENOMEM; // Allocation failed
-    }
-
-    // Allocate memory for the bitmap array
-    usize *bm_array = kmalloc(sizeof(usize) * bm_size);
+    usize num_units = (bm_size + BITS_PER_USIZE - 1) / BITS_PER_USIZE;
+    usize *bm_array = (usize *)kcalloc(num_units, sizeof(usize));
     if (!bm_array) {
-        return -ENOMEM; // Allocation failed
+        return -1; // Allocation failed
+    }
+
+    bitmap_t *bitmap = (bitmap_t *)kmalloc(sizeof(bitmap_t));
+    if (!bitmap) {
+        kfree(bm_array);
+        return -1; // Allocation failed
     }
 
     if ((err = bitmap_init(bitmap, bm_array, bm_size) < 0)) {
         return -err; // Initialization failed
     }
-
+    
     *ppbm = bitmap;
-    return 0;
+
+    return 0; // Success
 }
 
 void bitmap_free(bitmap_t *bitmap) {
@@ -220,7 +226,7 @@ void bitmap_dump(bitmap_t *bitmap) {
             usize bit_end = bit_start + BITS_PER_USIZE - 1;
 
             // Print the hex value and bit range with aligned columns
-            printk("|%016lx|[%6lu - %6lu] ", bitmap->bm_map[current_index], bit_start, bit_end);
+            printk("|%016lX|[%6lu - %6lu] ", bitmap->bm_map[current_index], bit_start, bit_end);
         }
 
         printk("|\n");
@@ -291,7 +297,7 @@ void bitmap_dump_range(bitmap_t *bitmap, usize start, usize end) {
             }
 
             // Print the hex value and bit range with aligned columns
-            printk("|%016lx|[%6lu - %6lu] ", bitmap->bm_map[current_index], bit_start, bit_end);
+            printk("|%016lX|[%6lu - %6lu] ", bitmap->bm_map[current_index], bit_start, bit_end);
         }
 
         printk("|\n");
@@ -337,7 +343,7 @@ void bitmap_dump_with_columns(bitmap_t *bitmap, usize num_columns) {
             usize bit_end = bit_start + BITS_PER_USIZE - 1;
 
             // Print the hex value and bit range with aligned columns
-            printk("|%016lx|[%6lu-%6lu] ", bitmap->bm_map[current_index], bit_start, bit_end);
+            printk("|%016lX|[%6lu-%6lu] ", bitmap->bm_map[current_index], bit_start, bit_end);
         }
 
         printk("|\n");
@@ -400,7 +406,7 @@ void bitmap_dump_range_with_columns(bitmap_t *bitmap, usize start, usize end, us
             }
 
             // Print the hex value and bit range with aligned columns
-            printk("|%016lx|[%6lu-%6lu] ", bitmap->bm_map[current_index], bit_start, bit_end);
+            printk("|%016lX|[%6lu-%6lu] ", bitmap->bm_map[current_index], bit_start, bit_end);
         }
 
         printk("|\n");

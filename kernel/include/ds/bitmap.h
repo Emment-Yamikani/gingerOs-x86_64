@@ -4,10 +4,12 @@
 
 typedef unsigned long usize;
 
+#define BITS_PER_USIZE  (sizeof(usize) * 8)
+
 typedef struct bitmap_t {
-    usize       *bm_map;
-    usize       bm_size;
-    spinlock_t  bm_lock;
+    usize       *bm_map;    // bitmap array.
+    usize       bm_size;    // bitmap size(bits).
+    spinlock_t  bm_lock;    // bitmap lock.
 } bitmap_t;
 
 #define bitmap_assert(bm)           ({ assert(bm, "Invalid bitmap!"); })

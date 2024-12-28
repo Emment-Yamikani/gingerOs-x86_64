@@ -31,7 +31,7 @@ static void test(void) {
 
     bitmap_unset(bm, 512, 128);
     bitmap_alloc_range(bm, 128, &pos);
-    bitmap_dump_range_with_columns(bm, 0, bm->bm_size -1, 2);
+    bitmap_dump_range_with_columns(bm, 0, bm->bm_size -1, 3);
     
     
     loop() ;//thread_join(0, NULL, NULL);
