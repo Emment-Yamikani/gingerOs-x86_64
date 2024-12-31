@@ -112,7 +112,7 @@ done:
     return 0;
 error:
     if (new_page)
-        page_putref(page);
+        page_put(page);
     printk("[\e[025453;04mERROR\e[0m]: %s:%ld: in %s(): error=%d\n", __FILE__, __LINE__, __func__, err);
     return err;
 }
@@ -201,7 +201,7 @@ ssize_t icache_write(icache_t *icache, off_t off, void *buff, size_t sz) {
     return total;
 error:
     if (new_page)
-        page_putref(page);
+        page_put(page);
     printk("[\e[025453;04mERROR\e[0m]: %s:%ld: in %s(): error=%d\n", __FILE__, __LINE__, __func__, err);
     return err;
 }

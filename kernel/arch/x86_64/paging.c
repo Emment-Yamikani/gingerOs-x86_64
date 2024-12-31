@@ -582,7 +582,7 @@ int x86_64_lazycpy(uintptr_t dst, uintptr_t src) {
                         continue;
 
                     // increase the page count on this page.
-                    if ((err = __page_getref(PGROUND(pt[i1].raw)))) {
+                    if ((err = __page_get(PGROUND(pt[i1].raw)))) {
                         assert(0, "Failed to increament page ref.");
                         x86_64_unmount((uintptr_t)pdt);
                         x86_64_unmount((uintptr_t)pdpt);

@@ -213,6 +213,8 @@ int zones_init(void) {
 
             page = zone->pages + NPAGE(addr - zone->start);
             for (np = NPAGE(size); np; --np, page++, addr += PGSZ) {
+                bitmap_set(&zone->bitmap, page - zone->pages, 1);
+
                 if (page->refcnt == 0)
                     zone->upages       += 1; // increment no. used pages.
                 else printk("%s:%d: [NOTE]: already marked!!!\n", __FILE__, __LINE__);
@@ -237,6 +239,8 @@ int zones_init(void) {
 
         page = zone->pages + NPAGE(addr - zone->start);
         for (np = NPAGE(size); np; --np, page++, addr += PGSZ) {
+            bitmap_set(&zone->bitmap, page - zone->pages, 1);
+
             if (page->refcnt == 0)
                 zone->upages       += 1; // increment no. used pages.
             else printk("%s:%d: [NOTE]: already marked!!!\n", __FILE__, __LINE__);

@@ -6,7 +6,7 @@
 #include <mm/kalloc.h>
 #include <core/mutex.h>
 #include <sys/sleep.h>
-
+#include <mm/zone.h>
 #include <ds/bitmap.h>
 
 __unused static MUTEX(m);
@@ -17,26 +17,15 @@ __unused static void th(void) {
 }
 
 static void test(void) {
-    bitmap_t *bm = NULL;
+    void *p = NULL;
+    __page_alloc_n(GFP_KERNEL, 4, &p);
+    printk("addr: %p, start: %p\n", p, zones[ZONEi_NORM].start);
 
-    bitmap_alloc(MiB(16) / PGSZ, &bm);
+    __page_alloc_n(GFP_KERNEL, 4, &p);
 
-    bitmap_set(bm, 32, 128);
-
-    usize pos;
-
-    bitmap_alloc_range(bm, 1024, &pos);
-    bitmap_alloc_range(bm, 32, &pos);
-    bitmap_alloc_range(bm, 32, &pos);
-
-    bitmap_unset(bm, 512, 128);
-    bitmap_alloc_range(bm, 128, &pos);
-    bitmap_dump_range_with_columns(bm, 0, bm->bm_size -1, 3);
-    
-    
-    loop() ;//thread_join(0, NULL, NULL);
-    for (int i = 0; i < 150; ++i)
+    for (int i = 0; i < 128; ++i)
         kthread_create(NULL, (thread_entry_t)th,
             NULL, THREAD_CREATE_SCHED, NULL);
 
+    loop() ;//thread_join(0, NULL, NULL);
 } BUILTIN_THREAD(test, test, NULL);

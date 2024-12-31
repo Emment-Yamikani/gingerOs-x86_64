@@ -57,6 +57,12 @@ typedef multiboot_memory_map_t mmap_entry_t;
 
 extern bootinfo_t bootinfo;
 
+#define KERNEL_BASE             (bootinfo.kern_base)
+#define KERNEL_SIZE             (bootinfo.kern_size)
+#define KERNEL_END              (KERNEL_BASE + KERNEL_SIZE)
+
+#define is_kernel_addr(addr)    ((addr >= KERNEL_BASE) && (addr < KERNEL_END))
+
 extern void boot_mmap_dump(void);
 
 /// Alloc memory from scratch space.

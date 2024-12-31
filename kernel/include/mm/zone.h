@@ -4,6 +4,7 @@
 #include <mm/page.h>
 #include <ds/queue.h>
 #include <ds/bitmap.h>
+#include <boot/boot.h>
 
 #define NZONE   4
 
@@ -20,6 +21,7 @@ typedef struct zone_t {
 } zone_t;
 
 extern zone_t zones[NZONE];
+extern const char *str_zone[];
 
 /////////////////////////
 /// zone indeices.  /////
@@ -44,6 +46,12 @@ extern zone_t zones[NZONE];
 
 // ensure zone is locked before proceeding.
 #define zone_assert_locked(z)   ({ zone_assert(z); spin_assert_locked(&(z)->lock); })
+
+#define zone_assert_isnotkernel(zone, page) ({                       \
+    assert_msg(!is_kernel_addr(page_addr(page, zone)),               \
+               "%s@%s:%d: Page(%p) is a builtin-kernel page.\n",     \
+               __func__, __FILE__, __LINE__, page_addr(page, zone)); \
+})
 
 ///////////////////////////////////////////////////
 //////              zone flags.               /////

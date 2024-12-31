@@ -16,6 +16,8 @@ typedef struct page {
     uintptr_t       virtual; // virtual addr
 } __packed page_t;
 
+#define page_assert(page)           ({ assert(page, "Invalid page pointer.\n"); })
+
 #define page_resetflags(page)       ({ (page)->flags = 0; })
 #define page_testflags(page, f)     ({ (page)->flags & (f); })                       // get page flags.
 #define page_setflags(page, f)      ({ (page)->flags |= (f); })
@@ -63,6 +65,10 @@ typedef struct page {
 #define page_refcnt(page)           ({ (page)->refcnt; })
 #define page_virtual(page)          ({ (page)->virtual; })
 
+#define page_index(page, zone)      ({ ((page) - (zone)->pages); })
+#define page_addr(page, zone)       ({ (zone)->start + (page_index(page, zone) * PGSZ); })
+#define page_end(page, npage, zone) ({ page_addr(page, zone) + (npage * PGSZ); })
+
 void page_free_n(page_t *page, usize order);
 void __page_free_n(uintptr_t paddr, usize order);
 
@@ -78,14 +84,14 @@ int __page_alloc(gfp_t gfp, void **pp);
 int page_increment(page_t *page);
 int __page_increment(uintptr_t paddr);
 
-int page_getref(page_t *page);
-int __page_getref(uintptr_t paddr);
+int page_get(page_t *page);
+int __page_get(uintptr_t paddr);
 
 int page_decrement(page_t *page);
 int __page_decrement(uintptr_t paddr);
 
-void page_putref(page_t *page);
-int __page_putref(uintptr_t paddr);
+void page_put(page_t *page);
+int __page_put(uintptr_t paddr);
 
 int page_get_address(page_t *page, void **ppa);
 

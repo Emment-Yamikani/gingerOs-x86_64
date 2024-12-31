@@ -87,7 +87,7 @@ debug:
 
 run:
 	qemu-system-x86_64 -smp 1 \
-	-m size=512M -cdrom ginger.iso \
+	-m size=64M -cdrom ginger.iso \
 	-no-reboot -no-shutdown -vga std \
 	-chardev stdio,id=char0,logfile=serial.log,signal=off \
 	-serial chardev:char0

@@ -49,7 +49,7 @@ int copy_page_on_write(vmr_t *vmr, vm_fault_t *fault, uintptr_t srcpaddr) {
     }
 
     // Decrease reference count on the source page
-    if ((err = __page_putref(PGROUND(srcpaddr)))) {
+    if ((err = __page_put(PGROUND(srcpaddr)))) {
         // If the drop the ref on page fials, unmap the destination and restore the original COW mapping
         arch_unmap_n(fault->addr, PGSZ);
 #if defined(__x86_64__)
@@ -102,7 +102,7 @@ int load_page_from_file(vmr_t *vmr, vm_fault_t *fault, size_t offset, usize size
                 return err;
             }
 
-            if ((err = page_getref(page))) {
+            if ((err = page_get(page))) {
                 iunlock(vmr->file);
                 return err;
             }
@@ -193,7 +193,7 @@ int handle_writable_page_fault(vmr_t *vmr, vm_fault_t *fault, size_t offset, usi
                 return err;
             }
             
-            if ((err = page_getref(page))) {
+            if ((err = page_get(page))) {
                 iunlock(vmr->file);
                 return err;
             }

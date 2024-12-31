@@ -112,11 +112,10 @@ size_t printk(const char *restrict __fmt__, ...);
         panic(__VA_ARGS__);           \
 })
 
-#define assert(condition, msg) ({                      \
-    assert_msg(condition, "%s:%d: retaddr: %p: %s\n",  \
-               __FILE__, __LINE__, __retaddr(0), msg); \
+#define assert(condition, msg) ({                                \
+    assert_msg(condition, "%s@%s:%d: retaddr: %p: %s\n",         \
+               __func__, __FILE__, __LINE__, __retaddr(0), msg); \
 })
-
 
 #ifdef __cplusplus
 }

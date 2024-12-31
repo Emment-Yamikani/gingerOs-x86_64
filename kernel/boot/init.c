@@ -37,6 +37,14 @@ int early_init(void) {
 
     earlycons_usefb();
 
+    loop() {
+        __unused void *p = NULL;
+        int err = __page_alloc_n(GFP_DMA | GFP_ZERO, 0, &p);
+        assert_msg(!err, "%s@%s:%d: Failed to alloc. err: %d\n",
+            __func__, __FILE__, __LINE__, err
+        );
+    }
+
     if ((err = acpi_init()))
         panic("Failed to initialize ACPI, error: %d\n", err);
 
