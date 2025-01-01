@@ -12,6 +12,9 @@ typedef struct bitmap_t {
     spinlock_t  bm_lock;    // bitmap lock.
 } bitmap_t;
 
+// initialize a queue struct to 'all-zeros'.
+#define BITMAP_INIT()    ((bitmap_t){0})
+
 #define bitmap_assert(bm)           ({ assert(bm, "Invalid bitmap!"); })
 #define bitmap_lock(bm)             ({bitmap_assert(bm); spin_lock(&(bm)->bm_lock); })
 #define bitmap_unlock(bm)           ({bitmap_assert(bm); spin_unlock(&(bm)->bm_lock); })

@@ -17,7 +17,7 @@ LDFLAGS 		:= -nostdlib -static -m elf_x86_64 -z max-page-size=0x1000
 USER_LDFLAGS 	:= -nostdlib -static -m elf_x86_64 -z max-page-size=0x1000
 
 # Kernel flags
-KERNEL_FLAGS 	:= $(CFLAGS) $(CPPFLAGS) -D__x86_64__ -Ikernel/include
+KERNEL_FLAGS 	:= $(CFLAGS) $(CPPFLAGS) -D__x86_64__ -DDEBUG_BUILD -Ikernel/include
 
 #User flags
 USER_FLAGS 		:= $(CFLAGS) $(CPPFLAGS) -Iusr/include
@@ -87,7 +87,7 @@ debug:
 
 run:
 	qemu-system-x86_64 -smp 1 \
-	-m size=64M -cdrom ginger.iso \
+	-m size=512M -cdrom ginger.iso \
 	-no-reboot -no-shutdown -vga std \
 	-chardev stdio,id=char0,logfile=serial.log,signal=off \
 	-serial chardev:char0

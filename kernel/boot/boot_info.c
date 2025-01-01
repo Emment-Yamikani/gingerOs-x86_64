@@ -125,13 +125,6 @@ void multiboot_info_process(multiboot_info_t *mbi) {
         }
     }
 
-    /** Add the region holding the page_t array as a reserved region. */
-    mmap = &bootinfo.mmap[bootinfo.mmapcnt];
-    mmap->addr = V2HI(bootinfo.phyaddr);
-    mmap->size = (bootinfo.total / 4) * sizeof(page_t); // divide by 4 because already in Kib.
-    mmap->type = MULTIBOOT_MEMORY_RESERVED;
-    bootinfo.mmapcnt++;
-
     /// Subtract to account for space used
     /// by kernel and by the array of page_t.
     bootinfo.usable -= mmap->size + bootinfo.kern_size;

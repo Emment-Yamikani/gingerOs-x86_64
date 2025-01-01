@@ -8,6 +8,8 @@
 #include <mm/page_flags.h>
 #include <sync/assert.h>
 
+#define MAX_PAGE_ORDER      64
+
 typedef struct page {
     u64             flags;
     atomic_t        refcnt;

@@ -113,7 +113,7 @@ size_t printk(const char *restrict __fmt__, ...);
 })
 
 #define assert(condition, msg) ({                                \
-    assert_msg(condition, "%s@%s:%d: retaddr: %p: %s\n",         \
+    assert_msg(condition, "%s(): %s:%d: retaddr: %p: %s\n",      \
                __func__, __FILE__, __LINE__, __retaddr(0), msg); \
 })
 
@@ -128,12 +128,10 @@ extern pid_t getpid(void);
 extern pid_t getppid(void);
 extern tid_t gettid(void);
 
-#define debugloc() ({                                     \
-    printk(                                               \
-        "%s:%d: cpu[%d ncli: %d] tid:[%d:%d] ret:[%p]\n", \
-        __FILE__, __LINE__,                               \
-        getcpuid(), cpu->ncli,                            \
-        gettid(), getpid(), __retaddr(0));  \
+#define debugloc() ({                                            \
+    printk("%s(): %s:%d: cpu[%d ncli: %d] tid[%d:%d] ret[%p]\n", \
+           __func__, __FILE__, __LINE__, getcpuid(), cpu->ncli,  \
+           gettid(), getpid(), __retaddr(0));                    \
 })
 
 #endif  // _PRINTF_H_
