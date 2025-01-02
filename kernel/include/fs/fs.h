@@ -3,7 +3,7 @@
 #include <fs/dentry.h>
 #include <fs/inode.h>
 #include <fs/mount.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <ds/queue.h>
 #include <lib/types.h>
 #include <fs/fcntl.h>

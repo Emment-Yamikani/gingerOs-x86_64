@@ -4,7 +4,7 @@
 #include <lib/stddef.h>
 #include <lib/types.h>
 #include <ds/queue.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 
 #define SIGABRT     1  // abnormal termination (abort)         | terminate+core.
 #define SIGALRM     2  // timer expired (alarm)                | terminate.

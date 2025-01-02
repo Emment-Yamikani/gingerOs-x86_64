@@ -7,7 +7,7 @@
 #include <arch/x86_64/system.h>
 #include <arch/firmware/acpi.h>
 #include <arch/traps.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 
 typedef struct {
     uint32_t            flags;

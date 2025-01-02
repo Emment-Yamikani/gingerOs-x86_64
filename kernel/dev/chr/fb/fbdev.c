@@ -1,6 +1,6 @@
 #include <dev/dev.h>
 #include <lib/string.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <bits/errno.h>
 #include <mm/kalloc.h>
 #include <dev/fb.h>

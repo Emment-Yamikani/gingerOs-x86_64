@@ -2,7 +2,7 @@
 
 #include <core/mutex.h>
 #include <dev/dev.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 
 #define NTTY    8
 

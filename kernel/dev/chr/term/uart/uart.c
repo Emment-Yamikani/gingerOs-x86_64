@@ -3,7 +3,7 @@
 #include <sys/system.h>
 #include <lib/string.h>
 #include <arch/x86_64/system.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <bits/errno.h>
 #include <modules/module.h>
 #include <lib/printk.h>

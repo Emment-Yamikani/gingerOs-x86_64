@@ -4,7 +4,7 @@
 #include <lib/stdint.h>
 #include <lib/stddef.h>
 #include <sync/atomic.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <mm/gfp.h>
 
 // physical memory manager entries

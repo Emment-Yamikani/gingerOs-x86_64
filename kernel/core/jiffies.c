@@ -4,7 +4,7 @@
 #include <ginger/jiffies.h>
 #include <lib/printk.h>
 #include <sync/cond.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <sys/sched.h>
 #include <sys/thread.h>
 #include <sys/_time.h>

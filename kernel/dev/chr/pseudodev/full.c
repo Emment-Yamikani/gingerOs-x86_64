@@ -1,5 +1,5 @@
 #include <dev/dev.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <lib/string.h>
 #include <bits/errno.h>
 #include <lib/printk.h>

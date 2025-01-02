@@ -5,7 +5,7 @@
 #include <lib/stddef.h>
 #include <lib/stdint.h>
 #include <lib/types.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 
 typedef struct icache_t icache_t;
 typedef struct icache_t {

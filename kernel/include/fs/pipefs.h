@@ -5,7 +5,7 @@
 #include <fs/file.h>
 #include <fs/inode.h>
 #include <lib/types.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <sys/system.h>
 #include <sync/cond.h>
 

@@ -2,7 +2,7 @@
 
 #include <lib/stdint.h>
 #include <lib/stddef.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 
 typedef struct
 {

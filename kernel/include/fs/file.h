@@ -1,7 +1,7 @@
 #pragma once
 #include <lib/types.h>
 #include <fs/dentry.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <sync/assert.h>
 #include <fs/stat.h>
 #include <fs/fcntl.h>

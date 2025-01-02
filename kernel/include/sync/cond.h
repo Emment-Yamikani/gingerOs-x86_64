@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ds/queue.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 
 typedef struct cond {
     atomic_t   count;

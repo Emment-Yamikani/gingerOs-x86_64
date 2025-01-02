@@ -863,7 +863,7 @@ static size_t _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, co
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 
 static spinlock_t *lock = &SPINLOCK_INIT();
 

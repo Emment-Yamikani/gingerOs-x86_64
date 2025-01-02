@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <mm/page.h>
 #include <ds/queue.h>
 #include <ds/bitmap.h>

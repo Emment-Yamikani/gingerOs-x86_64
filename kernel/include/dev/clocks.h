@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <sys/system.h>
 #include <sys/_time.h>
 

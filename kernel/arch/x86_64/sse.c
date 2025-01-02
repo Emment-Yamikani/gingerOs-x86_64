@@ -1,6 +1,5 @@
 #include <bits/errno.h>
 #include <lib/printk.h>
-#include <sync/spinlock.h>
 #include <sys/thread.h>
 #include <arch/cpu.h>
 #include <mm/kalloc.h>

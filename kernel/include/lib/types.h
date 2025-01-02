@@ -2,6 +2,7 @@
 
 #include <arch/types.h>
 #include <lib/stdint.h>
+#include <lib/stdbool.h>
 
 typedef     unsigned char           uchar;
 typedef     unsigned short          ushort;

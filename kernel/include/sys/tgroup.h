@@ -3,7 +3,7 @@
 #include <ds/queue.h>
 #include <lib/stddef.h>
 #include <lib/stdint.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <lib/types.h>
 
 typedef struct __thread_t thread_t;

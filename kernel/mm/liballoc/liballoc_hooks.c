@@ -1,7 +1,7 @@
 #include <lib/printk.h>
 #include <mm/vmm.h>
 #include <lib/stdlib.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <arch/paging.h>
 
 

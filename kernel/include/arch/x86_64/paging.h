@@ -3,7 +3,7 @@
 #include <lib/stdint.h>
 #include <lib/stddef.h>
 #include <sys/system.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <lib/types.h>
 
 #define PTE_P        BS(0)  // page is present.

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <lib/types.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 
 typedef struct cred_t {
     uid_t   c_uid;

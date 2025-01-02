@@ -4,7 +4,7 @@
 #include <lib/stdlib.h>
 #include <lib/printk.h>
 #include <fs/inode.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <ds/stack.h>
 
 #define DCACHE_MOUNTED      1

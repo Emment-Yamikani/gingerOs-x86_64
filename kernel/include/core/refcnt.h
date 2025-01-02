@@ -1,5 +1,5 @@
 #include <sync/atomic.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 
 typedef struct refcnt_t {
     atomic_t    ref_cnt;    // Reference count

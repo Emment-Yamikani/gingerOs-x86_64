@@ -7,7 +7,7 @@
 #include <lib/stdint.h>
 #include <lib/string.h>
 #include <sys/system.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 
 typedef struct node_t {
     struct node_t *prev;

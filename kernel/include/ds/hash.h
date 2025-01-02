@@ -5,7 +5,7 @@
 #include <mm/kalloc.h>
 #include <bits/errno.h>
 #include <lib/stdint.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <sys/system.h>
 #include <lib/string.h>
 

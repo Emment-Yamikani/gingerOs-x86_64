@@ -4,7 +4,7 @@
 #include <dev/dev.h>
 #include <lib/stdint.h>
 #include <lib/stddef.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 
 #define NFBDEV  8
 

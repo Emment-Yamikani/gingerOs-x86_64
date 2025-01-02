@@ -12,7 +12,7 @@
 #include <lib/types.h>
 #include <mm/mmap.h>
 #include <sync/cond.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <sys/_signal.h>
 #include <sys/system.h>
 #include <sys/tgroup.h>

@@ -7,7 +7,7 @@
 #include <lib/string.h>
 #include <lib/types.h>
 #include <mm/page.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <sys/system.h>
 
 #ifndef foreach

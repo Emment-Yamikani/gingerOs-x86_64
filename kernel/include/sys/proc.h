@@ -8,7 +8,7 @@
 #include <lib/types.h>
 #include <mm/mmap.h>
 #include <sync/cond.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <sys/thread.h>
 
 typedef enum status_t {

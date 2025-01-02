@@ -2,7 +2,7 @@
 #include <lib/stdint.h>
 #include <lib/stdlib.h>
 #include <lib/stddef.h>
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 #include <lib/types.h>
 #include <ds/queue.h>
 #include <fs/stat.h>

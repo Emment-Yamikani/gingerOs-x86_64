@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sync/spinlock.h>
+#include <core/spinlock.h>
 
 struct queue;
 
