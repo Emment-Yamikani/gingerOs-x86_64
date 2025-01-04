@@ -24,20 +24,19 @@ typedef struct node_t {
 #define KHEAPBASE               (VMA2HI(GiB(4)))
 #define NNODES                  (KHEAPSIZE / 4096)
 
-static      atomic_t    initialized     = 0;
-static      size_t      used_memsz      = 0;
-static      node_t      *free_node_list = NULL;
-static      node_t      *usedvmr_list   = NULL;
-static      node_t      *freevmr_list   = NULL;
-static      node_t      nodes[NNODES];
+static atomic_t    initialized     = 0;
+static size_t      used_memsz      = 0;
+static node_t      *free_node_list = NULL;
+static node_t      *usedvmr_list   = NULL;
+static node_t      *freevmr_list   = NULL;
+static node_t      nodes[NNODES];
 
-static      spinlock_t  *vmlk           = &SPINLOCK_INIT();
+static spinlock_t  *vmlk           = &SPINLOCK_INIT();
 
 #define vm_lock()               ({ spin_lock(vmlk); })
 #define vm_unlock()             ({ spin_unlock(vmlk); })
 #define vm_islocked()           ({ spin_islocked(vmlk); })
 #define vm_assert_locked()      ({ spin_assert_locked(vmlk); })
-
 
 static void node_dump(node_t *node, size_t i) {
     if (node->prev && node->next) {
@@ -116,20 +115,20 @@ static void free_node_put(node_t *node) {
     free_node_list  = node;
 }
 
-static int can_merge_prev(node_t *node, node_t *left) {
+static int can_merge_prev(node_t *node, node_t *prev) {
     node_assert(node);
     vm_assert_locked();
-    if (left == NULL)
+    if (prev == NULL)
         return 0;
-    return (left->base + left->size) == node->base;
+    return (prev->base + prev->size) == node->base;
 }
 
-static int can_merge_next(node_t *node, node_t *right) {
+static int can_merge_next(node_t *node, node_t *next) {
     node_assert(node);
     vm_assert_locked();
-    if (right == NULL)
+    if (next == NULL)
         return 0;
-    return (node->base + node->size) == right->base;
+    return (node->base + node->size) == next->base;
 }
 
 static void usedvmr_put(node_t *node) {
@@ -140,17 +139,17 @@ static void usedvmr_put(node_t *node) {
     node->next = NULL;
     node->prev = NULL;
 
-    forlinked(right, usedvmr_list, right->next) {
-        if (node->base < right->base) {
-            node->next = right;
-            if (right->prev) {
-                right->prev->next = node;
+    forlinked(next, usedvmr_list, next->next) {
+        if (node->base < next->base) {
+            node->next = next;
+            if (next->prev) {
+                next->prev->next = node;
             } else usedvmr_list = node;
-            node->prev  = right->prev;
-            right->prev = node;
+            node->prev  = next->prev;
+            next->prev = node;
             return;
         }
-        tail = right;
+        tail = next;
     }
 
     if (tail) {
@@ -176,7 +175,7 @@ static int usedvmr_find(uintptr_t base, node_t **ppn) {
 }
 
 static void freevmr_put(node_t *node) {
-    node_t *left = NULL, *right = freevmr_list;
+    node_t *prev = NULL, *next = freevmr_list;
 
     node_assert(node);
     vm_assert_locked();
@@ -185,53 +184,53 @@ static void freevmr_put(node_t *node) {
     node->prev = NULL;
 
     // Traverse the list to find the correct insertion point based on node->base
-    while (right && right->base < node->base) {
-        left = right;
-        right = right->next;
+    while (next && next->base < node->base) {
+        prev = next;
+        next = next->next;
     }
 
-    // Check if we can merge with the left node
-    if (left && can_merge_prev(node, left)) {
-        left->size += node->size;
-        // Try to merge left with the next (right) node if possible
-        if (right && can_merge_next(left, right)) {
-            left->size += right->size;
-            left->next = right->next;
-            if (right->next) {
-                right->next->prev = left;
+    // Check if we can merge with the prev node
+    if (prev && can_merge_prev(node, prev)) {
+        prev->size += node->size;
+        // Try to merge prev with the next (next) node if possible
+        if (next && can_merge_next(prev, next)) {
+            prev->size += next->size;
+            prev->next = next->next;
+            if (next->next) {
+                next->next->prev = prev;
             }
-            free_node_put(right);
+            free_node_put(next);
         }
         free_node_put(node);
         return;
     }
 
-    // Check if we can merge with the right node
-    if (right && can_merge_next(node, right)) {
-        right->size += node->size;
-        right->base -= node->size;
-        if (left) {
-            left->next = right;
+    // Check if we can merge with the next node
+    if (next && can_merge_next(node, next)) {
+        next->size += node->size;
+        next->base -= node->size;
+        if (prev) {
+            prev->next = next;
         } else {
-            freevmr_list = right;
+            freevmr_list = next;
         }
-        right->prev = left;
+        next->prev = prev;
         free_node_put(node);
         return;
     }
 
-    // If no merge happened, insert the node between left and right
-    node->next = right;
-    node->prev = left;
+    // If no merge happened, insert the node between prev and next
+    node->next = next;
+    node->prev = prev;
 
-    if (right) {
-        right->prev = node;
+    if (next) {
+        next->prev = node;
     }
 
-    if (left) {
-        left->next = node;
+    if (prev) {
+        prev->next = node;
     } else {
-        freevmr_list = node;  // New node becomes the head if left is NULL
+        freevmr_list = node;  // New node becomes the head if prev is NULL
     }
 }
 
@@ -275,9 +274,8 @@ static int vmm_init(void) {
     };
 
     freevmr_put(node);
-    
+
     vm_unlock();
-    
     atomic_write(&initialized, 1);
     return 0;
 }
@@ -319,14 +317,13 @@ static int alloc(size_t size, void **ppv) {
     } else assert(0, "Failed to get correct sized vmr_node");
 
     used_memsz += size;
-
     vm_unlock();
     return 0;
 }
 
 static void free(void *addr) {
     int err = 0;
-    node_t *node = NULL, *right = NULL;
+    node_t *node = NULL, *next = NULL;
 
     assert(addr, "cannot free nullptr");
 
@@ -337,19 +334,18 @@ static void free(void *addr) {
         return;
     }
 
-    right = node->next;
+    next = node->next;
 
     if (node->prev)
-        node->prev->next = right;
-    else usedvmr_list = right;
+        node->prev->next = next;
+    else usedvmr_list = next;
 
-    if (right)
-        right->prev = node->prev;
+    if (next)
+        next->prev = node->prev;
 
     used_memsz -= node->size;
 
     freevmr_put(node);
-
     vm_unlock();
 }
 
@@ -376,8 +372,7 @@ int vmm_active(void) {
 }
 
 void memory_usage(void) {
-    printk(
-        "\n\t\t\t\e[025453;06mMEMORY USAGE INFO\e[0m\n"
+    printk("\n\t\t\t\e[025453;06mMEMORY USAGE INFO\e[0m\n"
         "\t\t\t\e[025453;015mPhysical Memory\e[0m\n"
         "Free  : \e[025453;012m%8.1F MiB\e[0m\n"
         "In use: \e[025453;04m%8.1F MiB\e[0m\n\n"
@@ -394,7 +389,6 @@ void memory_usage(void) {
 int getpagesize(void) {
     return PGSZ;
 }
-
 
 struct vmman vmman = {
     .init        = vmm_init,

@@ -25,6 +25,8 @@ typedef struct {
     usize       usable;     // Size of usable physical memory.
     usize       memlo;      // Size of lower memory.
     usize       memhi;      // Size of Higher memory.
+    uintptr_t   hole_addr;  // Addr of the first Memory Hole.
+    usize       hole_size;  // Size of the first Memory Hole.
 
     struct {
         u8          type;

@@ -27,7 +27,7 @@ void dump_tf(mcontext_t *mctx, int halt) {
     }
 
     if (halt) {
-        panic("\n\e[025453;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d]\n"
+        panic("\n\e[025453;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d] to_ret->%p\n"
               "\e[025453;015merr\e[0m=\e[025453;012m%16p\e[0m rfl=\e[025453;12m%16p\e[0m cs =\e[025453;12m%16p\e[0m\n"
               "\e[025453;015mds\e[0m =%16p \e[025453;015mfs \e[0m=%16p \e[025453;015mss \e[0m=%16p\n"
               "\e[025453;015mrax\e[0m=\e[025453;012m%16p\e[0m rbx=\e[025453;12m%16p\e[0m rcx=\e[025453;12m%16p\e[0m\n"
@@ -38,7 +38,7 @@ void dump_tf(mcontext_t *mctx, int halt) {
               "\e[025453;015mr15\e[0m=%16p \e[025453;015mrip\e[0m=%16p \e[025453;015mcr0\e[0m=%16p\n"
               "\e[025453;015mcr2\e[0m=\e[025453;012m%16p\e[0m cr3=\e[025453;12m%16p\e[0m cr4=\e[025453;12m%16p\e[0m\n"
               "\e[025453;015mst\e[0m =%16p \e[025453;015msp\e[0m =%16p \e[025453;015mstz\e[0m=%16p\n",
-              mctx->trapno, mctx, getcpuid(), curproc ? curproc->pid : -1, thread_self(),
+              mctx->trapno, mctx, getcpuid(), curproc ? curproc->pid : -1, thread_self(), *(uintptr_t *)mctx->rsp,
               mctx->errno,  mctx->rflags, mctx->cs,
               mctx->ds,     mctx->fs,     mctx->ss,
               mctx->rax,    mctx->rbx,    mctx->rcx,
@@ -51,7 +51,7 @@ void dump_tf(mcontext_t *mctx, int halt) {
               stack_sp, stack_sp + stack_sz, stack_sz
         );
     } else {
-        printk("\n\e[025453;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d]\n"
+        printk("\n\e[025453;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d] to_ret->%p\n"
               "\e[025453;015merr\e[0m=\e[025453;012m%16p\e[0m rfl=\e[025453;12m%16p\e[0m cs =\e[025453;12m%16p\e[0m\n"
               "\e[025453;015mds\e[0m =%16p \e[025453;015mfs \e[0m=%16p \e[025453;015mss \e[0m=%16p\n"
               "\e[025453;015mrax\e[0m=\e[025453;012m%16p\e[0m rbx=\e[025453;12m%16p\e[0m rcx=\e[025453;12m%16p\e[0m\n"
@@ -62,7 +62,7 @@ void dump_tf(mcontext_t *mctx, int halt) {
               "\e[025453;015mr15\e[0m=%16p \e[025453;015mrip\e[0m=%16p \e[025453;015mcr0\e[0m=%16p\n"
               "\e[025453;015mcr2\e[0m=\e[025453;012m%16p\e[0m cr3=\e[025453;12m%16p\e[0m cr4=\e[025453;12m%16p\e[0m\n"
               "\e[025453;015mst\e[0m =%16p \e[025453;015msp\e[0m =%16p \e[025453;015mstz\e[0m=%16p\n",
-              mctx->trapno, mctx, getcpuid(), curproc ? curproc->pid : -1, thread_self(),
+              mctx->trapno, mctx, getcpuid(), curproc ? curproc->pid : -1, thread_self(), *(uintptr_t *)mctx->rsp,
               mctx->errno,  mctx->rflags, mctx->cs,
               mctx->ds,     mctx->fs,     mctx->ss,
               mctx->rax,    mctx->rbx,    mctx->rcx,

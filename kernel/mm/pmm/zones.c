@@ -139,7 +139,7 @@ static int zone_enumerate(zone_t *zone, usize *memsz) {
          * maximally the address of the first
          * upper memory hole minus 1 megabyte.
          * It is not guaranteed to be this value".*/
-        zone->size = KiB((bootinfo.memhi + M2KiB(1))) - GiB(2);
+        zone->size = (KiB((bootinfo.memhi + M2KiB(1))) + bootinfo.hole_size) - GiB(2);
 
         /// set this zone starts @ 2GiB.
         zone->start = GiB(2);
@@ -193,6 +193,9 @@ static int zone_enumerate(zone_t *zone, usize *memsz) {
     }
 
     *memsz -= B2KiB(zone->size);
+
+    debug("Initialized zone %s[%p: %X]: remaining memory size %lu KiB.\n",
+          str_zone[zone - zones], zone->start, zone->size, *memsz);
 
     return 0;
 }

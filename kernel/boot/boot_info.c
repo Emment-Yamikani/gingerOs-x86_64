@@ -8,7 +8,7 @@ bootinfo_t bootinfo = {0};
 
 void boot_mmap_dump(void) {
     for (u32 i = 0; i < bootinfo.mmapcnt; ++i) {
-        printk("mmap(%d): addr: %p, type: %d, size: %10d Bytes\n",
+        printk("mmap(%d): addr: %p, type: %d, size: %10lX(Hex) Bytes\n",
             i,
             bootinfo.mmap[i].addr,
             bootinfo.mmap[i].type,
@@ -85,8 +85,9 @@ void multiboot_info_process(multiboot_info_t *mbi) {
             // Highly unlikely, but just to be on a safe size ;).
             if (bootinfo.mmapcnt >= NMMAP) break;
 
-            // Only consider memory within 32bit address space.
-            if (entry->addr < GiB(4)) {
+            /// Only consider memory within 32bit address space.
+            /// And usable memory at 4GiB.
+            if (entry->addr <= GiB(4)) {
                 mmap->size  = entry->len;
                 mmap->type  = entry->type;
                 mmap->addr  = V2HI(entry->addr);
@@ -98,7 +99,10 @@ void multiboot_info_process(multiboot_info_t *mbi) {
                 memory hole mentioned by the multiboot doumentation.*/
                 if (KiB(bootinfo.total) == entry->addr) {
                     bootinfo.total += B2KiB(mmap->size);
-                }
+                    bootinfo.hole_addr = entry->addr;
+                    bootinfo.hole_size = mmap->size;
+                } else if (entry->addr == GiB(4)) // account for usable memory above 4GiB
+                    bootinfo.total += B2KiB(mmap->size);
 
                 if (entry->type == MULTIBOOT_MEMORY_AVAILABLE)
                     bootinfo.usable += (usize)entry->len;

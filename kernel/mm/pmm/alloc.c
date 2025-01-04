@@ -66,14 +66,13 @@ int page_alloc_n(gfp_t gfp, usize order, page_t **pp) {
     if ((err = validate_page_alloc_input(gfp, order, pp)))
         return err;
 
-    whence = gfp_to_zone_index(gfp);
-    if (whence < 0)
+    if ((whence = gfp_to_zone_index(gfp)) < 0)
         return -EINVAL;
 
     loop() {
         if ((err = getzone_byindex(whence, &zone)))
             return err;
-        
+
         if ((err = bitmap_alloc_range(&zone->bitmap, npage, &index))) {
             zone_unlock(zone);
             return err;
@@ -144,4 +143,8 @@ int __page_alloc_n(gfp_t gfp, usize order, void **pp) {
 
 int __page_alloc(gfp_t gfp, void **pp) {
     return do_page_alloc(gfp, 0, NULL, pp);
+}
+
+int page_alloc_x(gfp_t gfp, usize order, page_t **ppage, void **paddr) {
+    return do_page_alloc(gfp, order, ppage, paddr);
 }
