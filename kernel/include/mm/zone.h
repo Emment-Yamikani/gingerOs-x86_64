@@ -1,10 +1,11 @@
 #pragma once
 
+#include <boot/boot.h>
+#include <core/assert.h>
 #include <core/spinlock.h>
-#include <mm/page.h>
 #include <ds/queue.h>
 #include <ds/bitmap.h>
-#include <boot/boot.h>
+#include <mm/page.h>
 
 #define NZONE   4
 
@@ -47,10 +48,9 @@ extern const char *str_zone[];
 // ensure zone is locked before proceeding.
 #define zone_assert_locked(z)   ({ zone_assert(z); spin_assert_locked(&(z)->lock); })
 
-#define zone_assert_isnotkernel(zone, page) ({                       \
-    assert_msg(!is_kernel_addr(page_addr(page, zone)),               \
-               "%s@%s:%d: Page(%p) is a builtin-kernel page.\n",     \
-               __func__, __FILE__, __LINE__, page_addr(page, zone)); \
+#define zone_assert_isnotkernel(zone, page) ({                             \
+    assert(!is_kernel_addr(page_addr(page, zone)),                         \
+           "Page(%p) is a builtin-kernel page.\n", page_addr(page, zone)); \
 })
 
 ///////////////////////////////////////////////////
@@ -65,10 +65,10 @@ extern const char *str_zone[];
 
 #define zone_isvalid(z)         ({ zone_flags_test(z, ZONE_VALID); })
 
-#define zone_size(z)            ({zone_assert(z); (z)->size; })
-#define zone_start(z)           ({zone_assert(z); (z)->start; })
-#define zone_pages(z)           ({zone_assert(z); (z)->pages; })
-#define zone_end(z)             ({zone_assert(z); zone_start(z) + zone_size(z); })
+#define zone_size(z)            ({ zone_assert(z); (z)->size; })
+#define zone_start(z)           ({ zone_assert(z); (z)->start; })
+#define zone_pages(z)           ({ zone_assert(z); (z)->pages; })
+#define zone_end(z)             ({ zone_assert(z); (z)->start + (z)->size; })
 
 /// get the zone struct in which page resides.
 /// on success return locked zone is ppz.
@@ -84,8 +84,3 @@ int getzone_byindex(int z_index, zone_t **ref);
 
 /// Initialize physical memory zones.
 int zones_init(void);
-
-typedef struct meminfo_t {
-    size_t      free;
-    size_t      used;
-} meminfo_t;

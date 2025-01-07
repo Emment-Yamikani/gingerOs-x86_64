@@ -103,3 +103,8 @@ typedef     struct __arch_thread_t  arch_thread_t;
 
 typedef     struct __ucontext_t     ucontext_t;
 typedef     struct __sig_stack_t    sig_stack_t;
+
+typedef struct meminfo_t {
+    usize      free;
+    usize      used;
+} meminfo_t;

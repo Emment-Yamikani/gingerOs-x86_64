@@ -193,7 +193,7 @@ __noreturn void schedule(void) {
         cpu->intena = 0;
         current     = NULL;
 
-        sti(); // start hardware interrupts here
+        // sti(); // start hardware interrupts here
 
         if (NULL == (thread = sched_next())) {
             /// TODO: make cpu core enter an idle state,
@@ -255,9 +255,8 @@ __noreturn void schedule(void) {
             // set up in the tss.
             // TODO: use tss.ist in later versions of this code.
             err = arch_thread_setkstack(&current->t_arch);
-            assert_msg(err == 0, "Kernel stack was not set "
-                "for user thread, errno = %d\n", err);
-        }
+            assert(err == 0, "Kernel stack was not set for user thread, errno = %d\n", err);
+        } else arch_swtchvm(0, NULL);
 
 
         // Context switch to the new thread.

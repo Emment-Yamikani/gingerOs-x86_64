@@ -1,5 +1,5 @@
 #include <core/misc.h>
-#include <lib/printk.h>
+#include <core/assert.h>
 #include <lib/string.h>
 
 void bzero(void *b, usize sz) {

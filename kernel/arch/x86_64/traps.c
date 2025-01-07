@@ -16,6 +16,7 @@
 #include <arch/paging.h>
 #include <sys/syscall.h>
 #include <sys/proc.h>
+#include <core/debug.h>
 
 void dump_tf(mcontext_t *mctx, int halt) {
     void *stack_sp = NULL;
@@ -106,8 +107,9 @@ static void thread_handle_event(ucontext_t *uctx) {
         thread_exit(-EINTR);
 
     pushcli();
-    if ((current_isuser() && uctx_isuser(uctx)) || !current_isuser())
+    if ((current_isuser() && uctx_isuser(uctx)) || !current_isuser()) {
         signal_dispatch();
+    }
     popcli();
 
     current_lock();
@@ -126,6 +128,9 @@ static void thread_handle_event(ucontext_t *uctx) {
 void trap(ucontext_t *uctx) {
     arch_thread_t   *arch   = NULL;
     mcontext_t      *mctx   = &uctx->uc_mcontext;
+
+    // if (current)
+    //     dump_tf(&uctx->uc_mcontext, 0);
 
     if (current) {
         pushcli();
@@ -187,6 +192,10 @@ void trap(ucontext_t *uctx) {
         arch_do_page_fault(mctx);
         lapic_eoi();
         popcli();
+        break;
+    case IRQ(160):
+        debugloc();
+        return;
         break;
     default:
         dump_tf(mctx, 1);

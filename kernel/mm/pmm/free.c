@@ -9,17 +9,14 @@ static page_t *address_get_page(uintptr_t addr) {
     page_t *page = NULL;
     zone_t *zone = NULL;
 
-     assert_msg(!(err = getzone_byaddr(addr, PGSZ, &zone)),
-        "%s@%s:%d: [PANICED] Couldn't get zone by page(%p). error: %d\n",
-        __func__, __FILE__, __LINE__, addr, err
+     assert(!(err = getzone_byaddr(addr, PGSZ, &zone)),
+        "Couldn't get zone by page(%p). error: %d\n", addr, err
     );
 
     page = &zone->pages[(addr - zone->start) / PGSZ];
     if (!atomic_read(&page->refcnt) ||
             !bitmap_test(&zone->bitmap, page - zone->pages, 1)) {
-        panic("%s(): %s:%d: Page(%p): couldn't take a reference to the page handle.\n",
-            __func__, __FILE__, __LINE__, addr
-        );
+        assert(0, "Page(%p): couldn't take a reference to the page handle.\n", addr);
     }
 
     zone_unlock(zone);
@@ -34,13 +31,10 @@ void page_free_n(page_t *page, usize order) {
 
     page_assert(page);
 
-    assert_msg(order <= 64, "%s@%s:%d: Requested order(%d) is greater than 64.\n",
-        __func__, __FILE__, __LINE__, order
-    );
+    assert(order <= 64, "Requested order(%d) is greater than 64.\n", order);
 
-    assert_msg(!(err = getzone_bypage(page, &zone)),
-        "%s@%s:%d: [PANICED] Couldn't get zone by page(%p). error: %d\n",
-        __func__, __FILE__, __LINE__, page, err
+    assert(!(err = getzone_bypage(page, &zone)),
+        "Couldn't get zone by page(%p). error: %d\n", page, err
     );
 
     zone_assert_isnotkernel(zone, page);
@@ -53,9 +47,8 @@ void page_free_n(page_t *page, usize order) {
     }
 
     for (pos = page - zone->pages; npage != 0; --npage, ++page, ++pos) {
-        assert_msg(atomic_read(&page->refcnt),
-            "%s@%s:%d: Double free detected for page(%p).\n",
-            __func__, __FILE__, __LINE__, page_addr(page, zone)
+        assert(atomic_read(&page->refcnt),
+            "Double free detected for page(%p).\n", page_addr(page, zone)
         );
 
         /// page still has some references to it.
@@ -64,9 +57,7 @@ void page_free_n(page_t *page, usize order) {
             continue;
 
         if ((err = bitmap_unset(&zone->bitmap, pos, 1))) {
-            assert_msg(err == 0, "%s@%s:%d: Bitmap free failed. error: %d\n",
-                __func__, __FILE__, __LINE__, err
-            );
+            assert(err == 0, "Bitmap free failed. error: %d\n", err);
         }
 
         page_resetflags(page);

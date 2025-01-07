@@ -137,7 +137,7 @@ int thread_alloc(usize ksz /*kstacksz*/, int __flags, thread_t **ret) {
     thread_setflags(thread, flags); // set the flags.
 
     err = thread_enqueue(threads_queue, thread, NULL);
-    assert_msg(err == 0, "%s:%d: Thread not enqueued, err: %d!!!\n", __FILE__, __LINE__, err);
+    assert(err == 0, "Thread not enqueued, err: %d!!!\n", err);
     thread_getref(thread);
 
     *ret = thread;

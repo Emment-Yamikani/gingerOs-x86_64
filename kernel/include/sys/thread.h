@@ -1,5 +1,6 @@
 #pragma once
 
+#include <core/assert.h>
 #include <arch/cpu.h>
 #include <arch/paging.h>
 #include <arch/thread.h>

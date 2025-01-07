@@ -115,8 +115,7 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
     thread_setmain(thread);
     thread_setlast(thread);
     thread_set_killexcept(thread);
-    assert_msg(0 == (err = thread_join_group(thread)),
-        "%s:%d: Failed to joing tgroup. error: %d\n", __FILE__, __LINE__, err);
+    assert(0 == (err = thread_join_group(thread)), "Failed to joing tgroup. error: %d\n", err);
 
     thread->t_entry  = entry;
     thread->t_sched  = current->t_sched;
@@ -167,14 +166,12 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
      * except current and those with at least except_flags set.
      */
     current_tgroup_lock();
-    assert_msg(0 == (err = tgroup_kill_thread(
-                         current->t_tgroup, -1, THREAD_KILLEXCEPT, 1)),
-               "%s%d: Failed to kill suspended threads. error: %d.\n", __FILE__, __LINE__, err);
+    assert(0 == (err = tgroup_kill_thread(current->t_tgroup, -1, THREAD_KILLEXCEPT, 1)),
+               "Failed to kill suspended threads. error: %d.\n", err);
     current_tgroup_unlock();
 
     thread_lock(thread);
-    assert_msg(0 == (err = thread_schedule(thread)),
-        "%s:%d: thread_schedule() failed, error: %d\n", __FILE__, __LINE__, err);
+    assert(0 == (err = thread_schedule(thread)), "thread_schedule() failed, error: %d\n", err);
     thread_unset_killexcept(thread);
     thread_unlock(thread);
 

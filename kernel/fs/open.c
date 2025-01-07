@@ -128,7 +128,7 @@ int     open(const char *pathname, int oflags, mode_t mode) {
         }
         
         if (path) {
-            assert_msg(path->directory, "%s:%d: On error, path has no directory. err: %d\n", __FILE__, __LINE__, err);
+            assert(path->directory, "On error, path has no directory. err: %d\n", err);
             dclose(path->directory);
         } else {
             printk("%s:%d: [Warning...]: is unlocking dentry here safe?: Err: %d\n", __FILE__, __LINE__, err);

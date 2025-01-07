@@ -72,10 +72,9 @@ int page_increment(page_t *page) {
     if ((err = getzone_bypage(page, &zone)))
         return err;
 
-    assert_msg(bitmap_test(&zone->bitmap, page_index(page, zone), 1),
-        "%s():%s:%d: [Warning]: Increment refcnt on unallocated page(%p).\n"
-        "[Advise]: Please use one of the alloc funcs.\n",
-        __func__, __FILE__, __LINE__, page_addr(page, zone)
+    assert(bitmap_test(&zone->bitmap, page_index(page, zone), 1),
+        "[Warning]: Increment refcnt on unallocated page(%p).\n"
+        "[Advise]: Please use one of the alloc funcs.\n", page_addr(page, zone)
     );
 
     atomic_inc(&page->refcnt);
@@ -93,15 +92,13 @@ int page_decrement(page_t *page) {
     if ((err = getzone_bypage(page, &zone)))
         return err;
     
-    assert_msg(bitmap_test(&zone->bitmap, page_index(page, zone), 1),
-        "%s():%s:%d: [Warning]: Decrement refcnt on unallocated page(%p).\n",
-        __func__, __FILE__, __LINE__, page_addr(page, zone)
+    assert(bitmap_test(&zone->bitmap, page_index(page, zone), 1),
+        "[Warning]: Decrement refcnt on unallocated page(%p).\n", page_addr(page, zone)
     );
     
     if (atomic_dec_fetch(&page->refcnt) == 0) {
-        assert_msg(!(err = bitmap_unset(&zone->bitmap, page_index(page, zone), 1)),
-            "%s():%s:%d: [ERROR] unsetting bit(%d) page(%p).\n",
-            __func__, __FILE__, __LINE__, page_index(page, zone), page_addr(page, zone)
+        assert(!(err = bitmap_unset(&zone->bitmap, page_index(page, zone), 1)),
+            "[ERROR] unsetting bit(%d) page(%p).\n", page_index(page, zone), page_addr(page, zone)
         );
     }
     zone_unlock(zone);
@@ -121,10 +118,9 @@ int __page_increment(uintptr_t paddr) {
 
     index = (paddr - zone->start) / PGSZ;
 
-    assert_msg(bitmap_test(&zone->bitmap, index, 1),
-        "%s():%s:%d: [Warning]: Increment refcnt on unallocated page(%p).\n"
-        "[Advise]: Please use one of the alloc funcs.\n",
-        __func__, __FILE__, __LINE__, paddr
+    assert(bitmap_test(&zone->bitmap, index, 1),
+        "[Warning]: Increment refcnt on unallocated page(%p).\n"
+        "[Advise]: Please use one of the alloc funcs.\n", paddr
     );
 
     atomic_inc(&zone->pages[index].refcnt);
@@ -145,15 +141,13 @@ int __page_decrement(uintptr_t paddr) {
 
     index = (paddr - zone->start) / PGSZ;
 
-    assert_msg(bitmap_test(&zone->bitmap, index, 1),
-        "%s():%s:%d: [Warning]: Decrement refcnt on unallocated page(%p).\n",
-        __func__, __FILE__, __LINE__, paddr
+    assert(bitmap_test(&zone->bitmap, index, 1),
+        "[Warning]: Decrement refcnt on unallocated page(%p).\n", paddr
     );
 
     if (atomic_dec_fetch(&zone->pages[index].refcnt) == 0) {
-        assert_msg(!(err = bitmap_unset(&zone->bitmap, index, 1)),
-            "%s():%s:%d: [ERROR] unsetting bit(%d) page(%p).\n",
-            __func__, __FILE__, __LINE__, index, paddr
+        assert(!(err = bitmap_unset(&zone->bitmap, index, 1)),
+            "[ERROR] unsetting bit(%d) page(%p).\n", index, paddr
         );
     }
     zone_unlock(zone);
@@ -171,9 +165,8 @@ int __page_get(uintptr_t paddr) {
 void page_put(page_t *page) {
     int err = 0;
 
-    assert_msg((err = page_decrement(page)) == 0,
-        "%s:%d: Failed to decrement page: %p, err: %d\n",
-        __FILE__, __LINE__, page, err
+    assert((err = page_decrement(page)) == 0,
+        "Failed to decrement page: %p, err: %d\n", page, err
     );
 }
 

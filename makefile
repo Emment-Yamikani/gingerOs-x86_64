@@ -86,7 +86,7 @@ debug:
 	objdump -d $(ISO_DIR)/boot/lime.elf -M intel | less > lime.asm
 
 run:
-	qemu-system-x86_64 -smp 2 \
+	qemu-system-x86_64 -smp 1 \
 	-m size=512M -cdrom ginger.iso \
 	-no-reboot -no-shutdown -vga std \
 	-chardev stdio,id=char0,logfile=serial.log,signal=off \

@@ -3,7 +3,6 @@
 #include <arch/cpu.h>
 #include <bits/errno.h>
 #include <lib/string.h>
-#include <mm/zone.h>
 #include <sys/thread.h>
 #include <arch/x86_64/ipi.h>
 #include <arch/x86_64/paging.h>

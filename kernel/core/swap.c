@@ -1,6 +1,7 @@
 #include <bits/errno.h>
 #include <lib/string.h>
 #include <lib/printk.h>
+#include <core/assert.h>
 #include <lib/stdint.h>
 #include <lib/types.h>
 #include <sync/atomic.h>

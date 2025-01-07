@@ -13,8 +13,7 @@ const char *str_zone[] = {
 };
 
 void zone_dump(zone_t *zone) {
-    assert_msg(zone, "zerror: No physical "
-        "memory zone specified\n", __FILE__, __LINE__);
+    assert(zone, "zerror: No physical memory zone specified\n");
     printk("\nZONE: %s\n"
             "Array:  %16p\n"
             "Size:   %16d KiB\n"

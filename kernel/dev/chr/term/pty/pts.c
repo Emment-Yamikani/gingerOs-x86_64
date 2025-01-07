@@ -35,8 +35,7 @@ int pts_mkslave(PTY pty) {
     snprintf(name, sizeof name - 1, "/dev/pts/%d", pty->pt_id);
 
     if ((err = vfs_mknod(name, current_cred(), mode, DEV_T(DEV_PTS, pty->pt_id)))) {
-        assert_msg(0, "%s:%d: error mknod: pts, err: %d\n",
-            __FILE__, __LINE__, err);
+        assert(0, "error mknod: pts, err: %d\n", err);
         dev_unlock(dev);
         kfree(dev);
         return err;

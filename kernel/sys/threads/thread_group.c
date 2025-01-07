@@ -128,7 +128,7 @@ int thread_leave_group(thread_t *thread) {
 
     thread_unlock(thread);
     queue_unlock(thread->t_tgroup);
-    assert_msg(err == 0, "tid: %d, Failed to leave group\n", thread_gettid(thread));
+    assert(err == 0, "tid: %d, Failed to leave group\n", thread_gettid(thread));
     return 0;
 }
 

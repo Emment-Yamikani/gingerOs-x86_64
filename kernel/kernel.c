@@ -4,23 +4,31 @@
 #include <sys/thread.h>
 #include <mm/mmap.h>
 #include <sys/proc.h>
-#include <mm/zone.h>
 #include <mm/kalloc.h>
 
 int load_init(const char *conf_fn);
 
 static char *init_path = "/ramfs/init";
 
+
+extern void _sim_trap(int x);
+void th() {
+    // BUILTIN_THREAD_ANOUNCE(__func__);
+    _sim_trap(34);
+}
 __noreturn void kthread_main(void) {
     int     err     = 0;
 
-    printk("\n\t\t\tWelcome to \'"
-        "\e[025453;011mGinger OS\e[0m\'.\n\n"
-    );
+    printk("\n\t\t\tWelcome to \'\e[025453;011mGinger OS\e[0m\'.\n\n");
 
+    for (int i = 0; i < 300; ++i)
+        kthread_create(NULL, (thread_entry_t)th,
+            NULL, THREAD_CREATE_SCHED, NULL);
+
+    loop() {
+        thread_yield(); //thread_join(0, NULL, NULL);
+    }
     thread_start_builtin(NULL);
-
-    // loop() ;//thread_join(0, NULL, NULL);
 
     if ((err = load_init("/ramfs/startup.conf"))) {
         printk("Failed to read or parse startup.conf"
@@ -86,8 +94,7 @@ int load_init(const char *conf_fn) {
 
     printk("[exec] %s...\n", init_path);
     err = proc_init(init_path);
-    printk(
-        "[%s] %s \"%s\", error: %d.\n",
+    printk("[%s] %s \"%s\", error: %d.\n",
         err ? "\e[025453;03mFAIL\e[0m" : "\e[025453;03mOK\e[0m",
         err ? "couldn't load" : "started",
         init_path, err

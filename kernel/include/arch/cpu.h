@@ -1,14 +1,14 @@
 #pragma once
 
-#include <lib/stdint.h>
-#include <arch/x86_64/mmu.h>
-#include <arch/x86_64/cpu.h>
-#include <lib/types.h>
-#include <sys/system.h>
-#include <lib/stddef.h>
-#include <sys/sched.h>
 #include <arch/x86_64/context.h>
+#include <arch/x86_64/cpu.h>
 #include <arch/x86_64/ipi.h>
+#include <arch/x86_64/mmu.h>
+#include <lib/types.h>
+#include <lib/stddef.h>
+#include <lib/stdint.h>
+#include <sys/sched.h>
+#include <sys/system.h>
 
 #define CPU_PBE             BS(63)  // Pend. Brk. EN.
 #define CPU_TM              BS(61)  // Therm. Monitor

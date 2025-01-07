@@ -237,8 +237,7 @@ int signal_send(proc_t *proc, int signo) {
 
     err = signal_select_thread(proc, signo, &thread);
 
-    assert_msg(err == 0 || err == -ESRCH,
-        "Error finding thread to signal. error: %d.\n", err
+    assert(err == 0 || err == -ESRCH, "Error finding thread to signal. error: %d.\n", err
     );
 
     switch (err) {

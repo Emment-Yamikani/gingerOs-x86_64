@@ -9,17 +9,3 @@
 #include <mm/zone.h>
 #include <ds/bitmap.h>
 
-__unused static MUTEX(m);
-
-__unused static void th(void) {
-}
-
-static void test(void) {
-
-
-    for (int i = 0; i < 320; ++i)
-        kthread_create(NULL, (thread_entry_t)th,
-            NULL, THREAD_CREATE_SCHED, NULL);
-
-    loop(); //thread_join(0, NULL, NULL);
-} BUILTIN_THREAD(test, test, NULL);

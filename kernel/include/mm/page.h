@@ -6,7 +6,7 @@
 #include <lib/types.h>
 #include <mm/gfp.h>
 #include <mm/page_flags.h>
-#include <sync/assert.h>
+#include <core/assert.h>
 
 #define MAX_PAGE_ORDER      64
 

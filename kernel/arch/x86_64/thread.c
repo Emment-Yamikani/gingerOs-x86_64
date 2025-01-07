@@ -16,9 +16,7 @@ void x86_64_thread_exit(u64 exit_code) {
     current->t_exit = exit_code;
     current_enter_state(T_TERMINATED);
     sched();
-    panic(
-        "thread: %d failed"
-        " to zombie: flags: %X\n",
+    panic("thread: %d failed to zombie: flags: %X\n",
         thread_self(), current->t_flags
     );
     loop();
@@ -140,8 +138,7 @@ void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
     current_unlock();
 }
 
-int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
-    siginfo_t *info, sigaction_t *sigact) {
+int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry, siginfo_t *info, sigaction_t *sigact) {
     i64         ncli            = 1;
     i64         intena          = 0;
     flags64_t   was_handling    = 0;
@@ -189,8 +186,7 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry,
 
             uctx        = (ucontext_t *)ustack;
 
-            assert(((void *)uctx - 0) >= 
-                (stack.ss_sp - stack.ss_size),
+            assert(((void *)uctx - 0) >= (stack.ss_sp - stack.ss_size),
                 "User stack overflow detected!!!\n"
             );
 

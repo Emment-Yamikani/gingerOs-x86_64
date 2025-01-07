@@ -42,7 +42,6 @@ int signal_dispatch(void) {
         goto __handle_signal; // handle signal that was sent to this thread.
     }
 
-    // debugloc();
     /// No signal was sent to the current thread so,
     /// check through thread group signal desc for a global signal.
     for (int signo = 0; signo < NSIG; ++signo) {
@@ -70,12 +69,10 @@ int signal_dispatch(void) {
     }
     sigdesc_unlock(desc);
 
-    // debugloc();
     if (info == NULL) { // no signal pending...
         return 0;
     }
 
-    debugloc();
 __handle_signal:
     handler = (act.sa_flags & SA_SIGINFO ? (sigfunc_t)act.sa_sigaction : act.sa_handler);
     
@@ -88,23 +85,18 @@ __handle_signal:
         case SIG_CONT:
         case SIG_STOP:
         case SIG_TERM_CORE:
-        assert_msg(0,
-            "%s:%d: SIG_DFL is default action for signo(%d)",
-            __FILE__, __LINE__, info->si_signo);
+        assert(0, "SIG_DFL is default action for signo(%d)", info->si_signo);
         case SIG_IGNORE:
             goto __ignore;
         break;
         }
         break;
     case (uintptr_t)SIG_ERR:
-        assert_msg(0,
-            "%s:%d: SIG_ERR is default action for signo(%d)",
-            __FILE__, __LINE__, info->si_signo);
+        assert(0, "SIG_ERR is default action for signo(%d)", info->si_signo);
         break;
     case (uintptr_t)SIG_IGN:
 __ignore:
-        assert_msg(0, "%s:%d: SIG_IGN is default action for signo(%d)",
-            __FILE__, __LINE__, info->si_signo);
+        assert(0, "SIG_IGN is default action for signo(%d)", info->si_signo);
         goto __exit_handler;
     }
 
@@ -114,13 +106,11 @@ __ignore:
     tarch->t_uctx->uc_sigmask = oset;
 
     // dump_tf(&tarch->t_uctx->uc_mcontext, 0);
-    // debugloc();
-    assert_msg(0 == (err =
-        arch_signal_dispatch(tarch, (void *)handler, info, &act)),
-        "%s:%d: Failed to dispatch_signal, err: %d\n", __FILE__, __LINE__, err
+
+    assert(0 == (err = arch_signal_dispatch(tarch, (void *)handler, info, &act)),
+        "Failed to dispatch_signal, err: %d\n", err
     );
     // dump_tf(&tarch->t_uctx->uc_mcontext, 0);
-    // debugloc();
 
     current_unlock();
     // FIXME: consider ref counted info struct.

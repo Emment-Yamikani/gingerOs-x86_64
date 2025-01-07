@@ -159,3 +159,16 @@ trapret:
     swapgs
     add     rsp, 16
     iretq
+
+global _sim_trap
+_sim_trap:
+    mov     rax, [rsp]          ; Get the return address (current RIP)
+    push    rax                 ; Push return address (RIP)
+    push    qword 0x10          ; Push data segment selector (DS)
+    push    rsp                 ; Push current stack pointer (SS:SP)
+    pushfq                      ; Push flags register (EFLAGS/RFLAGS)
+    push    qword 0x8           ; Push code segment selector (CS)
+    push    rax                 ; Push return address (RIP)
+    push    qword 0x0           ; Push error code (or 0 if unused)
+    push    rdi                 ; Push RDI (e.g., additional context)
+    jmp    stub                ; Call the handler (save RIP for return)

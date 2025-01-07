@@ -1,13 +1,17 @@
 #include <arch/paging.h>
 #include <bits/errno.h>
 #include <lib/string.h>
-#include <mm/zone.h>
 #include <sys/thread.h>
+#include <mm/zone.h>
 
 static int zero_fill_page(zone_t *zone, page_t *page, int whence) {
     int         err     = 0;
     void        *vaddr  = NULL;
-    uintptr_t   paddr   = zone->start + ((page - zone->pages) * PGSZ);
+    uintptr_t   paddr   = 0;
+
+    zone_assert(zone);
+
+    paddr   = zone->start + ((page - zone->pages) * PGSZ);
 
     if ((whence == ZONEi_HOLE) || (whence == ZONEi_HIGH)) {
         // Handle high memory or hole zone
@@ -82,15 +86,12 @@ int page_alloc_n(gfp_t gfp, usize order, page_t **pp) {
         // printk("index: %d: %p\n", index, page_addr(page, zone));
 
         for (; npage; --npage, ++page) {
-            assert_msg(page_addr(page, zone) != zones[ZONEi_NORM].start,
-                "%s(): %s:%d: Page belongs to kernel, page: %p\n",
-                __func__, __FILE__, __LINE__, page_addr(page, zone)
+            assert(page_addr(page, zone) != zones[ZONEi_NORM].start,
+                "Page belongs to kernel, page: %p\n", page_addr(page, zone)
             );
 
-            assert_msg(!atomic_read(&page->refcnt),
-                "%s(): %s:%d: Page[%p]: page->refcnt: %ld\nZONE: %p-%p, size: %d\n",
-               __func__,  __FILE__, __LINE__, page_addr(page, zone), page->refcnt,
-               zone->start, zone_end(zone), zone->size
+            assert(!atomic_read(&page->refcnt), "Page[%p] already has refcnt: %ld??\n",
+                page_addr(page, zone), page->refcnt
             );
 
             atomic_inc(&page->refcnt);

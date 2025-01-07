@@ -3,7 +3,6 @@
 #include <sys/system.h>
 #include <sync/atomic.h>
 #include <sync/preempt.h>
-#include <lib/printk.h>
 #include <lib/types.h>
 #include <lib/stdint.h>
 
@@ -61,11 +60,8 @@ typedef struct __spinlock_t {
             if ((lk)->s_lock == 0)                                                                                      \
                 break;                                                                                                  \
             bool self = (lk)->s_owner.is_threaded ? (lk)->s_owner.id == thread_self() : (lk)->s_owner.id == getcpuid(); \
-            assert_msg(self == 0,                                                                                       \
-                       "PANIC: %s(): %s:%d: [cpu: %d, tid: %d, ret: %p] Recursive lock detected.\n"                     \
-                       "%s:%d acquired lock @ [%s:%d].\n",                                                              \
-                       __func__, __FILE__,                                                                              \
-                       __LINE__, getcpuid(), thread_self(), __retaddr(0),                                               \
+            assert(self == 0, "[cpu: %d, tid: %d, ret: %p] Recursive lock detected.\n%s:%d acquired lock @ [%s:%d].\n", \
+                       getcpuid(), thread_self(), __retaddr(0),                                                         \
                        (lk)->s_owner.is_threaded ? "tid" : "cpu", (lk)->s_owner.id, (lk)->s_file, (lk)->s_line);        \
             atomic_clear(&(lk)->s_guard);                                                                               \
         }                                                                                                               \
@@ -85,10 +81,7 @@ typedef struct __spinlock_t {
     while (!spin_try_guard(lk)) {                                                                               \
     }                                                                                                           \
     bool self = (lk)->s_owner.is_threaded ? (lk)->s_owner.id == thread_self() : (lk)->s_owner.id == getcpuid(); \
-    assert_msg(self && (lk)->s_lock,                                                                            \
-               "PANIC: %s(): %s:%d: [cpu: %d, tid: %d, ret: %p] Does not own lock.\n"                           \
-               "State [%s %s:%d] @ [%s:%d].\n",                                                                 \
-               __func__, __FILE__, __LINE__,                                                                    \
+    assert(self && (lk)->s_lock, "[cpu: %d, tid: %d, ret: %p] Does not own lock.\nState [%s %s:%d] @ [%s:%d].\n",\
                getcpuid(), thread_self(), __retaddr(0), (lk)->s_lock ? "locked" : "unlocked",                   \
                (lk)->s_lock ? (lk)->s_owner.is_threaded ? "tid" : "cpu" : "n/a",                                \
                (lk)->s_lock ? (lk)->s_owner.id : -1, (lk)->s_file ? (lk)->s_file : "n/a", (lk)->s_line);        \
@@ -115,7 +108,6 @@ typedef struct __spinlock_t {
 })
 
 #define spin_assert_locked(lk) ({                                                      \
-    assert_msg(spin_islocked(lk),                                                      \
-               "%s(): %s:%d: [cpu: %d, tid: %d] ret: %p. Must acquired spinlock.\n",   \
-               __func__, __FILE__, __LINE__, getcpuid(), thread_self(), __retaddr(0)); \
+    assert(spin_islocked(lk), "[cpu: %d, tid: %d] ret: %p. Must acquired spinlock.\n", \
+           getcpuid(), thread_self(), __retaddr(0));                                   \
 })
