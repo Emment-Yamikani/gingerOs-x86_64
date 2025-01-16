@@ -118,12 +118,10 @@
 #define MEMMIO          (0xfe000000ull)
 
 // convert a higher-half virtual address to a lower-half virtual address.
-#define V2LO(p)         ((uintptr_t)(p) - VMA_BASE)   
-#define VMA2LO(p)       ((uintptr_t)(p) - VMA_BASE)
+#define V2LO(p)         ((uintptr_t)(p) - VMA_BASE)
 
 // convert a lower-half virtual address to a higher-half virtual address.
-#define V2HI(p)         ((uintptr_t)(p) + VMA_BASE)   
-#define VMA2HI(p)       ((uintptr_t)(p) + VMA_BASE)
+#define V2HI(p)         ((uintptr_t)(p) + VMA_BASE)
 
 #define iskernel_addr(x)        ((uintptr_t)(x) >= VMA_BASE)
 

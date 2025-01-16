@@ -36,7 +36,7 @@ extern void disable_caching(void);
 
 static inline uintptr_t rdrax(void) {
     uintptr_t ret;
-    asm volatile("":"=a"(ret));
+    asm __volatile__("":"=a"(ret));
     return ret;
 }
 
@@ -60,8 +60,7 @@ extern void wrrflags(uintptr_t);
 extern u64 cr0test(u64 bits);
 extern u64 cr4test(u64 bits);
 
-static inline void cpuid(u64 leaf, u64 subleaf, u32 *eax,
-                  u32 *ebx, u32 *ecx, u32 *edx) {
+static inline void cpuid(u64 leaf, u64 subleaf, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx) {
     __get_cpuid_count(leaf, subleaf, eax, ebx, ecx, edx);
 }
 

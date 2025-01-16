@@ -205,7 +205,7 @@ static inline void x86_64_unmap_pt(int i4, int i3, int i2) {
 void x86_64_swtchvm(uintptr_t pdbr, uintptr_t *old) {
     if (old) *old = rdcr3();
     // if PDBR is null, then switch to the kernel address space (_PML4_)
-    wrcr3(pdbr ? pdbr : VMA2LO(_PML4_));
+    wrcr3(pdbr ? pdbr : V2LO(_PML4_));
 }
 
 int x86_64_map(uintptr_t pa, int i4, int i3, int i2, int i1, int flags) {

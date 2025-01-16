@@ -5,9 +5,9 @@
 #include <bits/errno.h>
 #include <arch/paging.h>
 
-static xsdt_t  *XSDT = NULL;
-static rsdt_t  *RSDT = NULL;
-static rsdp20_t  *RSDP = NULL;
+static xsdt_t   *XSDT = NULL;
+static rsdt_t   *RSDT = NULL;
+static rsdp20_t *RSDP = NULL;
 
 int acpi_validate_table(char *addr, size_t size) {
     uint8_t sum = 0;
@@ -17,13 +17,13 @@ int acpi_validate_table(char *addr, size_t size) {
 }
 
 void *acpi_findrsdp(void) {
-    char *bios = (char *)VMA2HI(EBDA);
-    for (; bios < (char *)(VMA2HI(EBDA) + KiB(1)); bios +=4)
+    char *bios = (char *)V2HI(EBDA);
+    for (; bios < (char *)(V2HI(EBDA) + KiB(1)); bios +=4)
         if (!strncmp("RSD PTR ", bios, 8))
             return bios;
     
-    bios = (char *)(VMA2HI(BIOSROM));
-    for (; bios < (char *)(VMA2HI(BIOSROM) + 0xfffff); bios +=4)
+    bios = (char *)(V2HI(BIOSROM));
+    for (; bios < (char *)(V2HI(BIOSROM) + 0xfffff); bios +=4)
         if (!strncmp("RSD PTR ", bios, 8))
             return bios;
     return NULL;
@@ -39,7 +39,7 @@ acpiSDT_t *acpi_parse_rsdt(rsdt_t *rsdt, const char *sign) {
     count = (rsdt->hdr.length - sizeof(acpiSDT_t)) / 4;
 
     for (int i = 0; i < count; ++i) {
-        sdt = (void *)VMA2HI(rsdt->sdt[i]);
+        sdt = (void *)V2HI(rsdt->sdt[i]);
         if (!strncmp(sign, sdt->signature, 4))
             return sdt;
     }
@@ -57,7 +57,7 @@ acpiSDT_t *acpi_parse_xsdt(xsdt_t *xsdt, const char *sign) {
     count = (xsdt->hdr.length - sizeof (acpiSDT_t)) / 8;
 
     for (int i = 0; i < count; ++i) {
-        sdt = (void *)VMA2HI(xsdt->sdt[i]);
+        sdt = (void *)V2HI(xsdt->sdt[i]);
         if (!strncmp(sign, sdt->signature, 4))
             return sdt;
     }
@@ -86,8 +86,8 @@ int acpi_init(void) {
         return -EINVAL;
 
     if (RSDP->rsdp.revno < 2)
-        RSDT = (rsdt_t *)VMA2HI(RSDP->rsdp.rsdtaddr);
+        RSDT = (rsdt_t *)V2HI(RSDP->rsdp.rsdtaddr);
     else
-        XSDT = (xsdt_t *)VMA2HI(RSDP->xsdtaddr);
+        XSDT = (xsdt_t *)V2HI(RSDP->xsdtaddr);
     return 0;
 }

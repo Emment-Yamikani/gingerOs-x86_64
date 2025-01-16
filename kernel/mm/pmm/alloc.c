@@ -23,7 +23,7 @@ static int zero_fill_page(zone_t *zone, page_t *page, int whence) {
     } else {
         /// addresses from 0->2GiB are indically mapped.
         /// so just convert the paddr directly to vaddr.
-        vaddr = (void *)VMA2HI(paddr);
+        vaddr = (void *)V2HI(paddr);
         memset(vaddr, 0, PGSZ);
     }
 

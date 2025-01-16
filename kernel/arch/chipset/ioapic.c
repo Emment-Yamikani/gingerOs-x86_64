@@ -114,7 +114,7 @@ int ioapic_init(void) {
         ioapic->ioapic_id = entry[2];
         ioapic->flags = IOAPIC_ENABLED;
         ioapic->int_base = *((uint32_t *)(&entry[8]));
-        ioapic->base_addr = (uint32_t *)VMA2HI(*((uint32_t *)(&entry[4])));
+        ioapic->base_addr = (uint32_t *)V2HI(*((uint32_t *)(&entry[4])));
 
         ver_data = read_ioapic(ioapic, VER);
         ioapic->version = (ver_data & 0xFF);

@@ -10,7 +10,7 @@
 #include <dev/hpet.h>
 #include <dev/clocks.h>
 
-#define LAPIC_BASE    ((volatile uint32_t *)VMA2HI(PGROUND(rdmsr(IA32_APIC_BASE))))
+#define LAPIC_BASE    ((volatile uint32_t *)V2HI(PGROUND(rdmsr(IA32_APIC_BASE))))
 
 #define ID              LAPIC_BASE[0x20 / 4]          // ID register.
 #define VER             LAPIC_BASE[0x30 / 4]          // Version register.
