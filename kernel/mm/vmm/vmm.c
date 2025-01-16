@@ -1,37 +1,42 @@
-#include <mm/vmm.h>
-#include <mm/pmm.h>
 #include <arch/paging.h>
 #include <bits/errno.h>
+#include <boot/boot.h>
+#include <core/debug.h>
+#include <core/spinlock.h>
 #include <lib/printk.h>
 #include <lib/stddef.h>
 #include <lib/stdint.h>
 #include <lib/string.h>
+#include <mm/vmm.h>
+#include <mm/pmm.h>
 #include <sys/system.h>
-#include <core/spinlock.h>
+#include <sys/thread.h>
+#include <sys/sysproc.h>
 
 typedef struct node_t {
-    struct node_t *prev;
-    uintptr_t     base;
-    size_t        size;
-    struct node_t *next;
+    struct node_t   *prev;
+    uintptr_t       base;
+    size_t          size;
+    struct node_t   *next;
 } node_t;
 
 #define node_assert(node)       ({ assert(node, "No vm node."); })
 #define node_get_len(node)      ({ node_assert(node); (node)->size; })
 #define node_get_start(node)    ({ node_assert(node); (node)->start; })
 
-#define KHEAPSIZE               (MiB(128))
-#define KHEAPBASE               (VMA2HI(GiB(4)))
-#define NNODES                  (KHEAPSIZE / 4096)
+#define KHEAPSIZE               kheap_size
+#define KHEAPBASE               (V2HI(GiB(4)))
+#define NNODES                  (KHEAPSIZE / PGSZ)
 
-static atomic_t    initialized     = 0;
-static size_t      used_memsz      = 0;
-static node_t      *free_node_list = NULL;
-static node_t      *usedvmr_list   = NULL;
-static node_t      *freevmr_list   = NULL;
-static node_t      nodes[NNODES];
+static usize    kheap_size      = 0;
+static atomic_t initialized     = 0;
+static size_t   used_memsz      = 0;
+static node_t   *free_node_list = NULL;
+static node_t   *usedvmr_list   = NULL;
+static node_t   *freevmr_list   = NULL;
+static node_t   *nodes          = NULL;
 
-static spinlock_t  *vmlk           = &SPINLOCK_INIT();
+static SPINLOCK(vmlk);
 
 #define vm_lock()               ({ spin_lock(vmlk); })
 #define vm_unlock()             ({ spin_unlock(vmlk); })
@@ -257,6 +262,14 @@ static int vmm_init(void) {
     
     vm_lock();
 
+    /**
+     * @brief Reserve virtual memory for the heap.
+     * This is set to be 2x the size of RAM.
+     * At least for now, till such a time when a more
+     * robust way reserving memory is implemented.*/
+    kheap_size = KiB(bootinfo.total) * 2;
+    nodes = (node_t *)boot_alloc(NNODES * sizeof (node_t), PGSZ);
+
     memset(nodes, 0, sizeof nodes);
 
     for (node  = nodes; node < &nodes[NNODES]; node++) {
@@ -297,10 +310,10 @@ static int alloc(size_t size, void **ppv) {
 
     if (split->size > size) {
         node_assert(node = free_node_get());
-        node->base = split->base;
+        node->base  = split->base;
         split->base += size;
         split->size -= size;
-        node->size = size;
+        node->size  = size;
         *ppv = (void *)node->base;
         usedvmr_put(node);
     } else if (split->size == size) {
@@ -312,10 +325,12 @@ static int alloc(size_t size, void **ppv) {
         if (prev)
             prev->next = next;
         else freevmr_list = next;
+
         *ppv = (void *)split->base;
         usedvmr_put(split);
     } else assert(0, "Failed to get correct sized vmr_node");
 
+    // printk("%s(): %s:%d: virtual: %p: %X\n", __func__, __FILE__, __LINE__, *ppv, size);
     used_memsz += size;
     vm_unlock();
     return 0;
@@ -334,6 +349,7 @@ static void free(void *addr) {
         return;
     }
 
+    // printk("%s(): %s:%d: virtual: %p: %X\n", __func__, __FILE__, __LINE__, addr, node->size);
     next = node->next;
 
     if (node->prev)
