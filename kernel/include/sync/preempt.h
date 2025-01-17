@@ -16,8 +16,7 @@ static inline void pushcli(void) {
 static inline void popcli(void) {
     assert(!is_intena(), "error: interrupts enabled before popcli()!");
     assert((cpu->ncli >= 1), "error: ncli == %d\n", cpu->ncli);
-    if ((--cpu->ncli == 0) && cpu->intena)
-    {
+    if ((--cpu->ncli == 0) && cpu->intena) {
         cpu->intena = 0;
         sti();
     }

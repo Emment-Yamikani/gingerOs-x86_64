@@ -10,35 +10,18 @@ int load_init(const char *conf_fn);
 
 static char *init_path = "/ramfs/init";
 
-
-extern void _sim_trap(int x);
-void th() {
-    // BUILTIN_THREAD_ANOUNCE(__func__);
-    _sim_trap(34);
-}
 __noreturn void kthread_main(void) {
     int     err     = 0;
 
     printk("\n\t\t\tWelcome to \'\e[025453;011mGinger OS\e[0m\'.\n\n");
 
-    for (int i = 0; i < 300; ++i)
-        kthread_create(NULL, (thread_entry_t)th,
-            NULL, THREAD_CREATE_SCHED, NULL);
-
-    loop() {
-        thread_yield(); //thread_join(0, NULL, NULL);
-    }
     thread_start_builtin(NULL);
 
     if ((err = load_init("/ramfs/startup.conf"))) {
-        printk("Failed to read or parse startup.conf"
-            "\nexit_code: %d\n", err
-        );
+        printk("Failed to read or parse startup.conf\nexit_code: %d\n", err);
     }
 
     loop() {
-        thread_join(0, NULL, NULL);
-        thread_yield();
     }
 }
 

@@ -26,30 +26,24 @@ extern __noreturn void kthread_main(void);
 int early_init(void) {
     int err = 0;
 
-    if ((err = bsp_init()))
-        panic("BSP initialization failed, error: %d\n", err);
+    assert_eq(err = bsp_init(), 0, "BSP initialization failed, error: %d\n", err);
 
-    if ((err = vmman.init()))
-        panic("Virtual memory initialization failed, error: %d\n", err);
+    assert_eq(err = vmman.init(), 0, "Virtual memory initialization failed, error: %d\n", err);
 
-    if ((err = pmman.init()))
-        panic("Physical memory initialization failed, error: %d\n", err);
+    assert_eq(err = pmman.init(), 0, "Physical memory initialization failed, error: %d\n", err);
 
     earlycons_usefb();
 
-    if ((err = acpi_init()))
-        panic("Failed to initialize ACPI, error: %d\n", err);
+    assert_eq(err = acpi_init(), 0, "Failed to initialize ACPI, error: %d\n", err);
 
     bootothers();
 
     pic_init();
     ioapic_init();
 
-    if ((err = dev_init()))
-        panic("Failed to start devices, error: %d\n", err);
+    assert_eq(err = dev_init(), 0, "Failed to start devices, error: %d\n", err);
 
-    if ((err = vfs_init()))
-        panic("Failed to initialize VFS!, error: %d\n", err);
+    assert_eq(err = vfs_init(), 0, "Failed to initialize VFS!, error: %d\n", err);
 
     kthread_create(
         NULL, (thread_entry_t)kthread_main,

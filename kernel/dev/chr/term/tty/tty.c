@@ -78,11 +78,9 @@ static int     tty_ioctl(struct devid *dd __unused, int request __unused, void *
 }
 
 static ssize_t tty_read(struct devid *dd __unused, off_t off __unused, void *buf __unused, size_t nbyte __unused) {
-    printk("%s:%d: %s(%d, %p, %d);\n", __FILE__, __LINE__, __func__, dd->minor, buf, nbyte);
     return 0;
 }
 
 static ssize_t tty_write(struct devid *dd __unused, off_t off __unused, void *buf __unused, size_t nbyte __unused) {
-    printk("%s:%d: %s(%d, %p, %d);\n", __FILE__, __LINE__, __func__, dd->minor, buf, nbyte);
     return 0;
 }

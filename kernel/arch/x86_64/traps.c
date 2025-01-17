@@ -129,9 +129,6 @@ void trap(ucontext_t *uctx) {
     arch_thread_t   *arch   = NULL;
     mcontext_t      *mctx   = &uctx->uc_mcontext;
 
-    // if (current)
-    //     dump_tf(&uctx->uc_mcontext, 0);
-
     if (current) {
         pushcli();
         arch                = &current->t_arch;

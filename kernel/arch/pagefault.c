@@ -11,10 +11,9 @@
 #include <sys/sysproc.h>
 #include <mm/vmm.h>
 
-#define panic_page_fault(trapframe, fault, type) ({                                                   \
-    panic("page fault: %s:%ld: %s() @[\e[025453;04m0x%p\e[0m], err_code: %x : %s, from '%s' space\n", \
-          __FILE__, __LINE__, __func__, fault->addr,                                                  \
-          fault->err_code, type, fault->user ? "user" : "kernel");                                    \
+#define panic_page_fault(trapframe, fault, type) ({                                                           \
+    panic("%s(): %s:%d: @[\e[025453;04m0x%p\e[0m], err_code: %x : %s, from '%s' space\n",                     \
+          __func__, __FILE__, __LINE__, fault->addr, fault->err_code, type, fault->user ? "user" : "kernel"); \
 })
 
 int map_anonymous_page(vmr_t *vmr, vm_fault_t *fault) {
@@ -89,11 +88,9 @@ int load_page_from_file(vmr_t *vmr, vm_fault_t *fault, size_t offset, usize size
          * @brief get the minimum size to read from the file on-disk.
          * Take into account the size between the start of the memory region and
          * the faulting address. this TODO: must be subtracted from the __vmr_filesz(vmr),
-         * but setting size to '0' if size is greater than __vmr_filesz(vmr) appears to work.
-         */
-        size = (size < __vmr_filesz(vmr)) ? 
-                (size_t)__min(PGSZ, (size_t)__min(__vmr_filesz(vmr) - size,
-                igetsize(vmr->file) - offset)) : 0;
+         * but setting size to '0' if size is greater than __vmr_filesz(vmr) appears to work. */
+        usize min = __min(__vmr_filesz(vmr) - size, igetsize(vmr->file) - offset);
+        size = (size < __vmr_filesz(vmr)) ? __min(PGSZ, min) : 0;
 
         if (__vmr_shared(vmr)) { // shared vmr?
             if ((err = icache_getpage(vmr->file->i_cache, offset / PGSZ, &page))) {

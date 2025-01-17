@@ -9,3 +9,18 @@
 #include <mm/zone.h>
 #include <ds/bitmap.h>
 
+
+extern void _sim_trap(int x);
+void th() {
+    // BUILTIN_THREAD_ANOUNCE(__func__);
+    loop();
+}
+
+void test(void) {
+    for (int i = 0; i < 300; ++i) {
+        kthread_create(NULL, (thread_entry_t)th,
+            NULL, THREAD_CREATE_SCHED, NULL);
+    }
+
+    loop();
+} BUILTIN_THREAD(test, test, NULL);
