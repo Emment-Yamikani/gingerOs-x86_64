@@ -160,6 +160,7 @@ trapret:
     add     rsp, 16
     iretq
 
+; interrupt simulator.
 global _sim_trap
 _sim_trap:
     mov     rax, [rsp]          ; Get the return address (current RIP)
