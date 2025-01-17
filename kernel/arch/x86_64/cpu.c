@@ -14,10 +14,10 @@
 #include <arch/paging.h>
 #include <mm/vmm.h>
 
-cpu_t               *cpus[MAXNCPU];
-static atomic_t     ncpu            = 1; // '1' because we are starting with BSP
-static atomic_t     cpus_running    = 0;
-static cpu_t        bspcls          = {0};
+cpu_t           *cpus[NCPU]; 
+static atomic_t ncpu            = 1; // '1' because we are starting with BSP
+static atomic_t cpus_running    = 0;
+static cpu_t    bspcls          = {0};
 
 cpu_t *getcls(void) {
     return (cpu_t *)rdmsr(IA32_GS_BASE);
@@ -191,7 +191,7 @@ int enumerate_cpus(void) {
         return -ENOENT;
 
     entry = (void *)MADT->apics;
-    // lapic_setaddr(VMA2HI(MADT->lapic_addr));
+    // lapic_setaddr(V2LO(MADT->lapic_addr));
 
     for (; entry && entry < (((char *)MADT) + MADT->madt.length); entry += entry[1]) {
         if (*entry == 0) {
@@ -214,12 +214,12 @@ int bootothers(void) {
     int err = 0;
     uintptr_t *stack = NULL;
     extern char ap_trampoline[];
-    uintptr_t v = (uintptr_t)ap_trampoline;
+    uintptr_t *trampoline = (uintptr_t *)V2HI(ap_trampoline);
 
     if ((err = enumerate_cpus()))
         return err;
 
-    if ((err = arch_map_i(v, (uintptr_t)ap_trampoline, PGSZ, PTE_KRW)))
+    if ((err = arch_map_i((uintptr_t)ap_trampoline, (uintptr_t)ap_trampoline, PGSZ, PTE_KRW)))
         return err;
 
     for (int i = 0; i < (int)atomic_read(&ncpu); ++i) {
@@ -229,11 +229,16 @@ int bootothers(void) {
         if ((err = arch_pagealloc(KSTACKSZ, (uintptr_t *)&stack)))
             return err;
 
+    #define PGMAP       4024 / (sizeof (uintptr_t))
+    #define AP_STACK    4032 / (sizeof (uintptr_t))
+    #define AP_ENTRY    4040 / (sizeof (uintptr_t))
+
         stack = (uintptr_t *)(((uintptr_t)stack) + KSTACKSZ);
-        *((uintptr_t *)VMA2HI(&ap_trampoline[4024])) = rdcr3();
-        *((uintptr_t *)VMA2HI(&ap_trampoline[4032])) = (uintptr_t)stack;
-        *((uintptr_t *)VMA2HI(&ap_trampoline[4040])) = (uintptr_t)ap_init;
-        lapic_startup(cpus[i]->apicID, (u16)((uintptr_t)ap_trampoline));
+        trampoline[PGMAP]    = rdcr3();
+        trampoline[AP_STACK] = (uintptr_t)stack;
+        trampoline[AP_ENTRY] = (uintptr_t)ap_init;
+
+        lapic_startup(cpus[i]->apicID, (u16)((uintptr_t)trampoline));
         while (!(atomic_read(&cpus[i]->flags) & CPU_ONLINE));
     }
 

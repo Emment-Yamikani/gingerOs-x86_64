@@ -141,8 +141,8 @@ typedef struct cpu {
 
 #define CPU_PANICED         BS(31)  // cpu has paniced.
 
-#define MAXNCPU             16      // maximum supported cpus
-extern cpu_t                *cpus[MAXNCPU];
+#define NCPU                16      // maximum supported cpus
+extern cpu_t                *cpus[NCPU];
 
 #define cpu                 (getcls())                      // get CPU local structure.
 #define current             (cpu->thread)                   // currently running thread.
@@ -155,22 +155,23 @@ extern cpu_t                *cpus[MAXNCPU];
 #define cpu_has(f)          (cpu_features & (f))            // Check for CPU features (read-only).
 #define isbsp()             (cpu_testflags(CPU_ISBSP))      // is this CPU a bootstrap processor?
 
-extern int                  sse_init(void);
-extern void                 simd_fp_except(void);
-extern void                 coprocessor_except(void);
+extern int  sse_init(void);
+extern void simd_fp_except(void);
+extern void coprocessor_except(void);
 
-extern int                  is64bit(void);
-extern void                 cpu_init(void);
-extern int                  cpu_rsel(void);
-extern int                  cpu_count(void);
-extern int                  cpu_online(void);
-extern void                 cpu_incr_online(void);
+extern int  is64bit(void);
+extern void cpu_init(void);
+extern int  cpu_rsel(void);
+extern int  cpu_count(void);
+extern int  cpu_online(void);
+extern void cpu_incr_online(void);
 
-extern int                  bootothers(void);
+extern int  bootothers(void);
 
-extern cpu_t                *getcls(void);
-extern void                 setcls(cpu_t *c);
+extern cpu_t    *getcls(void);
+extern void setcls(cpu_t *c);
 
-extern int                  getcpuid(void);
-extern int                  enumerate_cpus(void);
-extern void                 cpu_get_features(void);
+extern int  getcpuid(void);
+extern int  enumerate_cpus(void);
+extern void cpu_get_features(void);
+extern int  init_cpus();
