@@ -4,9 +4,10 @@
 #include <boot/multiboot.h>
 #include <lib/types.h>
 #include <dev/fb.h>
+#include <arch/cpu.h>
 
 #define NMODS   32
-#define NMMAP   32
+#define NMMAP   32 + NCPU
 
 typedef struct {
     uintptr_t   addr;   // address at which module is loaded.

@@ -174,11 +174,6 @@ static int zone_enumerate(zone_t *zone, usize *memsz) {
 
         bitmap_array = boot_alloc(size, PGSZ);
 
-        /** Add the region holding the page_t array as a reserved region. */
-        bootinfo.mmap[bootinfo.mmapcnt].size    = size;
-        bootinfo.mmap[bootinfo.mmapcnt].addr    = (uintptr_t)bitmap_array;
-        bootinfo.mmap[bootinfo.mmapcnt++].type  = MULTIBOOT_MEMORY_RESERVED;
-
         if ((err = bitmap_init(&zone->bitmap, bitmap_array, zone->npages)))
             return err;
 

@@ -101,11 +101,12 @@ void multiboot_info_process(multiboot_info_t *mbi) {
                     bootinfo.total += B2KiB(mmap->size);
                     bootinfo.hole_addr = entry->addr;
                     bootinfo.hole_size = mmap->size;
-                } else if (entry->addr == GiB(4)) // account for usable memory above 4GiB
+                } else if ((entry->addr >= GiB(4)) && (entry->type == MULTIBOOT_MEMORY_AVAILABLE)) // account for usable memory above 4GiB
                     bootinfo.total += B2KiB(mmap->size);
 
                 if (entry->type == MULTIBOOT_MEMORY_AVAILABLE)
                     bootinfo.usable += (usize)entry->len;
+
                 bootinfo.mmapcnt++;
             }
             entry = (mmap_entry_t *)((u64)entry + entry->size + sizeof(entry->size));
@@ -182,10 +183,19 @@ void *boot_alloc(usize size, usize alignment) {
         panic("boot_alloc: Exceeded usable memory limit.");
     }
 
-    addr = (void *)aligned_addr;
+    addr = (void *)V2HI(aligned_addr);
 
     // Update the bootinfo pointer to reflect the new allocation.
     bootinfo.phyaddr = (uintptr_t)(aligned_addr + size);
 
-    return (void *)V2HI(addr);
+    assert_ne(bootinfo.mmapcnt, NELEM(bootinfo.mmap),
+        "OUT OF SPACE TO ADD ANOTHER MMAP\n"
+    );
+
+    /** Mark this region as a reserved region. */
+    bootinfo.mmap[bootinfo.mmapcnt].size   = size;
+    bootinfo.mmap[bootinfo.mmapcnt].addr   = (uintptr_t)addr;
+    bootinfo.mmap[bootinfo.mmapcnt++].type = MULTIBOOT_MEMORY_RESERVED;
+
+    return addr;
 }
