@@ -85,6 +85,7 @@
 #define ALIGN16(x)              (AND((uintptr_t)(x), NOT(0xf)))
 #define ALIGN4K(x)              (AND((uintptr_t)(x), NOT(PGMASK)))
 #define PGALIGN(x)              (ALIGN4K(x))
+#define OVERLAPS(x, sx, y, sy)  ((x) < ((y) + (sy)) && ((y) < ((x) + (sx))))
 #define is_aligned2(p)          ((((u64)(p)) & 0x01) == 0)
 #define is_aligned4(p)          ((((u64)(p)) & 0x03) == 0)
 #define is_aligned8(p)          ((((u64)(p)) & 0x07) == 0)
