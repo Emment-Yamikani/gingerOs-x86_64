@@ -30,8 +30,8 @@ static int zero_fill_page(zone_t *zone, page_t *page, int whence) {
     return 0;
 }
 
-static inline int validate_page_alloc_input(gfp_t gfp, usize order, page_t **pp) {
-    if (pp == NULL)
+static inline int validate_input(gfp_t gfp, usize order, page_t **ppage, void **ppaddr) {
+    if (ppage == NULL && ppaddr == NULL)
         return -EINVAL;
     if (order >= MAX_PAGE_ORDER)
         return -ENOMEM;
@@ -56,10 +56,11 @@ static inline int gfp_to_zone_index(gfp_t gfp) {
  *
  * @param gfp GFP flags specifying allocation type.
  * @param order Number of contiguous pages as a power of 2.
- * @param pp Output pointer to the first page in the allocated range.
+ * @param ppage Output pointer to the first page in the allocated range.
+ * @param ppaddr Output pointer to physical(addr in RAM) location of the range.
  * @return 0 on success, negative error code on failure.
  */
-int page_alloc_n(gfp_t gfp, usize order, page_t **pp) {
+static int do_page_alloc_n(gfp_t gfp, usize order, page_t **ppage, void **ppaddr) {
     int         err     = 0;
     int         whence  = 0;
     usize       index   = 0;
@@ -67,11 +68,11 @@ int page_alloc_n(gfp_t gfp, usize order, page_t **pp) {
     zone_t      *zone   = NULL;
     usize       npage   = BS(order);
 
-    if ((err = validate_page_alloc_input(gfp, order, pp)))
+    if ((err = validate_input(gfp, order, ppage, ppaddr)))
         return err;
 
-    if ((whence = gfp_to_zone_index(gfp)) < 0)
-        return -EINVAL;
+    if ((whence = err = gfp_to_zone_index(gfp)) < 0)
+        return err;
 
     loop() {
         if ((err = getzone_byindex(whence, &zone)))
@@ -82,15 +83,15 @@ int page_alloc_n(gfp_t gfp, usize order, page_t **pp) {
             return err;
         }
 
-        page = &zone->pages[index];
-        // printk("index: %d: %p\n", index, page_addr(page, zone));
-
-        for (; npage; --npage, ++page) {
-            assert(page_addr(page, zone) != zones[ZONEi_NORM].start,
-                "Page belongs to kernel, page: %p\n", page_addr(page, zone)
+        for (page = &zone->pages[index]; npage--; ++page) {
+            assert(!OVERLAPS(page_addr(page, zone), PGSZ,
+                bootinfo.kern_base, bootinfo.kern_size),
+                "Page: [%p] Overlaps the kernel image.\n",
+                page_addr(page, zone)
             );
 
-            assert(!atomic_read(&page->refcnt), "Page[%p] already has refcnt: %ld??\n",
+            assert(!atomic_read(&page->refcnt),
+                "Page: [%p] already has refcnt: %ld??\n",
                 page_addr(page, zone), page->refcnt
             );
 
@@ -99,6 +100,10 @@ int page_alloc_n(gfp_t gfp, usize order, page_t **pp) {
             // does caller want a zero-filled page?
             if (gfp & GFP_ZERO) {
                 if ((err = zero_fill_page(zone, page, whence))) {
+                    // catch error.
+                    assert(0, "Failed to zero-fill page[%p]. error: %d\n",
+                        page_addr(page, zone), err
+                    );
                     zone_unlock(zone);
                     return err;
                 }
@@ -106,46 +111,35 @@ int page_alloc_n(gfp_t gfp, usize order, page_t **pp) {
         }
 
         zone->upages += BS(order);
-        *pp = &zone->pages[index];
+        page    = &zone->pages[index];
+        
+        if (ppage)
+            *ppage  = page;
+        
+        if (ppaddr)
+            *ppaddr = (void *)page_addr(page, zone);
+        
         zone_unlock(zone);
         return 0;
     }
 }
 
-static int do_page_alloc(gfp_t gfp, usize order, page_t **ppage, void **pp) {
-    int     err     = 0;
-    page_t  *page   = NULL;
-
-    if (pp == NULL && ppage == NULL)
-        return -EINVAL;
-
-    if ((err = page_alloc_n(gfp, order, &page)))
-        return err;
-
-    if (pp) {
-        if ((err = page_get_address(page, pp))) {
-            page_free_n(page, order);
-            return err;
-        }
-    }
-
-    if (ppage) *ppage = page;
-
-    return 0;
+int page_alloc_n(gfp_t gfp, usize order, page_t **pp) {
+    return do_page_alloc_n(gfp, order, pp, NULL);
 }
 
 int page_alloc(gfp_t gfp, page_t **pp) {
-    return do_page_alloc(gfp, 0, pp, NULL);
+    return do_page_alloc_n(gfp, 0, pp, NULL);
 }
 
 int __page_alloc_n(gfp_t gfp, usize order, void **pp) {
-    return do_page_alloc(gfp, order, NULL, pp);
+    return do_page_alloc_n(gfp, order, NULL, pp);
 }
 
 int __page_alloc(gfp_t gfp, void **pp) {
-    return do_page_alloc(gfp, 0, NULL, pp);
+    return do_page_alloc_n(gfp, 0, NULL, pp);
 }
 
 int page_alloc_x(gfp_t gfp, usize order, page_t **ppage, void **paddr) {
-    return do_page_alloc(gfp, order, ppage, paddr);
+    return do_page_alloc_n(gfp, order, ppage, paddr);
 }
