@@ -211,10 +211,10 @@ int enumerate_cpus(void) {
 }
 
 int bootothers(void) {
-    int err = 0;
-    uintptr_t *stack = NULL;
+    int         err     = 0;
+    uintptr_t   *stack  = NULL;
     extern char ap_trampoline[];
-    uintptr_t *trampoline = (uintptr_t *)V2HI(ap_trampoline);
+    uintptr_t   *tramp  = (uintptr_t *)V2HI(ap_trampoline);
 
     if ((err = enumerate_cpus()))
         return err;
@@ -234,11 +234,11 @@ int bootothers(void) {
     #define AP_ENTRY    4040 / (sizeof (uintptr_t))
 
         stack = (uintptr_t *)(((uintptr_t)stack) + KSTACKSZ);
-        trampoline[PGMAP]    = rdcr3();
-        trampoline[AP_STACK] = (uintptr_t)stack;
-        trampoline[AP_ENTRY] = (uintptr_t)ap_init;
+        tramp[PGMAP]    = rdcr3();
+        tramp[AP_STACK] = (uintptr_t)stack;
+        tramp[AP_ENTRY] = (uintptr_t)ap_init;
 
-        lapic_startup(cpus[i]->apicID, (u16)((uintptr_t)trampoline));
+        lapic_startup(cpus[i]->apicID, (u16)((uintptr_t)tramp));
         while (!(atomic_read(&cpus[i]->flags) & CPU_ONLINE));
     }
 
