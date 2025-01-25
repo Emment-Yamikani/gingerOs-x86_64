@@ -20,3 +20,25 @@ typedef struct {
     sched_level_t   level[NSCHED_LEVEL]; // Array of scheduling levels
 } mlfq_t;
 
+// Highest priority level.
+#define MLFQ_HIGHEST    (NSCHED_LEVEL - 1)
+
+// Lowest priority level.
+#define MLFQ_LOWEST     0
+
+extern const char *MLFQ_PRIORITY[];
+
+int scheduler_init(void);
+
+__noreturn void scheduler(void);
+
+typedef struct {
+    uint64_t total_context_switches;
+    uint64_t total_cpu_time;       // Total CPU time across all threads.
+    uint64_t total_wait_time;      // Total wait time for all threads.
+    uint64_t total_threads_executed;
+    uint64_t idle_time;            // Time CPU spent idle.
+    uint64_t preemption_count;
+    uint64_t steal_attempts;
+    uint64_t successful_steals;
+} sched_metrics_t;

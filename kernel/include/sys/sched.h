@@ -107,4 +107,4 @@ int sched_putembryo(thread_t *thread);
 extern void sched(void);
 
 /*start running the scheduler*/
-extern void schedule(void);
+extern void scheduler(void);

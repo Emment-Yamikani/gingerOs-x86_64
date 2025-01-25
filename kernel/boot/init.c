@@ -45,14 +45,13 @@ int early_init(void) {
 
     assert_eq(err = vfs_init(), 0, "Failed to initialize VFS!, error: %d\n", err);
 
-    kthread_create(
+    assert_eq(err = kthread_create(
         NULL, (thread_entry_t)kthread_main,
         NULL, THREAD_CREATE_GROUP |
         THREAD_CREATE_SCHED, NULL
-    );
+    ), 0, "Failed to create main kernel thread, error: %d\n", err);
 
-    schedule();
+    scheduler();
     assert(0, "scheduler returned :(");
-    loop();
-    return 0;
+    loop() { cli(); hlt(); } // no where to go from here.
 }

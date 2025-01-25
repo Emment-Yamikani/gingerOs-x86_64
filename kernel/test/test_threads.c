@@ -7,13 +7,14 @@
 #include <core/mutex.h>
 #include <sys/sleep.h>
 #include <mm/zone.h>
+#include <core/debug.h>
 #include <ds/bitmap.h>
 
 
 extern void _sim_trap(int x);
 void th() {
     // BUILTIN_THREAD_ANOUNCE(__func__);
-    loop();
+    loop() debug("cpu[%d], thread[%d:%d]\n", getcpuid(), getpid(), gettid());
 }
 
 void test(void) {

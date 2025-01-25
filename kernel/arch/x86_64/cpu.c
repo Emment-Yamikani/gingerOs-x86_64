@@ -13,6 +13,7 @@
 #include <dev/cga.h>
 #include <arch/paging.h>
 #include <mm/vmm.h>
+#include <sys/schedule.h>
 
 cpu_t           *cpus[NCPU]; 
 static atomic_t ncpu            = 1; // '1' because we are starting with BSP
@@ -129,6 +130,8 @@ void cpu_init(void) {
     cpu->flags |= (rdmsr(IA32_APIC_BASE) & ~BS(8)) ? CPU_USE_LAPIC : 0;
     
     lapic_init();
+
+    scheduler_init();
 }
 
 int is64bit(void) {
@@ -145,7 +148,7 @@ int bsp_init(void) {
 void ap_init(void) {
     setcls(cpus[getcpuid()]);
     cpu_init();
-    schedule();
+    scheduler();
     loop();
 }
 
