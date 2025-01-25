@@ -173,3 +173,9 @@ int queue_rellocate_node(queue_t *q, queue_node_t *node, queue_relloc_t whence);
 
 // same as above only difference is this take a data pointer not a node.
 int queue_rellocate(queue_t *q, void *data, queue_relloc_t whence);
+
+int queue_node_migrate(queue_t *dstq, queue_t *srcq, usize start_pos, usize num_nodes, queue_relloc_t whence);
+
+int queue_move(queue_t *dstq, queue_t *srcq, queue_relloc_t whence);
+
+int queue_replace(queue_t *queue, void *data0, void *data1);

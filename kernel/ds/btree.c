@@ -54,14 +54,12 @@ static int btree_insert_node(btree_t *btree, btree_node_t *node) {
 
     node->parent = NULL;
 
-    if (btree_isempty(btree))
-    {
+    if (btree_isempty(btree)) {
         btree->root = node;
         goto done;
     }
 
-    forlinked(parent, btree->root, iter)
-    {
+    forlinked(parent, btree->root, iter) {
         if (node->key < parent->key)
             iter = parent->left;
         else if (node->key > parent->key)
@@ -69,8 +67,7 @@ static int btree_insert_node(btree_t *btree, btree_node_t *node) {
         else
             return -EEXIST;
 
-        if (iter == NULL)
-        {
+        if (iter == NULL) {
             node->parent = parent;
             if (node->key < parent->key)
                 parent->left = node;
@@ -110,14 +107,12 @@ static void btree_delete_node(btree_t *btree, btree_node_t *node) {
     btree_free_node(node);
     btree->nr_nodes--;
 
-    if (right)
-    {
+    if (right) {
         btree->nr_nodes--;
         btree_insert_node(btree, right);
     }
 
-    if (left)
-    {
+    if (left) {
         btree->nr_nodes--;
         btree_insert_node(btree, left);
     }
@@ -168,8 +163,7 @@ btree_node_t *btree_lookup(btree_t *btree, btree_key_t key) {
 
     btree_assert_locked(btree);
 
-    forlinked(node, btree->root, node)
-    {
+    forlinked(node, btree->root, node) {
         if (node->key == key)
             return node;
         else if (key < node->key)
