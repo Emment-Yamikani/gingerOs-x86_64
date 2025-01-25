@@ -449,6 +449,8 @@ tid_t thread_gettid(thread_t *thread);
 */
 tid_t thread_self(void);
 
+pid_t thread_getpid(thread_t *thread);
+
 /**
  * Yield current thread execution.
 */

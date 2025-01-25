@@ -330,6 +330,10 @@ tid_t thread_gettid(thread_t *thread) {
     return thread ? thread->t_tid : 0;
 }
 
+pid_t thread_getpid(thread_t *thread) {
+    return thread ? thread->t_owner ? thread->t_owner->pid : 0 : 0;
+}
+
 tid_t thread_self(void) {
     return thread_gettid(current);
 }
