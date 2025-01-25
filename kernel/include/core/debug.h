@@ -11,6 +11,9 @@
 #define debug(fmt, ...) // No-op in release builds
 #endif
 
+extern tid_t gettid(void);
+extern pid_t getpid(void);
+
 #define debugloc() ({                                               \
     debug("cpu[%d ncli: %d] tid[%d:%d] ret[%p]\n",                  \
           getcpuid(), cpu->ncli, gettid(), getpid(), __retaddr(0)); \
